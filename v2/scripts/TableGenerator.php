@@ -386,6 +386,7 @@ final class TableGenerator
         foreach ($load('options')['options'] as $row) {
             $options[$row['name']] = [
                 'kind' => $row['kind'],
+                'readBy' => $row['read_by'],
                 'type' => $row['type'],
                 'values' => $row['values'] ?? null,
                 'default' => $row['default'] ?? null,

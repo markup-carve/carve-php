@@ -23,7 +23,7 @@ final class InlineEdgesTest extends InlineTestCase
     public function testC2I002TrailingSpacesAreNoContent(): void
     {
         $this->assertSame('text@0-1(value="`") soft_break@1-4 text@4-5(value="]")', self::inline("` \t\n]"));
-        $this->assertSame('text@0-1(value="a") non_breaking_space@1-3', self::inline('a\\ '));
+        $this->assertSame('text@0-1(value="a") hard_break@1-3', self::inline('a\\ '));
     }
 
     /**
@@ -86,7 +86,7 @@ final class InlineEdgesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2B150CaptionNumberIsTheFirstBareMark(): void
+    public function testC2B207CaptionNumberIsTheFirstBareMark(): void
     {
         $this->assertSame(
             'text@0-7(value="Figure ") strong@7-10{text@8-9(value="#")} text@10-15(value=" and ") '
@@ -109,7 +109,7 @@ final class InlineEdgesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2B144NoLineCommentInLineBlock(): void
+    public function testC2B135NoLineCommentInLineBlock(): void
     {
         $this->assertSame('text@0-6(value="a %% b")', self::inline('a %% b', [], [], Scanner::LINE_BLOCK));
     }
@@ -128,7 +128,7 @@ final class InlineEdgesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2I041AndC2I042AttributeOrderAndFolds(): void
+    public function testC2B098AndC2I042AttributeOrderAndFolds(): void
     {
         $a = new Attrs();
         $end = AttributeParser::read('{k=v .b CLASS="c d" #x Id=y :en}', 0, 32, $a);

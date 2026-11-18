@@ -102,6 +102,9 @@ final class HtmlRenderer
             $this->profile->measure($doc);
         }
         $this->state = new RenderState($doc, $o, $this->profile, $facts);
+        if ($this->profile !== null) {
+            $this->profile->renderState = $this->state;
+        }
         $this->aw = new AttrWriter($o, $this->log);
         $this->inline = new InlineRenderer($o, $this->state, $this->aw, $this->log);
         $this->inline->profile = $this->profile;
@@ -293,7 +296,13 @@ final class HtmlRenderer
             $node = array_pop($stack);
             if ($node->type === 'include' && $node->children !== null) {
                 if ($this->profile === null || $this->profile->allowsBlockType('include')) {
-                    $this->log->loss('include-expanded-roundtrip', 'warning', ['path' => self::includePathOf($node)], $node->file);
+                    $this->log->loss(
+                        'include-expanded-roundtrip',
+                        'warning',
+                        ['path' => self::includePathOf($node)],
+                        $node->file,
+                        node: $node,
+                    );
                 }
 
                 continue;
@@ -541,6 +550,17 @@ final class HtmlRenderer
      * @return string|null Null when the block renders nothing.
      */
     public function block(Node $node, int $depth): ?string
+    {
+        $previous = $this->log->currentNode;
+        $this->log->currentNode = $node;
+        try {
+            return $this->blockContent($node, $depth);
+        } finally {
+            $this->log->currentNode = $previous;
+        }
+    }
+
+    private function blockContent(Node $node, int $depth): ?string
     {
         if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
             if ($node->type === 'include' && $node->children === null) {
@@ -825,7 +845,7 @@ final class HtmlRenderer
     }
 
     /**
-     * C2-H-007, C2-H-020: a block image paragraph without attributes and `lang` writes its `<img>` with no `<p>`.
+     * C2-H-007, C2-H-020: a resolved block image writes its `<img>` with no `<p>`.
      *
      * @param \MarkupCarve\Carve2\Node $node
      *
@@ -833,7 +853,7 @@ final class HtmlRenderer
      */
     private function bareImage(Node $node): bool
     {
-        return !isset($node->f['attrs']) && !isset($node->f['lang']) && !isset($node->f['dir']) && $this->blockImage($node) !== null;
+        return $this->blockImage($node) !== null;
     }
 
     /**
@@ -848,9 +868,8 @@ final class HtmlRenderer
         if ($node->type !== 'paragraph' || ($node->f['caption'] ?? null) instanceof Node) {
             return false;
         }
-        $role = $node->f['role'] ?? null;
 
-        return !($role === 'math' && $this->o->mode === 'static') && !$this->bareImage($node);
+        return !$this->bareImage($node);
     }
 
     /**
@@ -879,6 +898,9 @@ final class HtmlRenderer
                 return null;
             }
             $content = $this->inline->inlines($kids, $depth + 1);
+            if ($content === '' && $kids !== [] && $this->profile !== null) {
+                return null;
+            }
 
             return $bare ? self::pad($depth) . $content : self::pad($depth) . '<p>' . $content . '</p>';
         }
@@ -886,16 +908,15 @@ final class HtmlRenderer
             return $append === '' ? null : self::pad($depth) . '<p>' . $append . '</p>';
         }
         $kids = $node->children ?? [];
-        $role = $node->f['role'] ?? null;
         $image = $append === '' ? $this->blockImage($node) : null;
-        if ($image !== null && !isset($node->f['attrs']) && !isset($node->f['lang']) && !isset($node->f['dir'])) {
+        if ($image !== null) {
             return $this->imageParagraph($image, $node, $depth);
-        }
-        if ($role === 'math' && $this->o->mode === 'static') {
-            return self::pad($depth) . $this->staticMath($node);
         }
         $hasAttrs = isset($node->f['attrs']) || isset($node->f['lang']) || isset($node->f['dir']);
         $content = $this->inline->leaf($kids, $depth + 1) . $append;
+        if ($content === '' && $kids !== [] && $this->profile !== null) {
+            return null;
+        }
         if ($bare && !$hasAttrs) {
             return self::pad($depth) . $content;
         }
@@ -905,16 +926,28 @@ final class HtmlRenderer
 
     private function imageParagraph(Node $image, Node $node, int $depth): string
     {
-        // C2-H-020: only an unattributed block image paragraph loses its paragraph element.
-        $attrs = $image->f['attrs'] ?? null;
-        $lang = $image->f['lang'] ?? null;
+        $attrs = $node->f['attrs'] ?? null;
+        $own = $image->f['attrs'] ?? null;
+        if ($attrs instanceof Attrs) {
+            $attrs = clone $attrs;
+            if ($own instanceof Attrs) {
+                $attrs->merge($own);
+            }
+        } else {
+            $attrs = $own;
+        }
+        $lang = $image->f['lang'] ?? $node->f['lang'] ?? null;
+        if (!isset($image->f['dir']) && isset($node->f['dir'])) {
+            $image = clone $image;
+            $image->f['dir'] = $node->f['dir'];
+        }
 
         return self::pad($depth) . $this->inline->image(
             $image,
             $attrs instanceof Attrs ? $attrs : null,
             is_string($lang) ? $lang : null,
             $depth,
-            $this->line($node),
+            null,
         );
     }
 
@@ -949,26 +982,6 @@ final class HtmlRenderer
         }
 
         return ($html === null ? '' : $html . "\n") . implode("\n", $extra);
-    }
-
-    /**
-     * C2-H-168.
-     *
-     * @param \MarkupCarve\Carve2\Node $node
-     *
-     * @return string
-     */
-    private function staticMath(Node $node): string
-    {
-        $value = '';
-        foreach ($node->children ?? [] as $kid) {
-            if ($kid->type === 'math') {
-                $value = PlainText::str($kid->f['value'] ?? '');
-            }
-        }
-
-        // G-render-14: the source is written as a code block value, with a final line break, as the oracle does.
-        return '<pre' . $this->attrs($node) . '><code class="language-math">' . Escape::text($value) . "\n</code></pre>";
     }
 
     /**
@@ -1248,7 +1261,7 @@ final class HtmlRenderer
         }
         $visible = self::visibleOf(iterator_to_array($this->documentBlocks($item->children ?? []), false));
         if ($visible === []) {
-            return rtrim($open, ' ') . '</li>';
+            return ($task === null ? rtrim($open, ' ') : $open) . '</li>';
         }
         $rest = $visible;
         $first = '';
@@ -1439,7 +1452,7 @@ final class HtmlRenderer
         $kind = PlainText::str($node->f['kind'] ?? '');
         $children = array_merge($this->titleAndLabel($node, $depth + 1, null), $this->blocks($node->children ?? [], $depth + 1));
 
-        return $this->container('<div' . $this->attrs($node, [$kind]) . '>', '</div>', $children, $depth);
+        return $this->container('<div' . $this->attrs($node, [$kind], [], [], [], ['align' => true]) . '>', '</div>', $children, $depth);
     }
 
     /**
@@ -1454,6 +1467,7 @@ final class HtmlRenderer
     {
         $stanzas = [];
         $lines = [];
+        $previous = null;
         foreach ($node->children ?? [] as $line) {
             if ($line->type !== 'line') {
                 continue;
@@ -1463,10 +1477,18 @@ final class HtmlRenderer
                     $stanzas[] = $lines;
                 }
                 $lines = [];
+                $previous = null;
 
                 continue;
             }
+            if ($previous instanceof Node && $lines !== [] && self::endsWithHardBreak($previous)) {
+                $last = count($lines) - 1;
+                if (str_ends_with($lines[$last], "<br>\n")) {
+                    $lines[$last] = substr($lines[$last], 0, -strlen("<br>\n"));
+                }
+            }
             $lines[] = $this->lineHtml($line, $depth);
+            $previous = $line;
         }
         if ($lines !== []) {
             $stanzas[] = $lines;
@@ -1477,7 +1499,19 @@ final class HtmlRenderer
         }
         $structural = $this->o->roundtrip ? [['data-carve-line-block', null]] : [];
 
-        return $this->container('<div' . $this->attrs($node, [], ['line-block'], $structural) . '>', '</div>', $children, $depth);
+        return $this->container(
+            '<div' . $this->attrs($node, [], ['line-block'], $structural, [], ['align' => true]) . '>',
+            '</div>',
+            $children,
+            $depth,
+        );
+    }
+
+    private static function endsWithHardBreak(Node $line): bool
+    {
+        $children = $line->children ?? [];
+
+        return $children !== [] && $children[count($children) - 1]->type === 'hard_break';
     }
 
     /**

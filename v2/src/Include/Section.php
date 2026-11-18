@@ -100,7 +100,7 @@ final class Section
     /**
      * @return array<\MarkupCarve\Carve2\Node>
      */
-    private static function definitions(Node $document): array
+    public static function definitions(Node $document): array
     {
         $out = [];
         $stack = [$document];

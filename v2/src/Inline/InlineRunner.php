@@ -51,6 +51,7 @@ final class InlineRunner
             } elseif ($node->lines !== null) {
                 $node->children = self::parse($s, $node->lines, $ctx, 0, self::mode($node->type, $hard, $caption));
                 $node->lines = null;
+                self::appendLazyComments($node);
                 if ($node->children === [] && $node->type === 'line') {
                     // C2-A-158: a line with no children has no position, also when it held spaces.
                     $node->start = -1;
@@ -72,6 +73,26 @@ final class InlineRunner
             if ($title instanceof Node) {
                 $node->f['title'] = self::title($node, $title, $s, $ctx, 0, $hard);
             }
+        }
+    }
+
+    private static function appendLazyComments(Node $node): void
+    {
+        $comments = $node->layout['lazyComments'] ?? null;
+        if (!is_array($comments)) {
+            return;
+        }
+        foreach ($comments as $part) {
+            if (
+                !is_array($part) || !is_int($part[0] ?? null) || !is_int($part[1] ?? null)
+                || !is_string($part[2] ?? null)
+            ) {
+                continue;
+            }
+            $comment = Node::at('comment', $part[0], $part[1]);
+            $comment->f['form'] = 'line';
+            $comment->f['value'] = $part[2];
+            $node->children[] = $comment;
         }
     }
 

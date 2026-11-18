@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test\Include;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Extension\ExtensionDefinition;
 use MarkupCarve\Carve2\OptionError;
 use PHPUnit\Framework\TestCase;
 
@@ -52,6 +53,25 @@ final class IncludeCoreTest extends TestCase
     {
         $html = Carve2::toHtml("{table}\n{{ a.csv @code:csv }}\n^ Table #: *Plans*\n^ @code more");
         $this->assertSame("<p>{{ a.csv @code:csv }}</p>\n<p>Table 1: Plans ^ @code more</p>", $html);
+    }
+
+    public function testC2N020SelectedIncludeDoesNotChangeNestedParse(): void
+    {
+        $seen = [];
+        $extension = new ExtensionDefinition(
+            'test.ping',
+            '1',
+            matcher: ['form' => 'div', 'name' => 'ping'],
+            transform: static function () use (&$seen): null {
+                $seen[] = Carve2::parse("---\nx\n---")->children[0]->type;
+
+                return null;
+            },
+        );
+        $resolver = static fn (): array => ['text' => "one\n\n::: ping\nx\n:::\n", 'id' => 'f'];
+        Carve2::parse('{{ f @lines:3-5 }}', ['includes' => $resolver, 'extensions' => [$extension]]);
+        $this->assertNotSame([], $seen);
+        $this->assertSame(array_fill(0, count($seen), 'frontmatter'), $seen);
     }
 
     public function testC2N048ClampIsReportedAtTheHeadingInItsFile(): void

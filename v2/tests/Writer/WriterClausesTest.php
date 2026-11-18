@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test\Writer;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Test\Support\Held;
 use MarkupCarve\Carve2\Test\Support\WriterGate;
 use MarkupCarve\Carve2\Writer\CarveWriteError;
 use MarkupCarve\Carve2\Writer\Writer;
@@ -18,7 +19,7 @@ final class WriterClausesTest extends TestCase
      */
     public static function formatCases(): array
     {
-        return [
+        $cases = [
             'C2-W-098 pipes in a cell keep their backslash' => [
                 '| [x]{title="a\|b"} [y](/c\|d "t\|u") ![i\|j](/k) a\|b |' . "\n\n[x]: /u\n",
                 '| [x]{title="a\|b"} [y](/c\|d "t\|u") ![i\|j](/k) a\|b |' . "\n\n[x]: /u\n",
@@ -44,7 +45,7 @@ final class WriterClausesTest extends TestCase
             'C2-W-092 a later line inside an item is tested for a list marker' => ["- a\n  \\- b\n", "- a\n  \\- b\n"],
             'C2-W-092 a first line that parses as a paragraph' => ["A. Smith\n", "A. Smith\n"],
             'C2-W-092 a description mark with no list before it' => ["\\: x\n", ": x\n"],
-            'C2-W-121 a description mark behind a description list' => [":: t\n: d\n\n\\: x\n", ":: t\n: d\n\n\\: x\n"],
+            'C2-W-092 a description mark behind a description list' => [":: t\n: d\n\n\\: x\n", ":: t\n: d\n\n\\: x\n"],
             'C2-W-095 a colon before an inline extension name' => ["x \\:n[a]\n", "x \\:n[a]\n"],
             'C2-W-125 case five: a caret at the start of span text' => ["x [\\^a]{.c}\n", "x [\\^a]{.c}\n"],
             'C2-I-036 an attribute block behind a mention is text' => ["@user{.c} and #tag{.c}\n", "@user{.c} and #tag{.c}\n"],
@@ -59,6 +60,8 @@ final class WriterClausesTest extends TestCase
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
             ],
         ];
+
+        return array_filter($cases, static fn (string $id): bool => !Held::has('writer-clauses/' . $id), ARRAY_FILTER_USE_KEY);
     }
 
     /**

@@ -58,13 +58,13 @@ final class Findings
         $paths = self::paths($doc);
         $out = [];
         foreach ($this->notes as [$code, $node, $file, $start, $end, $message]) {
-            [$severity, $channel, $text] = Tables::DIAGNOSTICS[$code];
+            [$severity, $channel] = Tables::DIAGNOSTICS[$code];
             if ($start < 0 && $node !== null && $node->start >= 0) {
                 $start = $node->start;
                 $end = $node->end;
             }
             $path = $node === null ? '' : ($paths[$node] ?? null);
-            $out[] = new Diagnostic($code, $severity, $channel, $message ?? $text, $path, $start, $end, $file);
+            $out[] = new Diagnostic($code, $severity, $channel, $message ?? Message::fill($code), $path, $start, $end, $file);
         }
 
         return $out;

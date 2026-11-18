@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test\Writer;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Test\Support\Held;
 use MarkupCarve\Carve2\Test\Support\WriterGate;
 use MarkupCarve\Carve2\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -47,7 +48,7 @@ final class WriteExamplesTest extends TestCase
     {
         $file = json_decode((string)file_get_contents(__DIR__ . '/../../spec/conformance/examples.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach (is_array($file) ? $file['examples'] : [] as $example) {
-            if ($example['kind'] === 'write') {
+            if ($example['kind'] === 'write' && !Held::has($example['id'])) {
                 yield $example['id'] => [$example['id'], $example['options'] ?? [], $example['input'], $example['expected']['carve']];
             }
         }

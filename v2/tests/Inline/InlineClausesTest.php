@@ -157,7 +157,7 @@ final class InlineClausesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2I022RawMarkerOnlyAfterPlainCodeSpan(): void
+    public function testC2I021RawMarkerOnlyAfterPlainCodeSpan(): void
     {
         $this->assertSame(
             'text@0-2(value="a ") literal_inline@2-6(value="b") text@6-13(value="{=html}")',
@@ -259,7 +259,7 @@ final class InlineClausesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2I037MentionIsNoHost(): void
+    public function testC2I036MentionIsNoHost(): void
     {
         $this->assertSame(
             'text@0-2(value="a ") mention@2-4(target="u" kind="user") text@4-9(value="{.c} ") tag@9-11(name="t") text@11-15(value="{.d}")',

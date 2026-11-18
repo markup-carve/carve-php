@@ -6,12 +6,25 @@ namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Html\Escape;
+use MarkupCarve\Carve2\InputError;
 use MarkupCarve\Carve2\Json\TreeEncoder;
+use MarkupCarve\Carve2\Test\Support\DocGenerator;
 use MarkupCarve\Carve2\Writer\Writer;
 use PHPUnit\Framework\TestCase;
 
 final class HardeningTest extends TestCase
 {
+    public function testC2B218GeneratedDocumentsNeverThrow(): void
+    {
+        for ($seed = 1; $seed <= 600; $seed++) {
+            $source = (new DocGenerator($seed))->document();
+            $html = Carve2::toHtml($source);
+            $json = Carve2::toJson($source);
+            $this->assertTrue(mb_check_encoding($html, 'UTF-8'), (string)$seed);
+            $this->assertNotNull(json_decode($json, true), (string)$seed);
+        }
+    }
+
     /**
      * C2-B-218: malformed byte sources still parse and render.
      *
@@ -122,10 +135,34 @@ final class HardeningTest extends TestCase
         $this->assertLessThanOrEqual(max(5.0, $times[0] * 18), $times[3]);
     }
 
+    public function testC2B024LazyLineBlockCommentsStayLinear(): void
+    {
+        $times = [];
+        foreach ([1000, 2000, 4000, 8000] as $count) {
+            $source = "- ::: |\n  a\n" . str_repeat("%% c\nb\n", $count);
+            $samples = [];
+            for ($run = 0; $run < 3; $run++) {
+                $start = hrtime(true);
+                Carve2::parse($source);
+                $samples[] = (hrtime(true) - $start) / 1e6;
+            }
+            sort($samples);
+            $times[] = $samples[1];
+        }
+
+        $this->assertLessThanOrEqual(max(20.0, $times[0] * 16), $times[3]);
+    }
+
     public function testC2H163ProfileByteLengthLimits(): void
     {
-        $this->assertSame('', Carve2::toHtml(str_repeat('a', 10001), ['profile' => 'minimal']));
-        $this->assertSame('', Carve2::toHtml(str_repeat('a', 100001), ['profile' => 'comment']));
+        foreach (['minimal' => 10001, 'comment' => 100001] as $profile => $size) {
+            try {
+                Carve2::toHtml(str_repeat('a', $size), ['profile' => $profile]);
+                $this->fail('The oversized input was accepted.');
+            } catch (InputError) {
+                $this->addToAssertionCount(1);
+            }
+        }
         $this->assertSame('<p>a</p>', Carve2::toHtml('a', ['profile' => 'minimal']));
     }
 

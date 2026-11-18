@@ -145,7 +145,7 @@ final class BlockClausesTest extends TestCase
     /**
      * @return void
      */
-    public function testC2B056NestedListNeedsBulletOrValueOne(): void
+    public function testC2B015NestedListNeedsBulletOrValueOne(): void
     {
         $this->assertTree("- a\n  7. b\n\n- c\n  1. d", '[{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"loose","ch'
             . 'ildren":[{"type":"list_item","children":[{"type":"paragraph"}]},{"type":"li'
@@ -251,10 +251,10 @@ final class BlockClausesTest extends TestCase
     public function testC2B172SpanMarksJoinCells(): void
     {
         $this->assertTree("|=a|=b|\n|x|<|\n|^|y|", '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}'
-            . '],"children":[{"type":"table_head","children":[{"type":"table_row","childre'
-            . 'n":[{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"'
-            . '}]},{"type":"table_cell","header":true,"children":[{"type":"cell_paragraph"'
-            . '}]}]}]},{"type":"table_body","children":[{"type":"table_row","children":[{"'
+            . '],"children":[{"type":"table_body","children":[{"type":"table_row","children":[{"'
+            . 'type":"table_cell","header":false,"children":[{"type":"cell_paragraph"'
+            . '}]},{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"'
+            . '}]}]},{"type":"table_row","children":[{"'
             . 'type":"table_cell","header":false,"colspan":2,"children":[{"type":"cell_par'
             . 'agraph"}]},{"type":"table_cell","header":false,"span":"colspan","children":'
             . '[]}]},{"type":"table_row","children":[{"type":"table_cell","header":false,"'
@@ -431,7 +431,7 @@ final class BlockClausesTest extends TestCase
     /**
      * @return void
      */
-    public function testC2B129HardBreakSigilAddsClass(): void
+    public function testC2A068HardBreakSigilAddsClass(): void
     {
         $this->assertTree("::: \\\na\nb\n:::", '[{"type":"div","attrs":{"classes":["hardbreaks"]},"children":[{"type":"paragraph"}]}]');
     }

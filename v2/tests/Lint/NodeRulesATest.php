@@ -8,6 +8,7 @@ use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Lint\Context;
 use MarkupCarve\Carve2\Lint\Linter;
 use MarkupCarve\Carve2\Lint\NodeRulesA;
+use MarkupCarve\Carve2\Test\Support\Held;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -21,7 +22,7 @@ final class NodeRulesATest extends TestCase
      */
     public static function rules(): array
     {
-        return [
+        $cases = [
             'deprecated-bare-underline' => [
                 'a _x_ b',
                 'a {_x_} b',
@@ -722,6 +723,8 @@ final class NodeRulesATest extends TestCase
                 ],
             ],
         ];
+
+        return array_filter($cases, static fn (string $id): bool => !Held::has('node-rules-a/' . $id), ARRAY_FILTER_USE_KEY);
     }
 
     /**

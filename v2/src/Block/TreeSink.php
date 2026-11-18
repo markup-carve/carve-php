@@ -152,7 +152,20 @@ final class TreeSink implements Sink
     private function note(Frame $frame, Node $node): void
     {
         foreach ($frame->findings as [$code, $from]) {
-            $this->findings->add($code, $node, message: ParseMessages::of($code, $this->s, $node, $from));
+            $end = $from >= 0 ? $from + 1 : -1;
+            if ($from >= 0 && $this->s[$from] === '{') {
+                $close = strpos($this->s, '}', $from);
+                if ($close !== false) {
+                    $end = $close + 1;
+                }
+            }
+            $this->findings->add(
+                $code,
+                $node,
+                start: $from,
+                end: $end,
+                message: ParseMessages::of($code, $this->s, $node, $from),
+            );
         }
     }
 }

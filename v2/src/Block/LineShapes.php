@@ -282,6 +282,7 @@ final class LineShapes
             return -1;
         }
         $k = $j + 1 + strspn($s, ' ', $j + 1, $le - $j - 1);
+        $k += strspn($s, " \t", $k, $le - $k);
 
         return self::trimEnd($s, $k, $le) > $k ? $k : -1;
     }
@@ -385,23 +386,45 @@ final class LineShapes
      */
     private static function bracketEnd(string $s, int $k, int $le): int
     {
-        $depth = 0;
-        for (; $k < $le; $k++) {
+        $stack = [[']', $k + 1]];
+        $commentDepth = 0;
+        for ($k++; $k < $le; $k++) {
             $ch = $s[$k];
             if ($ch === '\\') {
                 $k++;
-            } elseif (
-                $ch === '%' && $k + 1 < $le && $s[$k + 1] === '%'
-                && ($k === 0 || $s[$k - 1] === ' ' || $s[$k - 1] === "\t")
-            ) {
-                return -1;
-            } elseif ($ch === '[') {
-                $depth++;
-            } elseif ($ch === ']') {
-                $depth--;
-                if ($depth === 0) {
+
+                continue;
+            }
+            $top = count($stack) - 1;
+            if ($ch === '[') {
+                $stack[] = [']', $k + 1];
+
+                continue;
+            }
+            if ($ch === '{' && $k + 1 < $le && isset(Tables::BRACED_MARKS[$s[$k + 1]])) {
+                $stack[] = [$s[++$k] . '}', $k + 1];
+
+                continue;
+            }
+            $closer = $stack[$top][0];
+            if (substr_compare($s, $closer, $k, strlen($closer)) === 0) {
+                array_pop($stack);
+                if ($stack === []) {
                     return $k;
                 }
+                $k += strlen($closer) - 1;
+                if ($commentDepth > count($stack)) {
+                    $commentDepth = 0;
+                }
+
+                continue;
+            }
+            if (
+                $commentDepth === 0 && $ch === '%' && $k + 1 < $le && $s[$k + 1] === '%'
+                && ($k === $stack[$top][1] || $s[$k - 1] === ' ' || $s[$k - 1] === "\t")
+            ) {
+                $commentDepth = count($stack);
+                $k++;
             }
         }
 
@@ -509,12 +532,12 @@ final class LineShapes
         if ($s[$k] === ' ') {
             $k++;
         }
-        if ($k >= $end || $s[$k] < 'a' || $s[$k] > 'z') {
+        if ($k >= $end) {
             return null;
         }
-        $w = strspn($s, 'abcdefghijklmnopqrstuvwxyz0123456789-', $k, $end - $k);
+        $w = strspn($s, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', $k, $end - $k);
 
-        return $k + $w === $end ? substr($s, $k, $w) : null;
+        return $w > 0 && $k + $w === $end ? substr($s, $k, $w) : null;
     }
 
     /**
@@ -601,7 +624,7 @@ final class LineShapes
      * @param int $j
      * @param int $le
      *
-     * @return array<string, string>|null
+     * @return array{key: string, href: string, tooltip?: string, attrs?: \MarkupCarve\Carve2\Attrs}|null
      */
     public static function linkDef(string $s, int $j, int $le): ?array
     {
@@ -627,17 +650,51 @@ final class LineShapes
         if ($s[$k] !== ' ' || $k + 1 >= $end) {
             return null;
         }
-        $q = $s[$k + 1];
-        if (($q !== '"' && $q !== "'") || $s[$end - 1] !== $q || $end - 1 === $k + 1) {
+        $k++;
+        $q = $s[$k];
+        if ($q === '"' || $q === "'") {
+            $close = self::titleEnd($s, $k + 1, $end, $q);
+            if ($close <= $k + 1) {
+                return null;
+            }
+            $title = self::quotedTitle($s, $k + 1, $close, $q);
+            if ($title === null) {
+                return null;
+            }
+            $def['tooltip'] = $title;
+            $k = $close + 1;
+            if ($k === $end) {
+                return $def;
+            }
+            if ($s[$k] !== ' ' || $k + 1 >= $end) {
+                return null;
+            }
+            $k++;
+        }
+        if ($s[$k] !== '{') {
             return null;
         }
-        $title = self::quotedTitle($s, $k + 2, $end - 1, $q);
-        if ($title === null) {
+        $attrs = new Attrs();
+        $after = AttributeParser::read($s, $k, $end, $attrs);
+        if ($after !== $end || AttributeParser::$lastEmpty) {
             return null;
         }
-        $def['tooltip'] = $title;
+        $def['attrs'] = $attrs;
 
         return $def;
+    }
+
+    private static function titleEnd(string $s, int $from, int $end, string $quote): int
+    {
+        for ($i = $from; $i < $end; $i++) {
+            if ($s[$i] === '\\' && $i + 1 < $end && ctype_punct($s[$i + 1])) {
+                $i++;
+            } elseif ($s[$i] === $quote) {
+                return $i;
+            }
+        }
+
+        return -1;
     }
 
     /**

@@ -19,7 +19,7 @@
       "name": "b",
       "label": "list_marker",
       "shapes": ["bullet", "ordered"],
-      "when": ["at_open_list_column", "between_columns_of_two_open_lists", "indented_past_enclosing_marker", "left_of_every_open_list"],
+      "when": ["at_open_list_column", "between_columns_of_two_open_lists", "indented_past_enclosing_marker_as_bullet_bare_dot_or_one", "left_of_every_open_list"],
       "carries_quote_marks": true,
       "not_when": ["at_description_list_column_after_term_or_description_text"],
       "clauses": ["C2-B-013", "C2-B-015", "C2-B-020", "C2-B-021", "C2-B-022", "C2-B-030", "C2-B-054", "C2-B-055", "C2-B-228"]
@@ -37,7 +37,8 @@
       "label": "caption",
       "shapes": ["caption"],
       "when": ["paragraph_is_one_block_image_line", "paragraph_is_one_display_math_line", "below_open_quote_line_without_its_mark"],
-      "clauses": ["C2-B-013", "C2-B-017", "C2-B-018", "C2-B-198"]
+      "not_when": ["not_owned_by_container_of_captioned_block"],
+      "clauses": ["C2-B-013", "C2-B-017", "C2-B-018", "C2-B-146", "C2-B-198"]
     },
     {
       "name": "e",
@@ -55,15 +56,15 @@
     }
   ],
   "lazy_shapes": [
-    { "name": "abbreviation_definition", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "attribute_line", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "bullet", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "comment_only", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "footnote_definition", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "heading", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "include", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "link_definition", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "ordered", "clauses": ["C2-B-012", "C2-B-024"] },
-    { "name": "quote", "clauses": ["C2-B-012", "C2-B-024"] }
+    { "name": "abbreviation_definition", "stanza": false, "clauses": ["C2-B-012", "C2-B-024"] },
+    { "name": "attribute_line", "stanza": false, "clauses": ["C2-B-012", "C2-B-024"] },
+    { "name": "bullet", "stanza": true, "clauses": ["C2-B-012", "C2-B-024", "C2-B-123"] },
+    { "name": "comment_only", "stanza": true, "clauses": ["C2-B-012", "C2-B-024", "C2-B-137"] },
+    { "name": "footnote_definition", "stanza": false, "clauses": ["C2-B-012", "C2-B-024"] },
+    { "name": "heading", "stanza": false, "clauses": ["C2-B-012", "C2-B-024"] },
+    { "name": "include", "stanza": true, "clauses": ["C2-B-012", "C2-B-024", "C2-B-123"] },
+    { "name": "link_definition", "stanza": false, "clauses": ["C2-B-012", "C2-B-024"] },
+    { "name": "ordered", "stanza": true, "clauses": ["C2-B-012", "C2-B-024", "C2-B-123"] },
+    { "name": "quote", "stanza": false, "clauses": ["C2-B-012", "C2-B-024"] }
   ]
 }

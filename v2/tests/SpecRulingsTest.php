@@ -120,7 +120,7 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame(['x'], $tree['children'][0]['children'][0]['children'][0]['attrs']['classes']);
     }
 
-    public function testC2B177ContinuationMustEndWithPipe(): void
+    public function testC2B175ContinuationMustEndWithPipe(): void
     {
         $tree = json_decode(Carve2::toJson("| a |\n+ |{x}"), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame(['table', 'paragraph'], array_column($tree['children'], 'type'));
@@ -132,7 +132,7 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('paragraph', $tree['children'][0]['type']);
     }
 
-    public function testC2B006TabDoesNotSeparateDivInfo(): void
+    public function testC2B119TabDoesNotSeparateDivInfo(): void
     {
         foreach ([":::\tx", "::: \tx"] as $source) {
             $tree = json_decode(Carve2::toJson($source), true, 512, JSON_THROW_ON_ERROR);
@@ -203,11 +203,11 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('ab', $lower['children'][0]['generatedId']);
     }
 
-    public function testC2H020AttributedImageKeepsParagraph(): void
+    public function testC2H020AttributedImagePromotesParagraph(): void
     {
         $src = "{.c #i}\n![a](x.png)\n\n{:de}\n![b](y.png)\n\n![c](z.png)";
-        $this->assertSame("<p id=\"i\" class=\"c\"><img src=\"x.png\" alt=\"a\"></p>\n"
-            . "<p lang=\"de\"><img src=\"y.png\" alt=\"b\"></p>\n<img src=\"z.png\" alt=\"c\">", Carve2::toHtml($src));
+        $this->assertSame("<img src=\"x.png\" alt=\"a\" id=\"i\" class=\"c\">\n"
+            . "<img src=\"y.png\" alt=\"b\" lang=\"de\">\n<img src=\"z.png\" alt=\"c\">", Carve2::toHtml($src));
     }
 
     public function testC2I117DelimiterIsNoPlusMinusNeighbor(): void
@@ -221,7 +221,7 @@ final class SpecRulingsTest extends TestCase
     {
         $src = '@ann.b and #topic';
         $social = ['mentionUrl' => 'https://x.org/u/{name}'];
-        $this->assertSame('<p><a class="mention" href="https://x.org/u/ann.b"><strong>@ann.b</strong></a> and '
+        $this->assertSame('<p><a class="mention" href="https://x.org/u/ann.b">@ann.b</a> and '
             . '<span class="tag"><strong>#topic</strong></span></p>', Carve2::toHtml($src, ['social' => $social]));
         $this->assertSame(
             '<p><span class="mention"><strong>@ann.b</strong></span></p>',
@@ -238,12 +238,12 @@ final class SpecRulingsTest extends TestCase
             'resolveTag' => static fn (): null => null,
         ];
         $this->assertSame(
-            '<p><a class="mention" href="https://x/u/ann"><strong>@ann</strong></a> and '
-                . '<a class="tag" href="https://x/t/topic"><strong>#topic</strong></a></p>',
+            '<p><span class="mention"><strong>@ann</strong></span> and '
+                . '<span class="tag"><strong>#topic</strong></span></p>',
             Carve2::toHtml('@ann and #topic', ['social' => $social]),
         );
         $this->assertStringContainsString(
-            'href="https://x/u/ann" rel="nofollow ugc"',
+            '<span class="mention"><strong>@ann</strong></span>',
             Carve2::toHtml('@ann', ['social' => $social, 'profile' => 'comment']),
         );
     }
@@ -469,7 +469,7 @@ final class SpecRulingsTest extends TestCase
     {
         $src = "## Sub *em* `code`\n\n[Sub em code][] and </#Sub-em-code>";
         $this->assertSame(
-            "<p>## Sub em code</p>\n<p>[Sub em code][] and &lt;/#Sub-em-code&gt;</p>",
+            "<p>## Sub em code</p>\n<p>[Sub em code][] and Sub em code</p>",
             Carve2::toHtml($src, ['profile' => 'comment']),
         );
     }
@@ -558,7 +558,7 @@ final class SpecRulingsTest extends TestCase
     {
         $src = "![i](a.png)\n^ a `x` b $`m`\n\n> q `c` $`n`\n\np $`k`";
         $this->assertSame(
-            "<p>[img: i]</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p $`k`</p>",
+            "<p>[img: i]</p>\n<p>a x b m</p>\n<p>&gt; q c n</p>\n<p>p k</p>",
             Carve2::toHtml($src, ['profile' => 'minimal']),
         );
     }
@@ -602,7 +602,7 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame("<p>:::note\nx</p>\n<div>\n\n</div>", Carve2::toHtml(":::note\nx\n:::"));
     }
 
-    public function testC2B006TabDoesNotSeparateDivMarkerAndName(): void
+    public function testC2B119TabDoesNotSeparateDivMarkerAndName(): void
     {
         $this->assertSame("<p>:::\tx\ny</p>", Carve2::toHtml(":::\tx\ny"));
         $this->assertSame("<p>::: \tx\ny</p>\n<div>\n\n</div>", Carve2::toHtml("::: \tx\ny\n:::"));
@@ -623,12 +623,12 @@ final class SpecRulingsTest extends TestCase
     public function testC2H007OnlyABareBlockImageStandsOnItsOwnLine(): void
     {
         $this->assertSame(
-            '<blockquote><p class="c"><img src="x.png" alt="a"></p></blockquote>',
+            "<blockquote>\n  <img src=\"x.png\" alt=\"a\" class=\"c\">\n</blockquote>",
             Carve2::toHtml("> {.c}\n> ![a](x.png)\n> "),
         );
         $this->assertSame("<blockquote>\n  <img src=\"x.png\" alt=\"a\">\n</blockquote>", Carve2::toHtml('> ![a](x.png)'));
         $this->assertSame(
-            "<ul>\n  <li><p class=\"c\"><img src=\"x.png\" alt=\"a\"></p></li>\n</ul>",
+            "<ul>\n  <li>\n    <img src=\"x.png\" alt=\"a\" class=\"c\">\n  </li>\n</ul>",
             Carve2::toHtml("- {.c}\n  ![a](x.png)"),
         );
     }

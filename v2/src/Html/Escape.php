@@ -109,6 +109,8 @@ final class Escape
     public static function clean(string $text): string
     {
         if (!mb_check_encoding($text, 'UTF-8')) {
+            // C2-H-176: the three UTF-8 bytes of one surrogate represent one rejected character.
+            $text = (string)preg_replace('/\xED[\xA0-\xBF][\x80-\xBF]/', "\u{FFFD}", $text);
             $previous = mb_substitute_character();
             mb_substitute_character(0xFFFD);
             $text = mb_scrub($text, 'UTF-8');

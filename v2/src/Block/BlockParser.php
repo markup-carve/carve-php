@@ -77,10 +77,11 @@ final class BlockParser
 
     /**
      * @param string $s
+     * @param bool $fileStart
      *
      * @return \MarkupCarve\Carve2\Block\Frame The document frame.
      */
-    public function parse(string $s): Frame
+    public function parse(string $s, bool $fileStart = true): Frame
     {
         $this->s = $s;
         $len = strlen($s);
@@ -95,7 +96,7 @@ final class BlockParser
         $this->sink->enter($doc, $doc);
         // C2-B-165: a byte-order mark is skipped before line 1 is read.
         $pos = str_starts_with($s, "\u{FEFF}") ? 3 : 0;
-        $first = true;
+        $first = $fileStart;
         while ($pos < $len) {
             $nl = strpos($s, "\n", $pos);
             $next = $nl === false ? $len : $nl + 1;
@@ -164,6 +165,14 @@ final class BlockParser
         $this->i = $ls;
         $this->col = 0;
         $this->base = 0;
+        if (
+            $this->leaf !== null && $this->leaf->kind === Frame::COMMENT_BLOCK
+            && $this->bareCommentCloser($ls, $le, $this->leaf->level)
+        ) {
+            $this->closeOpaque($this->leaf, $le);
+
+            return;
+        }
         $top = count($this->stack) - 1;
         if ($top === 0) {
             $this->stripI = -1;
@@ -174,7 +183,10 @@ final class BlockParser
         $leaf = $this->leaf;
         $forced = false;
         if ($leaf !== null && isset(self::OPAQUE[$leaf->kind])) {
-            if ($owner === $top) {
+            if ($leaf->kind === Frame::LINE_BLOCK && $owner < $top && $this->lazyLineBlockComment($leaf)) {
+                return;
+            }
+            if ($owner === $top || $leaf->kind === Frame::LINE_BLOCK && $this->lazyLineBlock()) {
                 $this->opaqueLine($leaf);
 
                 return;
@@ -199,6 +211,16 @@ final class BlockParser
         }
         $s = $this->s;
         if ($s[$j] === '%' && $j + 1 < $le && $s[$j + 1] === '%' && ($j + 2 >= $le || $s[$j + 2] !== '%')) {
+            if ($this->regionMarker($j)) {
+                $this->closeLeaf();
+                $this->closeTo($owner);
+                $this->emitComment($j, $this->trimEnd($j));
+                $this->closed = null;
+                $this->closedParent = null;
+                $this->blank = 0;
+
+                return;
+            }
             if ($forced) {
                 $this->closeTo($owner);
                 $top = $owner;
@@ -221,6 +243,58 @@ final class BlockParser
         $this->closeLeaf();
         $this->openLine($owner, $j, $c);
         $this->blank = 0;
+    }
+
+    private function bareCommentCloser(int $ls, int $le, int $level): bool
+    {
+        $j = $ls + strspn($this->s, " \t", $ls, $le - $ls);
+        $end = LineShapes::trimEnd($this->s, $j, $le);
+
+        return $j < $end && strspn($this->s, '%', $j, $end - $j) === $end - $j && $end - $j >= $level;
+    }
+
+    private function regionMarker(int $j): bool
+    {
+        return preg_match('/^%%[ \t]*#(?:region|endregion)(?![A-Za-z0-9_])/', substr($this->s, $j, $this->le - $j)) === 1;
+    }
+
+    private function lazyLineBlock(): bool
+    {
+        $j = $this->i + strspn($this->s, " \t", $this->i, $this->le - $this->i);
+        if ($j >= $this->le || $this->regionMarker($j)) {
+            return false;
+        }
+        $ch = $this->s[$j];
+        if ($ch === '>' && ($j + 1 === $this->le || $this->s[$j + 1] === ' ')) {
+            return false;
+        }
+        if ($ch === '#' && preg_match('/^#{1,6} /', substr($this->s, $j, $this->le - $j)) === 1) {
+            return false;
+        }
+        if ($ch === '{' && LineShapes::attributeLine($this->s, $j, $this->le, new Attrs())) {
+            return false;
+        }
+        if (($ch === '[' || $ch === '*') && $this->isDefinition($j)) {
+            return false;
+        }
+
+        return !LineShapes::isFenceLine($this->s, $j, $this->le);
+    }
+
+    private function lazyLineBlockComment(Frame $leaf): bool
+    {
+        $j = $this->i + strspn($this->s, " \t", $this->i, $this->le - $this->i);
+        if (
+            $j + 1 >= $this->le || substr($this->s, $j, 2) !== '%%' || ($this->s[$j + 2] ?? '') === '%'
+            || $this->regionMarker($j) || $leaf->spans === []
+        ) {
+            return false;
+        }
+        $lineIndex = count($leaf->spans) - 2;
+        $leaf->lazyLineComments[$lineIndex][] = [$j, $this->le, $this->commentValue($j, $this->trimEnd($j))];
+        $leaf->end = $this->le;
+
+        return true;
     }
 
     /**
@@ -976,6 +1050,7 @@ final class BlockParser
 
             return;
         }
+        $this->settleFirstMarker($m, $j, $c);
         $list = new Frame(Frame::LIST, $j);
         $list->key = $m->key;
         $list->markerCol = $c - $this->base;
@@ -984,6 +1059,64 @@ final class BlockParser
         $this->take($list);
         $this->push($list);
         $this->openItem($list, $m, $j, $c);
+    }
+
+    private function settleFirstMarker(Marker $first, int $j, int $c): void
+    {
+        if (strlen($first->letters) !== 1 || $first->roman === 0) {
+            return;
+        }
+        $next = $this->nextMarker($j, $c - $this->base);
+        $sameCase = $next !== null && ctype_upper($next->letters) === ctype_upper($first->letters);
+        $roman = $sameCase && $next->roman === $first->roman + 1;
+        $alpha = $sameCase && strlen($next->letters) === 1 && ord(strtolower($next->letters)) === ord(strtolower($first->letters)) + 1;
+        $useRoman = $roman || (!$alpha && strtolower($first->letters) === 'i');
+        $first->style = $useRoman ? (ctype_upper($first->letters) ? 'I' : 'i') : (ctype_upper($first->letters) ? 'A' : 'a');
+        $first->value = $useRoman ? $first->roman : ord(strtolower($first->letters)) - 96;
+        $first->key = $first->style . $first->delimiter;
+    }
+
+    private function nextMarker(int $first, int $column): ?Marker
+    {
+        $s = $this->s;
+        $len = strlen($s);
+        $pos = $this->le < $len && $s[$this->le] === "\n" ? $this->le + 1 : $len;
+        $quotes = substr_count(substr($s, $this->ls, $first - $this->ls), '>');
+        $blanks = 0;
+        while ($pos < $len) {
+            $nl = strpos($s, "\n", $pos);
+            $end = $nl === false ? $len : $nl;
+            if ($end > $pos && $s[$end - 1] === "\r") {
+                $end--;
+            }
+            $k = $pos;
+            for ($q = 0; $q < $quotes; $q++) {
+                $k += strspn($s, " \t", $k, $end - $k);
+                if ($k >= $end || $s[$k] !== '>') {
+                    return null;
+                }
+                $k++;
+                if ($k < $end && $s[$k] === ' ') {
+                    $k++;
+                }
+            }
+            $indent = strspn($s, " \t", $k, $end - $k);
+            $k += $indent;
+            if ($k >= $end) {
+                if (++$blanks >= Tables::LIST_END_BLANK_LINES) {
+                    return null;
+                }
+            } elseif ($s[$k] === '%' && $k + 1 < $end && $s[$k + 1] === '%' && ($k + 2 >= $end || $s[$k + 2] !== '%')) {
+                // C2-B-137: a comment-only line neither interrupts nor resets a blank run.
+            } elseif ($indent > $column) {
+                $blanks = 0;
+            } else {
+                return Markers::quickReject($s, $k, $end) ? null : Markers::read($s, $k, $end);
+            }
+            $pos = $nl === false ? $len : $nl + 1;
+        }
+
+        return null;
     }
 
     /**
@@ -1210,7 +1343,7 @@ final class BlockParser
         $f->raw = $info->raw;
         $f->title = $info->title;
         $f->label = $info->label;
-        $this->openerFinding($f, $info, $syntax !== '');
+        $this->openerFinding($f, $info);
         $this->take($f);
         if ($f->attrs !== null && ($syntax === 'csv' || $syntax === 'tsv') && $f->attrs->get('table') !== null) {
             $f->delimited = $syntax === 'csv' ? ',' : "\t";
@@ -1249,7 +1382,7 @@ final class BlockParser
         $f->openCol = $c;
         $f->end = $this->le;
         $this->divKind($f, $info);
-        $this->openerFinding($f, $info, $f->node === 'admonition');
+        $this->openerFinding($f, $info);
         $this->take($f);
         if ($kind === Frame::LINE_BLOCK) {
             $this->startLeaf($f);
@@ -1267,18 +1400,20 @@ final class BlockParser
      *
      * @param \MarkupCarve\Carve2\Block\Frame $f
      * @param \MarkupCarve\Carve2\Block\Opener $info
-     * @param bool $named
      *
      * @return void
      */
-    private function openerFinding(Frame $f, Opener $info, bool $named): void
+    private function openerFinding(Frame $f, Opener $info): void
     {
         $at = $info->extra;
         if ($at < 0) {
             return;
         }
         $brace = $this->s[$at] === '{' && AttributeParser::read($this->s, $at, $this->le, new Attrs()) > $at;
-        $f->findings[] = [$brace && ($named || $at === $info->wordEnd) ? 'fence-opener-fallback' : 'fence-title-syntax', $at];
+        $f->findings[] = [
+            $brace && $at === $info->wordEnd
+            ? 'fence-opener-fallback' : 'fence-title-syntax', $at,
+        ];
     }
 
     /**
@@ -1347,7 +1482,19 @@ final class BlockParser
             $f->node = $kind;
             $f->divKind = $name;
         } elseif ($kind === 'figure_group' && $info->title === null && $info->label === null) {
-            $f->node = 'figure_group';
+            $insideGroup = false;
+            foreach ($this->stack as $open) {
+                if ($open->node === 'figure_group') {
+                    $insideGroup = true;
+
+                    break;
+                }
+            }
+            if ($insideGroup) {
+                $f->nameClass = 'figure';
+            } else {
+                $f->node = 'figure_group';
+            }
         } else {
             $f->nameClass = $name;
         }
@@ -1573,6 +1720,10 @@ final class BlockParser
         $f->tooltip = $def['tooltip'] ?? null;
         $f->end = $this->le;
         $this->take($f);
+        if (isset($def['attrs'])) {
+            $f->attrs ??= new Attrs();
+            $f->attrs->merge($def['attrs']);
+        }
         $this->emitLeaf($f);
 
         return true;
@@ -1673,19 +1824,62 @@ final class BlockParser
 
                 return;
             case Frame::LINE_BLOCK:
-                if ($j < $end && $s[$j] === ':' && strspn($s, ':', $j, $end - $j) === $end - $j && $end - $j >= $f->level) {
-                    $this->closeOpaque($f, $this->le);
-
-                    return;
-                }
-                // C2-B-130: the spaces that lead a line after the strip are content.
-                $f->spans[] = $this->i;
-                $f->spans[] = $this->le;
-                if ($j < $end) {
-                    $f->end = $this->le;
-                }
+                $this->lineBlockBodyLine($f, $j, $end);
 
                 return;
+        }
+    }
+
+    private function lineBlockBodyLine(Frame $f, int $j, int $end): void
+    {
+        $s = $this->s;
+        if ($j < $end && $s[$j] === ':' && strspn($s, ':', $j, $end - $j) === $end - $j && $end - $j >= $f->level) {
+            if ($f->lineComment !== null) {
+                $f->lineComment->end = $this->ls;
+                $f->hiddenComments[] = $f->lineComment;
+                $f->lineComment = null;
+            }
+            $this->closeOpaque($f, $this->le);
+
+            return;
+        }
+        $comment = $f->lineComment;
+        if ($comment !== null) {
+            if (
+                $j < $end && $s[$j] === '%' && strspn($s, '%', $j, $end - $j) === $end - $j
+                && $end - $j >= $comment->level
+            ) {
+                $comment->end = $this->le;
+                $comment->closed = true;
+                $f->hiddenComments[] = $comment;
+                $f->lineComment = null;
+            } else {
+                $comment->spans[] = $this->i;
+                $comment->spans[] = $this->le;
+                $comment->end = $this->le;
+            }
+            $f->end = $this->le;
+
+            return;
+        }
+        $run = $j < $end && $s[$j] === '%' ? strspn($s, '%', $j, $end - $j) : 0;
+        if ($run >= 3) {
+            $comment = new Frame(Frame::COMMENT_BLOCK, $j);
+            $comment->level = $run;
+            $comment->end = $this->le;
+            $text = $j + $run + strspn($s, " \t", $j + $run, $end - $j - $run);
+            if ($text < $end) {
+                $comment->spans = [$text, $this->le];
+            }
+            $f->lineComment = $comment;
+            $f->end = $this->le;
+
+            return;
+        }
+        $f->spans[] = $this->i;
+        $f->spans[] = $this->le;
+        if ($j < $end) {
+            $f->end = $this->le;
         }
     }
 

@@ -68,7 +68,11 @@ final class Attrs
     {
         $lower = strtolower($key);
         foreach ($this->pairs as $i => $pair) {
-            if (strtolower($pair[0]) === $lower) {
+            if (
+                strtolower($pair[0]) === $lower && (
+                !in_array($lower, ['abbr', 'time', 'kbd'], true) || ($pair[0] === $lower) === ($key === $lower)
+                )
+            ) {
                 $this->pairs[$i][1] = $value;
 
                 return;
@@ -128,11 +132,34 @@ final class Attrs
         $existing = $node->f['attrs'] ?? null;
         if ($existing instanceof self) {
             $existing->merge($this);
+            if ($node->type !== 'span') {
+                $existing->mergeSemanticVariants();
+            }
 
             return;
         }
         $copy = clone $this;
         $copy->lang = null;
+        if ($node->type !== 'span') {
+            $copy->mergeSemanticVariants();
+        }
         $node->f['attrs'] = $copy;
+    }
+
+    private function mergeSemanticVariants(): void
+    {
+        $pairs = [];
+        $seen = [];
+        foreach ($this->pairs as [$name, $value]) {
+            $lower = strtolower($name);
+            if (isset($seen[$lower])) {
+                $index = $seen[$lower];
+                $pairs[$index] = [$pairs[$index][0], $value];
+            } else {
+                $seen[$lower] = count($pairs);
+                $pairs[] = [$name, $value];
+            }
+        }
+        $this->pairs = $pairs;
     }
 }

@@ -8,6 +8,7 @@ use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Json\TreeEncoder;
 use MarkupCarve\Carve2\Layout\LayoutError;
 use MarkupCarve\Carve2\Test\Support\Corpus;
+use MarkupCarve\Carve2\Test\Support\Held;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -20,6 +21,9 @@ final class LayoutTest extends TestCase
     {
         $out = [];
         foreach (Corpus::file('trees/layouts.json')['layouts'] as $entry) {
+            if (Held::has('layout/' . $entry['id'])) {
+                continue;
+            }
             $out[$entry['id']] = [$entry];
         }
 

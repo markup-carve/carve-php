@@ -19,7 +19,9 @@ final class TableRenderer
      *
      * @var array<string>
      */
-    private const READ_KEYS = ['aligns', 'widths', 'header-rows', 'footer-rows'];
+    private const READ_KEYS = [
+        'aligns', 'valigns', 'widths', 'header-rows', 'footer-rows', 'body-rows', 'body-header-rows', 'body-header-cols',
+    ];
 
     /**
      * @var array<string, string>
@@ -108,7 +110,7 @@ final class TableRenderer
         foreach ($columns as $column) {
             $w = $column->f['width'] ?? null;
             if (is_int($w) || is_float($w)) {
-                $pct = rtrim(rtrim(number_format($w * 100, 10, '.', ''), '0'), '.');
+                $pct = self::decimal($w * 100);
                 $out .= "\n" . $pad . '  <col style="width: ' . $pct . '%;">';
             } else {
                 $out .= "\n" . $pad . '  <col>';
@@ -116,6 +118,30 @@ final class TableRenderer
         }
 
         return $out . "\n" . $pad . '</colgroup>';
+    }
+
+    private static function decimal(float $value): string
+    {
+        $raw = json_encode($value, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+        $parts = preg_split('/[eE]/', $raw);
+        if ($parts === false || count($parts) === 1) {
+            return str_contains($raw, '.') ? rtrim(rtrim($raw, '0'), '.') : $raw;
+        }
+        [$mantissa, $exponent] = $parts;
+        $negative = str_starts_with($mantissa, '-');
+        $unsigned = $negative ? substr($mantissa, 1) : $mantissa;
+        $dot = strpos($unsigned, '.');
+        $place = ($dot === false ? strlen($unsigned) : $dot) + (int)$exponent;
+        $digits = str_replace('.', '', $unsigned);
+        if ($place <= 0) {
+            $decimal = '0.' . str_repeat('0', -$place) . $digits;
+        } elseif ($place >= strlen($digits)) {
+            $decimal = $digits . str_repeat('0', $place - strlen($digits));
+        } else {
+            $decimal = substr($digits, 0, $place) . '.' . substr($digits, $place);
+        }
+
+        return ($negative ? '-' : '') . (str_contains($decimal, '.') ? rtrim(rtrim($decimal, '0'), '.') : $decimal);
     }
 
     /**
@@ -177,9 +203,28 @@ final class TableRenderer
             if ($cell->type !== 'table_cell' || isset($cell->f['span'])) {
                 continue;
             }
-            $tag = ($cell->f['header'] ?? false) === true ? 'th' : 'td';
-            $column = $columns[$grid->column[spl_object_id($cell)] ?? 0] ?? null;
-            $attrs = $this->r->attrs($cell, [], [], self::cellStructural($cell, $group), [], self::cellStyle($cell, $column), false);
+            $index = $grid->column[spl_object_id($cell)] ?? 0;
+            $rowHead = $group->type === 'table_body' && $index < ($group->f['rowHeadColumns'] ?? 0);
+            $header = ($cell->f['header'] ?? false) === true || $rowHead;
+            $tag = $header ? 'th' : 'td';
+            $column = $columns[$index] ?? null;
+            $authored = $cell->f['attrs'] ?? null;
+            if ($authored instanceof Attrs) {
+                $authored = clone $authored;
+                $authored->pairs = array_values(array_filter(
+                    $authored->pairs,
+                    static fn (array $pair): bool => !in_array(strtolower($pair[0]), ['rowspan', 'colspan'], true),
+                ));
+            }
+            $lang = $cell->f['lang'] ?? null;
+            $attrs = $this->r->aw->build(
+                self::cellStructural($cell, $group, $header),
+                null,
+                $authored instanceof Attrs ? $authored : null,
+                is_string($lang) ? $lang : null,
+                style: self::cellStyle($cell, $column),
+                dir: AttrWriter::dirOf($cell),
+            );
             $out .= '<' . $tag . $attrs . '>' . $this->content($cell, $depth) . '</' . $tag . '>';
         }
 
@@ -191,10 +236,11 @@ final class TableRenderer
      *
      * @param \MarkupCarve\Carve2\Node $cell
      * @param \MarkupCarve\Carve2\Node $group
+     * @param bool $header
      *
      * @return array<array{0: string, 1: string|null}>
      */
-    private static function cellStructural(Node $cell, Node $group): array
+    private static function cellStructural(Node $cell, Node $group, bool $header): array
     {
         $structural = [];
         foreach (['rowspan', 'colspan'] as $field) {
@@ -204,7 +250,7 @@ final class TableRenderer
             }
         }
         $scope = $cell->f['scope'] ?? null;
-        if (($cell->f['header'] ?? false) === true) {
+        if ($header) {
             $structural[] = ['scope', is_string($scope) ? $scope : ($group->type === 'table_head' ? 'col' : 'row')];
         } elseif (is_string($scope)) {
             $structural[] = ['scope', $scope];
@@ -229,10 +275,10 @@ final class TableRenderer
     {
         $decl = [];
         $align = $cell->f['align'] ?? $column?->f['resolvedAlign'] ?? null;
-        if (is_string($align)) {
+        if (is_string($align) && $align !== 'none') {
             $decl[] = 'text-align: ' . $align . ';';
         }
-        $valign = $cell->f['valign'] ?? $column?->f['valign'] ?? null;
+        $valign = $cell->f['valign'] ?? $column?->f['resolvedValign'] ?? null;
         if (is_string($valign)) {
             $decl[] = 'vertical-align: ' . $valign . ';';
         }

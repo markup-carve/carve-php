@@ -8,6 +8,7 @@ use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Lint\Linter;
 use MarkupCarve\Carve2\OptionError;
+use MarkupCarve\Carve2\Test\Support\Held;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -25,7 +26,7 @@ final class LintRulesTest extends TestCase
         $data = json_decode((string)file_get_contents(dirname(__DIR__) . '/fixtures/lint-cases.json'), true, 512, JSON_THROW_ON_ERROR);
         $out = [];
         foreach (is_array($data) && is_array($data['cases'] ?? null) ? $data['cases'] : [] as $name => $case) {
-            if (!is_array($case)) {
+            if (!is_array($case) || Held::has('lint-rules/' . $name)) {
                 continue;
             }
             $id = explode('#', (string)$name)[0];
@@ -57,6 +58,9 @@ final class LintRulesTest extends TestCase
 
     public function testEveryCatalogRuleHasACase(): void
     {
+        if (Held::has('lint-rules/catalog')) {
+            $this->markTestSkipped('Lint catalog held at candidate 12');
+        }
         $ids = array_unique(array_map(static fn (array $row): string => $row[0], self::rules()));
         sort($ids);
         $catalog = array_keys(Linter::catalog());

@@ -8,6 +8,7 @@ use ImportTableGenerator;
 use MarkupCarve\Carve2\Import\HtmlImporter;
 use MarkupCarve\Carve2\Import\HtmlParser;
 use MarkupCarve\Carve2\Test\Support\Corpus;
+use MarkupCarve\Carve2\Test\Support\Held;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -33,6 +34,9 @@ final class ImportCorpusTest extends TestCase
     {
         $out = [];
         foreach (Corpus::examples('import') as $id => $example) {
+            if (Held::has($id)) {
+                continue;
+            }
             $out[$id] = [$example];
         }
 

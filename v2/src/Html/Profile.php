@@ -54,7 +54,6 @@ final class Profile
         'symbol' => ['name', ':', ':'],
         'mention' => ['target', '@', ''],
         'tag' => ['name', '#', ''],
-        'xref' => ['key', '</#', '>'],
         'abbreviation' => ['key', '', ''],
         'citation_group' => ['raw', '', ''],
     ];
@@ -106,6 +105,8 @@ final class Profile
      * @var array<int, int>
      */
     private array $level = [];
+
+    public ?RenderState $renderState = null;
 
     public function __construct(private string $name, private RenderLog $log)
     {
@@ -251,6 +252,11 @@ final class Profile
         return Escape::text($this->inlineText($node));
     }
 
+    public function plainInline(Node $node): string
+    {
+        return Escape::text($this->inlineText($node));
+    }
+
     /**
      * @param \MarkupCarve\Carve2\Node $node
      *
@@ -258,7 +264,12 @@ final class Profile
      */
     private function report(Node $node): void
     {
-        $this->log->loss('profile-construct-degraded', 'warning', ['profile' => $this->name, 'construct' => $node->type]);
+        $this->log->loss(
+            'profile-construct-degraded',
+            'warning',
+            ['profile' => $this->name, 'construct' => $node->type],
+            node: $node,
+        );
     }
 
     /**
@@ -296,38 +307,27 @@ final class Profile
         return match ($node->type) {
             'image' => '[img: ' . PlainText::str($f['alt'] ?? '') . ']',
             'smart_punctuation' => PlainText::str($f['glyph'] ?? $f['source'] ?? ''),
-            'autolink' => '<' . PlainText::str($f['text'] ?? $f['href'] ?? '') . '>',
-            'code', 'literal_inline', 'math', 'raw_inline' => $this->inlineSpelling($node),
+            'autolink' => PlainText::str($f['text'] ?? $f['href'] ?? ''),
+            'code', 'literal_inline', 'math', 'raw_inline' => $this->leafValue($f),
+            'xref' => $this->xrefText($node),
+            'inline_extension' => $this->childrenText(PlainText::nodes($f['fallback'] ?? [])),
             default => $this->childrenText($node->children ?? []),
         };
     }
 
     /**
-     * C2-H-165, C2-W-077, C2-W-116: childless inline nodes use their written form.
-     *
-     * @param \MarkupCarve\Carve2\Node $node
-     *
-     * @return string
+     * @param array<string, mixed> $fields
      */
-    private function inlineSpelling(Node $node): string
+    private function leafValue(array $fields): string
     {
-        $value = PlainText::str($node->f['value'] ?? '');
-        $ticks = '`';
-        while (str_contains($value, $ticks)) {
-            $ticks .= '`';
-        }
-        $needsPad = str_starts_with($value, '`') || str_ends_with($value, '`')
-            || (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '');
-        $pad = $needsPad ? ' ' : '';
-        $code = $ticks . $pad . $value . $pad . $ticks;
-        $attrs = AbbreviationSource::attributes($node, $this->log);
+        return PlainText::str($fields['value'] ?? '');
+    }
 
-        return match ($node->type) {
-            'literal_inline' => '!' . $code . $attrs,
-            'math' => (($node->f['display'] ?? false) === true ? '$$' : '$') . $code . $attrs,
-            'raw_inline' => $code . '{=' . PlainText::str($node->f['format'] ?? '') . '}' . $attrs,
-            default => $code . $attrs,
-        };
+    private function xrefText(Node $node): string
+    {
+        $key = PlainText::str($node->f['key'] ?? '');
+
+        return isset($node->f['href']) ? ($this->renderState?->xrefText($key) ?? $key) : '</#' . $key . '>';
     }
 
     /**
@@ -485,13 +485,23 @@ final class Profile
 
         return match ($type) {
             'heading' => str_repeat('#', self::level($node)) . ' ' . $this->blockInlineText($kids),
-            'block_quote' => '> ' . $this->joined($kids),
+            'block_quote' => $this->quoteText($kids),
             'list' => $this->listText($node),
             'thematic_break' => '---',
             'code_block', 'raw_block' => rtrim(PlainText::str($node->f['value'] ?? ''), "\n"),
             'include' => HtmlRenderer::includeText($node),
             default => $this->joined($kids),
         };
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve2\Node> $blocks
+     */
+    private function quoteText(array $blocks): string
+    {
+        $text = $this->joined($blocks);
+
+        return $text === '' ? '' : '> ' . $text;
     }
 
     /**
@@ -507,6 +517,8 @@ final class Profile
         foreach ($nodes as $node) {
             if ($node->type === 'image') {
                 $out .= '[img: ' . PlainText::str($node->f['alt'] ?? '') . ']';
+            } elseif (in_array($node->type, ['raw_inline', 'xref', 'symbol'], true)) {
+                $out .= $this->inlineText($node);
             } elseif ($node->children !== null && PlainText::usesChildren($node->type)) {
                 $out .= $this->blockInlineText($node->children);
             } else {

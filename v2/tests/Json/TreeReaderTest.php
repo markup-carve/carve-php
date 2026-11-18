@@ -116,6 +116,31 @@ final class TreeReaderTest extends TestCase
             . $child . ']}]}');
     }
 
+    public function testC2A171ListAndInlineNoteLevelsAreCounted(): void
+    {
+        $block = '{"type":"paragraph","children":[]}';
+        for ($i = 0; $i < 101; $i++) {
+            $block = '{"type":"list","marker":{"kind":"bullet","char":"-"},"spacing":"tight","children":['
+                . '{"type":"list_item","children":[' . $block . ']}]}';
+        }
+        $this->assertReason('depth', '{"type":"document","astVersion":"2.0","children":[' . $block . ']}');
+
+        $block = '{"type":"paragraph","children":[]}';
+        for ($i = 0; $i < 101; $i++) {
+            $block = '{"type":"definition_list","children":['
+                . '{"type":"definition_term","children":[{"type":"text","value":"x"}]},'
+                . '{"type":"definition_description","children":[' . $block . ']}]}';
+        }
+        $this->assertReason('depth', '{"type":"document","astVersion":"2.0","children":[' . $block . ']}');
+
+        $inline = '{"type":"text","value":"x"}';
+        for ($i = 0; $i < 201; $i++) {
+            $inline = '{"type":"inline_footnote","children":[' . $inline . ']}';
+        }
+        $this->assertReason('depth', '{"type":"document","astVersion":"2.0","children":['
+            . '{"type":"paragraph","children":[' . $inline . ']}]}');
+    }
+
     public function testC2A171IncludeChildrenStartAgainAtLevelZero(): void
     {
         $quotes = static function (int $n, string $inner): string {

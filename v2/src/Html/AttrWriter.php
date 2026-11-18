@@ -198,7 +198,9 @@ final class AttrWriter
      */
     private static function alignDecl(?string $align): ?string
     {
-        return $align === 'left' || $align === 'right' || $align === 'center' ? 'text-align: ' . $align . ';' : null;
+        $value = strtolower(trim($align ?? '', " \t\n\r\f\v"));
+
+        return in_array($value, ['left', 'right', 'center'], true) ? 'text-align: ' . $value . ';' : null;
     }
 
     /**

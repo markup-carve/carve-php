@@ -316,10 +316,14 @@
           "part": "optional",
           "sequence": [{ "part": "space", "min": 1, "max": 1 }, { "part": "ref", "ref": "link_title" }]
         },
+        {
+          "part": "optional",
+          "sequence": [{ "part": "space", "min": 1, "max": 1 }, { "part": "ref", "ref": "brace_block" }]
+        },
         { "part": "trailing_spaces" },
         { "part": "end" }
       ],
-      "clauses": ["C2-B-081", "C2-B-083", "C2-B-089"]
+      "clauses": ["C2-B-081", "C2-B-083", "C2-B-089", "C2-B-106"]
     },
     {
       "name": "caption",
@@ -385,7 +389,7 @@
       "first": ["{"],
       "role": "attribute",
       "sequence": [{ "part": "ref", "ref": "brace_blocks" }, { "part": "trailing_whitespace" }, { "part": "end" }],
-      "clauses": ["C2-B-002", "C2-B-090", "C2-B-091", "C2-B-092", "C2-B-102", "C2-B-192", "C2-B-193"]
+      "clauses": ["C2-B-092", "C2-B-090", "C2-B-091", "C2-B-102", "C2-B-192", "C2-B-193"]
     },
     {
       "name": "include",
@@ -463,7 +467,7 @@
       "clauses": ["C2-B-119", "C2-B-127", "C2-B-225"]
     },
     { "name": "div_sigil", "values": [">", "\\", "|"], "file": "div-names.json", "clauses": ["C2-B-196"] },
-    { "name": "format_name", "forms": ["a lowercase ASCII letter, then lowercase ASCII letters, digits and hyphens"], "clauses": ["C2-B-164"] },
+    { "name": "format_name", "forms": ["one or more ASCII letters and digits, in any case"], "clauses": ["C2-B-164"] },
     { "name": "image_form", "forms": ["![alt](destination)", "![alt][label]", "![alt][]"], "clauses": ["C2-B-197"] },
     {
       "name": "include_options",
@@ -542,8 +546,8 @@
       "opener": "\"",
       "closer": "\"",
       "excluded": ["\""],
-      "reads_escapes": false,
-      "clauses": ["C2-B-117", "C2-B-119", "C2-B-120"]
+      "reads_escapes": true,
+      "clauses": ["C2-A-073", "C2-B-117", "C2-B-119", "C2-B-120", "C2-I-033"]
     },
     { "name": "raw_format", "opener": "=", "chars": ["-", "0-9", "A-Z", "_", "a-z"], "not_first": ["-", "0-9", "_"], "min": 1, "clauses": ["C2-B-116", "C2-B-225"] }
   ]

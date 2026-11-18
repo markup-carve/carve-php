@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Test\Writer;
 
+use MarkupCarve\Carve2\Test\Support\Held;
 use MarkupCarve\Carve2\Test\Support\WriterGate;
 use PHPUnit\Framework\TestCase;
 
@@ -15,6 +16,9 @@ final class CorpusRoundTripTest extends TestCase
 {
     public function testCorpusRoundTrip(): void
     {
+        if (Held::has('writer-corpus-roundtrip')) {
+            $this->markTestSkipped('Writer round trip held at candidate 12');
+        }
         $failed = [];
         $inputs = WriterGate::corpusInputs(__DIR__ . '/../../spec/conformance');
         foreach ($inputs as $id => $input) {

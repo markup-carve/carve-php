@@ -29,25 +29,25 @@ final class ParseFindingsTest extends TestCase
             ],
             'C2-B-163' => ["---\na", [['unclosed-frontmatter', '/children/0', 0, 5]]],
             'C2-B-111 closed' => ["```js\nx\n```\n\n:::\ny\n:::", []],
-            'C2-B-122 further words' => ["```js T\nx\n```", [['fence-title-syntax', '/children/0', 0, 13]]],
-            'C2-B-122 second space' => ["```  b\nx\n```", [['fence-title-syntax', '/children/0', 0, 12]]],
-            'C2-B-122 after the label' => ["```js \"T\" [l] x\nx\n```", [['fence-title-syntax', '/children/0', 0, 21]]],
-            'C2-B-122 glued to the title' => ["```js \"T\"x\nx\n```", [['fence-title-syntax', '/children/0', 0, 16]]],
-            'C2-B-122 sigil div' => ["::: > x\ny\n:::", [['fence-title-syntax', '/children/0', 0, 13]]],
-            'C2-B-225 raw format' => ["```=html~\nx\n```", [['fence-title-syntax', '/children/0', 0, 15]]],
-            'C2-B-225 div name' => ["::: glossary>\nx\n:::", [['fence-title-syntax', '/children/0', 0, 19]]],
+            'C2-B-122 further words' => ["```js T\nx\n```", [['fence-title-syntax', '/children/0', 6, 7]]],
+            'C2-B-122 second space' => ["```  b\nx\n```", [['fence-title-syntax', '/children/0', 5, 6]]],
+            'C2-B-122 after the label' => ["```js \"T\" [l] x\nx\n```", [['fence-title-syntax', '/children/0', 14, 15]]],
+            'C2-B-122 glued to the title' => ["```js \"T\"x\nx\n```", [['fence-title-syntax', '/children/0', 9, 10]]],
+            'C2-B-122 sigil div' => ["::: > x\ny\n:::", [['fence-title-syntax', '/children/0', 6, 7]]],
+            'C2-B-225 raw format' => ["```=html~\nx\n```", [['fence-title-syntax', '/children/0', 8, 9]]],
+            'C2-B-225 div name' => ["::: glossary>\nx\n:::", [['fence-title-syntax', '/children/0', 12, 13]]],
             'C2-B-117 title' => ["``` js \"T\"\nx\n```", []],
-            'C2-B-105 glued' => ["```js{.x}\nx\n```", [['fence-opener-fallback', '/children/0', 0, 15]]],
-            'C2-B-105 language' => ["```js {.x}\nx\n```", [['fence-opener-fallback', '/children/0', 0, 16]]],
-            'C2-B-105 admonition' => ["::: note {.x}\nx\n:::", [['fence-opener-fallback', '/children/0', 0, 19]]],
-            'C2-B-105 glued div name' => ["::: foo{.x}\nx\n:::", [['fence-opener-fallback', '/children/0', 0, 17]]],
-            'C2-B-122 spaced after a class name' => ["::: foo {.x}\nx\n:::", [['fence-title-syntax', '/children/0', 0, 18]]],
-            'C2-B-181 unclosed quote' => ["{table}\n```csv\na,\"b\nc\n```", [['delimited-table-malformed', '/children/0', 0, 25]]],
+            'C2-B-105 glued' => ["```js{.x}\nx\n```", [['fence-opener-fallback', '/children/0', 5, 9]]],
+            'C2-B-122 language' => ["```js {.x}\nx\n```", [['fence-title-syntax', '/children/0', 6, 10]]],
+            'C2-B-122 admonition' => ["::: note {.x}\nx\n:::", [['fence-title-syntax', '/children/0', 9, 13]]],
+            'C2-B-105 glued div name' => ["::: foo{.x}\nx\n:::", [['fence-opener-fallback', '/children/0', 7, 11]]],
+            'C2-B-122 spaced after a class name' => ["::: foo {.x}\nx\n:::", [['fence-title-syntax', '/children/0', 8, 12]]],
+            'C2-B-181 unclosed quote' => ["{table}\n```csv\na,\"b\nc\n```", [['delimited-table-malformed', '/children/0', 17, 18]]],
             'C2-B-181 doubled quote at the end' => [
                 "{table}\n```csv\na,\"b\"\"\n```", [
                     [
                         'delimited-table-malformed',
-                        '/children/0', 0, 25,
+                        '/children/0', 17, 18,
                     ],
                 ],
             ],
@@ -110,25 +110,23 @@ final class ParseFindingsTest extends TestCase
                 . 'Add a bare fence of 3 colons to close it.',
             ],
             'fence-title-syntax' => [
-                "```js T\nx\n```", 'Text after the "js" fence type must be a quoted "title" or a [label]; unquoted it '
-                . 'is not read as a title, and the block opens. Did you mean ``` js "T"?',
+                "```js T\nx\n```", 'Text after "js" must be a quoted title or a [label]; it is not read as a title. '
+                . 'Write ``` js "T".',
             ],
             'fence-opener-fallback' => [
-                "::: note {.c}\nx\n:::", 'An admonition carries no inline attributes, so "{.c}" after the name is '
-                . 'not valid. The block opens without them (use: "{.c}" on its own line directly above the opener, then "::: note").',
+                "::: note {.c}\nx\n:::", 'Text after "note" must be a quoted title or a [label]; it is not read as a title. '
+                . 'Write ::: note "{.c}".',
             ],
             'fence-title-syntax div spaces' => [
                 ":::  \"T\nx\n:::",
-                'Text after the ":::" fence type must be a quoted "title" or a [label]; unquoted it is not read as a title, and '
-                . 'the block opens. Did you mean ::: ""T"?',
+                'Text after ":::" must be a quoted title or a [label]; it is not read as a title. Write ::: ""T".',
             ],
             'duplicate-footnote-definition' => [
                 "[^a]: x\n\n[^a]: y", 'Duplicate footnote definition [^a] is ignored; the first '
                 . 'definition for a label wins.',
             ],
             'duplicate-id' => [
-                "{#a}\nx\n\n{#a}\ny", 'Duplicate id "a": the repeated HTML id is invalid, and cross-references to it resolve '
-                . 'to the first occurrence.',
+                "{#a}\nx\n\n{#a}\ny", 'Duplicate authored id "a": the first node in document order wins id lookup. Change one id.',
             ],
             'include-unresolved' => ['{{ /etc/x.crv }}', 'Include "[absolute path]" could not be resolved.'],
             'carrier-attribute-dropped' => [

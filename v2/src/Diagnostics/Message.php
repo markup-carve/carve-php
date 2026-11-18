@@ -21,7 +21,8 @@ final class Message
     public static function fill(string $code, array $slots = [], int $variant = 0): string
     {
         $all = Tables::MESSAGES[$code] ?? [$code];
-        $text = $all[$variant] ?? $all[0];
+        $entry = $all[$variant] ?? $all[0];
+        $text = is_array($entry) ? $entry['text'] : $entry;
         if ($slots === [] || !str_contains($text, '${')) {
             return $text;
         }

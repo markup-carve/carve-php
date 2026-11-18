@@ -77,7 +77,7 @@ final class RoundTrip
      */
     public static function check(string $source, array $options = []): array
     {
-        $parsed = json_decode(Carve2::toJson($source, $options), true, 4096, JSON_THROW_ON_ERROR);
+        $parsed = json_decode(Carve2::toJson($source, Corpus::parseOptions($options)), true, 4096, JSON_THROW_ON_ERROR);
         $html = Carve2::toHtml($source, ['roundtrip' => true] + $options);
         $imported = HtmlImporter::import($html, ['rawHtml' => true])->document;
         $trip = new self();

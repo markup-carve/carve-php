@@ -10,6 +10,7 @@ use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Diagnostics\Findings;
 use MarkupCarve\Carve2\Extension\Extensions;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
+use MarkupCarve\Carve2\Html\Profile;
 use MarkupCarve\Carve2\Import\HtmlImporter;
 use MarkupCarve\Carve2\Import\ImportResult;
 use MarkupCarve\Carve2\Include\Expander;
@@ -38,7 +39,7 @@ final class Carve2
      */
     public static function parse(string $source, array $options = []): Node
     {
-        return self::parsed($source, Options::from($options))[0];
+        return self::parsed($source, Options::from($options, ['parse', 'resolve']))[0];
     }
 
     /**
@@ -51,7 +52,7 @@ final class Carve2
      */
     public static function parseWithDiagnostics(string $source, array $options = []): ParseResult
     {
-        [$doc, $findings] = self::parsed($source, Options::from($options));
+        [$doc, $findings] = self::parsed($source, Options::from($options, ['parse', 'resolve']));
 
         return new ParseResult($doc, $findings->finish($doc));
     }
@@ -66,7 +67,7 @@ final class Carve2
      */
     public static function parseWithLayout(string $source, array $options = []): LayoutResult
     {
-        [$doc, $findings] = self::parsed($source, Options::from($options));
+        [$doc, $findings] = self::parsed($source, Options::from($options, ['parse', 'resolve']));
 
         return new LayoutResult($doc, LayoutBuilder::build($source, $doc), $findings->finish($doc));
     }
@@ -94,16 +95,81 @@ final class Carve2
      */
     public static function renderWithDiagnostics(string $source, array $options = []): RenderResult
     {
-        $opts = Options::from($options);
+        $opts = Options::from($options, ['parse', 'resolve', 'render']);
+        self::checkRenderInput($source, $opts);
         [$doc, $findings, $facts] = self::parsed($source, $opts, true);
         [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
         $entries = $findings->finish($doc);
+        $losses = new Findings();
         foreach ($log->entries as $entry) {
+            [$start, $end] = self::renderLossRange($source, $entry);
+            $losses->add(
+                $entry['code'],
+                $entry['node'],
+                $entry['file'] ?? $entry['node']?->file,
+                $start,
+                $end,
+                $entry['message'],
+            );
+        }
+        foreach ($losses->finish($doc) as $i => $loss) {
+            $entry = $log->entries[$i];
             $severity = $opts->strictLosses ? 'error' : $entry['severity'];
-            $entries[] = new Diagnostic($entry['code'], $severity, $entry['channel'], $entry['message'], file: $entry['file']);
+            $entries[] = new Diagnostic(
+                $entry['code'],
+                $severity,
+                $entry['channel'],
+                $entry['message'],
+                $loss->path,
+                $loss->startOffset,
+                $loss->endOffset,
+                $loss->file,
+            );
         }
 
-        return new RenderResult($html, $entries);
+        return new RenderResult($opts->strictLosses && $log->entries !== [] ? '' : $html, $entries);
+    }
+
+    /**
+     * @param string $source
+     * @param array{code: string, node: \MarkupCarve\Carve2\Node|null, slots: array<string, string|int>} $entry
+     *
+     * @return array{int, int}
+     */
+    private static function renderLossRange(string $source, array $entry): array
+    {
+        $node = $entry['node'];
+        if ($node === null || $node->start < 0) {
+            return [-1, -1];
+        }
+        $start = $node->start;
+        $end = $node->end;
+        if ($entry['code'] === 'carrier-attribute-dropped') {
+            $key = $entry['slots']['key'] ?? null;
+            $at = is_string($key) ? stripos($source, $key, $start) : false;
+            if ($at !== false && $at < $end) {
+                $start = $at;
+                $close = strpos($source, '}', $at);
+                $end = $close === false ? $at + strlen($key) : $close;
+            }
+        } elseif ($entry['code'] === 'destination-denied') {
+            $url = $node->f[$node->type === 'image' ? 'src' : 'href'] ?? null;
+            $at = is_string($url) ? strpos($source, $url, $start) : false;
+            if ($at !== false && $at < $end) {
+                $start = $at;
+                $end = $at + strlen($url);
+            }
+        }
+
+        return [$start, $end];
+    }
+
+    private static function checkRenderInput(string $source, Options $opts): void
+    {
+        $max = Profile::maxLength($opts->profile);
+        if ($max !== null && strlen($source) > $max) {
+            throw new InputError('the source exceeds the profile byte limit');
+        }
     }
 
     /**
@@ -163,13 +229,14 @@ final class Carve2
      *
      * @param string $source
      * @param array<string, string> $inheritedAbbreviations
+     * @param bool $fileStart
      *
      * @return array{0: \MarkupCarve\Carve2\Node, 1: \MarkupCarve\Carve2\Diagnostics\Findings, 2: bool}
      */
-    private static function stages(string $source, array $inheritedAbbreviations = []): array
+    private static function stages(string $source, array $inheritedAbbreviations = [], bool $fileStart = true): array
     {
         $sink = new TreeSink($source);
-        (new BlockParser($sink))->parse($source);
+        (new BlockParser($sink))->parse($source, $fileStart);
         $doc = $sink->root;
         assert($doc !== null);
         $ctx = InlineContext::collect($doc, $source);
@@ -199,11 +266,14 @@ final class Carve2
      * @param string $source
      * @param array<string, mixed> $options
      *
+     * @throws \MarkupCarve\Carve2\RenderError
+     *
      * @return string
      */
     public static function toHtml(string $source, array $options = []): string
     {
-        $opts = Options::from($options);
+        $opts = Options::from($options, ['parse', 'resolve', 'render']);
+        self::checkRenderInput($source, $opts);
         $gc = self::collectorOff();
         try {
             [$doc, , $hasInclude] = self::stages($source);
@@ -217,7 +287,12 @@ final class Carve2
             }
         }
 
-        return HtmlRenderer::render($doc, $opts, $source, $facts);
+        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
+        if ($opts->strictLosses && $log->entries !== []) {
+            throw new RenderError();
+        }
+
+        return $html;
     }
 
     /**

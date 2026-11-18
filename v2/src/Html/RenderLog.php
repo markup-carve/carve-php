@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Html;
 
 use MarkupCarve\Carve2\Diagnostics\Message;
+use MarkupCarve\Carve2\Node;
 
 /**
  * The render-loss entries of one render (C2-H-132, C2-A-173).
@@ -12,9 +13,12 @@ use MarkupCarve\Carve2\Diagnostics\Message;
 final class RenderLog
 {
     /**
-     * @var array<array{code: string, severity: string, message: string, channel: string, file: string|null}>
+     * @var array<array{code: string, severity: string, message: string, channel: string, file: string|null,
+     *     node: \MarkupCarve\Carve2\Node|null, slots: array<string, string|int>}>
      */
     public array $entries = [];
+
+    public ?Node $currentNode = null;
 
     /**
      * C2-H-052: raw HTML was escaped in this render.
@@ -32,17 +36,26 @@ final class RenderLog
      * @param array<string, string|int> $slots The slots of the catalog message.
      * @param string|null $file
      * @param int $variant
+     * @param \MarkupCarve\Carve2\Node|null $node
      *
      * @return void
      */
-    public function loss(string $code, string $severity, array $slots = [], ?string $file = null, int $variant = 0): void
-    {
+    public function loss(
+        string $code,
+        string $severity,
+        array $slots = [],
+        ?string $file = null,
+        int $variant = 0,
+        ?Node $node = null,
+    ): void {
         $this->entries[] = [
             'code' => $code,
             'severity' => $severity,
             'message' => Message::fill($code, $slots, $variant),
             'channel' => 'render-loss',
             'file' => $file,
+            'node' => $node ?? $this->currentNode,
+            'slots' => $slots,
         ];
     }
 }

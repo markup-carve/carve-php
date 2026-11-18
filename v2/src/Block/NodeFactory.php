@@ -130,7 +130,7 @@ final class NodeFactory
             case Frame::THEMATIC:
                 return Node::at('thematic_break', $f->start, $f->end);
             case Frame::LINE_BLOCK:
-                return self::lineBlock($f);
+                return self::lineBlock($f, $s);
             case Frame::FRONTMATTER:
                 $node = Node::at('frontmatter', $f->start, $f->end);
                 $node->f['format'] = $f->value;
@@ -402,18 +402,35 @@ final class NodeFactory
      * C2-A-069: one `line` per body line; an empty line has no children and ends a stanza.
      *
      * @param \MarkupCarve\Carve2\Block\Frame $f
+     * @param string $s
      *
      * @return \MarkupCarve\Carve2\Node
      */
-    private static function lineBlock(Frame $f): Node
+    private static function lineBlock(Frame $f, string $s): Node
     {
         $node = Node::at('line_block', $f->start, $f->end);
         $node->children = [];
+        $comments = $f->hiddenComments;
+        if ($f->lineComment !== null) {
+            $comments[] = $f->lineComment;
+        }
+        $commentIndex = 0;
         $n = count($f->spans);
         for ($k = 0; $k < $n; $k += 2) {
+            while (isset($comments[$commentIndex]) && $comments[$commentIndex]->start < $f->spans[$k]) {
+                $node->children[] = self::commentBlock($comments[$commentIndex++], $s);
+            }
             $line = Node::at('line', $f->spans[$k], $f->spans[$k + 1]);
             $line->lines = $f->spans[$k + 1] > $f->spans[$k] ? [$f->spans[$k], $f->spans[$k + 1]] : [];
+            if (isset($f->lazyLineComments[$k])) {
+                $line->layout['lazyComments'] = $f->lazyLineComments[$k];
+                $last = $f->lazyLineComments[$k][count($f->lazyLineComments[$k]) - 1];
+                $line->end = $last[1];
+            }
             $node->children[] = $line;
+        }
+        while (isset($comments[$commentIndex])) {
+            $node->children[] = self::commentBlock($comments[$commentIndex++], $s);
         }
         $attrs = new Attrs();
         if ($f->attrs !== null) {

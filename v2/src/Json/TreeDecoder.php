@@ -79,6 +79,7 @@ final class TreeDecoder
                 if ($value instanceof stdClass && is_int($value->startOffset ?? null) && is_int($value->endOffset ?? null)) {
                     $node->start = $value->startOffset;
                     $node->end = $value->endOffset;
+                    $node->layout['pos'] = get_object_vars($value);
                 }
 
                 continue;
@@ -169,7 +170,7 @@ final class TreeDecoder
             return $out;
         }
 
-        return $value;
+        return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : $value;
     }
 
     /**
@@ -197,6 +198,6 @@ final class TreeDecoder
             return array_map([self::class, 'opaque'], $value);
         }
 
-        return $value;
+        return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : $value;
     }
 }

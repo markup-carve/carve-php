@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Test\Render;
 
+use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
+use MarkupCarve\Carve2\Json\TreeError;
+use MarkupCarve\Carve2\Json\TreeReader;
+use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
 
 /**
@@ -12,6 +16,154 @@ use MarkupCarve\Carve2\Options;
  */
 final class HtmlOutputTest extends RenderTestCase
 {
+    public function testC2H168StaticCoreMathKeepsMathSpan(): void
+    {
+        self::assertSame(
+            '<p><span class="math inline" role="math">\\(x\\)</span></p>',
+            Carve2::toHtml('$`x`', ['mode' => 'static']),
+        );
+        self::assertSame(
+            '<ul>' . "\n" . '  <li><span class="math display" role="math">\\[x\\]</span></li>' . "\n" . '</ul>',
+            Carve2::toHtml('- $$`x`', ['mode' => 'static']),
+        );
+    }
+
+    public function testC2H015AlignIsFoldedOnLineBlock(): void
+    {
+        self::assertSame(
+            '<div class="line-block" style="text-align: center;">' . "\n" . '  <p>a</p>' . "\n" . '</div>',
+            Carve2::toHtml("{align=' CENTER '}\n::: |\na\n:::"),
+        );
+    }
+
+    public function testC2H058AuthoredCellSpansAreNotWritten(): void
+    {
+        self::assertStringNotContainsString('rowspan=', Carve2::toHtml('|{rowspan=2} a | b |'));
+        self::assertStringNotContainsString('ColSpan=', Carve2::toHtml('|{ColSpan=3} a | b |'));
+    }
+
+    public function testC2H075SemanticSpanKeysUseExactLowercase(): void
+    {
+        self::assertSame('<p><span KBD="">x</span></p>', Carve2::toHtml('[x]{KBD}'));
+        self::assertSame('<p><time>x</time></p>', Carve2::toHtml('[x]{time=""}'));
+    }
+
+    public function testC2H152ColumnWidthKeepsSignificantDecimalDigits(): void
+    {
+        self::assertStringContainsString(
+            '<col style="width: 30.000000000001%;">',
+            Carve2::toHtml("{widths=30.000000000001}\n| a |"),
+        );
+        $tree = self::doc([
+            'type' => 'table',
+            'columns' => [['type' => 'table_column', 'width' => 1.0e-14]],
+            'children' => [
+                [
+
+                    'type' => 'table_body',
+                    'children' => [
+                        [
+                            'type' => 'table_row', 'children' => [
+                                [
+                                    'type' => 'table_cell', 'children' => [
+                                        [
+                                            'type' => 'cell_paragraph',
+                                            'children' => [self::t('a')],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        self::assertStringContainsString('<col style="width: 0.000000000001%;">', self::html($tree));
+    }
+
+    public function testC2H020BlockImageTakesParagraphAttributes(): void
+    {
+        self::assertSame('<img src="y.png" alt="a" class="c wide">', Carve2::toHtml("{.c}\n![a](y.png){.wide}"));
+        self::assertSame('<p class="c">![a][missing]</p>', Carve2::toHtml("{.c}\n![a][missing]"));
+    }
+
+    public function testC2H165DegradedLeafUsesPlainText(): void
+    {
+        self::assertSame('<p># H</p>' . "\n" . '<p>see H b</p>', Carve2::toHtml("# H\n\nsee </#H> b", ['profile' => 'minimal']));
+        self::assertSame('<p>x</p>', Carve2::toHtml('`x`{=html}', ['profile' => 'minimal']));
+    }
+
+    public function testC2H019ParagraphMadeEmptyByProfileWritesNothing(): void
+    {
+        self::assertSame('', Carve2::toHtml('[](/u)', ['profile' => 'minimal']));
+    }
+
+    public function testC2H100LinkedMentionHasNoStrongElement(): void
+    {
+        self::assertSame(
+            '<p><a class="mention" href="https://x.org/u/ann">@ann</a></p>',
+            Carve2::toHtml('@ann', ['social' => ['mentionUrl' => 'https://x.org/u/{name}']]),
+        );
+    }
+
+    public function testC2H043LineEndUsesOneBreakAfterHardBreak(): void
+    {
+        self::assertSame(
+            '<div class="line-block">' . "\n" . '  <p>a<br>' . "\n" . 'b</p>' . "\n" . '</div>',
+            Carve2::toHtml("::: |\na\\\nb\n:::"),
+        );
+    }
+
+    public function testC2H013ConsumedRelKeyUsesAsciiCase(): void
+    {
+        self::assertSame('<p><a href="/u">x</a></p>', Carve2::toHtml('[x](/u){REL="javascript:x"}'));
+    }
+
+    public function testC2H167RelWordsSplitAtAsciiWhitespace(): void
+    {
+        self::assertSame('<p><a href="/u">x</a></p>', Carve2::toHtml("[x](/u){rel=\"\t\"}"));
+        self::assertSame(
+            '<p><a href="/u" rel="nofollow ugc">x</a></p>',
+            Carve2::toHtml("[x](/u){rel=\"nofollow\tugc\"}", ['profile' => 'comment']),
+        );
+    }
+
+    public function testC2H153TableOnlyKeysUseAsciiCase(): void
+    {
+        self::assertStringStartsWith('<table>', Carve2::toHtml("{WIDTHS=not-a-width BODY-ROWS=bad}\n| a |"));
+    }
+
+    public function testC2H126SocialResolverGetsContextAndIsFinal(): void
+    {
+        $seen = [];
+        $html = Carve2::toHtml('@ann', [
+
+            'social' => [
+                'mentionUrl' => '/fallback/{name}',
+                'context' => ['source' => 'test'],
+                'resolveMention' => static function (array $request) use (&$seen): ?string {
+                    $seen = $request;
+
+                    return null;
+                },
+            ],
+        ]);
+        self::assertSame('<p><span class="mention"><strong>@ann</strong></span></p>', $html);
+        self::assertSame(['kind' => 'mention', 'name' => 'ann', 'context' => ['source' => 'test']], $seen);
+    }
+
+    public function testC2H176InvalidSuppliedMentionNameIsReplacedInUrl(): void
+    {
+        $mention = new Node('mention');
+        $mention->f = ['target' => "\xED\xA0\x80", 'label' => 'ok'];
+        $paragraph = new Node('paragraph', [$mention]);
+        $doc = new Node('document', [$paragraph]);
+        self::assertSame(
+            '<p><a class="mention" href="/u/%EF%BF%BD">ok</a></p>',
+            HtmlRenderer::render($doc, Options::from(['social' => ['mentionUrl' => '/u/{name}']])),
+        );
+    }
+
     /**
      * @return void
      */
@@ -318,7 +470,7 @@ final class HtmlOutputTest extends RenderTestCase
     /**
      * @return void
      */
-    public function testC2H060RowSpanAcrossGroupsUsesOneBody(): void
+    public function testC2A093RowSpanAcrossGroupsIsRefused(): void
     {
         $cell = static fn (string $t, array $extra = []): array => [
 
@@ -336,8 +488,8 @@ final class HtmlOutputTest extends RenderTestCase
                 ['type' => 'table_foot', 'children' => [['type' => 'table_row', 'children' => []]]],
             ],
         ];
-        $expected = "<table>\n  <tbody>\n    <tr><td rowspan=\"2\">a</td></tr>\n    <tr></tr>\n  </tbody>\n</table>";
-        $this->assertSame($expected, self::html(self::doc($table)));
+        $this->expectException(TreeError::class);
+        TreeReader::read(json_encode(self::doc($table), JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -457,7 +609,7 @@ final class HtmlOutputTest extends RenderTestCase
             'type' => 'tag',
             'name' => 't',
         ]));
-        $this->assertSame('<p><a class="mention" href="https://x/ann"><strong>@ann</strong></a> <span '
+        $this->assertSame('<p><a class="mention" href="https://x/ann">@ann</a> <span '
             . 'class="tag"><strong>#t</strong></span></p>', self::html($tree, ['social' => ['mentionUrl' => 'https://x/{name}']]));
     }
 

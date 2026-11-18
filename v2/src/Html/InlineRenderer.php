@@ -9,6 +9,7 @@ use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
 use MarkupCarve\Carve2\Resolve\PlainText;
+use Throwable;
 
 /**
  * Inline nodes to HTML (C2-H-072 to C2-H-101).
@@ -201,6 +202,17 @@ final class InlineRenderer
      */
     public function node(Node $node, int $depth = 0): string
     {
+        $previous = $this->log->currentNode;
+        $this->log->currentNode = $node;
+        try {
+            return $this->nodeContent($node, $depth);
+        } finally {
+            $this->log->currentNode = $previous;
+        }
+    }
+
+    private function nodeContent(Node $node, int $depth): string
+    {
         $type = $node->type;
         if ($type === 'text') {
             return Escape::text(PlainText::str($node->f['value'] ?? ''));
@@ -341,10 +353,6 @@ final class InlineRenderer
     {
         $value = PlainText::str($node->f['value'] ?? '');
         $display = ($node->f['display'] ?? false) === true;
-        if ($this->o->mode === 'static') {
-            return '<code' . $this->aw->build([], null, $attrs, $lang, ['language-math'], dir: AttrWriter::dirOf($node)) . '>'
-                . Escape::text($value) . '</code>';
-        }
         $classes = ['math', $display ? 'display' : 'inline'];
         $out = '<span' . $this->aw->build([], null, $attrs, $lang, $classes, [], [['role', 'math']], dir: AttrWriter::dirOf($node)) . '>'
             . ($display ? '\\[' : '\\(') . Escape::text($value) . ($display ? '\\]' : '\\)') . '</span>';
@@ -405,7 +413,14 @@ final class InlineRenderer
         if ($attrs !== null) {
             $rest = clone $attrs;
             foreach (['abbr' => 'title', 'time' => 'datetime', 'kbd' => null] as $key => $target) {
-                $value = $rest->get($key);
+                $value = null;
+                foreach ($rest->pairs as [$name, $candidate]) {
+                    if ($name === $key) {
+                        $value = $candidate;
+
+                        break;
+                    }
+                }
                 if ($value !== null) {
                     $rest->remove($key);
                     $layers[] = [$key, $target, $value];
@@ -465,6 +480,11 @@ final class InlineRenderer
             return $this->inlines($node->children ?? [], $depth + 1, true);
         }
         $def = is_string($key) ? $this->state->linkDefs[$key] ?? null : null;
+        if ($this->o->profile === 'comment' && !UrlPolicy::passes(PlainText::str($href), $this->o)) {
+            $this->destination(PlainText::str($href));
+
+            return $this->profile?->plainInline($node) ?? Escape::text(PlainText::of($node->children ?? []));
+        }
         $merged = self::mergeDefinition($attrs, $def);
         $structural = $this->linkStructural($node, is_string($key) ? $key : null, PlainText::str($href), $def, $merged);
         $this->linkDepth++;
@@ -667,6 +687,11 @@ final class InlineRenderer
         if ($this->linkDepth > 0) {
             return $text;
         }
+        if ($this->o->profile === 'comment' && !UrlPolicy::passes($href, $this->o)) {
+            $this->destination($href);
+
+            return $text;
+        }
         $structural = [['href', $this->destination($href)]];
         $rel = $this->rel($attrs);
         if ($rel !== null) {
@@ -724,11 +749,7 @@ final class InlineRenderer
         $number = $node->f['number'] ?? null;
         $id = $this->state->refIds[spl_object_id($node)] ?? null;
         if (!is_int($number) || $id === null) {
-            if ($node->type === 'inline_footnote') {
-                return $this->inlines($node->children ?? [], $depth + 1, true);
-            }
-
-            return Escape::text('[^' . PlainText::str($node->f['key'] ?? '') . ']');
+            return $this->unresolvedNoteMark($node, $depth);
         }
         $structural = [['id', $id], ['href', '#fn' . $number], ['role', 'doc-noteref']];
         if ($this->o->roundtrip && $node->type === 'footnote_ref') {
@@ -743,6 +764,21 @@ final class InlineRenderer
         }
 
         return $mark;
+    }
+
+    private function unresolvedNoteMark(Node $node, int $depth): string
+    {
+        if ($node->type === 'inline_footnote') {
+            return $this->inlines($node->children ?? [], $depth + 1, true);
+        }
+        $attrs = $node->f['attrs'] ?? null;
+        $lang = $node->f['lang'] ?? null;
+        $text = '[^' . PlainText::str($node->f['key'] ?? '') . ']';
+
+        return Escape::text($text . self::attributeText(
+            $attrs instanceof Attrs ? $attrs : null,
+            is_string($lang) ? $lang : null,
+        ));
     }
 
     /**
@@ -762,7 +798,10 @@ final class InlineRenderer
         if (!is_string($href)) {
             return Escape::text('</#' . $key . '>');
         }
-        $text = Escape::text($this->state->xrefText($key) ?? $key);
+        $text = $this->state->xrefHtmlText($key) ?? Escape::text($key);
+        if (!$this->derivedFits(strlen($text))) {
+            $text = Escape::text($key);
+        }
         if ($this->linkDepth > 0) {
             return $text;
         }
@@ -788,12 +827,27 @@ final class InlineRenderer
     {
         $term = Escape::text(PlainText::str($node->f['key'] ?? ''));
         $expansion = $node->f['expansion'] ?? null;
-        if ($this->abbrSpan > 0 || !is_string($expansion)) {
+        if ($this->abbrSpan > 0 || !is_string($expansion) || !$this->derivedFits(strlen($expansion))) {
             return $term;
         }
 
         return '<abbr' . $this->aw->build([['title', $expansion]], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>'
             . $term . '</abbr>';
+    }
+
+    private function derivedFits(int $cost): bool
+    {
+        if ($cost <= $this->state->derivedRemaining) {
+            $this->state->derivedRemaining -= $cost;
+
+            return true;
+        }
+        if (!$this->state->budgetReported) {
+            $this->state->budgetReported = true;
+            $this->log->loss('derived-text-budget', 'warning');
+        }
+
+        return false;
     }
 
     /**
@@ -813,7 +867,7 @@ final class InlineRenderer
         $label = $mention && is_string($node->f['label'] ?? null) ? $node->f['label'] : ($mention ? '@' : '#') . $name;
         $inner = '<strong>' . Escape::text($label) . '</strong>';
         $url = $this->linkDepth > 0 || ($this->profile !== null && !$this->profile->allowsType('link'))
-            ? null : $this->socialUrl($mention, $name, $node);
+            ? null : $this->socialUrl($mention, $name);
         $class = $mention ? 'mention' : 'tag';
         if ($url === null) {
             return '<span' . $this->aw->build([], null, $attrs, $lang, [$class], dir: AttrWriter::dirOf($node)) . '>' . $inner . '</span>';
@@ -831,28 +885,34 @@ final class InlineRenderer
             $built = $m[0] . str_replace($m[0], '', $built);
         }
 
-        return '<a' . $built . '>' . $inner . '</a>';
+        return '<a' . $built . '>' . Escape::text($label) . '</a>';
     }
 
     /**
      * @param bool $mention
      * @param string $name
-     * @param \MarkupCarve\Carve2\Node $node
      *
      * @return string|null
      */
-    private function socialUrl(bool $mention, string $name, Node $node): ?string
+    private function socialUrl(bool $mention, string $name): ?string
     {
         $resolver = $mention ? $this->o->resolveMention : $this->o->resolveTag;
         if ($resolver !== null) {
-            $url = $resolver($name, $node);
-            if (is_string($url) && $url !== '') {
-                return $url;
+            $request = ['kind' => $mention ? 'mention' : 'tag', 'name' => $name];
+            if ($this->o->socialHasContext) {
+                $request['context'] = $this->o->socialContext;
             }
+            try {
+                $url = $resolver($request);
+            } catch (Throwable) {
+                return null;
+            }
+
+            return is_string($url) && $url !== '' ? $url : null;
         }
         $template = $mention ? $this->o->mentionUrl : $this->o->tagUrl;
 
-        $encoded = str_replace(['%21', '%27', '%28', '%29', '%2A'], ['!', "'", '(', ')', '*'], rawurlencode($name));
+        $encoded = str_replace(['%21', '%27', '%28', '%29', '%2A'], ['!', "'", '(', ')', '*'], rawurlencode(Escape::clean($name)));
         $url = $template === null ? '' : str_replace('{name}', $encoded, $template);
 
         return $url === '' ? null : $url;

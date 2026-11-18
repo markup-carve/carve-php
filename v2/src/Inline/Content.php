@@ -36,6 +36,11 @@ final class Content
     private array $le = [];
 
     /**
+     * @var array<int> C2-B-138: an atom opened before this line cannot close after it.
+     */
+    private array $atomStops = [];
+
+    /**
      * Source offset of the text start when the content is one line, else -1.
      */
     public int $base = -1;
@@ -63,11 +68,30 @@ final class Content
             $this->ls[] = $spans[$k];
             $this->le[] = $spans[$k + 1];
             $line = self::trimEnd(substr($s, $spans[$k], max(0, $spans[$k + 1] - $spans[$k])));
+            if ($k > 0 && str_starts_with(ltrim($line, " \t"), '%%')) {
+                $this->atomStops[] = $off;
+            }
             $len = strlen($line);
             $parts[] = $line;
             $off += $len + 1;
         }
         $this->t = implode("\n", $parts);
+    }
+
+    public function crossesAtomStop(int $from, int $end): bool
+    {
+        $lo = 0;
+        $hi = count($this->atomStops);
+        while ($lo < $hi) {
+            $mid = ($lo + $hi) >> 1;
+            if ($this->atomStops[$mid] <= $from) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid;
+            }
+        }
+
+        return isset($this->atomStops[$lo]) && $this->atomStops[$lo] <= $end;
     }
 
     /**

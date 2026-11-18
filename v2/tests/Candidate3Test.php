@@ -26,7 +26,7 @@ final class Candidate3Test extends TestCase
     {
         $expected = "<dl>\n  <dt>T</dt>\n  <dd>\n    <img src=\"x.png\" alt=\"a\">\n  </dd>\n</dl>";
         $this->assertSame($expected, Carve2::toHtml(":: T\n: ![a](x.png)"));
-        $expected = "<dl>\n  <dt>T</dt>\n  <dd><p class=\"c\"><img src=\"x.png\" alt=\"a\"></p></dd>\n</dl>";
+        $expected = "<dl>\n  <dt>T</dt>\n  <dd>\n    <img src=\"x.png\" alt=\"a\" class=\"c\">\n  </dd>\n</dl>";
         $this->assertSame($expected, Carve2::toHtml(":: T\n: {.c}\n  ![a](x.png)"));
     }
 

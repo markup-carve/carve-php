@@ -72,7 +72,7 @@ final class PositionChecker
     public function failures(array $tree): array
     {
         $this->found = [];
-        $this->walk($tree, '', '', [], false);
+        $this->walk($tree, '', '', [], false, false);
 
         return $this->found;
     }
@@ -111,10 +111,11 @@ final class PositionChecker
      * @param string $file
      * @param array<array<string, mixed>> $ancestors
      * @param bool $inCell
+     * @param bool $derived
      *
      * @return void
      */
-    private function walk(mixed $value, string $path, string $file, array $ancestors, bool $inCell): void
+    private function walk(mixed $value, string $path, string $file, array $ancestors, bool $inCell, bool $derived): void
     {
         if (!is_array($value)) {
             return;
@@ -122,14 +123,14 @@ final class PositionChecker
         if (array_is_list($value)) {
             $this->siblings($value, $path);
             foreach ($value as $at => $item) {
-                $this->walk($item, $path . '/' . $at, $file, $ancestors, $inCell);
+                $this->walk($item, $path . '/' . $at, $file, $ancestors, $inCell, $derived);
             }
 
             return;
         }
         $isNode = is_string($value['type'] ?? null);
         if ($isNode) {
-            $this->node($value, $path, $file, $ancestors, $inCell);
+            $this->node($value, $path, $file, $ancestors, $inCell, $derived);
             $ancestors[] = $value;
             $inCell = $inCell || $value['type'] === 'table_cell';
         }
@@ -138,7 +139,9 @@ final class PositionChecker
                 continue;
             }
             $childFile = $isNode && $value['type'] === 'include' && $key === 'children' ? (string)($value['file'] ?? '') : $file;
-            $this->walk($child, $path . '/' . $key, $childFile, $ancestors, $inCell);
+            $childDerived = $derived || $isNode && $key === 'fallback'
+                && in_array($value['type'], ['block_extension', 'inline_extension'], true);
+            $this->walk($child, $path . '/' . $key, $childFile, $ancestors, $inCell, $childDerived);
         }
     }
 
@@ -148,10 +151,11 @@ final class PositionChecker
      * @param string $file
      * @param array<array<string, mixed>> $ancestors
      * @param bool $inCell
+     * @param bool $derived
      *
      * @return void
      */
-    private function node(array $node, string $path, string $file, array $ancestors, bool $inCell): void
+    private function node(array $node, string $path, string $file, array $ancestors, bool $inCell, bool $derived): void
     {
         $type = (string)$node['type'];
         $where = ($path === '' ? '/' : $path) . ' (' . $type . ')';
@@ -162,7 +166,7 @@ final class PositionChecker
         if (!is_array($pos)) {
             $emptyLine = $type === 'line' && ($node['children'] ?? []) === [];
             if (
-                $type !== 'document' && !isset(self::UNPOSITIONED[$type]) && !$inCell && !$emptyLine
+                $type !== 'document' && !isset(self::UNPOSITIONED[$type]) && !$inCell && !$emptyLine && !$derived
                 && !self::copiedCaption($ancestors, $type)
             ) {
                 $this->found[] = $where . ': no pos (C2-A-158)';

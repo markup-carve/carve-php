@@ -134,6 +134,11 @@ final class Scanner
     private array $frames = [];
 
     /**
+     * @var array<array{0: string, 1: int}>
+     */
+    private array $openBraces = [];
+
+    /**
      * C2-I-118: provisional delimiter openers for the bracket cap decision.
      *
      * @var array<array{0: string, 1: int, 2: int, 3: int}>
@@ -177,6 +182,8 @@ final class Scanner
      * @var array{0: int, 1: int, 2: int}
      */
     private array $labelCache = [-1, -1, -1];
+
+    private int $failedLabelComment = -1;
 
     /**
      * @var array{0: int, 1: int}
@@ -276,7 +283,8 @@ final class Scanner
             '}' => $this->closingBrace($i),
             '[' => $this->openBracket($i),
             ']' => $this->closeBracket($i),
-            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' ? $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '') : -1,
+            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' && !$this->insideFootnote()
+                ? $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '') : -1,
             '*', '/' => $this->bare($i),
             "\n" => $this->lineBreak($i, $i, $this->hardBreaks ? 'hard_break' : 'soft_break'),
             default => $this->sigilChar($i),
@@ -467,6 +475,13 @@ final class Scanner
             return $this->lineBreak($i, $i + 1, 'hard_break');
         }
         if ($c === ' ') {
+            if ($i + 2 >= $this->n) {
+                return $this->emit([self::NODE, $this->node('hard_break', $i, $i + 2), $i, $i + 2, false, null]);
+            }
+            if ($t[$i + 2] === "\n") {
+                return $this->lineBreak($i, $i + 2, 'hard_break');
+            }
+
             return $this->emit([self::NODE, $this->node('non_breaking_space', $i, $i + 2), $i, $i + 2, false, null]);
         }
         if (ctype_punct($c)) {
@@ -585,7 +600,7 @@ final class Scanner
         $t = $this->t;
         $len = strspn($t, '`', $run);
         $close = $this->closingRun($len, $run + $len);
-        if ($close < 0) {
+        if ($close < 0 || $this->c->crossesAtomStop($start, $close)) {
             // C2-I-017: the whole opener is text, and the scan resumes behind its run.
             return $run + $len;
         }
@@ -774,7 +789,7 @@ final class Scanner
         $m = $t[$i + 1];
         if ($m === '%') {
             $close = $this->braceCommentEnd($i);
-            if ($close > 0) {
+            if ($close > 0 && !$this->c->crossesAtomStop($i, $close)) {
                 $node = $this->node('comment', $i, $close);
                 $node->f['form'] = 'braced';
                 $node->f['value'] = self::trimOne(substr($t, $i + 2, $close - $i - 4));
@@ -788,7 +803,7 @@ final class Scanner
         if ($m === '#') {
             // C2-I-063: the first `#}` decides.
             $p = Chars::isGlue(Chars::at($t, $i + 2)) ? -1 : $this->nextPos('#}', $i + 2);
-            if ($p > $i + 2) {
+            if ($p > $i + 2 && !$this->c->crossesAtomStop($i, $p)) {
                 $node = $this->node('critic_comment', $i, $p + 2);
                 $node->f['value'] = substr($t, $i + 2, $p - $i - 2);
 
@@ -960,14 +975,17 @@ final class Scanner
             return -1;
         }
         $prev = Chars::before($t, $i);
-        if ($prev !== -1 && $prev !== 0x0A && !Chars::isSpace($prev)) {
+        $contentStart = $this->frames !== [] && $this->frames[count($this->frames) - 1][3] === $i;
+        $braceStart = $this->openBraces !== [] && $this->openBraces[count($this->openBraces) - 1][1] + 2 === $i;
+        if (!$contentStart && !$braceStart && $prev !== -1 && $prev !== 0x0A && !Chars::isSpace($prev)) {
             return -1;
         }
         $start = $i;
         while ($start > $this->textStart && ($t[$start - 1] === ' ' || $t[$start - 1] === "\t")) {
             $start--;
         }
-        $end = $this->lineEnd($i);
+        $lineEnd = $this->lineEnd($i);
+        $end = $i === $this->failedLabelComment ? $lineEnd : $this->commentCloser($i, $lineEnd);
         $value = substr($t, $i + 2, $end - $i - 2);
         if ($value !== '' && $value[0] === ' ') {
             $value = substr($value, 1);
@@ -975,13 +993,66 @@ final class Scanner
         // G-inline-1: the value ends at the last character that is no space, an escaped space included.
         $value = rtrim($value, " \t");
         // G-inline-7: the line form owns the spaces at the end of its line.
-        $srcEnd = $this->c->lineEnd($i);
+        $srcEnd = $end === $lineEnd ? $this->c->lineEnd($i) : $this->c->src($end);
         $node = Node::at('comment', $this->c->src($start), $srcEnd);
-        $this->breakStart[$end] = $srcEnd;
+        if ($end === $lineEnd) {
+            $this->breakStart[$end] = $srcEnd;
+        }
         $node->f['form'] = 'line';
         $node->f['value'] = $value;
 
         return $this->emit([self::NODE, $node, $start, $end, false, null]);
+    }
+
+    private function commentCloser(int $i, int $lineEnd): int
+    {
+        $frame = $this->frames === [] ? null : $this->frames[count($this->frames) - 1];
+        $brace = $this->openBraces === [] ? null : $this->openBraces[count($this->openBraces) - 1];
+        if ($frame === null && $brace === null) {
+            return $lineEnd;
+        }
+        $closer = $brace !== null && ($frame === null || $brace[1] > $frame[2]) ? $brace[0] . '}' : ']';
+        $stack = [$closer];
+        $t = $this->t;
+        for ($p = $i + 2; $p < $lineEnd; $p++) {
+            if ($t[$p] === '\\') {
+                $p++;
+
+                continue;
+            }
+            if ($t[$p] === '`') {
+                $p = $this->skipCommentCode($p, $lineEnd);
+
+                continue;
+            }
+            if ($t[$p] === '[') {
+                $stack[] = ']';
+            } elseif ($t[$p] === '{' && $p + 1 < $lineEnd && isset(Tables::BRACED_MARKS[$t[$p + 1]])) {
+                $stack[] = $t[++$p] . '}';
+            } elseif (str_starts_with(substr($t, $p, 2), $stack[count($stack) - 1])) {
+                $p += strlen(array_pop($stack)) - 1;
+                if ($stack === []) {
+                    return $p - strlen($closer) + 1;
+                }
+            }
+        }
+
+        return $lineEnd;
+    }
+
+    private function skipCommentCode(int $p, int $lineEnd): int
+    {
+        $run = strspn($this->t, '`', $p, $lineEnd - $p);
+        $next = $p + $run;
+        while (($next = strpos($this->t, '`', $next)) !== false && $next < $lineEnd) {
+            $length = strspn($this->t, '`', $next, $lineEnd - $next);
+            if ($length === $run) {
+                return $next + $run - 1;
+            }
+            $next += $length;
+        }
+
+        return $p + $run - 1;
     }
 
     /**
@@ -1032,13 +1103,24 @@ final class Scanner
     }
 
     /**
-     * @param array<mixed> $token
+     * @param array{int, int, int, int, string, bool, bool, bool, int} $token
      *
      * @return int
      */
     private function delim(array $token): int
     {
         $this->delims = true;
+        if ($token[1] === self::OPENER) {
+            $this->openBraces[] = [$token[4], $token[2]];
+        } elseif ($token[1] === self::CLOSER) {
+            for ($i = count($this->openBraces) - 1; $i >= 0; $i--) {
+                if ($this->openBraces[$i][0] === $token[4]) {
+                    $this->openBraces = array_slice($this->openBraces, 0, $i);
+
+                    break;
+                }
+            }
+        }
         if ($this->capTracking) {
             $token['frames'] = count($this->frames);
             $this->trackCapDelimiter($token);
@@ -1246,6 +1328,9 @@ final class Scanner
      */
     private function openBracket(int $i): int
     {
+        if ($this->insideFootnote()) {
+            return $this->pushFrame(self::F_BRACKET, $i, $i + 1, '');
+        }
         if ($i + 1 < $this->n && $this->t[$i + 1] === '^') {
             $close = $this->label($i + 2);
             if ($close < 0) {
@@ -1263,6 +1348,17 @@ final class Scanner
         }
 
         return $this->pushFrame(self::F_BRACKET, $i, $i + 1, '');
+    }
+
+    private function insideFootnote(): bool
+    {
+        foreach ($this->frames as $frame) {
+            if ($frame[0] === self::F_FOOTNOTE) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1300,6 +1396,8 @@ final class Scanner
                 continue;
             }
             if ($p + 1 < $n && $t[$p + 1] === '%' && !$this->lineBlock && Chars::isSpace(Chars::before($t, $p))) {
+                $this->failedLabelComment = $p;
+
                 break;
             }
             $p++;
@@ -1322,6 +1420,11 @@ final class Scanner
             return -1;
         }
         $frame = array_pop($this->frames);
+        $lastBrace = count($this->openBraces) - 1;
+        while ($lastBrace >= 0 && $this->openBraces[$lastBrace][1] > $frame[2]) {
+            array_pop($this->openBraces);
+            $lastBrace--;
+        }
         [$kind] = $frame;
         if ($kind === self::F_FOOTNOTE || $kind === self::F_EXTENSION) {
             $type = $kind === self::F_FOOTNOTE ? 'inline_footnote' : 'inline_extension';
@@ -1401,7 +1504,7 @@ final class Scanner
                 $node->f['tooltip'] = $tail[1];
             }
             if ($image) {
-                $node->f['alt'] = $text;
+                $node->f['alt'] = self::altText($text);
             }
 
             return $this->form($frame, $node, $i, $tail[2]);
@@ -1500,10 +1603,27 @@ final class Scanner
         // C2-L-049: the bracket that closes the reference.
         $node->layout['refEnd'] = $this->c->src($end - 1) + 1;
         if ($image) {
-            $node->f['alt'] = $text;
+            $node->f['alt'] = self::altText($text);
         }
 
         return $this->form($frame, $node, $i, $end);
+    }
+
+    private static function altText(string $source): string
+    {
+        $out = '';
+        $length = strlen($source);
+        for ($i = 0; $i < $length; $i++) {
+            if ($source[$i] === '\\' && $i + 1 < $length) {
+                $ch = ord($source[$i + 1]);
+                if (($ch >= 33 && $ch <= 47) || ($ch >= 58 && $ch <= 64) || ($ch >= 91 && $ch <= 96) || ($ch >= 123 && $ch <= 126)) {
+                    $i++;
+                }
+            }
+            $out .= $source[$i];
+        }
+
+        return $out;
     }
 
     /**

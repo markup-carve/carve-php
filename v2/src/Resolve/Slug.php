@@ -25,7 +25,7 @@ final class Slug
         if (preg_match('/[\x80-\xff]/', $plain) !== 1) {
             // ASCII: NFC, the removed and the reversed characters (all outside ASCII) change nothing.
             $slug = self::hyphenate($plain);
-            if ($policy === 'lower' || $policy === 'ascii') {
+            if ($policy === 'lower' || str_ends_with($policy, '-lower')) {
                 $slug = strtolower($slug);
             }
 
@@ -38,9 +38,13 @@ final class Slug
         // C2-H-145
         $text = strtr($text, Tables::SLUG_REVERSED);
         $slug = self::hyphenate($text);
-        if ($policy === 'ascii') {
-            $slug = self::lower(self::hyphenate(self::ascii($slug)));
-        } elseif ($policy === 'lower') {
+        if (str_starts_with($policy, 'ascii')) {
+            $transliterated = self::ascii($slug);
+            $slug = str_starts_with($policy, 'ascii-strict')
+                ? trim((string)preg_replace('/[^A-Za-z0-9]+/u', '-', $transliterated), '-')
+                : self::hyphenate($transliterated);
+        }
+        if ($policy === 'lower' || str_ends_with($policy, '-lower')) {
             $slug = self::lower($slug);
         }
         // C2-H-148
@@ -93,8 +97,8 @@ final class Slug
     }
 
     /**
-     * C2-H-147: the transliteration belongs to the host. This one decomposes (NFD) and drops every
-     * character outside ASCII, which is what the reference engine does, so the ids agree.
+     * C2-H-147: the transliteration belongs to the host. Decompose accented characters and keep
+     * characters that have no ASCII mapping.
      *
      * @param string $text
      *
@@ -104,7 +108,6 @@ final class Slug
     {
         $nfd = Normalizer::normalize($text, Normalizer::FORM_D);
 
-        // C2-H-147: one byte class run, linear.
-        return (string)preg_replace('/[\x80-\xff]+/', '', is_string($nfd) ? $nfd : $text);
+        return (string)preg_replace('/\p{Mn}+/u', '', is_string($nfd) ? $nfd : $text);
     }
 }

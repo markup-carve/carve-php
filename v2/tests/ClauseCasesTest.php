@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Test\Support\Corpus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -44,7 +45,7 @@ final class ClauseCasesTest extends TestCase
         $this->assertIsString($source);
         $this->assertIsArray($options);
         $this->assertSame($case['html'], Carve2::toHtml($source, $options));
-        $tree = json_decode(Carve2::toJson($source, $options), true, 512, JSON_THROW_ON_ERROR);
+        $tree = json_decode(Carve2::toJson($source, Corpus::parseOptions($options)), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame(self::stripFacts($case['tree']), self::stripFacts($tree));
     }
 

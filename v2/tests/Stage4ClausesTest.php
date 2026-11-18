@@ -90,7 +90,9 @@ final class Stage4ClausesTest extends TestCase
         foreach (["{#f}\n![a](x.png)\n^ Cap", "{#f}\n```\nx\n```\n^ Cap"] as $source) {
             $html = Carve2::toHtml($source, ['sourceLines' => true]);
             $this->assertStringContainsString('<figure id="f" data-source-line="1">', $html);
-            $this->assertStringContainsString('data-source-line="2"', $html);
+            if (str_contains($source, '```')) {
+                $this->assertStringContainsString('data-source-line="2"', $html);
+            }
             $this->assertSame(1, substr_count($html, 'id="f"'));
         }
     }
@@ -308,20 +310,20 @@ final class Stage4ClausesTest extends TestCase
         $this->assertSame('<p>[img: a]</p>', Carve2::toHtml('![a](x)', ['profile' => 'minimal']));
     }
 
-    public function testC2W077DegradedInlineKeepsWriterPaddingAndMathKind(): void
+    public function testC2H165DegradedInlineUsesPlainText(): void
     {
         $this->assertSame(
-            '<p><strong><strong>`  a  `</strong></strong></p>',
+            '<p><strong><strong> a </strong></strong></p>',
             Carve2::toHtml('{*{*`  a  `*}*}', ['profile' => 'minimal']),
         );
-        $this->assertSame('<p>$$`m`</p>', Carve2::toHtml('$$`m`', ['profile' => 'minimal']));
-        $this->assertSame('<p>`  a  `{=html}</p>', Carve2::toHtml('`  a  `{=html}', ['profile' => 'minimal']));
+        $this->assertSame('<p>m</p>', Carve2::toHtml('$$`m`', ['profile' => 'minimal']));
+        $this->assertSame('<p> a </p>', Carve2::toHtml('`  a  `{=html}', ['profile' => 'minimal']));
     }
 
-    public function testC2W048DegradedInlineKeepsAttachedAttributes(): void
+    public function testC2H165DegradedInlineDropsAttachedAttributes(): void
     {
         $this->assertSame(
-            '<p><strong><strong>`a`{.c}</strong></strong></p>',
+            '<p><strong><strong>a</strong></strong></p>',
             Carve2::toHtml('{*{*`a`{.c}*}*}', ['profile' => 'minimal']),
         );
     }

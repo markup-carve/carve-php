@@ -102,7 +102,10 @@ final class TreeReader
             throw new TreeError('schema', '');
         }
 
-        return self::readValue($value, $options);
+        $node = self::readValue($value, $options);
+        $node->layout['jsonByteLength'] = strlen($json);
+
+        return $node;
     }
 
     /**
@@ -211,11 +214,26 @@ final class TreeReader
      */
     private static function checkTree(stdClass $root, array $declared, string $prefix): void
     {
-        $stack = [[$root, $prefix, 0, 0]];
+        $stack = [[$root, $prefix, 0, 0, 0, 0]];
+        $annotationIds = [];
         while ($stack !== []) {
-            [$node, $path, $blocks, $inlines] = array_pop($stack);
+            [$node, $path, $blocks, $inlines, $qualified, $unqualified] = array_pop($stack);
             self::checkNode($node, $path, $declared);
+            self::checkAnnotationIds($node, $path, $annotationIds);
             $type = is_string($node->type ?? null) ? $node->type : '';
+            if ($type === 'inline_extension' || $type === 'block_extension') {
+                if (str_contains($node->name ?? '', '.')) {
+                    $qualified++;
+                    $unqualified = 0;
+                } else {
+                    $unqualified++;
+                }
+                if ($qualified > 32 || $unqualified > 32) {
+                    throw new TreeError('extension-depth', $path);
+                }
+            } else {
+                $unqualified = 0;
+            }
             if (isset(self::INLINE[$type])) {
                 $inlines += isset($node->children) ? 1 : 0;
             } else {
@@ -229,7 +247,24 @@ final class TreeReader
                 // C2-A-171: the children of an expanded include start again at level 0.
                 $blocks = 0;
             }
-            self::pushNodes($node, $path, $blocks, $inlines, $stack);
+            self::pushNodes($node, $path, $blocks, $inlines, $qualified, $unqualified, $stack);
+        }
+    }
+
+    /**
+     * @param \stdClass $node
+     * @param string $path
+     * @param array<true> $seen
+     *
+     * @throws \MarkupCarve\Carve2\Json\TreeError
+     */
+    private static function checkAnnotationIds(stdClass $node, string $path, array &$seen): void
+    {
+        foreach ($node->data->{'carve.annotation'}->ids ?? [] as $id) {
+            if (isset($seen[$id])) {
+                throw new TreeError('annotation-id', $path . '/data/carve.annotation');
+            }
+            $seen[$id] = true;
         }
     }
 
@@ -245,6 +280,9 @@ final class TreeReader
         $seen = [];
         foreach ($node->attrs->keyValues ?? [] as $i => $pair) {
             $key = strtolower($pair[0]);
+            if ($node->type === 'span' && $pair[0] === $key && in_array($key, ['abbr', 'time', 'kbd'], true)) {
+                $key = 'semantic:' . $key;
+            }
             if (isset($seen[$key])) {
                 throw new TreeError('duplicate-attribute-key', $path . '/attrs/keyValues/' . $i . '/0');
             }
@@ -277,6 +315,8 @@ final class TreeReader
             self::ranges($node, $path);
         } elseif ($type === 'table') {
             self::groupOrder($node, $path);
+        } elseif (in_array($type, ['table_head', 'table_body', 'table_foot'], true)) {
+            self::rowspans($node, $path);
         } elseif ($type === 'autolink' && isset($node->text) && $node->text === ($node->href ?? null)) {
             // C2-A-058: a default has one encoding.
             throw new TreeError('autolink-default-text', $path . '/text');
@@ -287,6 +327,19 @@ final class TreeReader
         }
         if (in_array($node->type ?? '', ['block_extension', 'inline_extension'], true)) {
             self::extension($node, $path, $declared);
+        }
+    }
+
+    private static function rowspans(stdClass $group, string $path): void
+    {
+        $rows = $group->children ?? [];
+        $count = count($rows);
+        foreach ($rows as $r => $row) {
+            foreach ($row->children ?? [] as $c => $cell) {
+                if (($cell->rowspan ?? 1) > $count - $r) {
+                    throw new TreeError('table-rowspan-group', $path . '/children/' . $r . '/children/' . $c);
+                }
+            }
         }
     }
 
@@ -481,10 +534,19 @@ final class TreeReader
      * @param string $path
      * @param int $blocks
      * @param int $inlines
-     * @param array<array{\stdClass, string, int, int}> $stack
+     * @param int $qualified
+     * @param int $unqualified
+     * @param array<array{\stdClass, string, int, int, int, int}> $stack
      */
-    private static function pushNodes(stdClass $node, string $path, int $blocks, int $inlines, array &$stack): void
-    {
+    private static function pushNodes(
+        stdClass $node,
+        string $path,
+        int $blocks,
+        int $inlines,
+        int $qualified,
+        int $unqualified,
+        array &$stack,
+    ): void {
         foreach (get_object_vars($node) as $key => $value) {
             if (in_array($key, ['data', 'props', 'payload', 'source', 'resources', 'extensions'], true)) {
                 continue;
@@ -494,7 +556,7 @@ final class TreeReader
                 [$current, $currentPath] = array_pop($pending);
                 if ($current instanceof stdClass) {
                     if (isset($current->type) && is_string($current->type)) {
-                        $stack[] = [$current, $currentPath, $blocks, $inlines];
+                        $stack[] = [$current, $currentPath, $blocks, $inlines, $qualified, $unqualified];
                     } else {
                         foreach (get_object_vars($current) as $k => $v) {
                             $pending[] = [$v, $currentPath . '/' . self::escape((string)$k)];

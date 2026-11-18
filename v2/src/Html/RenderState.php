@@ -19,6 +19,10 @@ use MarkupCarve\Carve2\Resolve\Walk;
  */
 final class RenderState
 {
+    public int $derivedRemaining;
+
+    public bool $budgetReported = false;
+
     /**
      * Node types whose subtree end a later pass reads.
      *
@@ -59,6 +63,11 @@ final class RenderState
      * @var array<string, string|\MarkupCarve\Carve2\Node>
      */
     private array $xrefText = [];
+
+    /**
+     * @var array<string, string|null>
+     */
+    private array $xrefHtmlText = [];
 
     /**
      * Generated title ids of admonitions and of the placing footnotes directive (C2-H-156).
@@ -121,6 +130,13 @@ final class RenderState
      */
     public function __construct(private Node $doc, private Options $o, private ?Profile $profile = null, ?Facts $facts = null)
     {
+        $length = $doc->f['srcByteLength'] ?? 0;
+        $length = is_int($length) ? max(0, $length) : 0;
+        $jsonLength = $doc->layout['jsonByteLength'] ?? null;
+        if (is_int($jsonLength)) {
+            $length = min($length, $jsonLength);
+        }
+        $this->derivedRemaining = max(1000000, min($length, intdiv(PHP_INT_MAX, 8)) * 8);
         $this->definitions();
         if ($facts !== null && $facts->doc === $doc) {
             $this->fromFacts($facts);
@@ -173,9 +189,9 @@ final class RenderState
             if ($c >= $cn || ($h < $hn && $headings[$h] < $numbered[$c])) {
                 $this->headingTarget($this->nodes[$headings[$h++]]);
             } else {
-                $f = $this->nodes[$numbered[$c++]]->f;
-                if (isset($f['attrs'])) {
-                    $this->authoredTarget($f);
+                $node = $this->nodes[$numbered[$c++]];
+                if (isset($node->f['attrs'])) {
+                    $this->authoredTarget($node);
                 }
             }
         }
@@ -337,7 +353,7 @@ final class RenderState
             $this->titled[] = $i;
         }
         if (isset($f['attrs'])) {
-            $this->authoredTarget($f);
+            $this->authoredTarget($node);
         }
     }
 
@@ -386,7 +402,7 @@ final class RenderState
         $id = Resolver::idOf($heading);
         if ($id !== null) {
             $this->taken[$id] = true;
-            $this->xrefText[$id] ??= $heading;
+            $this->xrefText[Resolver::nfc($id)] ??= $heading;
         }
     }
 
@@ -397,6 +413,7 @@ final class RenderState
      */
     public function xrefText(string $id): ?string
     {
+        $id = Resolver::nfc($id);
         $text = $this->xrefText[$id] ?? null;
         if ($text instanceof Node) {
             $text = $this->xrefText[$id] = PlainText::of($text->children ?? []);
@@ -405,15 +422,27 @@ final class RenderState
         return $text;
     }
 
+    public function xrefHtmlText(string $id): ?string
+    {
+        $id = Resolver::nfc($id);
+        if (!array_key_exists($id, $this->xrefHtmlText)) {
+            $text = $this->xrefText($id);
+            $this->xrefHtmlText[$id] = $text === null ? null : Escape::text($text);
+        }
+
+        return $this->xrefHtmlText[$id];
+    }
+
     /**
      * An authored id is taken; with a numbered caption it is a cross-reference target (C2-H-096).
      *
-     * @param array<string, mixed> $f
+     * @param \MarkupCarve\Carve2\Node $node
      *
      * @return void
      */
-    private function authoredTarget(array $f): void
+    private function authoredTarget(Node $node): void
     {
+        $f = $node->f;
         $attrs = $f['attrs'];
         $id = $attrs instanceof Attrs ? $attrs->id : null;
         if ($id === null) {
@@ -424,8 +453,39 @@ final class RenderState
         $mark = $caption instanceof Node ? Resolver::captionMark($caption) : null;
         if ($mark !== null && is_int($mark[0]->f['n'] ?? null)) {
             $label = Resolver::labelKey($mark[1], $this->o->symbols);
-            $this->xrefText[$id] ??= ltrim($label . ' ' . $mark[0]->f['n']);
+            $text = ltrim($label . ' ' . $mark[0]->f['n']);
+            $this->xrefText[Resolver::nfc($id)] ??= $text;
+            if ($node->type === 'figure_group') {
+                $this->panelTargets($node, $text);
+            }
         }
+    }
+
+    private function panelTargets(Node $group, string $text): void
+    {
+        $index = 0;
+        foreach ($group->children ?? [] as $child) {
+            if (!Resolver::isPanel($child)) {
+                continue;
+            }
+            $index++;
+            $id = Resolver::idOf($child);
+            if ($id !== null) {
+                $this->xrefText[Resolver::nfc($id)] ??= $text . self::panelLetter($index);
+            }
+        }
+    }
+
+    private static function panelLetter(int $index): string
+    {
+        $out = '';
+        while ($index > 0) {
+            $index--;
+            $out = chr(97 + $index % 26) . $out;
+            $index = intdiv($index, 26);
+        }
+
+        return $out;
     }
 
     /**

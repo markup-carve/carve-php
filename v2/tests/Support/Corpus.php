@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Test\Support;
 
+use MarkupCarve\Carve2\Extension\Tabs;
+use MarkupCarve\Carve2\Generated\Tables;
 use RuntimeException;
 
 /**
@@ -67,6 +69,55 @@ final class Corpus
     }
 
     /**
+     * @param array<string, mixed> $case
+     *
+     * @return array<string, mixed>
+     */
+    public static function caseOptions(array $case): array
+    {
+        $options = $case['options'];
+        if (isset($case['files'])) {
+            $files = $case['files'];
+            $includes = $options['includes'] ?? [];
+            $includes['resolver'] = static function (array $request) use ($files): array {
+                $file = $files[$request['path']] ?? null;
+                if ($file === null) {
+                    return ['error' => 'not_found'];
+                }
+
+                return [
+                    'text' => $file['text'] ?? hex2bin(str_replace(' ', '', $file['bytes'] ?? '')),
+                    'id' => $request['path'],
+                ];
+            };
+            $options['includes'] = $includes;
+        }
+        if (isset($options['extensions']) && in_array('carve.tabs', $options['extensions'], true)) {
+            $options['extensions'] = Tabs::extensions(($options['renderers']['carve.tabs'] ?? null) === 'standard');
+            unset($options['renderers']);
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    public static function parseOptions(array $options): array
+    {
+        return array_filter(
+            $options,
+            static fn (string $name): bool => array_intersect(
+                (array)(Tables::OPTIONS[$name]['readBy'] ?? []),
+                ['parse', 'resolve'],
+            ) !== [],
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
      * @return array<string, array<string, mixed>> By id.
      */
     public static function refusedTrees(): array
@@ -113,5 +164,22 @@ final class Corpus
         unset($value['pos'], $value['segments']);
 
         return array_map(self::withoutPositions(...), $value);
+    }
+
+    public static function hasPositions(mixed $value): bool
+    {
+        if (!is_array($value)) {
+            return false;
+        }
+        if (isset($value['pos'])) {
+            return true;
+        }
+        foreach ($value as $child) {
+            if (self::hasPositions($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

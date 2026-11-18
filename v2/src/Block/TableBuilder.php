@@ -49,6 +49,14 @@ final class TableBuilder
 
                 continue;
             }
+            $rowAttrs = null;
+            $afterAttrs = self::tail($s, $k, $end, $rowAttrs);
+            if ($afterAttrs >= 0 && $rowAttrs !== null) {
+                $seps[] = $k;
+                $k = $afterAttrs;
+
+                continue;
+            }
             $seps[] = $k;
             $k++;
         }
@@ -174,16 +182,18 @@ final class TableBuilder
     {
         $cell = new TableCell($start, $end);
         $k = $start;
-        if ($k < $end && $s[$k] === '=') {
+        if ($k < $end && $s[$k] === '=' && ($k + 1 === $end || str_contains(" \t{<>?~", $s[$k + 1]))) {
             $cell->header = true;
             $k++;
         }
+        $first = true;
         while ($k < $end && $s[$k] === '{') {
-            $next = self::cellBrace($s, $k, $end, $cell);
+            $next = self::cellBrace($s, $k, $end, $cell, $first);
             if ($next === $k) {
                 break;
             }
             $k = $next;
+            $first = false;
         }
         $k += strspn($s, " \t", $k, $end - $k);
         $ce = LineShapes::trimEnd($s, $k, $end);
@@ -203,29 +213,44 @@ final class TableBuilder
      * @param int $k
      * @param int $end
      * @param \MarkupCarve\Carve2\Block\TableCell $cell
+     * @param bool $first
      *
      * @return int
      */
-    private static function cellBrace(string $s, int $k, int $end, TableCell $cell): int
+    private static function cellBrace(string $s, int $k, int $end, TableCell $cell, bool $first): int
     {
+        $from = $k + 1;
         $align = null;
-        $from = $k;
-        if ($k + 1 < $end && isset(Tables::ALIGNMENT_MARKS[$s[$k + 1]])) {
-            $align = Tables::ALIGNMENT_MARKS[$s[$k + 1]];
-            if ($k + 2 < $end && $s[$k + 2] === '}') {
-                $cell->align = $align;
-
-                return $k + 3;
+        $valign = null;
+        if ($first && $from < $end && isset(Tables::ALIGNMENT_MARKS[$s[$from]])) {
+            $horizontal = $s[$from];
+            $vertical = $s[$from + 1] ?? '';
+            $verticalMarks = ['^' => 'top', 'v' => 'bottom', '~' => 'middle'];
+            if ($horizontal !== '?' || isset($verticalMarks[$vertical])) {
+                $align = $horizontal === '?' ? null : Tables::ALIGNMENT_MARKS[$horizontal];
+                $from++;
+                if (isset($verticalMarks[$vertical])) {
+                    $valign = $verticalMarks[$vertical];
+                    $from++;
+                }
             }
-            $from = $k + 1;
         }
         $attrs = new Attrs();
-        $next = AttributeParser::read($s, $from, $end, $attrs);
-        if ($next < 0 || ($align === null && AttributeParser::$lastEmpty)) {
+        if ($from === $k + 1) {
+            $next = AttributeParser::read($s, $k, $end, $attrs);
+        } else {
+            $synthetic = '{' . substr($s, $from, $end - $from);
+            $read = AttributeParser::read($synthetic, 0, strlen($synthetic), $attrs);
+            $next = $read < 0 ? -1 : $from + $read - 1;
+        }
+        if ($next < 0 || ($align === null && $valign === null && AttributeParser::$lastEmpty)) {
             return $k;
         }
         if ($align !== null) {
             $cell->align = $align;
+        }
+        if ($valign !== null) {
+            $cell->valign = $valign;
         }
         if (!$attrs->isEmpty()) {
             $cell->attrs ??= new Attrs();
@@ -276,7 +301,8 @@ final class TableBuilder
         $head = self::headRows($rows);
         $foot = self::count($f->attrs, 'footer-rows');
         $footStart = $foot === null || $foot <= 0 ? count($rows) : max($head, count($rows) - $foot);
-        $grid = self::spans($rows, $head, $footStart);
+        $plan = self::bodyPlan($f->attrs, $footStart - $head);
+        $grid = self::spans($rows, $head, $footStart, self::bodyStarts($plan, $head));
         $width = 0;
         $rowNodes = [];
         foreach ($grid as $r => $cells) {
@@ -287,9 +313,9 @@ final class TableBuilder
         $table->layout['sourceFormat'] = 'pipe';
         $attrs = $f->attrs;
         $table->f['columns'] = self::columns($width, $attrs);
-        $table->children = self::groups($f->rows, $rowNodes, $head, $foot);
+        $table->children = self::partitionBodies(self::groups($f->rows, $rowNodes, $head, $foot), $plan);
         if ($attrs !== null) {
-            self::consumeKeys($attrs, false);
+            self::consumeKeys($attrs, false, $plan);
             $attrs->applyTo($table);
         }
 
@@ -356,10 +382,11 @@ final class TableBuilder
      * @param array<\MarkupCarve\Carve2\Block\TableItem> $rows
      * @param int $head
      * @param int $footStart
+     * @param array<int, true> $bodyStarts
      *
      * @return array<int, array<int, \MarkupCarve\Carve2\Block\TableCell>>
      */
-    private static function spans(array $rows, int $head, int $footStart): array
+    private static function spans(array $rows, int $head, int $footStart, array $bodyStarts): array
     {
         $grid = [];
         $cover = [];
@@ -376,7 +403,7 @@ final class TableBuilder
                 if ($cell->mark === '') {
                     continue;
                 }
-                $target = self::spanTarget($cell, $cover, $head, $footStart);
+                $target = self::spanTarget($cell, $cover, $head, $footStart, $bodyStarts);
                 if ($target === null) {
                     // C2-B-173: a blocked mark is ordinary cell text, with its authored prefix.
                     $cell->mark = '';
@@ -407,10 +434,11 @@ final class TableBuilder
      * @param array<int, array<int, \MarkupCarve\Carve2\Block\TableCell>> $cover
      * @param int $head
      * @param int $footStart
+     * @param array<int, true> $bodyStarts
      *
      * @return \MarkupCarve\Carve2\Block\TableCell|null
      */
-    private static function spanTarget(TableCell $cell, array $cover, int $head, int $footStart): ?TableCell
+    private static function spanTarget(TableCell $cell, array $cover, int $head, int $footStart, array $bodyStarts): ?TableCell
     {
         $r = $cell->row;
         $c = $cell->col;
@@ -419,7 +447,7 @@ final class TableBuilder
 
             return $t !== null && $t->rowspan === 1 && $t->col + $t->colspan === $c ? $t : null;
         }
-        if ($r === 0 || $r === $head || $r === $footStart) {
+        if ($r === 0 || $r === $head || $r === $footStart || isset($bodyStarts[$r])) {
             return null;
         }
         $t = $cover[$r - 1][$c] ?? null;
@@ -440,6 +468,7 @@ final class TableBuilder
     private static function join(array &$cells, array &$cover, array $at, array $fragments): void
     {
         [$r, $line, $slots] = $at;
+        $header = self::continuationIsHeader($cells, $cover);
         $n = count($fragments);
         for ($k = 0; $k < $n; $k += 2) {
             $c = intdiv($k, 2);
@@ -448,6 +477,7 @@ final class TableBuilder
                 $cell = new TableCell($slots[$c] ?? $fragments[$k], -1);
                 $cell->row = $r;
                 $cell->col = $c;
+                $cell->header = $header;
                 $cells[$c] = $cell;
                 $cover[$c] = $cell;
             }
@@ -460,6 +490,28 @@ final class TableBuilder
             $target->lines[] = $fragments[$k + 1];
             $target->wrapAt[] = [$line, $r - $target->row];
         }
+    }
+
+    /**
+     * @param array<int, \MarkupCarve\Carve2\Block\TableCell> $cells
+     * @param array<int, \MarkupCarve\Carve2\Block\TableCell> $cover
+     */
+    private static function continuationIsHeader(array $cells, array $cover): bool
+    {
+        if ($cells === []) {
+            return false;
+        }
+        foreach ($cells as $c => $cell) {
+            if ($cell->mark === '^') {
+                return false;
+            }
+            $effective = $cell->mark === '<' ? ($cover[$c] ?? $cell) : $cell;
+            if (!$effective->header) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -503,7 +555,7 @@ final class TableBuilder
 
             return $node;
         }
-        $bare = $cell->joined || $cell->start < 0;
+        $bare = $cell->joined || $cell->start < 0 || $cell->end < $cell->start;
         $node = $bare ? new Node('table_cell') : Node::at('table_cell', $cell->start, $cell->end);
         $node->f['header'] = $cell->header;
         if ($cell->colspan > 1) {
@@ -514,6 +566,9 @@ final class TableBuilder
         }
         if ($cell->align !== null) {
             $node->f['align'] = $cell->align;
+        }
+        if ($cell->valign !== null) {
+            $node->f['valign'] = $cell->valign;
         }
         $lines = $cell->lines;
         $para = $cell->joined || $lines === [] ? new Node('cell_paragraph') : Node::at('cell_paragraph', $lines[0], $lines[1]);
@@ -542,8 +597,10 @@ final class TableBuilder
     private static function columns(int $width, ?Attrs $attrs): array
     {
         $aligns = $attrs?->get('aligns');
+        $valigns = $attrs?->get('valigns');
         $widths = $attrs?->get('widths');
         $alignList = self::validList($aligns, false) ? explode(',', (string)$aligns) : [];
+        $valignList = self::validValigns($valigns) ? explode(',', (string)$valigns) : [];
         $widthList = self::validList($widths, true) ? explode(',', (string)$widths) : [];
         $columns = [];
         for ($c = 0; $c < $width; $c++) {
@@ -551,6 +608,10 @@ final class TableBuilder
             $a = trim($alignList[$c] ?? '', " \t");
             if ($a === 'left' || $a === 'right' || $a === 'center') {
                 $col->f['align'] = $a;
+            }
+            $v = trim($valignList[$c] ?? '', " \t");
+            if ($v === 'top' || $v === 'middle' || $v === 'bottom') {
+                $col->f['valign'] = $v;
             }
             $w = trim($widthList[$c] ?? '', " \t");
             // C2-B-220: anchored, no nested repetition, linear; once per column of a table.
@@ -591,26 +652,49 @@ final class TableBuilder
         return true;
     }
 
+    private static function validValigns(?string $value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+        foreach (explode(',', $value) as $entry) {
+            if (!in_array(trim($entry, " \t"), ['top', 'middle', 'bottom'], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /**
      * C2-B-227: only valid and applicable keys are consumed.
      *
      * @param \MarkupCarve\Carve2\Attrs $attrs
      * @param bool $delimited
+     * @param array<array{rows: int, headers: int, columns: int|null}>|null $plan
      *
      * @return void
      */
-    private static function consumeKeys(Attrs $attrs, bool $delimited): void
+    private static function consumeKeys(Attrs $attrs, bool $delimited, ?array $plan): void
     {
         foreach (['aligns', 'widths'] as $key) {
             if (self::validList($attrs->get($key), $key === 'widths')) {
                 $attrs->remove($key);
             }
         }
+        if (self::validValigns($attrs->get('valigns'))) {
+            $attrs->remove('valigns');
+        }
         if (self::count($attrs, 'footer-rows') !== null) {
             $attrs->remove('footer-rows');
         }
         if ($delimited && self::count($attrs, 'header-rows') !== null) {
             $attrs->remove('header-rows');
+        }
+        if ($plan !== null) {
+            foreach (['body-rows', 'body-header-rows', 'body-header-cols'] as $key) {
+                $attrs->remove($key);
+            }
         }
     }
 
@@ -633,6 +717,171 @@ final class TableBuilder
         }
 
         return ctype_digit($v) ? (int)$v : null;
+    }
+
+    /**
+     * @return array<array{rows: int, headers: int, columns: int|null}>|null
+     */
+    private static function bodyPlan(?Attrs $attrs, int $available): ?array
+    {
+        $value = $attrs?->get('body-rows');
+        if ($value === null) {
+            return null;
+        }
+        $rows = self::bodyEntries($value, false);
+        $headersValue = $attrs->get('body-header-rows');
+        $columnsValue = $attrs->get('body-header-cols');
+        $headers = $headersValue === null ? array_fill(0, count($rows ?? []), 0) : self::bodyEntries($headersValue, false);
+        $columns = $columnsValue === null ? array_fill(0, count($rows ?? []), null) : self::bodyEntries($columnsValue, true);
+        if (
+            $rows === null || $headers === null || $columns === null
+            || count($rows) !== count($headers) || count($rows) !== count($columns)
+        ) {
+            return null;
+        }
+        $plan = [];
+        $used = 0;
+        foreach ($rows as $i => $n) {
+            $header = $headers[$i];
+            if (!is_int($n) || !is_int($header) || $n > $available - $used || $header > $available - $used - $n) {
+                return null;
+            }
+            $used += $n + $header;
+            $plan[] = ['rows' => $n, 'headers' => $header, 'columns' => $columns[$i]];
+        }
+
+        return $used === $available ? $plan : null;
+    }
+
+    /**
+     * @return array<int|null>|null
+     */
+    private static function bodyEntries(string $value, bool $emptyAllowed): ?array
+    {
+        if ($value === '') {
+            return $emptyAllowed ? [null] : [];
+        }
+        $out = [];
+        foreach (explode(',', $value) as $raw) {
+            $entry = trim($raw, " \t");
+            if ($entry === '' && $emptyAllowed) {
+                $out[] = null;
+            } elseif ($entry !== '' && ctype_digit($entry)) {
+                $out[] = (int)$entry;
+            } else {
+                return null;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<array{rows: int, headers: int, columns: int|null}>|null $plan
+     * @param int $head
+     *
+     * @return array<int, true>
+     */
+    private static function bodyStarts(?array $plan, int $head): array
+    {
+        $out = [];
+        if ($plan === null) {
+            return $out;
+        }
+        $at = $head;
+        foreach ($plan as $i => $body) {
+            if ($i > 0) {
+                $out[$at] = true;
+            }
+            $at += $body['rows'] + $body['headers'];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve2\Node> $groups
+     * @param array<array{rows: int, headers: int, columns: int|null}>|null $plan
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    private static function partitionBodies(array $groups, ?array $plan): array
+    {
+        if ($plan === null) {
+            return $groups;
+        }
+        $out = [];
+        $split = false;
+        foreach ($groups as $group) {
+            if ($group->type === 'table_body') {
+                array_push($out, ...self::splitBodyGroup($group, $plan));
+                $split = true;
+            } else {
+                if (!$split && $group->type === 'table_foot') {
+                    foreach ($plan as $body) {
+                        $out[] = self::emptyBody($body);
+                    }
+                    $split = true;
+                }
+                $out[] = $group;
+            }
+        }
+        if (!$split) {
+            foreach ($plan as $body) {
+                $out[] = self::emptyBody($body);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array{rows: int, headers: int, columns: int|null} $entry
+     */
+    private static function emptyBody(array $entry): Node
+    {
+        $body = new Node('table_body', []);
+        if ($entry['columns'] !== null) {
+            $body->f['rowHeadColumns'] = $entry['columns'];
+        }
+
+        return $body;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $group
+     * @param array<array{rows: int, headers: int, columns: int|null}> $plan
+     *
+     * @return array<\MarkupCarve\Carve2\Node>
+     */
+    private static function splitBodyGroup(Node $group, array $plan): array
+    {
+        $bodies = array_map(self::emptyBody(...), $plan);
+        $index = 0;
+        $inBody = 0;
+        $last = count($plan) - 1;
+        foreach ($group->children ?? [] as $child) {
+            if ($child->type === 'table_row') {
+                while ($index < $last && $inBody >= $plan[$index]['rows'] + $plan[$index]['headers']) {
+                    $index++;
+                    $inBody = 0;
+                }
+                if ($inBody < $plan[$index]['headers']) {
+                    foreach ($child->children ?? [] as $cell) {
+                        $cell->f['header'] = true;
+                    }
+                }
+                $inBody++;
+            }
+            $body = $bodies[$index];
+            $body->children[] = $child;
+            if ($child->start >= 0) {
+                $body->start = $body->start < 0 ? $child->start : min($body->start, $child->start);
+                $body->end = max($body->end, $child->end);
+            }
+        }
+
+        return $bodies;
     }
 
     /**
@@ -706,10 +955,11 @@ final class TableBuilder
     public static function delimited(Frame $f, string $body, string $sep): Node
     {
         $malformed = false;
-        $records = self::records($body, $sep, $malformed);
+        $malformedAt = -1;
+        $records = self::records($body, $sep, $malformed, $malformedAt);
         if ($malformed) {
             // C2-B-181
-            $f->findings[] = ['delimited-table-malformed', -1];
+            $f->findings[] = ['delimited-table-malformed', self::bodySourceOffset($f, $malformedAt)];
         }
         $attrs = $f->attrs;
         $declared = self::count($attrs, 'header-rows');
@@ -743,18 +993,34 @@ final class TableBuilder
             $table->layout['headerRows'] = $head;
         }
         $table->f['columns'] = self::columns($width, $attrs);
-        $table->children = self::groups($items, $rowNodes, $head, self::count($attrs, 'footer-rows'));
+        $foot = self::count($attrs, 'footer-rows');
+        $bodyCount = $total - ($foot === null ? $total : max($head, $total - $foot));
+        $plan = self::bodyPlan($attrs, $total - $head - $bodyCount);
+        $table->children = self::partitionBodies(self::groups($items, $rowNodes, $head, $foot), $plan);
         foreach ($table->children as $group) {
             $group->start = -1;
             $group->end = -1;
         }
         if ($attrs !== null) {
             $attrs->remove('table');
-            self::consumeKeys($attrs, true);
+            self::consumeKeys($attrs, true, $plan);
             $attrs->applyTo($table);
         }
 
         return $table;
+    }
+
+    private static function bodySourceOffset(Frame $frame, int $offset): int
+    {
+        for ($i = 0, $n = count($frame->spans); $i + 1 < $n; $i += 2) {
+            $length = $frame->spans[$i + 1] - $frame->spans[$i];
+            if ($offset <= $length) {
+                return $frame->spans[$i] + $offset;
+            }
+            $offset -= $length + 1;
+        }
+
+        return $frame->start;
     }
 
     /**
@@ -763,10 +1029,11 @@ final class TableBuilder
      * @param string $body
      * @param string $sep
      * @param bool $malformed Set when a quote is not closed (C2-B-181).
+     * @param int $malformedAt Offset of the unclosed quote in the body.
      *
      * @return array<array<string>>
      */
-    private static function records(string $body, string $sep, bool &$malformed = false): array
+    private static function records(string $body, string $sep, bool &$malformed, int &$malformedAt): array
     {
         $records = [];
         $fields = [];
@@ -791,7 +1058,11 @@ final class TableBuilder
                 continue;
             }
             if ($ch === '"') {
+                $quote = $k;
                 $k = self::quotedField($body, $k + 1, $field, $malformed);
+                if ($malformed && $malformedAt < 0) {
+                    $malformedAt = $quote;
+                }
 
                 continue;
             }

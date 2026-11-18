@@ -31,7 +31,7 @@ final class Expander
      *
      * @param \MarkupCarve\Carve2\Options $options
      * @param \MarkupCarve\Carve2\Diagnostics\Findings $findings
-     * @param \Closure(string, array<string, string>): array{0: \MarkupCarve\Carve2\Node,
+     * @param \Closure(string, array<string, string>, bool): array{0: \MarkupCarve\Carve2\Node,
      *     1: \MarkupCarve\Carve2\Diagnostics\Findings} $parse
      */
     public function __construct(private Options $options, private Findings $findings, private Closure $parse)
@@ -202,7 +202,7 @@ final class Expander
             $node->children = [$this->code($node, $selected, $offset + $bom, $options['code'])];
             $ok = true;
         } else {
-            $ok = $this->fillCarve($node, $selected, $offset + $bom, $id, $from);
+            $ok = $this->fillCarve($node, $content, $selected, $offset, $bom, $id, $from);
         }
         if (!$ok) {
             return;
@@ -246,10 +246,22 @@ final class Expander
         return true;
     }
 
-    private function fillCarve(Node $node, string $selected, int $offset, string $id, ?string $from): bool
-    {
+    private function fillCarve(
+        Node $node,
+        string $content,
+        string $selected,
+        int $offset,
+        int $bom,
+        string $id,
+        ?string $from,
+    ): bool {
         $inherited = $this->abbreviations[$from ?? ''] ?? [];
-        [$document, $notes] = ($this->parse)($selected, $inherited);
+        $whole = null;
+        if ($selected !== $content) {
+            [$whole] = ($this->parse)($content, $inherited, true);
+            $inherited = self::ownAbbreviations($whole) + $inherited;
+        }
+        [$document, $notes] = ($this->parse)($selected, $inherited, $offset === 0);
         $this->abbreviations[$id] = self::ownAbbreviations($document) + $inherited;
         $this->findings->merge($notes, $id);
         if (is_string($node->f['section'] ?? null)) {
@@ -264,8 +276,22 @@ final class Expander
         } else {
             $node->children = $document->children ?? [];
         }
-        if ($offset !== 0) {
-            $this->offset($node, $offset);
+        if ($offset + $bom !== 0) {
+            $this->offset($node, $offset + $bom);
+        }
+        if ($whole !== null) {
+            // C2-N-020: selected blocks inherit definitions from outside the selected lines.
+            foreach (Section::definitions($whole) as $definition) {
+                if ($definition->start >= $offset && $definition->start < $offset + strlen($selected)) {
+                    continue;
+                }
+                if ($bom !== 0) {
+                    $holder = new Node('document');
+                    $holder->children = [$definition];
+                    $this->offset($holder, $bom);
+                }
+                $node->children[] = $definition;
+            }
         }
 
         return true;

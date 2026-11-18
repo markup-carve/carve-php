@@ -20,18 +20,28 @@ use stdClass;
 final class TreeGateTest extends TestCase
 {
     /**
-     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     * @return array<string, array{0: string, 1: array<string, mixed>, 2: array<string, string>}>
      */
     public static function sources(): array
     {
         $out = [];
         foreach (['syntax-blocks', 'syntax-inline', 'html', 'writer'] as $chapter) {
             foreach (Corpus::file('trees/examples-' . $chapter . '.json')['trees'] as $entry) {
-                $out[$entry['id']] = [$entry['source'], $entry['options'] ?? []];
+                $out[$entry['id']] = [$entry['source'], $entry['options'] ?? [], []];
             }
         }
         foreach (Corpus::clauseCases() as $id => $case) {
-            $out[$id] = [$case['input'], $case['options']];
+            if (
+                isset($case['input']) && !isset($case['expected']['refusal'])
+                && (!isset($case['kind']) || in_array($case['kind'], ['parse', 'render'], true))
+            ) {
+                $files = [];
+                foreach ($case['files'] ?? [] as $name => $file) {
+                    $files[$name] = $file['text'] ?? hex2bin(str_replace(' ', '', $file['bytes'] ?? ''));
+                }
+                $options = Corpus::parseOptions(Corpus::caseOptions($case));
+                $out[$id] = [$case['input'], $options, $files];
+            }
         }
 
         return $out;
@@ -93,18 +103,19 @@ final class TreeGateTest extends TestCase
      *
      * @param string $source
      * @param array<string, mixed> $options
+     * @param array<string, string> $files
      *
      * @return void
      */
     #[DataProvider('sources')]
-    public function testC2A139TreeMeetsSchemaAndPositions(string $source, array $options): void
+    public function testC2A139TreeMeetsSchemaAndPositions(string $source, array $options, array $files): void
     {
         $json = Carve2::toJson($source, $options);
         $schema = self::schema();
         $validator = new SchemaValidator($schema);
         $this->assertTrue($validator->valid(json_decode($json, false), $schema), implode("\n", array_slice($validator->errors, -3)));
         $tree = json_decode($json, true, 4096, JSON_THROW_ON_ERROR);
-        $this->assertSame([], (new PositionChecker($source))->failures($tree));
+        $this->assertSame([], (new PositionChecker($source, $files))->failures($tree));
         $this->assertNotNull(TreeReader::read($json));
     }
 

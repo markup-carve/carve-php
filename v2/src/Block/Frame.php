@@ -139,6 +139,18 @@ final class Frame
      */
     public array $spans = [];
 
+    /**
+     * @var array<\MarkupCarve\Carve2\Block\Frame>
+     */
+    public array $hiddenComments = [];
+
+    public ?Frame $lineComment = null;
+
+    /**
+     * @var array<int, array<array{0: int, 1: int, 2: string}>>
+     */
+    public array $lazyLineComments = [];
+
     public string $key = '';
 
     public bool $loose = false;

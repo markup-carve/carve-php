@@ -17,6 +17,8 @@ final class TableCell
 
     public ?string $align = null;
 
+    public ?string $valign = null;
+
     public string $mark = '';
 
     public int $cs = 0;

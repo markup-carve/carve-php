@@ -36,6 +36,12 @@
         "file": "child.crv",
         "line": 3,
         "column": 1
+      },
+      {
+        "code": "include-unresolved",
+        "file": "child.crv",
+        "line": 3,
+        "column": 1
       }
     ]
   },

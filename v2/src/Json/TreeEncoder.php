@@ -99,6 +99,8 @@ final class TreeEncoder
             if ($file !== '') {
                 $out['pos']['file'] = $file;
             }
+        } elseif (!$positions && isset($node->layout['pos'])) {
+            $out['pos'] = $node->layout['pos'];
         }
 
         return $out;

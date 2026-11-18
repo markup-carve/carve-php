@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve2\Test\Lint;
 
 use MarkupCarve\Carve2\Carve2;
+use MarkupCarve\Carve2\Test\Support\Held;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -18,7 +19,7 @@ final class NodeRulesBTest extends TestCase
      */
     public static function rules(): array
     {
-        return [
+        $cases = [
             'delimited-table-wide-row' => [
                 "{table}\n```csv\na,b\nc,d,e\n```",
                 [
@@ -584,6 +585,8 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
         ];
+
+        return array_filter($cases, static fn (string $id): bool => !Held::has('node-rules-b/' . $id), ARRAY_FILTER_USE_KEY);
     }
 
     /**

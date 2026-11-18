@@ -11,6 +11,7 @@ use MarkupCarve\Carve2\Inline\InlineContext;
 use MarkupCarve\Carve2\Inline\InlineRunner;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
+use Normalizer;
 
 /**
  * The resolve stage (C2-A-133): footnote numbers, heading ids, caption numbers, reference
@@ -102,7 +103,7 @@ final class Resolver
     /**
      * Ids a cross-reference resolves against (C2-H-095).
      *
-     * @var array<string, true>
+     * @var array<string, string>
      */
     private array $xrefIds = [];
 
@@ -645,8 +646,11 @@ final class Resolver
             $node = $this->nodes[$i];
             $id = self::idOf($node);
             if ($id !== null) {
-                $this->headingKeys[self::fold(PlainText::of($node->children ?? []))] ??= $id;
-                $this->xrefIds[$id] = true;
+                $plain = self::nfc(self::fold(PlainText::of($node->children ?? [])));
+                if ($plain !== '') {
+                    $this->headingKeys[$plain] ??= $id;
+                }
+                $this->xrefIds[self::nfc($id)] ??= $id;
             }
         }
     }
@@ -713,7 +717,7 @@ final class Resolver
                         $mark[0]->f['n'] = $this->next(self::labelKey($mark[1], $this->o->symbols));
                         $id = $node->type === 'include' ? null : self::idOf($node);
                         if ($id !== null) {
-                            $this->xrefIds[$id] = true;
+                            $this->xrefIds[self::nfc($id)] ??= $id;
                         }
                     }
                     if ($this->end[$i] > $ownedUntil) {
@@ -741,14 +745,25 @@ final class Resolver
      */
     private function markPanels(Node $node, array &$panels): void
     {
+        $caption = $node->f['caption'] ?? null;
+        $numbered = $caption instanceof Node && self::captionMark($caption) !== null;
         foreach ($node->children ?? [] as $child) {
-            if (
-                $child->type === 'table' || in_array($child->type, ['paragraph', 'code_block', 'block_quote'], true)
-                && ($child->f['caption'] ?? null) instanceof Node
-            ) {
+            if (self::isPanel($child)) {
                 $panels[spl_object_id($child)] = true;
+                if ($numbered) {
+                    $id = self::idOf($child);
+                    if ($id !== null) {
+                        $this->xrefIds[self::nfc($id)] ??= $id;
+                    }
+                }
             }
         }
+    }
+
+    public static function isPanel(Node $node): bool
+    {
+        return $node->type === 'table' || in_array($node->type, ['paragraph', 'code_block', 'block_quote', 'math'], true)
+            && ($node->f['caption'] ?? null) instanceof Node;
     }
 
     /**
@@ -828,8 +843,9 @@ final class Resolver
                     break;
                 case 'xref':
                     unset($node->f['href']);
-                    if (isset($this->xrefIds[$key])) {
-                        $node->f['href'] = '#' . $key;
+                    $target = $this->xrefIds[self::nfc($key)] ?? null;
+                    if ($target !== null) {
+                        $node->f['href'] = '#' . $target;
                     }
 
                     break;
@@ -867,10 +883,10 @@ final class Resolver
         if ($node->type === 'image' || ($node->f['refForm'] ?? null) === 'shortcut') {
             return;
         }
-        $plain = $this->plainKeys[$key] ??= self::fold(PlainText::of(
+        $plain = $this->plainKeys[$key] ??= self::nfc(self::fold(PlainText::of(
             InlineRunner::parse($key, [0, strlen($key)], new InlineContext()),
-        ));
-        if (isset($this->headingKeys[$plain])) {
+        )));
+        if ($plain !== '' && isset($this->headingKeys[$plain])) {
             $node->f['href'] = '#' . $this->headingKeys[$plain];
         }
     }
@@ -908,6 +924,13 @@ final class Resolver
         return trim((string)preg_replace('/[ \t\r\n]+/', ' ', $text), ' ');
     }
 
+    public static function nfc(string $text): string
+    {
+        $normalized = Normalizer::normalize($text, Normalizer::FORM_C);
+
+        return is_string($normalized) ? $normalized : $text;
+    }
+
     /**
      * C2-A-089, C2-B-213: `resolvedAlign` of each column and the span counts of the marks.
      *
@@ -919,7 +942,22 @@ final class Resolver
     {
         $grid = TableGrid::of($table);
         $grid->deriveSpans();
+        [$marks, $verticalMarks] = self::headMarks($grid);
+        $columns = $table->f['columns'] ?? [];
+        foreach (is_array($columns) ? $columns : [] as $c => $column) {
+            if ($column instanceof Node) {
+                self::columnAlignment($column, $marks[$c] ?? null, $verticalMarks[$c] ?? null);
+            }
+        }
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: array<int, string>}
+     */
+    private static function headMarks(TableGrid $grid): array
+    {
         $marks = [];
+        $verticalMarks = [];
         foreach ($grid->rows as [$row, $group]) {
             if ($group->type !== 'table_head') {
                 continue;
@@ -929,18 +967,26 @@ final class Resolver
                 if (is_string($align) && !isset($cell->f['span'])) {
                     $marks[$grid->column[spl_object_id($cell)] ?? 0] = $align;
                 }
+                $valign = $cell->f['valign'] ?? null;
+                if (is_string($valign) && !isset($cell->f['span'])) {
+                    $verticalMarks[$grid->column[spl_object_id($cell)] ?? 0] = $valign;
+                }
             }
         }
-        $columns = $table->f['columns'] ?? [];
-        foreach (is_array($columns) ? $columns : [] as $c => $column) {
-            if (!$column instanceof Node) {
-                continue;
-            }
-            unset($column->f['resolvedAlign']);
-            $align = $marks[$c] ?? $column->f['align'] ?? null;
-            if (is_string($align)) {
-                $column->f['resolvedAlign'] = $align;
-            }
+
+        return [$marks, $verticalMarks];
+    }
+
+    private static function columnAlignment(Node $column, ?string $mark, ?string $verticalMark): void
+    {
+        unset($column->f['resolvedAlign'], $column->f['resolvedValign']);
+        $align = $mark ?? $column->f['align'] ?? null;
+        if (is_string($align) && $align !== 'none') {
+            $column->f['resolvedAlign'] = $align;
+        }
+        $valign = $verticalMark ?? $column->f['valign'] ?? null;
+        if (is_string($valign)) {
+            $column->f['resolvedValign'] = $valign;
         }
     }
 }

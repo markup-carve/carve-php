@@ -75,6 +75,10 @@ final class Options
 
     public ?Closure $resolveTag = null;
 
+    public mixed $socialContext = null;
+
+    public bool $socialHasContext = false;
+
     public ?Closure $includeResolver = null;
 
     public ?string $includeFile = null;
@@ -85,10 +89,13 @@ final class Options
 
     /**
      * @param array<string, mixed> $options
+     * @param array<string>|null $stages
+     *
+     * @throws \MarkupCarve\Carve2\OptionError
      *
      * @return self
      */
-    public static function from(array $options): self
+    public static function from(array $options, ?array $stages = null): self
     {
         $o = new self();
         foreach (Tables::OPTIONS as $name => $spec) {
@@ -99,6 +106,10 @@ final class Options
         }
         $o->setUrlPolicy([]);
         foreach ($options as $name => $value) {
+            $reads = Tables::OPTIONS[$name]['readBy'] ?? null;
+            if ($stages !== null && $reads !== null && array_intersect((array)$reads, $stages) === []) {
+                throw new OptionError('option ' . $name . ' is not read by this call');
+            }
             $o->set((string)$name, $value);
         }
 
@@ -319,7 +330,20 @@ final class Options
                 if (!is_string($v)) {
                     throw new OptionError('option social: ' . $key . ' is not a string');
                 }
+                if (preg_match_all('/\{[A-Za-z0-9_]+\}/', $v, $matches) > 0) {
+                    foreach ($matches[0] as $placeholder) {
+                        if ($placeholder !== '{name}') {
+                            throw new OptionError('option social: unsupported placeholder ' . $placeholder);
+                        }
+                    }
+                }
                 $key === 'mentionUrl' ? $this->mentionUrl = $v : $this->tagUrl = $v;
+
+                continue;
+            }
+            if ($key === 'context') {
+                $this->socialContext = $v;
+                $this->socialHasContext = true;
 
                 continue;
             }
