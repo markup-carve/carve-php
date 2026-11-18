@@ -976,8 +976,13 @@ final class InlineRenderer
         if (str_contains($name, '.')) {
             $this->log->loss('extension-fallback-rendered', 'warning', ['name' => $name]);
             $fallback = $node->f['fallback'] ?? null;
+            $content = $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);
+            if ($attrs === null || $attrs->isEmpty() && $lang === null && !isset($node->f['dir'])) {
+                return $content;
+            }
 
-            return $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);
+            return '<span' . $this->aw->build([], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>'
+                . $content . '</span>';
         }
 
         return '<span' . $this->aw->build([], null, $attrs, $lang, ['ext-' . $name], dir: AttrWriter::dirOf($node)) . '>'

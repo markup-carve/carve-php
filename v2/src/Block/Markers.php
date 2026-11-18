@@ -158,12 +158,14 @@ final class Markers
     {
         if ($k < $le && $s[$k] === '{') {
             $attrs = new Attrs();
-            $next = AttributeParser::read($s, $k, $le, $attrs);
-            if ($next < 0 || AttributeParser::$lastEmpty) {
-                return null;
-            }
+            do {
+                $next = AttributeParser::read($s, $k, $le, $attrs);
+                if ($next <= $k || AttributeParser::$lastEmpty) {
+                    return null;
+                }
+                $k = $next;
+            } while ($k < $le && $s[$k] === '{');
             $m->attrs = $attrs;
-            $k = $next;
         }
         $m->end = $k;
         $n = strspn($s, ' ', $k, $le - $k);

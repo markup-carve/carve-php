@@ -255,7 +255,12 @@ final class BlockParser
 
     private function regionMarker(int $j): bool
     {
-        return preg_match('/^%%[ \t]*#(?:region|endregion)(?![A-Za-z0-9_])/', substr($this->s, $j, $this->le - $j)) === 1;
+        $line = substr($this->s, $j, $this->le - $j);
+
+        $shape = '/^%%[ \t]*#(?:region[ \t]+[A-Za-z_][A-Za-z0-9_-]*'
+            . '|endregion(?:[ \t]+[A-Za-z_][A-Za-z0-9_-]*)?)[ \t]*$/';
+
+        return preg_match($shape, $line) === 1;
     }
 
     private function lazyLineBlock(): bool

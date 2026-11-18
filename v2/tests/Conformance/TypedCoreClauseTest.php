@@ -25,11 +25,6 @@ final class TypedCoreClauseTest extends TestCase
      * @var array<string, true>
      */
     private const HELD_CASES = [
-        'CC-455' => true,
-        'CC-456' => true,
-        'CC-468' => true,
-        'CC-1048' => true,
-        'CC-1089' => true,
         'CC-601' => true,
         'CC-996' => true,
         'CC-1166' => true,
@@ -81,7 +76,7 @@ final class TypedCoreClauseTest extends TestCase
             return;
         }
         if (isset($expected['children'])) {
-            $actual = json_decode(Carve2::toJson($source, $options), true, 4096, JSON_THROW_ON_ERROR);
+            $actual = json_decode(Carve2::toJson($source, Corpus::parseOptions($options)), true, 4096, JSON_THROW_ON_ERROR);
             if (in_array('C2-N-081', $case['clauses'], true)) {
                 self::assertTrue(TreeEquality::equal($expected['children'], $actual['children']));
             } else {

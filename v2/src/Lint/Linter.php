@@ -66,7 +66,9 @@ final class Linter
         self::validate($options);
         $own = self::lintSource($source, $options);
         if (!isset($options['includes'])) {
-            return $own;
+            $parsed = Carve2::parseWithDiagnostics($source, array_intersect_key($options, ['extensions' => true]));
+
+            return self::ordered(array_merge($own, $parsed->diagnostics));
         }
         $rest = $options;
         unset($rest['includes']);
@@ -82,7 +84,7 @@ final class Linter
      */
     public static function lintSource(string $source, array $options): array
     {
-        $parsed = Carve2::parseWithLayout($source);
+        $parsed = Carve2::parseWithLayout($source, array_intersect_key($options, ['extensions' => true]));
         $tree = (new TreeEncoder())->encode($parsed->tree, $source);
         $c = new Context($source, $options, self::catalog());
         $c->layout->rawRefs((array)$parsed->layout['nodes']);
@@ -94,6 +96,10 @@ final class Linter
         NodeRulesB::finish($c);
         foreach ($c->lines as $line) {
             if ($line->opaque) {
+                if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
+                    LineRules::frontmatterQuote($line, $c);
+                }
+
                 continue;
             }
             $scan = self::masked($line, $c);
@@ -119,7 +125,7 @@ final class Linter
      */
     public static function lintPayload(string $text, array $node, string $path, array $options): array
     {
-        $c = new Context($text, $options, self::catalog());
+        $c = new Context($text, $options + ['payload' => true], self::catalog());
         foreach (self::rulesFor(is_string($node['type'] ?? null) ? $node['type'] : '') as [$id, $check]) {
             if ($id === 'bidi-control-in-source' && $c->active($id)) {
                 $check($node, $path, $c);
@@ -180,6 +186,9 @@ final class Linter
     private static function placed(array $node, string $type, string $path, array $pos, Context $c, array &$controls): void
     {
         $c->firstLines[$path] = $pos['startLine'];
+        if ($type === 'paragraph') {
+            $c->paragraphStarts[$path] = $pos['startOffset'];
+        }
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
         if (isset(self::OPAQUE_LEAVES[$type])) {
             $c->leafMask[] = [$pos['startOffset'], $pos['endOffset']];
@@ -293,16 +302,21 @@ final class Linter
     {
         $paragraph = $type === 'paragraph' || $type === 'caption' || $type === 'definition_term';
         $opaque = in_array($type, ['code_block', 'raw_block', 'frontmatter', 'comment_block'], true);
-        if (!$paragraph && !$opaque) {
+        if (!$paragraph && !$opaque && $type !== 'heading') {
             return;
         }
         for ($i = $pos['startLine'] - 1; $i < $pos['endLine'] && isset($c->lines[$i]); $i++) {
-            if ($paragraph) {
+            if ($paragraph || $type === 'heading') {
                 $c->lines[$i]->path = $path;
+            }
+            if ($paragraph) {
                 $c->lines[$i]->paragraph = true;
             }
             if ($opaque) {
                 $c->lines[$i]->opaque = true;
+                if ($type === 'frontmatter') {
+                    $c->frontmatterLines[$i + 1] = true;
+                }
             }
         }
     }
@@ -514,7 +528,7 @@ final class Linter
     private static function validate(array $options): void
     {
         foreach (array_keys($options) as $name) {
-            if (!in_array($name, ['rules', 'platforms', 'includes'], true)) {
+            if (!in_array($name, ['rules', 'platforms', 'includes', 'extensions'], true)) {
                 throw new OptionError('option ' . $name . ': unknown option');
             }
         }

@@ -163,14 +163,14 @@
    ]
   },
   "indented-code-block": {
-   "trigger": "    code",
-   "near": "```\ncode\n```",
+   "trigger": "a\n\n    b\n",
+   "near": "a\n\n   b\n",
    "options": {},
    "findings": [
     [
      "indented-code-block",
-     "/children/0",
-     4,
+     "/children/1",
+     7,
      8,
      "Four-space indentation does not make a code block in Carve; this renders as a paragraph. Use a ``` fence."
     ]
@@ -240,8 +240,8 @@
     [
      "include-lines-table-rows-hint",
      "/children/0",
-     0,
-     40,
+     17,
+     27,
      "@lines counts physical lines. Use @rows to select records of this table."
     ]
    ]
@@ -493,7 +493,7 @@
      "unused-footnote-definition",
      "/children/0",
      0,
-     11,
+     4,
      "Footnote definition [^a] is never referenced, so it is omitted from the rendered document."
     ]
    ]
@@ -535,7 +535,7 @@
      "deprecated-cell-alignment",
      "/children/0/children/0/children/0/children/0",
      1,
-     5,
+     2,
      "The table cell alignment prefix \"<\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{<}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
     ]
    ]
@@ -703,16 +703,16 @@
    ]
   },
   "consumed-key-near-miss": {
-   "trigger": "{align=left}\n| a |",
-   "near": "{aligns=left}\n| a |",
+   "trigger": "{tabel}\n```csv\na,b\n```\n",
+   "near": "{table}\n```csv\na,b\n```\n",
    "options": {},
    "findings": [
     [
      "consumed-key-near-miss",
      "/children/0",
-     0,
-     18,
-     "\"align\" is not a consumed key here; did you mean {aligns}?"
+     8,
+     14,
+     "\"tabel\" is not a consumed key here; did you mean {table}?"
     ]
    ]
   },
@@ -723,9 +723,9 @@
    "findings": [
     [
      "delimited-table-wide-row",
-     "/children/0/children/1/children/0",
-     19,
-     24,
+     "/children/0",
+     0,
+     28,
      "A CSV/TSV record has more fields than the first record; the table keeps the extra columns."
     ]
    ]
@@ -895,8 +895,8 @@
    "findings": [
     [
      "figure-group-panel-number",
-     "/children/0/children/0/caption",
-     17,
+     "/children/0/children/0",
+     11,
      24,
      "A \"#\" placeholder in a panel caption stays literal: panels are not numbering units, the group caption carries the number (and panel ids resolve with its letter)."
     ]
@@ -923,9 +923,9 @@
    "findings": [
     [
      "heading-marker-mixed",
-     "/children/1",
-     7,
-     12,
+     "/children/0",
+     0,
+     5,
      "This document mixes the two heading markers. carve fmt rewrites the hash to the equals sign."
     ]
    ]
@@ -994,8 +994,8 @@
     [
      "table-column-arity",
      "/children/0",
-     0,
-     21,
+     1,
+     7,
      "widths supplies 1 column entries for a 2-column table; the unset tail is valid but may be accidental."
     ]
    ]
@@ -1008,8 +1008,8 @@
     [
      "table-attribute-invalid",
      "/children/0",
-     0,
-     16,
+     1,
+     9,
      "The value of widths is not valid, so the table ignores the whole attribute. Correct every entry, or remove the attribute."
     ]
    ]
@@ -1022,8 +1022,8 @@
     [
      "table-column-overlap",
      "/children/0",
-     0,
-     28,
+     1,
+     7,
      "Column 1 supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins."
     ]
    ]
@@ -1068,8 +1068,8 @@
     [
      "table-width-total",
      "/children/0",
-     0,
-     24,
+     1,
+     7,
      "The specified table column widths total more than 100%."
     ]
    ]
@@ -1085,9 +1085,9 @@
    "findings": [
     [
      "tight-list-item-with-blank-line",
-     "/children/0/children/0/children/0",
-     2,
-     3,
+     "/children/0",
+     0,
+     12,
      "A blank line inside an item no longer makes the list loose. Put a blank line between the items if every item should render as a paragraph."
     ]
    ]
@@ -1150,9 +1150,16 @@
   },
   "block-marker-as-text#3": {
    "trigger": "- ~~~\nx\n~~~\n",
-   "near": "- ~~~\nx\n\n",
+   "near": "- x\nx\n\n",
    "options": {},
    "findings": [
+    [
+     "block-marker-as-text",
+     "/children/0/children/0/children/0",
+     2,
+     5,
+     "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
+    ],
     [
      "block-marker-as-text",
      "/children/0/children/0/children/0",
@@ -1185,8 +1192,8 @@
      "block-opener-without-blank-line",
      "/children/0/children/0/children/0",
      4,
-     7,
-     "This line looks like a (kind) but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
+     5,
+     "This line looks like a heading but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
     ]
    ]
   },
@@ -1256,7 +1263,7 @@
      "/children/0/children/0/children/0",
      13,
      19,
-     "Bare 4-colon fence does not close the innermost 3-colon div opened at 1:3; it closes the container."
+     "Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the container."
     ]
    ]
   },
@@ -1282,7 +1289,7 @@
     [
      "comment-in-reference-label",
      "/children/0/children/1",
-     3,
+     5,
      11,
      "A line comment starts inside this reference label and takes the rest of the line, so the brackets are text. Move the comment out of the label, or escape the percent signs."
     ]
@@ -1388,14 +1395,21 @@
   },
   "deprecated-cell-alignment#2": {
    "trigger": "|=> Price |= Item |= Size |= Mood |\n| 12 |< pen |>^ big |~~ ok |\n|?v 3 | ink |>{.num} 9 | fine |\n",
-   "near": "|=> Price |= Item |= Size |= Mood |\n| 12 ||>^ big |~~ ok |\n|?v 3 | ink |>{.num} 9 | fine |\n",
+   "near": "|={>} Price |= Item |= Size |= Mood |\n| 12 |={<} pen |>^ big |~~ ok |\n|?v 3 | ink |>{.num} 9 | fine |\n",
    "options": {},
    "findings": [
     [
      "deprecated-cell-alignment",
+     "/children/0/children/0/children/0/children/0",
+     2,
+     3,
+     "The table cell alignment prefix \">\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{>}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
      "/children/0/children/1/children/0/children/1",
      42,
-     48,
+     43,
      "The table cell alignment prefix \"<\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{<}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
     ]
    ]
@@ -1737,15 +1751,15 @@
    ]
   },
   "indented-code-block#2": {
-   "trigger": "{title=\"😀\"}{.b\n           .c}\np\n",
-   "near": "{title=\"😀\"}{.b\n           \np\n",
+   "trigger": "p\n\n    q\n",
+   "near": "p\n\n   q\n",
    "options": {},
    "findings": [
     [
      "indented-code-block",
-     "/children/0",
-     29,
-     32,
+     "/children/1",
+     7,
+     8,
      "Four-space indentation does not make a code block in Carve; this renders as a paragraph. Use a ``` fence."
     ]
    ]
@@ -1765,15 +1779,15 @@
    ]
   },
   "list-item-block-overindented": {
-   "trigger": "- a\n   - b\n",
-   "near": "- a\n   \n",
+   "trigger": "- a\n\n   > b\n",
+   "near": "- a\n\n  > b\n",
    "options": {},
    "findings": [
     [
      "list-item-block-overindented",
      "/children/0/children/0/children/1",
-     7,
-     10,
+     8,
+     11,
      "This block opener is past the list item's canonical content column 3; it now parses structurally and the formatter will canonicalize it. Dedent it to column 3 for an explicit structural spelling, or escape the opener to preserve the literal meaning used by older readers."
     ]
    ]
@@ -1897,9 +1911,9 @@
    "findings": [
     [
      "ordered-marker-right-aligned",
-     "/children/0/children/0",
-     1,
-     5,
+     "/children/0/children/1",
+     6,
+     11,
      "This marker sits left of its list, so it is a sibling item that moves the list's column. Write the ordered markers left-aligned, as the formatter does."
     ]
    ]
@@ -1933,8 +1947,8 @@
    ]
   },
   "sigil-after-letter": {
-   "trigger": "<a@b.c1>\n",
-   "near": "<ab.c1>\n",
+   "trigger": "ü@bob\n",
+   "near": "ü @bob\n",
    "options": {},
    "findings": [
     [
@@ -1998,7 +2012,7 @@
      "/children/0/children/1/children/0/children/0",
      8,
      11,
-     "The \"^\" span marker cannot extend a cell. There is no cell of one column above it in its group: head, body or foot. It is a cell that holds \"^\" as text; escape it as \"\\^\" to say so, or remove it."
+     "The \"^\" span marker cannot extend a cell. It stands in the first row of its group: head, body or foot. It is a cell that holds \"^\" as text; escape it as \"\\^\" to say so, or remove it."
     ]
    ]
   },
@@ -2040,7 +2054,7 @@
      "/children/0/children/0/children/0",
      4,
      8,
-     "This attribute line reaches no block: a blank line or the end of its container follows, so the line is text (C2-B-192). Move it directly above the block it describes, or delete it."
+     "A blank line follows this attribute line, so it is text. Remove the blank line if you mean to attach it to a following block."
     ]
    ]
   },
@@ -2137,7 +2151,7 @@
      "unused-footnote-definition",
      "/children/0",
      0,
-     9,
+     4,
      "Footnote definition [^n] is never referenced, so it is omitted from the rendered document."
     ]
    ]

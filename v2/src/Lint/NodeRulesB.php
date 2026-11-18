@@ -11,11 +11,6 @@ namespace MarkupCarve\Carve2\Lint;
 final class NodeRulesB
 {
     /**
-     * @var array<string>
-     */
-    private const TEMPLATE_WORDS = ['if ', 'for ', 'endif', 'endfor', 'assign ', 'set ', 'include '];
-
-    /**
      * @param array<string, mixed> $node
      * @param string $path
      * @param \MarkupCarve\Carve2\Lint\Context $c
@@ -32,13 +27,11 @@ final class NodeRulesB
             return;
         }
         $width = -1;
-        $records = 0;
-        $firstLine = Support::pos($node)['startLine'] ?? 1;
-        foreach (Support::kids($node) as $index => $section) {
+        foreach (Support::kids($node) as $section) {
             if (!in_array($section['type'] ?? null, ['table_body', 'table_head', 'table_foot'], true)) {
                 continue;
             }
-            foreach (Support::kids($section) as $rowIndex => $row) {
+            foreach (Support::kids($section) as $row) {
                 if (($row['type'] ?? null) !== 'table_row') {
                     continue;
                 }
@@ -46,13 +39,10 @@ final class NodeRulesB
                 if ($width < 0) {
                     $width = $cells;
                 } elseif ($cells > $width) {
-                    $line = $c->lines[$firstLine + 1 + $records] ?? null;
-                    if ($line !== null) {
-                        $rowPath = $path . '/children/' . $index . '/children/' . $rowIndex;
-                        $c->report('delimited-table-wide-row', $line->start, $line->end, $rowPath);
-                    }
+                    Support::reportNode('delimited-table-wide-row', $node, $path, $c);
+
+                    return;
                 }
-                $records++;
             }
         }
     }
@@ -73,11 +63,17 @@ final class NodeRulesB
         $source = Support::raw($node, $c);
         $length = strlen($source);
         for ($at = 1; $at < $length - 2; $at++) {
-            if ($source[$at] !== '_' || !Support::isWord($source[$at - 1])) {
+            if (
+                $source[$at] !== '_' || !Support::isWord($source[$at - 1])
+                || in_array($source[$at + 1] ?? '', [' ', "\t", "\n"], true)
+            ) {
                 continue;
             }
             $end = strpos($source, '_', $at + 2);
-            if ($end === false || !Support::isWord($source[$end + 1] ?? null)) {
+            if (
+                $end === false || !Support::isWord($source[$end + 1] ?? null)
+                || in_array($source[$end - 1] ?? '', [' ', "\t", "\n"], true)
+            ) {
                 continue;
             }
             $c->report('djot-intraword-underscore', $range[0] + $at, $range[0] + $end + 1, $path);
@@ -105,6 +101,9 @@ final class NodeRulesB
             if (($ch !== '*' && $ch !== '/') || $source[$at + 1] !== '{') {
                 continue;
             }
+            if ($at > 0 && $source[$at - 1] === '\\') {
+                continue;
+            }
             $end = strpos($source, '}', $at + 2);
             if ($end === false) {
                 continue;
@@ -121,21 +120,72 @@ final class NodeRulesB
      *
      * @return void
      */
+    public static function emphasisBeforeAttrsSpan(array $node, string $path, Context $c): void
+    {
+        $type = $node['type'] ?? null;
+        if ($type !== 'strong' && $type !== 'emphasis') {
+            return;
+        }
+        $raw = Support::raw($node, $c);
+        $marker = $type === 'strong' ? '*' : '/';
+        if (preg_match('/' . preg_quote($marker, '/') . '\{[.#][^{}]*\}$/', $raw, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return;
+        }
+        $at = $match[0][1];
+        if (!str_contains(substr($raw, 1, $at - 1), $marker)) {
+            return;
+        }
+        $bounds = Support::bounds($node);
+        $pos = Support::pos($node);
+        if ($bounds === null || $pos === null) {
+            return;
+        }
+        $c->report('emphasis-marker-before-attributes', $bounds[0] + $at, $bounds[0] + $at + 1, $path, [
+            'marker' => $marker,
+            'name' => $type,
+            'line' => (string)$pos['startLine'],
+            'column' => (string)$pos['startColumn'],
+        ], 1);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
     public static function carveVersion(array $node, string $path, Context $c): void
     {
         if (($node['type'] ?? null) !== 'frontmatter') {
             return;
         }
-        foreach (explode("\n", Support::str($node, 'value') ?? '') as $line) {
-            if (!str_starts_with($line, 'carve:')) {
+        $pos = Support::pos($node);
+        if ($pos === null) {
+            return;
+        }
+        for ($number = $pos['startLine'] + 1; $number < $pos['endLine']; $number++) {
+            $line = $c->lines[$number - 1] ?? null;
+            if ($line === null) {
                 continue;
             }
-            $version = Support::trim(substr($line, 6));
-            if ($version === '' || $version === '0.2' || $version === '0.2.0') {
+            if (preg_match('/^[ \t]*carve(?:-version)?[ \t]*:[ \t]*(\S+)[ \t]*$/', $line->text, $match, PREG_OFFSET_CAPTURE) !== 1) {
+                continue;
+            }
+            [$version, $offset] = $match[1];
+            $numeric = preg_match('/^\d+(?:\.\d+)*$/', $version) === 1;
+            $parts = $numeric ? array_map('intval', explode('.', $version)) : [];
+            $major = $numeric ? $parts[0] : -1;
+            $minor = count($parts) > 1 ? $parts[1] : 0;
+            if (
+                $major === 0 && ($minor < 2
+                || ($minor === 2 && array_sum(array_slice($parts, 2)) === 0))
+            ) {
                 return;
             }
-            $values = ['version' => $version, 'SPEC_VERSION' => '0.2'];
-            Support::reportNode('carve-version-unsupported', $node, $path, $c, $values, str_starts_with($version, '0.') ? 0 : 1);
+            $c->report('carve-version-unsupported', $line->start + $offset, $line->start + $offset + strlen($version), $path, [
+                'version' => $version,
+            ], $numeric ? 1 : 0);
 
             return;
         }
@@ -194,7 +244,7 @@ final class NodeRulesB
         if ($open === false || strpos($before, ']', $open) !== false) {
             return;
         }
-        $c->report('comment-in-reference-label', $line->start + $open, $range[1], $path);
+        $c->report('comment-in-reference-label', $range[0], $range[1], $path);
     }
 
     /**
@@ -246,7 +296,10 @@ final class NodeRulesB
         foreach (Support::kids($node, 'columns') as $at => $column) {
             // C2-A-095: the column fields carry the fact that `aligns` or `widths` wrote them.
             if ((isset($column['align']) || isset($column['width'])) && isset($cells[$at]['align'])) {
-                Support::reportNode('table-column-overlap', $node, $path, $c, ['n' => (string)($at + 1)]);
+                $range = NodeRulesA::tableKeyRange($node, 'aligns', $c);
+                if ($range !== null) {
+                    $c->report('table-column-overlap', $range[0], $range[1], $path, ['n' => (string)($at + 1)]);
+                }
             }
         }
     }
@@ -265,12 +318,21 @@ final class NodeRulesB
         }
         foreach (Support::kids($node) as $at => $item) {
             $children = Support::kids($item);
+            if (!in_array('paragraph', array_column($children, 'type'), true)) {
+                continue;
+            }
             $count = count($children);
             for ($inner = 0; $inner < $count - 1; $inner++) {
                 $child = $children[$inner] ?? null;
+                $next = $children[$inner + 1] ?? null;
                 $childPath = $path . '/children/' . $at . '/children/' . $inner;
-                if ($child !== null && ($child['type'] ?? null) === 'paragraph' && $c->layout->blankLinesAfter($childPath) > 0) {
-                    Support::reportNode('tight-list-item-with-blank-line', $child, $childPath, $c);
+                if (
+                    $child !== null && ($child['type'] ?? null) !== 'comment' && ($next['type'] ?? null) !== 'comment'
+                    && $c->layout->blankLinesAfter($childPath) > 0
+                ) {
+                    Support::reportNode('tight-list-item-with-blank-line', $node, $path, $c);
+
+                    return;
                 }
             }
         }
@@ -289,13 +351,12 @@ final class NodeRulesB
             return;
         }
         $source = Support::raw($node, $c);
-        $content = str_starts_with($source, '{%') ? self::trimStart(substr($source, 2)) : '';
-        foreach (self::TEMPLATE_WORDS as $word) {
-            if (str_starts_with($content, $word)) {
-                Support::reportNode('braced-comment-in-a-template-source', $node, $path, $c);
-
-                return;
-            }
+        $content = str_starts_with($source, '{%') ? Support::trim(substr($source, 2, -2)) : '';
+        if (
+            in_array($content, ['raw', 'endraw', 'endif', 'endfor', 'endblock'], true)
+            || preg_match('/^(?:if|for|block)[ \t\r\n]+\S/', $content) === 1
+        ) {
+            Support::reportNode('braced-comment-in-a-template-source', $node, $path, $c);
         }
     }
 
@@ -335,13 +396,25 @@ final class NodeRulesB
         $source = Support::raw($node, $c);
         $length = strlen($source);
         for ($at = 0; $at < $length - 1; $at++) {
-            if ($source[$at] !== '*' || !Support::isWord($source[$at + 1]) || ($at > 0 && Support::isWord($source[$at - 1]))) {
+            if (($source[$at] !== '*' && $source[$at] !== '/') || !Support::isWord($source[$at + 1])) {
                 continue;
             }
-            if (strpos($source, '*', $at + 1) !== false) {
+            $backslashes = 0;
+            for ($before = $at - 1; $before >= 0 && $source[$before] === '\\'; $before--) {
+                $backslashes++;
+            }
+            if (
+                $backslashes % 2 === 1 || ($at > 0 && ($source[$at - 1] === '{'
+                || !str_contains(" \t\r\n([{", $source[$at - 1])))
+            ) {
                 continue;
             }
-            $c->report('unclosed-inline-emphasis', $range[0] + $at, $range[0] + $at + 1, $path);
+            if (strpos($source, $source[$at], $at + 1) !== false) {
+                continue;
+            }
+            $c->report('unclosed-inline-emphasis', $range[0] + $at, $range[0] + $at + 1, $path, [
+                'span' => $source[$at] === '*' ? 'strong' : 'emphasis',
+            ]);
 
             return;
         }
@@ -367,8 +440,10 @@ final class NodeRulesB
             if (($before['type'] ?? null) !== 'list' || ($after['type'] ?? null) !== 'list' || count(Support::kids($before)) !== 1) {
                 continue;
             }
-            if (self::markerField($before, 'style') === 'i' && self::markerField($after, 'style') === 'a') {
-                Support::reportNode('ordered-list-kind-split', $after, $path . '/children/' . $at, $c);
+            $firstStyle = self::markerField($before, 'style');
+            $nextStyle = self::markerField($after, 'style');
+            if (($firstStyle === 'i' && $nextStyle === 'a') || ($firstStyle === 'a' && $nextStyle === 'i')) {
+                Support::reportNode('ordered-list-kind-split', $before, $path . '/children/' . ($at - 1), $c);
             }
         }
     }
@@ -394,10 +469,14 @@ final class NodeRulesB
                 continue;
             }
             $before = $source[$at - 1];
-            if (!(Support::isWord($before) || ord($before) >= 128) || !Support::isWord($source[$at + 1])) {
+            $prefix = substr($source, 0, $at);
+            if (
+                ord($before) < 128 || preg_match('/[\p{L}\p{N}]$/u', $prefix) !== 1
+                || !Support::isWord($source[$at + 1])
+            ) {
                 continue;
             }
-            if ($sigil !== '#' || !ctype_digit($source[$at + 1])) {
+            if ($sigil !== '#' || preg_match('/^#[A-Za-z0-9_]*[A-Za-z_]/', substr($source, $at)) === 1) {
                 $c->report('sigil-after-letter', $range[0] + $at, $range[0] + $at + 1, $path);
             }
         }
@@ -479,6 +558,19 @@ final class NodeRulesB
                 'baseColumn' => (string)($base + 1),
             ]);
         }
+        foreach (Support::kids($node) as $at => $item) {
+            if ($at === 0) {
+                continue;
+            }
+            $nextMarker = $c->layout->markerColumn($path . '/children/' . $at);
+            if ($nextMarker !== null && $nextMarker > $base && $nextMarker < $marker) {
+                Support::reportNode('list-marker-below-content-column', $item, $path . '/children/' . $at, $c, [
+                    'column' => (string)($nextMarker + 1),
+                    'contentColumn' => (string)($marker + 1),
+                    'baseColumn' => (string)($base + 1),
+                ]);
+            }
+        }
     }
 
     /**
@@ -490,11 +582,43 @@ final class NodeRulesB
      */
     public static function blockOverindent(array $node, string $path, Context $c): void
     {
-        foreach (self::overindented($node, $path, $c) as [$at, $line, $indent, $type, $content]) {
-            $c->report('block-opener-overindented', $line->start + $indent, $line->end, $path . '/children/' . $at, [
-                'kind' => str_replace('_', ' ', $type),
-                'past' => (string)($indent - $content),
-                'owner' => 'list item',
+        $ownerType = $node['type'] ?? null;
+        if ($ownerType !== 'document' && $ownerType !== 'definition_description') {
+            return;
+        }
+        $baseColumn = $ownerType === 'document' ? 0 : ($c->layout->contentColumn($path) ?? 0);
+        $kinds = [
+            'block_quote' => 'quote mark',
+            'code_block' => 'code fence',
+            'raw_block' => 'code fence',
+            'div' => 'colon fence',
+            'admonition' => 'colon fence',
+            'heading' => 'heading marker',
+            'thematic_break' => 'thematic break',
+            'table' => 'pipe table row',
+            'line_block' => 'line block',
+            'definition_list' => 'definition term',
+        ];
+        foreach (Support::kids($node) as $at => $child) {
+            $type = Support::str($child, 'type') ?? '';
+            $pos = Support::pos($child);
+            if ($pos === null || !isset($kinds[$type])) {
+                continue;
+            }
+            $line = $c->lines[$pos['startLine'] - 1] ?? null;
+            if ($line === null) {
+                continue;
+            }
+            $indent = self::indentation($line->text);
+            if ($indent <= $baseColumn) {
+                continue;
+            }
+            $start = $line->start + $indent;
+            $c->report('block-opener-overindented', $start, $start + 1, $path . '/children/' . $at, [
+                'kind' => $kinds[$type],
+                'past' => (string)($indent - $baseColumn),
+                'columns' => $indent - $baseColumn === 1 ? 'column' : 'columns',
+                'owner' => $ownerType === 'document' ? 'the document' : 'the description',
             ]);
         }
     }
@@ -516,9 +640,17 @@ final class NodeRulesB
         if ($parent !== 'strong' && $parent !== 'emphasis') {
             return;
         }
-        $at = strpos(Support::raw($node, $c), $parent === 'strong' ? '{*' : '{/');
+        $raw = Support::raw($node, $c);
+        $star = strpos($raw, '{*');
+        $slash = strpos($raw, '{/');
+        $at = $star === false ? $slash : ($slash === false ? $star : min($star, $slash));
         $range = Support::bounds($node);
-        if ($at !== false && $range !== null) {
+        $lineEnd = $range === null ? false : strpos($c->source, "\n", $range[1]);
+        $until = $lineEnd === false ? strlen($c->source) : $lineEnd;
+        if (
+            $at !== false && $range !== null && strpos($c->source, '}', $range[1]) !== false
+            && (int)strpos($c->source, '}', $range[1]) < $until
+        ) {
             $c->report('braced-span-opener-as-text', $range[0] + $at, $range[0] + $at + 2, $path);
         }
     }
@@ -544,17 +676,50 @@ final class NodeRulesB
             return;
         }
         $closer = Support::trim($endLine->text);
-        if (!self::allColons($closer) || strlen($closer) <= $opener[1] || self::closesInner($node, strlen($closer), $c)) {
+        [$activeRun, $innerType] = self::activeColonRun($node, $c, $opener, $pos['endLine']);
+        if (
+            !self::allColons($closer) || strlen($closer) === $activeRun[1]
+            || ($activeRun === $opener && self::closesInner($node, strlen($closer), $c))
+        ) {
             return;
         }
+        $activeLine = $c->lineOf($activeRun[0]);
+        $activeColumn = $activeRun[0] - ($c->lines[$activeLine - 1]->start ?? 0) + 1;
         $c->report('colon-fence-length-mismatch', $endLine->start, $endLine->end, $path, [
             'authoredWidth' => (string)strlen($closer),
-            'expectedWidth' => (string)$opener[1],
-            'kind' => str_replace('_', ' ', (string)$type),
-            'line' => (string)$pos['startLine'],
-            'column' => (string)$pos['startColumn'],
-            'outcome' => 'closes the container',
-        ]);
+            'expectedWidth' => (string)$activeRun[1],
+            'kind' => str_replace('_', ' ', (string)($innerType ?? $type)),
+            'line' => (string)$activeLine,
+            'column' => (string)$activeColumn,
+        ], strlen($closer) < $activeRun[1] ? ($activeRun !== $opener ? 1 : 0) : 2);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     * @param array{0: int, 1: int} $opener
+     * @param int $endLine
+     *
+     * @return array{0: array{0: int, 1: int}, 1: string|null}
+     */
+    private static function activeColonRun(array $node, Context $c, array $opener, int $endLine): array
+    {
+        $children = Support::kids($node);
+        $inner = $children === [] ? null : $children[array_key_last($children)];
+        if ($inner === null || !in_array($inner['type'] ?? null, ['div', 'admonition'], true)) {
+            return [$opener, null];
+        }
+        $innerRun = self::openerRun($inner, $c);
+        $innerEnd = Support::pos($inner)['endLine'] ?? 0;
+        $innerLast = $innerEnd > 0 ? ($c->lines[$innerEnd - 1] ?? null) : null;
+        $innerClosed = $innerRun !== null && $innerLast !== null
+            && self::allColons(Support::trim($innerLast->text))
+            && strlen(Support::trim($innerLast->text)) === $innerRun[1];
+        if ($innerRun !== null && $innerEnd < $endLine && !$innerClosed) {
+            return [$innerRun, (string)$inner['type']];
+        }
+
+        return [$opener, null];
     }
 
     /**
@@ -566,13 +731,32 @@ final class NodeRulesB
      */
     public static function consumedNearMiss(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) !== 'table') {
+        if (($node['type'] ?? null) !== 'code_block' || !in_array($node['syntax'] ?? null, ['csv', 'tsv'], true)) {
             return;
         }
-        foreach (Support::keyValues($node) as [$word]) {
-            $key = $word === 'align' ? 'aligns' : ($word === 'width' ? 'widths' : null);
-            if ($key !== null) {
-                Support::reportNode('consumed-key-near-miss', $node, $path, $c, ['word' => $word, 'key' => $key]);
+        $pos = Support::pos($node);
+        $opener = $pos === null ? null : ($c->lines[$pos['startLine']] ?? null);
+        foreach (Support::keyValues($node) as [$word, $value]) {
+            if ($value !== '' || $word === 'table') {
+                continue;
+            }
+            $lower = strtolower($word);
+            $distance = levenshtein($lower, 'table');
+            $swapped = false;
+            if (strlen($lower) === 5) {
+                for ($at = 0; $at < 4; $at++) {
+                    $candidate = $lower;
+                    [$candidate[$at], $candidate[$at + 1]] = [$candidate[$at + 1], $candidate[$at]];
+                    $swapped = $swapped || $candidate === 'table';
+                }
+            }
+            if ($distance <= 1 || $swapped) {
+                if ($opener !== null) {
+                    $c->report('consumed-key-near-miss', $opener->start, $opener->end, $path, [
+                        'word' => $word,
+                        'key' => 'table',
+                    ]);
+                }
             }
         }
     }
@@ -597,7 +781,7 @@ final class NodeRulesB
         }
         $sameContent = $c->layout->contentColumn($path . '/children/0') === $c->layout->contentColumn($path . '/children/1');
         if ($firstMarker > $secondMarker && $sameContent) {
-            Support::reportNode('ordered-marker-right-aligned', $children[0], $path . '/children/0', $c);
+            Support::reportNode('ordered-marker-right-aligned', $children[1], $path . '/children/1', $c);
         }
     }
 
@@ -626,10 +810,16 @@ final class NodeRulesB
         if (str_ends_with(rtrim(Support::raw($node, $c), " \t\n\r\v\f"), '\\' . $marker)) {
             return;
         }
-        $reason = $marker === '<'
-            ? 'There is no cell to its left in its row.'
-            : 'There is no cell of one column above it in its group: head, body or foot.';
-        Support::reportNode('table-span-marker-blocked', $node, $path, $c, ['marker' => $marker, 'reason' => $reason]);
+        $variant = self::blockedSpanVariant($marker, $path);
+        Support::reportNode('table-span-marker-blocked', $node, $path, $c, [], $variant);
+    }
+
+    private static function blockedSpanVariant(string $marker, string $path): int
+    {
+        $rowPath = Support::parent($path);
+        $index = $rowPath === null ? null : (int)substr($rowPath, (int)strrpos($rowPath, '/') + 1);
+
+        return $marker === '<' ? ($index === 0 ? 0 : 1) : ($index === 0 ? 2 : 3);
     }
 
     /**
@@ -699,7 +889,7 @@ final class NodeRulesB
         if (($child['type'] ?? null) !== 'text') {
             return;
         }
-        $value = Support::trim(strtolower(Support::str($child, 'value') ?? ''));
+        $value = Support::trim(strtolower((string)preg_replace('/[ \t\r\n]+/', ' ', Support::str($child, 'value') ?? '')));
         if ($value === 'here' || $value === 'click here' || $value === 'read more') {
             Support::reportNode('non-descriptive-link-text', $node, $path, $c);
         }
@@ -721,8 +911,7 @@ final class NodeRulesB
         if (isset($node[$type === 'link' ? 'href' : 'src'])) {
             return;
         }
-        $rawRef = $c->layout->rawRef($path) ?? Support::raw($node, $c);
-        Support::reportNode('unresolved-reference-link', $node, $path, $c, ['rawRef' => $rawRef], $type === 'link' ? 1 : 3);
+        $c->unresolvedReferences[] = [$node, $path];
     }
 
     /**
@@ -807,7 +996,12 @@ final class NodeRulesB
         $code = self::option($node, 'code');
         $table = in_array('table', array_column(Support::keyValues($node), 0), true);
         if ($table && ($code === 'csv' || $code === 'tsv')) {
-            Support::reportNode('include-lines-table-rows-hint', $node, $path, $c);
+            $bounds = Support::bounds($node);
+            if ($bounds === null || preg_match('/@lines:[^\s}]+/', Support::raw($node, $c), $match, PREG_OFFSET_CAPTURE) !== 1) {
+                return;
+            }
+            $start = $bounds[0] + $match[0][1];
+            $c->report('include-lines-table-rows-hint', $start, $start + strlen($match[0][0]), $path);
         }
     }
 
@@ -820,14 +1014,67 @@ final class NodeRulesB
      */
     public static function finish(Context $c): void
     {
+        self::suppressUnreferencedFootnotePlatforms($c);
+        self::finishUnresolvedReferences($c);
         self::finishFragments($c);
         self::finishReferences($c);
         self::finishFootnotes($c);
     }
 
+    private static function finishUnresolvedReferences(Context $c): void
+    {
+        $labels = [];
+        foreach ($c->referenceDefinitions as [$definition]) {
+            $key = Support::str($definition, 'key');
+            if ($key !== null) {
+                $labels[] = $key;
+            }
+        }
+        foreach ($c->unresolvedReferences as [$node, $path]) {
+            $type = $node['type'] ?? null;
+            $key = Support::str($node, 'key') ?? '';
+            $candidates = Support::caseOnly($key, $type === 'image' ? $labels : array_merge($labels, array_keys($c->ids)));
+            $rawRef = $c->layout->rawRef($path) ?? Support::raw($node, $c);
+            $values = ['rawRef' => $rawRef];
+            if ($candidates !== []) {
+                $values['caseOnlyPhrase'] = Support::caseOnlyPhrase($candidates, in_array($candidates[0], $labels, true) ? 'label' : 'id');
+            }
+            $variant = $type === 'image' ? ($candidates === [] ? 3 : 2) : ($candidates === [] ? 1 : 0);
+            Support::reportNode('unresolved-reference-link', $node, $path, $c, $values, $variant);
+        }
+    }
+
+    private static function suppressUnreferencedFootnotePlatforms(Context $c): void
+    {
+        $prefixes = [];
+        foreach ($c->footnoteDefinitions as [$node, $path]) {
+            $key = Support::str($node, 'key');
+            if ($key !== null && !isset($c->usedFootnotes[$key])) {
+                $prefixes[] = $path . '/';
+            }
+        }
+        if ($prefixes === []) {
+            return;
+        }
+        foreach ($c->diagnostics as $index => $entry) {
+            if ($entry->code !== 'platform-issue-reference' && $entry->code !== 'platform-mention-token') {
+                continue;
+            }
+            foreach ($prefixes as $prefix) {
+                if (str_starts_with((string)$entry->path, $prefix)) {
+                    unset($c->diagnostics[$index], $c->findingLines[$index]);
+
+                    break;
+                }
+            }
+        }
+        $c->diagnostics = array_values($c->diagnostics);
+        $c->findingLines = array_values($c->findingLines);
+    }
+
     private static function finishFragments(Context $c): void
     {
-        if ($c->off('broken-fragment-link')) {
+        if ($c->off('broken-fragment-link') || !empty($c->options['extensions'])) {
             return;
         }
         foreach ($c->fragmentLinks as [$node, $path]) {
@@ -835,8 +1082,20 @@ final class NodeRulesB
             if (($node['type'] ?? null) !== 'link' || $href === null) {
                 continue;
             }
-            if (!isset($c->ids[substr($href, 1)])) {
-                Support::reportNode('broken-fragment-link', $node, $path, $c, ['href' => $href], 1);
+            $fragment = explode(':~:', substr($href, 1), 2)[0];
+            $decoded = rawurldecode($fragment);
+            if (strtolower($fragment) !== 'top' && !isset($c->ids[$fragment]) && !isset($c->ids[$decoded])) {
+                $candidates = Support::caseOnly($fragment, array_keys($c->ids));
+                foreach (Support::caseOnly($decoded, array_keys($c->ids)) as $candidate) {
+                    if (!in_array($candidate, $candidates, true)) {
+                        $candidates[] = $candidate;
+                    }
+                }
+                $values = ['href' => $href];
+                if ($candidates !== []) {
+                    $values['caseOnly'] = $candidates[0];
+                }
+                Support::reportNode('broken-fragment-link', $node, $path, $c, $values, $candidates === [] ? 1 : 0);
             }
         }
     }
@@ -861,7 +1120,13 @@ final class NodeRulesB
         foreach ($c->footnoteDefinitions as [$node, $path]) {
             $key = Support::str($node, 'key') ?? '';
             if (($node['type'] ?? null) === 'footnote' && !isset($c->usedFootnotes[$key])) {
-                Support::reportNode('unused-footnote-definition', $node, $path, $c, ['label' => $key]);
+                $bounds = Support::bounds($node);
+                if ($bounds !== null) {
+                    $close = strpos(Support::raw($node, $c), ']');
+                    if ($close !== false) {
+                        $c->report('unused-footnote-definition', $bounds[0], $bounds[0] + $close + 1, $path, ['label' => $key]);
+                    }
+                }
             }
         }
     }
@@ -988,7 +1253,7 @@ final class NodeRulesB
         foreach (Support::kids($node) as $at => $child) {
             $type = Support::str($child, 'type') ?? '';
             $pos = Support::pos($child);
-            if ($type === 'paragraph' || $pos === null) {
+            if ($type === 'paragraph' || $type === 'list' || $pos === null) {
                 continue;
             }
             $line = $c->lines[$pos['startLine'] - 1] ?? null;

@@ -65,9 +65,10 @@ final class CommandTest extends TestCase
     {
         $rules = '{"heading-level-skip":"off"}';
         [$status, $out] = self::call(['lint', '--json', '--no-includes', '--rules', $rules, $this->dir . '/main.crv']);
-        $this->assertSame(0, $status);
+        $this->assertSame(1, $status);
         $data = json_decode($out, true, 16, JSON_THROW_ON_ERROR);
-        $this->assertSame(['files' => [['file' => $this->dir . '/main.crv', 'diagnostics' => []]]], $data);
+        $this->assertSame($this->dir . '/main.crv', $data['files'][0]['file']);
+        $this->assertSame(['include-no-resolver'], array_column($data['files'][0]['diagnostics'], 'code'));
         $this->assertStringStartsWith("{\n  \"files\": [", $out);
         [$status, , $err] = self::call(['lint', '--rules', '{"nope":"on"}', $this->dir . '/main.crv']);
         $this->assertSame(2, $status);

@@ -33,6 +33,20 @@ final class Context
     public array $firstLines = [];
 
     /**
+     * First source byte of each paragraph's content.
+     *
+     * @var array<string, int>
+     */
+    public array $paragraphStarts = [];
+
+    /**
+     * Frontmatter lines whose text is opaque to all other line rules.
+     *
+     * @var array<int, true>
+     */
+    public array $frontmatterLines = [];
+
+    /**
      * @var array<\MarkupCarve\Carve2\Diagnostics\Diagnostic>
      */
     public array $diagnostics = [];
@@ -53,6 +67,11 @@ final class Context
      * @var array<string, true>
      */
     public array $headingKinds = [];
+
+    /**
+     * @var array{0: int, 1: int, 2: string}|null
+     */
+    public ?array $firstHeading = null;
 
     public bool $mixedReported = false;
 
@@ -95,6 +114,11 @@ final class Context
      * @var array<array{0: array<string, mixed>, 1: string}>
      */
     public array $referenceDefinitions = [];
+
+    /**
+     * @var array<array{0: array<string, mixed>, 1: string}>
+     */
+    public array $unresolvedReferences = [];
 
     /**
      * @var array<array{0: array<string, mixed>, 1: string}>

@@ -21,6 +21,11 @@ final class NodeRules
         return static fn (array $node, string $path, Context $c) => NodeRulesA::textPair($node, $path, $c, $mark, $id);
     }
 
+    private static function multilinePair(string $mark, string $id): Closure
+    {
+        return static fn (array $node, string $path, Context $c) => NodeRulesA::multilineBarePair($node, $path, $c, $mark, $id);
+    }
+
     /**
      * @return array<array{0: string, 1: array<string>, 2: \Closure}>
      */
@@ -32,7 +37,11 @@ final class NodeRules
             ['deprecated-bare-underline', ['text'], self::pair('_', 'deprecated-bare-underline')],
             ['deprecated-bare-strike', ['text'], self::pair('~', 'deprecated-bare-strike')],
             ['deprecated-bare-highlight', ['text'], self::pair('=', 'deprecated-bare-highlight')],
+            ['deprecated-bare-underline', ['paragraph'], self::multilinePair('_', 'deprecated-bare-underline')],
+            ['deprecated-bare-strike', ['paragraph'], self::multilinePair('~', 'deprecated-bare-strike')],
+            ['deprecated-bare-highlight', ['paragraph'], self::multilinePair('=', 'deprecated-bare-highlight')],
             ['markdown-strong-double-star', ['text'], self::pair('**', 'markdown-strong-double-star')],
+            ['markdown-strong-double-star', ['paragraph'], NodeRulesA::multilineMarkdownStrong(...)],
             ['markdown-strikethrough-double-tilde', ['text'], self::pair('~~', 'markdown-strikethrough-double-tilde')],
             ['djot-emphasis-underscore', ['text'], self::pair('_', 'djot-emphasis-underscore')],
             ['djot-subscript-tilde', ['text'], self::pair('~', 'djot-subscript-tilde')],
@@ -52,14 +61,19 @@ final class NodeRules
             ['figure-group-single-panel', ['figure_group'], NodeRulesA::figureSingle(...)],
             ['deprecated-substitution-arrow', ['strike'], NodeRulesA::substitutionArrow(...)],
             ['frontmatter-shaped-thematic-break', ['frontmatter'], NodeRulesA::frontmatterBreak(...)],
-            ['bidi-control-in-source', ['text', 'code', 'code_block'], NodeRulesA::bidiControl(...)],
+            ['bidi-control-in-source', ['text', 'code', 'code_block', 'math'], NodeRulesA::bidiControl(...)],
             ['description-term-multi-line', ['definition_term'], NodeRulesA::multilineTerm(...)],
             ['deprecated-indented-line-under-heading', ['heading'], NodeRulesA::headingContinuation(...)],
-            ['figure-group-nested', ['figure_group'], NodeRulesA::figureNested(...)],
+            ['figure-group-nested', ['div'], NodeRulesA::figureNested(...)],
             ['figure-group-panel-number', ['figure_group'], NodeRulesA::figurePanelNumber(...)],
             ['footnotes-placement-in-container', ['directive'], NodeRulesA::footnotePlacement(...)],
             ['references-placement-in-container', ['directive'], NodeRulesA::referencesPlacement(...)],
-            ['semantic-attribute-outside-span', ['paragraph', 'heading', 'link', 'image', 'strong'], NodeRulesA::semanticOutside(...)],
+            [
+                'semantic-attribute-outside-span', [
+                    'paragraph', 'heading', 'link', 'image', 'strong', 'emphasis', 'list', 'list_item', 'block_quote',
+                    'table', 'code', 'code_block', 'raw_block', 'div', 'admonition',
+                ], NodeRulesA::semanticOutside(...),
+            ],
             ['semantic-attribute-value-ignored', ['span'], NodeRulesA::semanticValue(...)],
             ['table-column-arity', ['table'], NodeRulesA::tableColumnArity(...)],
             ['table-attribute-invalid', ['table'], NodeRulesA::invalidTableAttribute(...)],
@@ -68,7 +82,7 @@ final class NodeRules
             ['table-width-total', ['table'], NodeRulesA::tableWidth(...)],
             ['table-row-attribute-as-cell', ['table_row'], NodeRulesA::rowAttributeCell(...)],
             ['emphasis-as-heading', ['paragraph'], NodeRulesA::emphasizedHeading(...)],
-            ['comment-shaped-emphasis', ['emphasis'], NodeRulesA::commentEmphasis(...)],
+            ['comment-shaped-emphasis', ['emphasis', 'strong'], NodeRulesA::commentEmphasis(...)],
             ['glob-shaped-strong', ['strong'], NodeRulesA::globStrong(...)],
             ['djot-subscript-tilde-braced', ['strike'], NodeRulesA::djotBracedStrike(...)],
             ['djot-highlight-braces', ['highlight'], NodeRulesA::djotBracedHighlight(...)],
@@ -85,6 +99,7 @@ final class NodeRules
             ['delimited-table-wide-row', ['table'], NodeRulesB::delimitedWideRow(...)],
             ['djot-intraword-underscore', ['text'], NodeRulesB::intrawordUnderscore(...)],
             ['emphasis-marker-before-attributes', ['text'], NodeRulesB::emphasisBeforeAttrs(...)],
+            ['emphasis-marker-before-attributes', ['strong', 'emphasis'], NodeRulesB::emphasisBeforeAttrsSpan(...)],
             ['carve-version-unsupported', ['frontmatter'], NodeRulesB::carveVersion(...)],
             ['comment-fence-closer-with-text', ['comment'], NodeRulesB::commentFenceCloserText(...)],
             ['comment-in-reference-label', ['comment'], NodeRulesB::commentInLabel(...)],
@@ -99,10 +114,10 @@ final class NodeRules
             ['list-item-body-below-content-column', ['list_item'], NodeRulesB::listItemBodyColumn(...)],
             ['list-item-block-overindented', ['list_item'], NodeRulesB::listItemBlockIndent(...)],
             ['list-marker-below-content-column', ['list'], NodeRulesB::listMarkerBelowColumn(...)],
-            ['block-opener-overindented', ['list_item'], NodeRulesB::blockOverindent(...)],
+            ['block-opener-overindented', ['document', 'definition_description'], NodeRulesB::blockOverindent(...)],
             ['braced-span-opener-as-text', ['text'], NodeRulesB::bracedSpanAsText(...)],
             ['colon-fence-length-mismatch', ['div', 'admonition', 'figure_group'], NodeRulesB::colonFenceMismatch(...)],
-            ['consumed-key-near-miss', ['table'], NodeRulesB::consumedNearMiss(...)],
+            ['consumed-key-near-miss', ['code_block'], NodeRulesB::consumedNearMiss(...)],
             ['ordered-marker-right-aligned', ['list'], NodeRulesB::orderedRightAligned(...)],
             ['table-span-marker-blocked', ['table_cell'], NodeRulesB::spanMarkerBlocked(...)],
             ['table-span-marker-attribute', ['table_cell'], NodeRulesB::spanMarkerAttribute(...)],

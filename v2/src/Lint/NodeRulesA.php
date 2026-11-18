@@ -44,10 +44,16 @@ final class NodeRulesA
                 return;
             }
             $end = strpos($text, $mark, $start + $size + 1);
-            if ($end === false) {
-                return;
+            while ($end !== false && !self::pairs($text, $mark, $start, $end, $id)) {
+                $next = $end + $size;
+                $end = $next < $length ? strpos($text, $mark, $next) : false;
             }
-            if (self::pairs($text, $mark, $start, $end)) {
+            if ($end === false) {
+                $at = $start + $size;
+
+                continue;
+            }
+            if (self::pairs($text, $mark, $start, $end, $id)) {
                 $c->report($id, $range[0] + $start, $range[0] + $end + $size, $path);
             }
             $at = $end + $size;
@@ -55,22 +61,119 @@ final class NodeRulesA
     }
 
     /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function multilineMarkdownStrong(array $node, string $path, Context $c): void
+    {
+        if (($node['type'] ?? null) !== 'paragraph') {
+            return;
+        }
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return;
+        }
+        $raw = Support::raw($node, $c);
+        preg_match_all('/\*\*([^*]+)\*\*/s', $raw, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as $i => [$whole, $offset]) {
+            $inside = $matches[1][$i][0];
+            if (!str_contains($inside, "\n") || str_contains($inside, "\n\n") || self::jsTrim($inside) !== $inside) {
+                continue;
+            }
+            $start = $bounds[0] + $offset;
+            $end = $start + strlen($whole);
+            $masked = false;
+            foreach ($c->leafMask as [$from, $to]) {
+                $masked = $masked || ($from < $end && $to > $start);
+            }
+            if ($masked) {
+                continue;
+            }
+            $owner = $path;
+            foreach (Support::kids($node) as $at => $child) {
+                $part = Support::bounds($child);
+                if ($part !== null && $part[0] <= $start && $part[1] > $start) {
+                    $owner = $path . '/children/' . $at;
+
+                    break;
+                }
+            }
+            $c->report('markdown-strong-double-star', $start, $end, $owner);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     * @param string $mark
+     * @param string $id
+     *
+     * @return void
+     */
+    public static function multilineBarePair(array $node, string $path, Context $c, string $mark, string $id): void
+    {
+        if (($node['type'] ?? null) !== 'paragraph') {
+            return;
+        }
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return;
+        }
+        $raw = Support::raw($node, $c);
+        $first = strpos($raw, $mark);
+        if ($first === false) {
+            return;
+        }
+        if ($first + 2 >= strlen($raw)) {
+            return;
+        }
+        $last = strpos($raw, $mark, $first + 2);
+        if (
+            $last === false || !str_contains(substr($raw, $first, $last - $first), "\n")
+            || !self::pairs($raw, $mark, $first, $last, $id)
+        ) {
+            return;
+        }
+        $c->report($id, $bounds[0] + $first, $bounds[0] + $last + 1, $path);
+    }
+
+    /**
      * @param string $text
      * @param string $mark
      * @param int $start
      * @param int $end
+     * @param string $id
      *
      * @return bool
      */
-    private static function pairs(string $text, string $mark, int $start, int $end): bool
+    private static function pairs(string $text, string $mark, int $start, int $end, string $id): bool
     {
         $size = strlen($mark);
         $before = $start > 0 ? $text[$start - 1] : null;
-        $after = $text[$end + $size] ?? null;
         $inside = substr($text, $start + $size, $end - $start - $size);
 
+        if ($mark === '**') {
+            return $before !== '\\' && $inside !== '' && !str_contains($inside, '*') && !str_contains($inside, "\n\n")
+                && self::jsTrim($inside) === $inside;
+        }
+
+        if ($id === 'djot-subscript-tilde' || $id === 'djot-superscript-caret') {
+            return $before !== '\\' && $before !== '{' && $inside !== '' && self::jsTrimEnd($inside) === $inside
+                && !in_array($inside[0], [' ', "\t", "\n", '}'], true);
+        }
+
+        $priorWord = preg_match('/[\p{L}\p{N}_]$/u', substr($text, 0, $start)) === 1;
+        $nextWord = preg_match('/^[\p{L}\p{N}_]/u', substr($text, $end + $size)) === 1;
+        if ($mark === '_' && preg_match('/[\p{L}\p{N}]_[\p{L}\p{N}]/u', $inside) === 1) {
+            return false;
+        }
+
         return $before !== '\\' && $inside !== '' && $inside[0] !== $mark[0] && $inside[strlen($inside) - 1] !== $mark[0]
-            && self::jsTrim($inside) === $inside && !Support::isWord($before) && !Support::isWord($after);
+            && self::jsTrim($inside) === $inside && !$priorWord && !$nextWord;
     }
 
     /**
@@ -180,7 +283,11 @@ final class NodeRulesA
             if ($pipe && $key === 'header-rows' && preg_match('/^\d*$/', $value) === 1) {
                 continue;
             }
-            Support::reportNode('table-attribute-invalid', $node, $path, $c, ['key' => $key]);
+            $range = self::tableKeyRange($node, $key, $c);
+            if ($range !== null) {
+                $end = $range[1] + 1 + strlen($value);
+                $c->report('table-attribute-invalid', $range[0], $end, $path, ['key' => $key]);
+            }
         }
     }
 
@@ -233,7 +340,7 @@ final class NodeRulesA
         $walk['afterRow'] = $row;
         $comment = $row ? self::trailingComment($text) : -1;
         if ($comment >= 0) {
-            $walk['pending'][] = [$start + $comment, $end];
+            $walk['pending'][] = [$start + max(0, $comment - 1), $end];
         }
     }
 
@@ -422,9 +529,16 @@ final class NodeRulesA
         if ($kind !== '#' && $kind !== '=') {
             return;
         }
+        $bounds = Support::bounds($node);
+        if ($bounds !== null) {
+            $c->firstHeading ??= [$bounds[0], $bounds[1], $path];
+        }
         $c->headingKinds[$kind] = true;
         if (count($c->headingKinds) === 2 && !$c->mixedReported) {
-            Support::reportNode('heading-marker-mixed', $node, $path, $c);
+            if ($c->firstHeading !== null) {
+                [$start, $end, $firstPath] = $c->firstHeading;
+                $c->report('heading-marker-mixed', $start, $end, $firstPath);
+            }
             $c->mixedReported = true;
         }
     }
@@ -448,7 +562,8 @@ final class NodeRulesA
         }
         $run = substr($end, $hash + 1);
         $range = Support::bounds($node);
-        if (strspn($run, '#') === strlen($run) && $range !== null) {
+        $before = preg_replace('/^[=#]+[ \t]*/', '', substr($end, 0, $hash));
+        if (strspn($run, '#') === strlen($run) && $range !== null && trim((string)$before) !== '') {
             $c->report('heading-closing-hashes', $range[0] + $hash + 1, $range[0] + strlen($end), $path, ['run' => $run]);
         }
     }
@@ -468,7 +583,10 @@ final class NodeRulesA
         $end = self::jsTrimEnd(Support::raw($node, $c));
         $brace = strrpos($end, ' {');
         $range = Support::bounds($node);
-        if ($brace !== false && str_ends_with($end, '}') && $range !== null) {
+        if (
+            $brace !== false && str_ends_with($end, '}') && $range !== null
+            && preg_match('/^\{[ \t]*[.#][^{}]*\}$/', substr($end, $brace + 1)) === 1
+        ) {
             $c->report('heading-trailing-attribute', $range[0] + $brace + 1, $range[0] + strlen($end), $path, [
                 'block' => substr($end, $brace + 1),
             ]);
@@ -504,7 +622,10 @@ final class NodeRulesA
      */
     public static function separatorRow(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) !== 'table_row' || Support::kids($node) === []) {
+        if (
+            ($node['type'] ?? null) !== 'table_row' || Support::kids($node) === []
+            || (int)substr($path, (int)strrpos($path, '/') + 1) !== 1
+        ) {
             return;
         }
         $line = self::jsTrim(Support::raw($node, $c));
@@ -527,11 +648,11 @@ final class NodeRulesA
     private static function isSeparatorCell(string $value): bool
     {
         $text = self::jsTrim($value);
-        if (strlen($text) < 3 || strspn($text, '-:') !== strlen($text)) {
+        if ($text === '' || strspn($text, '-:') !== strlen($text)) {
             return false;
         }
 
-        return substr_count($text, '-') >= 3;
+        return substr_count($text, '-') >= 1;
     }
 
     /**
@@ -582,7 +703,7 @@ final class NodeRulesA
         }
         $count = 0;
         foreach (Support::kids($node) as $child) {
-            if (isset($child['caption'])) {
+            if (isset($child['caption']) || ($child['type'] ?? null) === 'table') {
                 $count++;
             }
         }
@@ -627,8 +748,27 @@ final class NodeRulesA
      */
     public static function substitutionArrow(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) === 'strike' && str_contains(Support::raw($node, $c), '~>')) {
-            Support::reportNode('deprecated-substitution-arrow', $node, $path, $c);
+        if (($node['type'] ?? null) !== 'strike') {
+            return;
+        }
+        foreach (Support::kids($node) as $child) {
+            if (($child['type'] ?? null) !== 'text') {
+                continue;
+            }
+            $raw = Support::raw($child, $c);
+            $at = strpos($raw, '~>');
+            while ($at !== false) {
+                $slashes = 0;
+                for ($before = $at - 1; $before >= 0 && $raw[$before] === '\\'; $before--) {
+                    $slashes++;
+                }
+                if ($slashes % 2 === 0) {
+                    Support::reportNode('deprecated-substitution-arrow', $node, $path, $c);
+
+                    return;
+                }
+                $at = strpos($raw, '~>', $at + 2);
+            }
         }
     }
 
@@ -645,7 +785,13 @@ final class NodeRulesA
             return;
         }
         $value = self::jsTrim(Support::str($node, 'value') ?? '');
-        if ($value === '' || !str_contains($value, ':')) {
+        $pos = Support::pos($node);
+        $first = $pos === null ? null : ($c->lines[$pos['startLine'] - 1] ?? null);
+        $firstValue = $pos === null ? null : ($c->lines[$pos['startLine']] ?? null);
+        if (
+            $first !== null && Support::trim($first->text) === '---'
+            && ($value === '' || !str_contains($value, ':') || $firstValue === null || Support::trim($firstValue->text) === '')
+        ) {
             Support::reportNode('frontmatter-shaped-thematic-break', $node, $path, $c);
         }
     }
@@ -659,7 +805,10 @@ final class NodeRulesA
      */
     public static function bidiControl(array $node, string $path, Context $c): void
     {
-        if (!in_array($node['type'] ?? null, ['text', 'code', 'code_block'], true)) {
+        if (!in_array($node['type'] ?? null, ['text', 'code', 'code_block', 'math'], true)) {
+            return;
+        }
+        if (str_contains($path, '/title/')) {
             return;
         }
         $range = Support::bounds($node);
@@ -667,6 +816,14 @@ final class NodeRulesA
             return;
         }
         $text = substr($c->source, $range[0], $range[1] - $range[0]);
+        if ($node['type'] === 'code_block' && !isset($c->options['payload'])) {
+            $feed = strpos($text, "\n");
+            if ($feed === false) {
+                return;
+            }
+            $range[0] += $feed + 1;
+            $text = substr($text, $feed + 1, strlen(Support::str($node, 'value') ?? ''));
+        }
         if (preg_match_all('/[\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', $text, $matches, PREG_OFFSET_CAPTURE) < 1) {
             return;
         }
@@ -691,7 +848,8 @@ final class NodeRulesA
         }
         $line = $c->lines[$pos['startLine']] ?? null;
         if ($line !== null) {
-            $c->report('description-term-multi-line', $line->start, $line->end, $path);
+            $indent = strspn($line->text, " \t");
+            $c->report('description-term-multi-line', $line->start + $indent, $line->end, $path);
         }
     }
 
@@ -720,7 +878,7 @@ final class NodeRulesA
         }
         $width = strspn(self::jsTrimStart($first->text), '#=');
         $indent = strspn($second->text, ' ');
-        if ($indent > $width) {
+        if ($indent >= $width && $indent > 0) {
             $c->report('deprecated-indented-line-under-heading', $second->start, $second->end, $path);
         }
     }
@@ -734,12 +892,22 @@ final class NodeRulesA
      */
     public static function figureNested(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) !== 'figure_group') {
+        $attrs = $node['attrs'] ?? null;
+        $classes = is_array($attrs) ? ($attrs['classes'] ?? []) : [];
+        if (
+            ($node['type'] ?? null) !== 'div' || !is_array($classes) || !in_array('figure', $classes, true)
+            || preg_match('/^:{3,}[ \t]+figure[ \t]*$/m', Support::raw($node, $c)) !== 1
+        ) {
             return;
         }
         $parent = Support::parent($path);
-        if ($parent !== null && ($c->nodeTypes[$parent] ?? null) === 'figure_group') {
-            Support::reportNode('figure-group-nested', $node, $path, $c);
+        while ($parent !== null) {
+            if (($c->nodeTypes[$parent] ?? null) === 'figure_group') {
+                Support::reportNode('figure-group-nested', $node, $path, $c);
+
+                return;
+            }
+            $parent = Support::parent($parent);
         }
     }
 
@@ -757,8 +925,8 @@ final class NodeRulesA
         }
         foreach (Support::kids($node) as $at => $panel) {
             $caption = Support::kids(['caption' => [$panel['caption'] ?? null]], 'caption')[0] ?? null;
-            if ($caption !== null && str_contains(Support::raw($caption, $c), '#')) {
-                Support::reportNode('figure-group-panel-number', $caption, "{$path}/children/{$at}/caption", $c);
+            if ($caption !== null && preg_match('/(?<!\\\\)#(?=\s|[:.]|$|[^A-Za-z0-9_])/u', Support::raw($caption, $c)) === 1) {
+                Support::reportNode('figure-group-panel-number', $panel, "{$path}/children/{$at}", $c);
             }
         }
     }
@@ -813,17 +981,28 @@ final class NodeRulesA
     public static function semanticOutside(array $node, string $path, Context $c): void
     {
         $type = Support::str($node, 'type') ?? '';
-        if ($type === 'span') {
+        if ($type === 'span' || !is_array($node['attrs'] ?? null)) {
             return;
         }
-        foreach (Support::keyValues($node) as [$name, $value]) {
-            if (in_array($name, ['abbr', 'dfn', 'time', 'mark'], true)) {
-                Support::reportNode('semantic-attribute-outside-span', $node, $path, $c, [
-                    'name' => $name,
-                    'type' => $type,
-                    'value' => $value,
-                ]);
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return;
+        }
+        $raw = Support::raw($node, $c);
+        $pattern = '/(?<![A-Za-z0-9_-])(abbr|time|kbd)(?:=(?:"(?:\\\\.|[^"])*"|[^\s}]+))?(?=[\s}])/';
+        preg_match_all($pattern, $raw, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as $index => [$spelling, $offset]) {
+            $before = substr($raw, 0, $offset);
+            $open = strrpos($before, '{');
+            $close = strrpos($before, '}');
+            if ($open === false || ($close !== false && $close > $open)) {
+                continue;
             }
+            $name = $matches[1][$index][0];
+            $c->report('semantic-attribute-outside-span', $bounds[0] + $offset, $bounds[0] + $offset + strlen($spelling), $path, [
+                'name' => $name,
+                'type' => $type,
+            ]);
         }
     }
 
@@ -840,10 +1019,40 @@ final class NodeRulesA
             return;
         }
         foreach (Support::keyValues($node) as [$name, $value]) {
-            if ($value !== '' && in_array($name, ['mark', 'kbd', 'samp'], true)) {
-                Support::reportNode('semantic-attribute-value-ignored', $node, $path, $c, ['name' => $name]);
+            if ($value !== '' && $name === 'kbd') {
+                $bounds = Support::bounds($node);
+                if ($bounds === null) {
+                    continue;
+                }
+                $raw = Support::raw($node, $c);
+                if (preg_match('/\b(kbd=(?:"(?:\\\\.|[^"])*"|[^\s}]+))/', $raw, $match, PREG_OFFSET_CAPTURE) === 1) {
+                    $start = $bounds[0] + $match[1][1];
+                    $c->report('semantic-attribute-value-ignored', $start, $start + strlen($match[1][0]), $path, ['name' => $name]);
+                }
             }
         }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $key
+     * @param \MarkupCarve\Carve2\Lint\Context $c
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    public static function tableKeyRange(array $node, string $key, Context $c): ?array
+    {
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return null;
+        }
+        $raw = Support::raw($node, $c);
+        if (preg_match('/\{[^}]*?\b(' . preg_quote($key, '/') . ')=/', $raw, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+        $start = $bounds[0] + $match[1][1];
+
+        return [$start, $start + strlen($key)];
     }
 
     /**
@@ -868,7 +1077,11 @@ final class NodeRulesA
             }
             $count = count(explode(',', $value));
             if ($count < $columns) {
-                Support::reportNode('table-column-arity', $node, $path, $c, [
+                $range = self::tableKeyRange($node, $key, $c);
+                if ($range === null) {
+                    continue;
+                }
+                $c->report('table-column-arity', $range[0], $range[1], $path, [
                     'key' => $key,
                     'count' => (string)$count,
                     'widest' => (string)$columns,
@@ -895,7 +1108,10 @@ final class NodeRulesA
             $total += is_int($width) || is_float($width) ? $width : 0;
         }
         if ($total > 1) {
-            Support::reportNode('table-width-total', $node, $path, $c);
+            $range = self::tableKeyRange($node, 'widths', $c);
+            if ($range !== null) {
+                $c->report('table-width-total', $range[0], $range[1], $path);
+            }
         }
     }
 
@@ -921,7 +1137,9 @@ final class NodeRulesA
             return;
         }
         $cell = self::jsTrim(substr($source, $before + 1, $last - $before - 1));
-        if (str_starts_with($cell, '{') && str_ends_with($cell, '}')) {
+        $cells = Support::kids($node);
+        $lastCell = $cells[count($cells) - 1] ?? [];
+        if (str_starts_with($cell, '{') && str_ends_with($cell, '}') && !isset($lastCell['attrs'])) {
             Support::reportNode('table-row-attribute-as-cell', $node, $path, $c);
         }
     }
@@ -936,7 +1154,10 @@ final class NodeRulesA
     public static function emphasizedHeading(array $node, string $path, Context $c): void
     {
         $kids = Support::kids($node);
-        if (($node['type'] ?? null) === 'paragraph' && count($kids) === 1 && (($kids[0] ?? [])['type'] ?? null) === 'emphasis') {
+        if (
+            ($node['type'] ?? null) === 'paragraph' && count($kids) === 1
+            && in_array(($kids[0] ?? [])['type'] ?? null, ['emphasis', 'strong'], true)
+        ) {
             Support::reportNode('emphasis-as-heading', $node, $path, $c);
         }
     }
@@ -951,7 +1172,11 @@ final class NodeRulesA
     public static function commentEmphasis(array $node, string $path, Context $c): void
     {
         $raw = Support::raw($node, $c);
-        if (($node['type'] ?? null) === 'emphasis' && str_starts_with($raw, '/*') && str_ends_with($raw, '*/')) {
+        $type = $node['type'] ?? null;
+        if (
+            ($type === 'emphasis' && (str_starts_with($raw, '/*') || str_ends_with($raw, '*/')))
+            || ($type === 'strong' && (str_starts_with($raw, '*/') || str_ends_with($raw, '/*')))
+        ) {
             Support::reportNode('comment-shaped-emphasis', $node, $path, $c);
         }
     }
@@ -965,7 +1190,10 @@ final class NodeRulesA
      */
     public static function globStrong(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) === 'strong' && str_contains(Support::raw($node, $c), '*.')) {
+        if (
+            ($node['type'] ?? null) === 'strong' && str_starts_with(Support::raw($node, $c), '*.')
+            && str_ends_with(Support::raw($node, $c), '*')
+        ) {
             Support::reportNode('glob-shaped-strong', $node, $path, $c);
         }
     }
@@ -1011,14 +1239,16 @@ final class NodeRulesA
             return;
         }
         $source = Support::raw($node, $c);
-        $at = strpos($source, '{.');
-        if ($at === false || $at < 1) {
+        if (preg_match('/(?<!\\\\)\{[.#][^{}]*\}/', $source, $match, PREG_OFFSET_CAPTURE) !== 1) {
             return;
         }
-        $end = strpos($source, '}', $at + 2);
+        [$block, $at] = $match[0];
+        if ($at < 1) {
+            return;
+        }
         $range = Support::bounds($node);
-        if ($end !== false && $range !== null) {
-            $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $end + 1, $path);
+        if ($range !== null) {
+            $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $at + strlen($block), $path);
         }
     }
 
@@ -1035,6 +1265,10 @@ final class NodeRulesA
             return;
         }
         $source = self::jsTrimStart(Support::raw($node, $c));
+        $header = str_starts_with($source, '=');
+        if ($header) {
+            $source = substr($source, 1);
+        }
         $prefix = $source[0] ?? '';
         $space = $source[1] ?? '';
         if (!in_array($prefix, ['<', '>', '~'], true) || ($space !== ' ' && $space !== "\t")) {
@@ -1043,7 +1277,11 @@ final class NodeRulesA
         if (self::jsTrim(substr($source, 1)) === '') {
             return;
         }
-        Support::reportNode('deprecated-cell-alignment', $node, $path, $c, ['prefix' => $prefix, 'braced' => '{' . $prefix . '}']);
+        $bounds = Support::bounds($node);
+        if ($bounds !== null) {
+            $start = $bounds[0] + ($header ? 1 : 0);
+            $c->report('deprecated-cell-alignment', $start, $start + 1, $path, ['prefix' => $prefix, 'braced' => '{' . $prefix . '}']);
+        }
     }
 
     /**
@@ -1071,10 +1309,17 @@ final class NodeRulesA
             return;
         }
         $block = substr($source, 0, $close + 1);
-        Support::reportNode('table-marker-run-padding', $node, $path, $c, [
+        $bounds = Support::bounds($node);
+        if ($bounds === null) {
+            return;
+        }
+        $inner = ltrim(substr($block, 1, -1));
+        $corrected = '{' . $marker . ($inner === '' ? '' : ' ' . $inner) . '}';
+        $c->report('table-marker-run-padding', $bounds[0], $bounds[0] + $close + 2, $path, [
             'spelling' => $block . $marker,
             'marker' => $marker,
             'block' => $block,
+            'correctedPrefix' => $corrected,
         ]);
     }
 
@@ -1093,7 +1338,7 @@ final class NodeRulesA
         }
         $first = $c->lines[$pos['startLine'] - 1] ?? null;
         $last = $c->lines[$pos['endLine'] - 1] ?? null;
-        if ($first === null || $last === null) {
+        if ($first === null || $last === null || preg_match('/^[ \t]*`{3,}[ \t]*$/', $last->text) !== 1) {
             return;
         }
         $opener = strpos($first->text, '```');
@@ -1154,7 +1399,17 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'xref' || ($node['namespace'] ?? null) !== 'heading' || array_key_exists('href', $node)) {
             return;
         }
-        Support::reportNode('broken-crossref', $node, $path, $c, ['target' => Support::str($node, 'key') ?? ''], 2);
+        $target = Support::str($node, 'key') ?? '';
+        $candidates = Support::caseOnly($target, array_keys($c->ids));
+        if ($candidates !== []) {
+            Support::reportNode('broken-crossref', $node, $path, $c, [
+                'target' => $target,
+                'caseOnlyPhrase' => Support::caseOnlyPhrase($candidates, 'id'),
+            ], 1);
+
+            return;
+        }
+        Support::reportNode('broken-crossref', $node, $path, $c, ['target' => $target], 2);
     }
 
     /**

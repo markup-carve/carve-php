@@ -10,6 +10,38 @@ namespace MarkupCarve\Carve2\Lint;
 final class Support
 {
     /**
+     * @param string $target
+     * @param array<string> $values In source order.
+     *
+     * @return array<string>
+     */
+    public static function caseOnly(string $target, array $values): array
+    {
+        $folded = mb_convert_case($target, MB_CASE_FOLD, 'UTF-8');
+
+        return array_values(array_filter($values, static fn (string $value): bool => $value !== $target
+            && mb_convert_case($value, MB_CASE_FOLD, 'UTF-8') === $folded));
+    }
+
+    /**
+     * @param array<string> $values
+     * @param string $noun
+     *
+     * @return string
+     */
+    public static function caseOnlyPhrase(array $values, string $noun): string
+    {
+        $quoted = array_map(static fn (string $value): string => '"' . $value . '"', $values);
+        if (count($quoted) === 1) {
+            return 'the ' . $noun . ' ' . $quoted[0] . ' differs only in case';
+        }
+        $last = array_pop($quoted);
+
+        return 'the ' . $noun . 's ' . implode(', ', $quoted) . (count($quoted) > 1 ? ',' : '') . ' and ' . $last
+            . ' differ only in case';
+    }
+
+    /**
      * The byte range of a node, or null when it has no position.
      *
      * @param array<string, mixed> $node
