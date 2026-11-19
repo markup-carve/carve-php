@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Import\HtmlImporter;
 use MarkupCarve\Carve\Import\ImportInputError;
 use MarkupCarve\Carve\Json\TreeError;
+use MarkupCarve\Carve\OptionError;
 
 /**
  * `carve import --from=html [--raw-html] [FILE]`, as the `import` command of the carve-js 0.2 command line: the canonical
@@ -34,7 +35,11 @@ final class ImportCommand
      */
     public static function main(array $args, $in, $out, $err): int
     {
-        [$from, $raw, $files] = self::parse($args);
+        try {
+            [$from, $options, $files] = self::parse($args);
+        } catch (OptionError $e) {
+            return self::fail($err, 'usage', $e->getMessage(), 2);
+        }
         if ($from === null || count($files) > 1) {
             return self::fail($err, 'usage', 'import requires --from=markdown|gfm|djot|html and at most one file', 2);
         }
@@ -48,7 +53,9 @@ final class ImportCommand
             return self::fail($err, 'input-unreadable', $display . ': cannot be read', 2);
         }
         try {
-            $result = HtmlImporter::import($html, ['rawHtml' => $raw]);
+            $result = HtmlImporter::import($html, $options);
+        } catch (OptionError $e) {
+            return self::fail($err, 'usage', $e->getMessage(), 2);
         } catch (ImportInputError $e) {
             return self::fail($err, 'import-input-invalid', $display . ': ' . $e->getMessage(), 2);
         } catch (TreeError $e) {
@@ -72,12 +79,12 @@ final class ImportCommand
     /**
      * @param array<string> $args
      *
-     * @return array{0: string|null, 1: bool, 2: array<string>}
+     * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>}
      */
     private static function parse(array $args): array
     {
         $from = null;
-        $raw = false;
+        $options = ['rawHtml' => false];
         $files = [];
         $count = count($args);
         for ($i = 0; $i < $count; $i++) {
@@ -87,15 +94,18 @@ final class ImportCommand
             } elseif ($arg === '--from') {
                 $from = $args[++$i] ?? '';
             } elseif ($arg === '--raw-html') {
-                $raw = true;
+                $options['rawHtml'] = true;
+            } elseif (preg_match('/^--(allow-loss|max-render-losses)(?:=(.*))?$/s', $arg, $m) === 1) {
+                // C2-T-027, C2-T-029: the importer reads allowLosses and maxLosses (C2-H-204, C2-H-205).
+                Command::optionFlag($m[1], $m[2] ?? ($args[++$i] ?? null), $options);
             } elseif ($arg === '-' || !str_starts_with($arg, '-')) {
                 $files[] = $arg;
             } else {
-                return [null, false, []];
+                return [null, [], []];
             }
         }
 
-        return [$from, $raw, $files];
+        return [$from, $options, $files];
     }
 
     /**

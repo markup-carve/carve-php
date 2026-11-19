@@ -70,7 +70,7 @@ Fields: `string $html`, `array $diagnostics`, `int $suppressedDiagnostics`.
 
 Class. The tree of a parse and its source-layout record (source-layout.md), which the caller asked for (C2-L-001).
 
-Fields: `Node $tree`, `array $layout`, `array $diagnostics`.
+Fields: `Node $tree`, `array $layout`, `array $diagnostics`, `int $suppressedDiagnostics`.
 
 ### `MarkupCarve\Carve\Writer\WriteResult`
 

@@ -25,6 +25,7 @@ final class HtmlImporter
      * @param bool $legacyParser Read with the libxml parser even where `Dom\HTMLDocument` exists.
      *
      * @throws \MarkupCarve\Carve\Import\ImportInputError C2-M-006, or without `ext-dom`.
+     * @throws \MarkupCarve\Carve\OptionError ! An option the importer reads has a value it refuses.
      * @throws \MarkupCarve\Carve\Json\TreeError ! A tree the reader refuses for another reason: an engine defect.
      *
      * @return \MarkupCarve\Carve\Import\ImportResult

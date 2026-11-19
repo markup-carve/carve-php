@@ -103,6 +103,24 @@ final class Candidate16Test extends TestCase
         Carve::parse($source, ['includes' => ['resolver' => $resolver, 'maxDiagnostics' => 101]]);
     }
 
+    public function testIncludeDiagnosticsCapHoldsForLayout(): void
+    {
+        $resolver = static fn (array $request): array => ['error' => 'not_found'];
+        $result = Carve::parseWithLayout("{{ \"a\" }}\n\n{{ \"b\" }}\n", ['includes' => ['resolver' => $resolver, 'maxDiagnostics' => 1]]);
+        self::assertCount(1, $result->diagnostics);
+        self::assertSame(1, $result->suppressedDiagnostics);
+    }
+
+    public function testImportCommandTakesTheLossFlags(): void
+    {
+        [$status, $out, $err] = self::command(['import', '--from=html', '--max-render-losses', '1', '-'], '<p>a<wbr>b<wbr>c</p>');
+        self::assertSame([0, "abc\n"], [$status, $out]);
+        self::assertSame(1, substr_count($err, 'import-element-dropped'));
+        [$status, $out, $err] = self::command(['import', '--from=html', '--allow-loss=import-element-dropped', '-'], '<p>a<wbr>b</p>');
+        self::assertSame([0, "ab\n", ''], [$status, $out, $err]);
+        self::assertSame(2, self::command(['import', '--from=html', '--allow-loss=nope', '-'], '<p>a</p>')[0]);
+    }
+
     public function testCodeBlockRendererSeesTheNodeAndDefault(): void
     {
         $seen = [];
@@ -139,6 +157,29 @@ final class Candidate16Test extends TestCase
         rewind($out);
         self::assertSame("<p>a b</p>\n", stream_get_contents($out));
         unlink((string)$file);
+    }
+
+    /**
+     * @param array<string> $args
+     * @param string $stdin
+     *
+     * @return array{0: int, 1: string, 2: string}
+     */
+    private static function command(array $args, string $stdin): array
+    {
+        $in = fopen('php://memory', 'w+');
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($in);
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        fwrite($in, $stdin);
+        rewind($in);
+        $status = Command::main($args, $in, $out, $err);
+        rewind($out);
+        rewind($err);
+
+        return [$status, (string)stream_get_contents($out), (string)stream_get_contents($err)];
     }
 
     /**

@@ -96,9 +96,11 @@ final class Carve
      */
     public static function parseWithLayout(string $source, array $options = []): LayoutResult
     {
-        [$doc, $findings] = self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']));
+        $opts = Options::from(self::normalize($options), ['parse', 'resolve']);
+        [$doc, $findings] = self::parsed($source, $opts);
+        [$entries, $suppressed] = Cap::apply($findings->finish($doc), $opts, false);
 
-        return new LayoutResult(self::remember($doc, $source), LayoutBuilder::build($source, $doc), $findings->finish($doc));
+        return new LayoutResult(self::remember($doc, $source), LayoutBuilder::build($source, $doc), $entries, $suppressed);
     }
 
     /**

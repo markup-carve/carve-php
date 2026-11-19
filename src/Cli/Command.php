@@ -161,19 +161,8 @@ final class Command
         }
         $equals = strpos($arg, '=');
         $name = substr($arg, 2, $equals === false ? null : $equals - 2);
-        if (isset(self::VALUED[$name])) {
-            $value = $equals !== false ? substr($arg, $equals + 1) : ($args[$i + 1] ?? null);
-            if ($value === null) {
-                throw new OptionError('missing value for --' . $name);
-            }
-            $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
-                : ($name === 'include-root' ? $value : self::json($name, $value));
-
-            return $equals !== false ? $i : $i + 1;
-        }
-        if (isset(self::OPTION_FLAGS[$name]) && $parsed['command'] === 'render') {
-            $value = $equals !== false ? substr($arg, $equals + 1) : ($args[$i + 1] ?? null);
-            self::optionFlag($name, $value, $parsed['options']);
+        if (isset(self::VALUED[$name]) || (isset(self::OPTION_FLAGS[$name]) && $parsed['command'] === 'render')) {
+            self::valued($name, $equals !== false ? substr($arg, $equals + 1) : ($args[$i + 1] ?? null), $parsed);
 
             return $equals !== false ? $i : $i + 1;
         }
@@ -217,13 +206,38 @@ final class Command
     /**
      * @param string $name
      * @param string|null $value
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return void
+     */
+    private static function valued(string $name, ?string $value, array &$parsed): void
+    {
+        if (isset(self::OPTION_FLAGS[$name])) {
+            self::optionFlag($name, $value, $parsed['options']);
+
+            return;
+        }
+        if ($value === null) {
+            throw new OptionError('missing value for --' . $name);
+        }
+        $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
+            : ($name === 'include-root' ? $value : self::json($name, $value));
+    }
+
+    /**
+     * @internal Shared with `ImportCommand`.
+     *
+     * @param string $name A key of `OPTION_FLAGS`.
+     * @param string|null $value
      * @param array<string, mixed> $options
      *
      * @throws \MarkupCarve\Carve\OptionError
      *
      * @return void
      */
-    private static function optionFlag(string $name, ?string $value, array &$options): void
+    public static function optionFlag(string $name, ?string $value, array &$options): void
     {
         if ($value === null) {
             throw new OptionError('missing value for --' . $name);
