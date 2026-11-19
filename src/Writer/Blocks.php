@@ -739,7 +739,8 @@ final class Blocks
             return '=' . Inline::str($node, 'format');
         }
         $syntax = Inline::str($node, 'syntax');
-        if (str_contains($syntax, '`') || strpbrk($syntax, " \t\"[") !== false) {
+        // C2-B-122: the parser reads only a run of language-word characters as the syntax.
+        if (strspn($syntax, Tables::CHARS_LANGUAGE_WORD) !== strlen($syntax)) {
             $this->w->lose($path, 'code_block', 'syntax');
             $syntax = '';
         }

@@ -270,6 +270,9 @@ final class Text
                 return true;
             }
         }
+        if (self::braceTakesNode($flat, $at, $c)) {
+            return true;
+        }
         $mark = $flat[$at + 1] ?? '';
         // C2-W-125 case one: a brace glued before a node reads on into the first character of the node.
         if ($mark === "\0") {
@@ -289,6 +292,68 @@ final class Text
         }
 
         return str_contains($rest, $mark . '}');
+    }
+
+    /**
+     * C2-I-035: a valid attribute block is one atom, so one that reads on into the spelling of a later node takes that
+     * node in as text. Atoms are read with their spelling; at any other node the first character of its spelling is
+     * probed, where a closing brace can still follow: `{key=` before a span takes it, `{k` before a link cannot.
+     *
+     * @param string $flat
+     * @param int $at
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function braceTakesNode(string $flat, int $at, Context $c): bool
+    {
+        $node = strpos($flat, "\0", $at);
+        if ($node === false) {
+            return false;
+        }
+        $line = strpos($flat, "\n", $at);
+        if ($line !== false && $line < $node) {
+            return false;
+        }
+        $end = $line === false ? strlen($flat) : $line;
+        $run = self::asWritten(substr($flat, $at, $node - $at));
+        if (AttributeParser::readRun($run, 0, strlen($run), new Attrs()) >= 0) {
+            return false;
+        }
+        while ($node !== false && $node < $end && isset($c->flatAtoms[$node])) {
+            $next = strpos($flat, "\0", $node + 1);
+            $stop = $next === false || $next > $end ? $end : $next;
+            $run .= $c->flatAtoms[$node] . self::asWritten(substr($flat, $node + 1, $stop - $node - 1));
+            $node = $stop < $end ? $stop : false;
+        }
+        if ($node === false) {
+            return AttributeParser::readRun($run, 0, strlen($run), new Attrs()) >= 0;
+        }
+        if (!($c->flatBraces[$node] ?? true) && !str_contains(substr($flat, $node + 1, $end - $node - 1), '}')) {
+            return false;
+        }
+        $first = $c->flatFirst[$node] ?? -1;
+        $first = $first < 0 ? 'a' : (string)mb_chr($first, 'UTF-8');
+        foreach (['}', '"}', "'}"] as $close) {
+            $probe = $run . $first . $close;
+            if (AttributeParser::readRun($probe, 0, strlen($probe), new Attrs()) === strlen($probe)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Text as the attribute test sees it once written: a backslash and the characters of `ALWAYS` take a backslash.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    private static function asWritten(string $text): string
+    {
+        return addcslashes(str_replace('\\', '\\\\', $text), self::ALWAYS);
     }
 
     private static function gluedSigil(string $ch, int $next): bool

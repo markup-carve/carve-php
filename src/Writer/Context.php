@@ -69,6 +69,21 @@ final class Context
     public array $flatTypes = [];
 
     /**
+     * @var array<int, int> The first code point of the spelling of the node that each `\0` of `$flat` stands for.
+     */
+    public array $flatFirst = [];
+
+    /**
+     * @var array<int, string> The whole spelling of each `\0` that stands for an atom, by offset.
+     */
+    public array $flatAtoms = [];
+
+    /**
+     * @var array<int, bool> Whether the spelling of each `\0` may hold a closing brace, by offset.
+     */
+    public array $flatBraces = [];
+
+    /**
      * The offset in `$flat` of the text being escaped, -1 for a text inside another node.
      */
     public int $here = -1;

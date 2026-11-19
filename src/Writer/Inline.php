@@ -162,6 +162,14 @@ final class Inline
                 $c->flat .= "\n";
             } else {
                 $c->flatTypes[strlen((string)$c->flat)] = $type;
+                $offset = strlen((string)$c->flat);
+                $c->flatFirst[$offset] = is_array($node) ? self::first($node, $c) : -1;
+                $atom = is_array($node) && !isset($node['attrs']) ? self::atom($node) : null;
+                if ($atom !== null) {
+                    $c->flatAtoms[$offset] = $atom;
+                }
+                $c->flatBraces[$offset] = $atom === null && (!is_array($node) || isset($node['attrs'])
+                    || in_array($type, ['span', 'raw_inline', 'comment', 'critic_comment'], true) || !isset(self::FIRST[$type]));
                 $c->flat .= "\0";
             }
         }
@@ -220,6 +228,47 @@ final class Inline
         };
 
         return $text === '' ? -1 : Chars::at($text, 0);
+    }
+
+    /**
+     * C2-W-022: before a line break or at the end of the content a backslash and a space are a hard break, so the
+     * character itself is written and the node is reported.
+     *
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return string
+     */
+    private function noBreakSpace(string $path, Context $c, int $next): string
+    {
+        if ($c->inCell || ($next !== -1 && $next !== 10)) {
+            return '\\ ';
+        }
+        $this->w->lose($path, 'non_breaking_space', null);
+
+        return "\u{00A0}";
+    }
+
+    /**
+     * The whole spelling of an inline node that is one fixed token, or null.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function atom(array $node): ?string
+    {
+        return match (self::str($node, 'type')) {
+            'symbol' => ':' . self::str($node, 'name') . ':',
+            'tag' => '#' . self::str($node, 'name'),
+            'mention' => '@' . self::str($node, 'target'),
+            'non_breaking_space' => '\\ ',
+            'smart_punctuation' => self::str($node, 'source'),
+            'abbreviation' => self::str($node, 'key'),
+            'caption_number' => '#',
+            default => null,
+        };
     }
 
     /**
@@ -390,7 +439,7 @@ final class Inline
             return $this->braced($node, self::BRACED[$type], $path, $c);
         }
 
-        return $this->spelledFromFields($node, $type, $path, $c) ?? $this->spelledWithContent($node, $type, $path, $c, $next);
+        return $this->spelledFromFields($node, $type, $path, $c, $next) ?? $this->spelledWithContent($node, $type, $path, $c, $next);
     }
 
     /**
@@ -400,10 +449,11 @@ final class Inline
      * @param string $type
      * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next First character written behind the node, -1 at the end of the content.
      *
      * @return string|null
      */
-    private function spelledFromFields(array $node, string $type, string $path, Context $c): ?string
+    private function spelledFromFields(array $node, string $type, string $path, Context $c, int $next): ?string
     {
         return match ($type) {
             'soft_break' => "\n",
@@ -411,7 +461,7 @@ final class Inline
             'footnote_ref' => '[^' . self::labelText(self::str($node, 'key'), $c) . ']',
             'symbol' => ':' . self::str($node, 'name') . ':',
             'tag' => '#' . self::str($node, 'name'),
-            'non_breaking_space' => '\\ ',
+            'non_breaking_space' => $this->noBreakSpace($path, $c, $next),
             'smart_punctuation' => self::str($node, 'source'),
             // C2-W-116: the mark of a caption number (C2-B-150); its number is a resolution result.
             'caption_number' => '#',
@@ -676,7 +726,7 @@ final class Inline
             $inner = self::escapedLike($inner, $node['key']) ?? $inner;
         }
 
-        return '[' . $inner . ']' . $this->target($node, self::str($node, 'href'), $c);
+        return '[' . $inner . ']' . $this->target($node, self::str($node, 'href'), $c, $path);
     }
 
     /**
@@ -732,7 +782,7 @@ final class Inline
         }
         $spelled = $c->inCell ? $this->cellPipes($alt, $path) : $alt;
 
-        return '![' . $spelled . ']' . $this->target($node, self::str($node, 'src'), $c);
+        return '![' . $spelled . ']' . $this->target($node, self::str($node, 'src'), $c, $path);
     }
 
     /**
@@ -787,10 +837,11 @@ final class Inline
      * @param array<mixed> $node
      * @param string $href
      * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param string $path
      *
      * @return string
      */
-    private function target(array $node, string $href, Context $c): string
+    private function target(array $node, string $href, Context $c, string $path): string
     {
         if (is_string($node['key'] ?? null)) {
             $key = $node['key'];
@@ -802,7 +853,12 @@ final class Inline
                 default => '[' . (str_starts_with($key, '^') || str_starts_with($key, '@') ? ' ' : '') . self::labelText($key, $c) . ']',
             };
         }
-        $title = is_string($node['tooltip'] ?? null) ? ' ' . BraceBlock::quoted($node['tooltip'], $c->inCell) : '';
+        $tooltip = $node['tooltip'] ?? null;
+        // C2-W-117: the tail stays on one line, so a title with a line break leaves the bracket pair as text.
+        if (is_string($tooltip) && str_contains($tooltip, "\n")) {
+            $this->w->lose($path, self::str($node, 'type'), null);
+        }
+        $title = is_string($tooltip) ? ' ' . BraceBlock::quoted($tooltip, $c->inCell) : '';
 
         return '(' . self::destination($href, $c->inCell) . $title . ')';
     }
@@ -887,6 +943,30 @@ final class Inline
     }
 
     /**
+     * C2-I-002: spaces and tabs at the end of a line and the indent of the next are no part of the content. A space
+     * behind an odd run of backslashes stays.
+     *
+     * @param string $value
+     *
+     * @return bool
+     */
+    private static function losesLineEdges(string $value): bool
+    {
+        for ($at = strpos($value, "\n"); $at !== false; $at = strpos($value, "\n", $at + 1)) {
+            $after = $value[$at + 1] ?? '';
+            $before = $at > 0 ? $value[$at - 1] : '';
+            if ($after === ' ' || $after === "\t" || $before === "\t") {
+                return true;
+            }
+            if ($before === ' ' && strspn(strrev(substr($value, 0, $at - 1)), '\\') % 2 === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * C2-I-016: a reader would take one space from each end.
      *
      * @param string $value
@@ -911,7 +991,10 @@ final class Inline
     private function spanValue(array $node, string $path, Context $c, string $prefix): string
     {
         $value = $this->cellValue($node, $path, $c, self::str($node, 'value'));
-        if (str_starts_with($value, "\n") && str_ends_with($value, '`')) {
+        if ($value === '') {
+            // C2-W-116: an empty run pair reads back as text.
+            $this->w->lose($path, self::str($node, 'type'), null);
+        } elseif ((str_starts_with($value, "\n") && str_ends_with($value, '`')) || self::losesLineEdges($value)) {
             $this->w->lose($path, self::str($node, 'type'), 'value');
         }
 
@@ -934,7 +1017,16 @@ final class Inline
             return $value;
         }
         if (!$c->inCell) {
-            foreach (array_slice(explode("\n", $value), 1) as $line) {
+            $lines = array_slice(explode("\n", $value), 1);
+            $last = count($lines) - 1;
+            foreach ($lines as $at => $line) {
+                // The closing run follows the last line, so an empty last line is no blank line; a pad before the run
+                // would be indent (C2-I-002).
+                if ($at === $last && $line === '') {
+                    $spelled = self::codeSpan($value);
+                    $line = substr($spelled, (int)strrpos($spelled, "\n") + 1);
+                    $line = str_starts_with($line, ' ') ? '' : $line;
+                }
                 if (Text::opensBlock($line)) {
                     $this->w->lose($path, self::str($node, 'type'), 'value');
 
