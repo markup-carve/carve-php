@@ -86,8 +86,8 @@ vendor/bin/carve import --from=html [--raw-html] FILE...
 ```
 
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
-`--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br`, `--allow-loss CODE` (repeatable) and
-`--max-render-losses N`. `-` reads standard input.
+`--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br`; `render` and `import` take `--allow-loss CODE`
+(repeatable) and `--max-render-losses N`. `-` reads standard input.
 
 Exit codes: `0` done; `1` a lint finding, a file that `fmt --check` would change, or a write loss; `2` a usage or
 input error.
