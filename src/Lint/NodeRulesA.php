@@ -877,9 +877,11 @@ final class NodeRulesA
         if ($first === null || $second === null) {
             return;
         }
-        $markerColumn = $c->layout->columnOf($pos['startOffset'], $c->layout->quoteDepth($path));
-        $indentOffset = strspn($second->text, " \t>");
         $quotes = $c->layout->quoteDepth($path);
+        $markerOffset = $pos['startOffset'] - $first->start;
+        $markerColumn = $quotes === 0 && strspn($first->text, ' ') === $markerOffset
+            ? $markerOffset : $c->layout->columnOf($pos['startOffset'], $quotes);
+        $indentOffset = strspn($second->text, " \t>");
         $indent = $quotes === 0 && !str_contains(substr($second->text, 0, $indentOffset), "\t")
             ? $indentOffset : $c->layout->columnOf($second->start + $indentOffset, $quotes);
         if ($indent > $markerColumn) {
