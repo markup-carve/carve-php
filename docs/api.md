@@ -389,3 +389,30 @@ Class. Provisional. The standard document transforms (C2-X-053): each returns a 
 - `static defaultAttributes(array $defaults): Bundle`: Default attributes per node type, merged under the authored ones: `class` adds classes, `id` sets a missing id, any other key a missing pair.
 - `static tabNormalize(int $width = 2): Bundle`: Replaces each tab in code blocks and code spans with `$width` spaces.
 - `static inlineFootnotesToParentheses(): Bundle`: Writes each inline footnote as its content in parentheses after a space, for targets without notes.
+
+### `MarkupCarve\Carve\Extension\Glossary`
+
+Class. Provisional. `:term[word]` (`carve.term`) links a use to its entry in a `::: glossary` description list (`carve.glossary`).
+
+- `static bundle(): Bundle`
+- `static termDefinition(): ExtensionDefinition`
+- `static transform(Node $view): Node`
+- `static renderTerm(Node $node, RenderHost $host): string`
+
+### `MarkupCarve\Carve\Extension\IndexTerms`
+
+Class. Provisional. Invisible `:index[term]` markers (`carve.indexTerm`), collected into a sorted list by a `::: index` directive (`carve.index`).
+
+- `static bundle(string $backrefLabel = 'Back to'): Bundle`
+- `static markerDefinition(): ExtensionDefinition`
+- `static transform(Node $view, string $backrefLabel): Node`
+- `static renderMarker(Node $node, RenderHost $host): string`
+
+### `MarkupCarve\Carve\Extension\Citations`
+
+Class. Provisional. `:cite[key]` (`carve.cite`, C2-X-058) resolved against the entries of a `bibliography` or `references` directive and an optional CSL-JSON pool, with a generated list of the cited entries (`carve.references`).
+
+- `static bundle(string $mode = 'numbered', ?array $bibliography = null): Bundle`
+- `static citeDefinition(): ExtensionDefinition`: C2-X-058: the registered `cite` matcher. Without the transform each citation keeps its core-text fallback.
+- `static claim(Claim $claim): ?Node`
+- `static transform(Node $view, string $mode, ?array $bibliography): Node`

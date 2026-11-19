@@ -137,3 +137,33 @@ Carve::render("\"Hi\" it's 'x'", ['extensions' => [SmartQuotes::bundle('de')]]);
   the authored ones (`class` adds classes, `id` sets a missing id, other keys a missing pair).
 - `tabNormalize($width = 2)`: each tab in code blocks and code spans becomes `$width` spaces (0 to 16).
 - `inlineFootnotesToParentheses()`: each inline footnote becomes its content in parentheses after a space.
+
+## Glossary, index and citations
+
+Each of these bundles holds an inline matcher, a document transform that resolves the uses against the whole view
+(C2-X-053 to C2-X-055), and a renderer that writes the same core content in both channels. Pass the bundle in
+`extensions` and its `transforms()` to `renderWithDocumentTransforms()`. Without the transform every construct keeps
+its core reading.
+
+```php
+$all = Bundle::merge(Glossary::bundle(), IndexTerms::bundle(), Citations::bundle());
+$html = Carve::renderWithDocumentTransforms($source, $all->transforms(), ['extensions' => [$all]])->html;
+```
+
+`Glossary::bundle()`: `:term[word]` (`carve.term`) links to the entry of the same text in a `::: glossary`
+description list (`carve.glossary`), matched exactly after whitespace collapse and NFC. Each entry gets a
+`gloss-<slug>` id that avoids authored ids; the lists get the class `glossary`. An undefined term is a
+`<span class="term">`.
+
+`IndexTerms::bundle(backrefLabel)`: `:index[term]` (`carve.indexTerm`) is an invisible marker with an
+`idx-<slug>-<n>` id; a `::: index` directive (`carve.index`) lists every term in code point order, with one back-link
+per use named `Back to <term>` (or `backrefLabel`). Markers in notes are not counted, and the output of repeated
+index directives is capped as in 0.1.
+
+`Citations::bundle(mode, bibliography)`: `:cite[key; key]` (`carve.cite`, the one implementation of C2-X-058; its
+fallback is the key text) resolves against the description list of a `::: references` or `::: bibliography`
+directive (`carve.references`), then the decoded CSL-JSON array `bibliography`. `mode` is `numbered` (`[1]`, an
+ordered list) or `author-date` (`(Doe 2020)`, a list sorted by author, which reads `author` and `year` from a span
+around the key: `:: [doe]{author="Doe" year="2020"}`). The citation attributes `locator`, `prefix`, `suffix` and
+`mode` (`suppress-author`, `author-in-text`) shape the text. With a `bibliography`, each use gets an id and each
+entry back-links to its uses. A key without an entry keeps its text; without a directive the list goes at the end.
