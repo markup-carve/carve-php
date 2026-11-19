@@ -100,10 +100,14 @@ final class Context
     public ?array $closers = null;
 
     /**
-     * @var array<string, array{0: int, 1: int}>|null The first offset in `$flat` that may open each of `*` and `/` and
-     *   the last that may close it, for the pairing test; found on first use.
+     * @var array<string, array<int, true>>|null The marks that form a reader pair in the flat leaf.
      */
     public ?array $partners = null;
+
+    /**
+     * @var array<string, array<int, true>>|null The marks paired within the text currently being escaped inside a node.
+     */
+    public ?array $localPartners = null;
 
     /**
      * The offset in `$flat` of the text being escaped, -1 for a text inside another node.
