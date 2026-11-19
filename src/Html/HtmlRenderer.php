@@ -72,9 +72,9 @@ final class HtmlRenderer
     public ?Profile $profile = null;
 
     /**
-     * @var array<string, int> C2-X-048: the ids extension renderers took, by prefix.
+     * C2-X-044, C2-X-048: one counter for the ids extension renderers take, whatever the prefix.
      */
-    private array $extensionIds = [];
+    private int $extensionIds = 0;
 
     private TableRenderer $tables;
 
@@ -1715,13 +1715,19 @@ final class HtmlRenderer
             fn (array $nodes): string => $this->inline->inlines($nodes, 0),
             static fn (array $nodes): string => PlainText::of($nodes),
             function (string $prefix): string {
-                $this->extensionIds[$prefix] = ($this->extensionIds[$prefix] ?? 0) + 1;
+                do {
+                    $id = $prefix . '-' . ++$this->extensionIds;
+                } while (!$this->state->reserveExtensionId($id));
 
-                return $prefix . '-' . $this->extensionIds[$prefix];
+                return $id;
             },
             $this->o->profile,
             $this->o->label('tabsGroup'),
             $this->state->isIdTaken(...),
+            fn (Node $node, bool $block = true): string => $this->attrs($node, block: $block),
+            $this->o->mode,
+            $this->o->labels,
+            $this->o->sourceLines,
         );
     }
 
@@ -1743,10 +1749,8 @@ final class HtmlRenderer
         }
         $this->log->loss('extension-fallback-rendered', 'warning', ['name' => PlainText::str($node->f['name'] ?? '')]);
         $fallback = PlainText::nodes($node->f['fallback'] ?? []);
-        $attrs = $node->f['attrs'] ?? null;
-        $carrier = $attrs instanceof Attrs && !$attrs->isEmpty()
-            || isset($node->f['lang']) || isset($node->f['dir']);
-        if ($carrier) {
+        // An attribute that the writer drops (an event handler) leaves no carrier behind.
+        if ($this->attrs($node, block: false) !== '') {
             return $this->container('<div' . $this->attrs($node) . '>', '</div>', $this->blocks($fallback, $depth + 1), $depth);
         }
         $blocks = $this->blocks($fallback, $depth);

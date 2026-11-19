@@ -57,6 +57,14 @@ final class ExtensionDefinition
     }
 
     /**
+     * The same registration without its renderers, so its nodes write the fallback (C2-X-035).
+     */
+    public function withoutRenderers(): self
+    {
+        return new self($this->name, $this->version, $this->slots, $this->matcher, $this->parent, $this->transform);
+    }
+
+    /**
      * Register the renderer used only in static mode (C2-X-052).
      *
      * @param \Closure(\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Extension\RenderHost): string $renderer
