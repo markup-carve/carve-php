@@ -583,10 +583,7 @@ final class HtmlRenderer
     private function blockContent(Node $node, int $depth): ?string
     {
         if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
-            if ($node->type === 'include' && $node->children === null) {
-                $this->log->loss('include-unresolved', 'warning', ['path' => self::includePathOf($node)], $node->file);
-            }
-
+            // C2-N-077: a degraded include is reported once, as degraded, and not as unresolved.
             return $this->profile->degradeBlock($node, $depth);
         }
         if (isset(self::SILENT[$node->type])) {
@@ -683,8 +680,13 @@ final class HtmlRenderer
     {
         $this->log->loss('include-unresolved', 'warning', ['path' => self::includePathOf($node)], $node->file);
         $text = Escape::text(self::includeText($node));
+        if ($bare) {
+            return self::pad($depth) . $text;
+        }
+        // C2-H-016: the paragraph of an unexpanded include is the element of a block node.
+        $line = $this->line($node);
 
-        return self::pad($depth) . ($bare ? $text : '<p>' . $text . '</p>');
+        return self::pad($depth) . ($line === null ? '<p>' : '<p data-source-line="' . $line . '">') . $text . '</p>';
     }
 
     /**
@@ -1142,6 +1144,10 @@ final class HtmlRenderer
                 return self::pad($depth) . $open . $p . '</blockquote>';
             }
         }
+        $texts = count($visible) === 1 ? $this->degradedLead($visible, $depth + 1) : null;
+        if ($texts !== null && count($texts[0]) === 1) {
+            return self::pad($depth) . $open . '<p>' . $texts[0][0] . '</p></blockquote>';
+        }
 
         return $this->container($open, '</blockquote>', $this->blocks($node->children ?? [], $depth + 1), $depth);
     }
@@ -1295,31 +1301,14 @@ final class HtmlRenderer
         if ($visible === []) {
             return ($task === null ? rtrim($open, ' ') : $open) . '</li>';
         }
-        $rest = $visible;
-        $first = '';
-        $degradedTail = [];
-        $lead = $visible[0];
-        if (
-            self::paragraphLike($lead) && !self::hasFigureCaption($lead) && $this->allowed($lead, $depth + 1)
-            && !$this->bareImage($lead)
-        ) {
-            $first = (string)$this->paragraph($lead, 0, $tight);
-            array_shift($rest);
-            if ($rest === []) {
-                return $open . $first . '</li>';
-            }
-        } elseif ($tight && $this->profile !== null && !$this->allowed($lead, $depth + 1)) {
-            $degraded = $this->profile->degradeTightBlock($lead);
-            if ($degraded !== null) {
-                $first = array_shift($degraded) ?? '';
-                $degradedTail = $degraded;
-                array_shift($rest);
-                if ($rest === [] && $degradedTail === []) {
-                    return $open . $first . '</li>';
-                }
-            }
+        [$first, $degradedTail, $rest] = $this->itemLead($visible, $depth, $tight);
+        if ($first !== '' && $rest === [] && $degradedTail === []) {
+            return $open . $first . '</li>';
         }
-        $lines = $this->itemTail($rest, $degradedTail, $depth);
+        [$lines, $kept] = $this->itemTail($rest, $degradedTail, $depth);
+        if ($lines === [] && !$kept) {
+            return ($first === '' && $task === null ? rtrim($open, ' ') : $open) . $first . '</li>';
+        }
         if ($lines === []) {
             return $open . $first . "\n" . self::pad($depth) . '</li>';
         }
@@ -1328,28 +1317,85 @@ final class HtmlRenderer
     }
 
     /**
+     * The first line of an item, the degraded paragraphs that follow it and the blocks after them.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $visible
+     * @param int $depth
+     * @param bool $tight
+     *
+     * @return array{0: string, 1: array<string>, 2: array<\MarkupCarve\Carve\Node>}
+     */
+    private function itemLead(array $visible, int $depth, bool $tight): array
+    {
+        $rest = $visible;
+        // C2-H-165: a refused lead is laid out as the paragraphs it becomes; one that leaves no text is dropped.
+        while (($texts = $this->degradedLead($rest, $depth + 1)) !== null) {
+            [$degraded, $rest] = $texts;
+            if ($degraded !== []) {
+                $text = (string)array_shift($degraded);
+
+                return [$tight ? $text : '<p>' . $text . '</p>', $degraded, $rest];
+            }
+        }
+        $lead = $rest[0] ?? null;
+        if (
+            $lead !== null && self::paragraphLike($lead) && !self::hasFigureCaption($lead)
+            && $this->allowed($lead, $depth + 1) && !$this->bareImage($lead)
+        ) {
+            return [(string)$this->paragraph($lead, 0, $tight), [], array_slice($rest, 1)];
+        }
+
+        return ['', [], $rest];
+    }
+
+    /**
+     * The degraded paragraphs of the first block when the profile refuses it, and the blocks after it.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $blocks
+     * @param int $depth
+     *
+     * @return array{0: array<string>, 1: array<\MarkupCarve\Carve\Node>}|null
+     */
+    private function degradedLead(array $blocks, int $depth): ?array
+    {
+        if ($this->profile === null || $blocks === [] || $this->allowed($blocks[0], $depth)) {
+            return null;
+        }
+
+        return [$this->profile->degradedParagraphs($blocks[0]), array_slice($blocks, 1)];
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Node> $rest
      * @param array<string> $degradedTail
      * @param int $depth
      *
-     * @return array<string>
+     * @return array{0: array<string>, 1: bool} The lines, and whether a block the profile keeps stands among them.
      */
     private function itemTail(array $rest, array $degradedTail, int $depth): array
     {
         $lines = [];
+        $kept = $degradedTail !== [];
         foreach ($degradedTail as $text) {
             $lines[] = self::pad($depth + 1) . '<p>' . $text . '</p>';
         }
         foreach ($rest as $child) {
-            $html = self::paragraphLike($child) && !self::hasFigureCaption($child) && $this->allowed($child, $depth + 1)
-                ? $this->paragraph($child, $depth + 1, false)
-                : $this->block($child, $depth + 1);
+            if (!$this->allowed($child, $depth + 1)) {
+                // C2-H-165: a degraded block that leaves no text is dropped, with no line of its own.
+                $html = $this->block($child, $depth + 1);
+            } else {
+                $kept = true;
+                $html = self::paragraphLike($child) && !self::hasFigureCaption($child)
+                    ? $this->paragraph($child, $depth + 1, false)
+                    : $this->block($child, $depth + 1);
+            }
             if ($html !== null) {
+                $kept = true;
                 $lines[] = $html;
             }
         }
 
-        return $lines;
+        return [$lines, $kept];
     }
 
     /**
@@ -1393,6 +1439,10 @@ final class HtmlRenderer
             && $this->allowed($visible[0], $depth + 1) && !$this->bareImage($visible[0])
         ) {
             return self::pad($depth) . $open . $this->paragraph($visible[0], 0, true) . '</dd>';
+        }
+        $texts = count($visible) === 1 ? $this->degradedLead($visible, $depth + 1) : null;
+        if ($texts !== null && count($texts[0]) === 1) {
+            return self::pad($depth) . $open . $texts[0][0] . '</dd>';
         }
 
         return $this->container($open, '</dd>', $this->blocks($node->children ?? [], $depth + 1), $depth);
