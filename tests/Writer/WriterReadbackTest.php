@@ -26,6 +26,12 @@ final class WriterReadbackTest extends TestCase
         $span = ['type' => 'span', 'attrs' => ['id' => 'hi'], 'children' => [$t('abc')]];
         $smile = ['type' => 'symbol', 'name' => 'smile'];
         $nbsp = ['type' => 'non_breaking_space'];
+        $quote = static fn (string $side): array => [
+            'type' => 'smart_punctuation',
+            'kind' => $side . '_double_quote',
+            'glyph' => $side === 'left' ? '“' : '”',
+            'source' => '"',
+        ];
 
         return [
             'C2-B-122 a syntax outside the language word' => [
@@ -96,9 +102,15 @@ final class WriterReadbackTest extends TestCase
                 [],
             ],
             'C2-I-035 a symbol is no language tag' => [$p($t('hi{'), $smile), "hi{:smile:\n", []],
-            'C2-I-035 a quoted value takes a symbol in' => [
+            // C2-W-095: the quotes of text take a backslash, so no quoted value forms around the symbol.
+            'C2-I-035 an escaped quote opens no attribute value' => [
                 $p($t('hi {k="a '), $smile, $t('"}')),
-                "hi \\{k=\\\"a :smile:\\\"}\n",
+                "hi {k=\\\"a :smile:\\\"}\n",
+                [],
+            ],
+            'C2-I-035 a smart quote opens an attribute value' => [
+                $p($t('hi {k='), $quote('left'), $t('a '), $smile, $quote('right'), $t('}')),
+                "hi \\{k=\"a :smile:\"}\n",
                 [],
             ],
             'C2-W-022 a no-break space at the end of the content' => [

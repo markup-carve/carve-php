@@ -316,14 +316,14 @@ final class Text
             return false;
         }
         $end = $line === false ? strlen($flat) : $line;
-        $run = substr($flat, $at, $node - $at);
+        $run = self::asWritten(substr($flat, $at, $node - $at));
         if (AttributeParser::readRun($run, 0, strlen($run), new Attrs()) >= 0) {
             return false;
         }
         while ($node !== false && $node < $end && isset($c->flatAtoms[$node])) {
             $next = strpos($flat, "\0", $node + 1);
             $stop = $next === false || $next > $end ? $end : $next;
-            $run .= $c->flatAtoms[$node] . substr($flat, $node + 1, $stop - $node - 1);
+            $run .= $c->flatAtoms[$node] . self::asWritten(substr($flat, $node + 1, $stop - $node - 1));
             $node = $stop < $end ? $stop : false;
         }
         if ($node === false) {
@@ -342,6 +342,18 @@ final class Text
         }
 
         return false;
+    }
+
+    /**
+     * Text as the attribute test sees it once written: a backslash and the characters of `ALWAYS` take a backslash.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    private static function asWritten(string $text): string
+    {
+        return addcslashes(str_replace('\\', '\\\\', $text), self::ALWAYS);
     }
 
     private static function gluedSigil(string $ch, int $next): bool
