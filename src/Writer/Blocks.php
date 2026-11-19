@@ -98,6 +98,7 @@ final class Blocks
             $bareDotLead = $this->w->bareDotLead;
             $afterDescriptions = $this->w->afterDescriptions;
             $prewritten = $this->w->prewritten;
+            $openFences = $this->w->openFences;
             $starts = count($this->w->starts);
             $losses = count($this->w->losses);
             try {
@@ -122,6 +123,7 @@ final class Blocks
                 $this->w->bareDotLead = $bareDotLead;
                 $this->w->afterDescriptions = $afterDescriptions;
                 $this->w->prewritten = $prewritten;
+                $this->w->openFences = $openFences;
                 $this->w->refuseRepair($path . '/' . $at);
                 $this->w->endRepairGroup();
 
