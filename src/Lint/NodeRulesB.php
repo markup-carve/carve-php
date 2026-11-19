@@ -547,6 +547,7 @@ final class NodeRulesB
         if ($marker === null || $content === null) {
             return;
         }
+        $reportedLines = [];
         foreach (Support::kids($node) as $at => $block) {
             if ($at === 0) {
                 continue;
@@ -563,9 +564,10 @@ final class NodeRulesB
             $column = $c->layout->columnOf($line->start + $indent, $c->layout->quoteDepth($path));
             if ($column > $marker && $column < $content) {
                 $c->report('list-item-body-below-content-column', $line->start + $indent, $line->end, $path);
+                $reportedLines[$line->number] = true;
             }
         }
-        self::listItemParagraphColumn($node, $path, $c, $pos, $marker, $content);
+        self::listItemParagraphColumn($node, $path, $c, $pos, $marker, $content, $reportedLines);
     }
 
     /**
@@ -577,11 +579,19 @@ final class NodeRulesB
      * @param array{startLine: int, endLine: int} $pos
      * @param int $marker
      * @param int $content
+     * @param array<int, true> $reportedLines
      *
      * @return void
      */
-    private static function listItemParagraphColumn(array $node, string $path, Context $c, array $pos, int $marker, int $content): void
-    {
+    private static function listItemParagraphColumn(
+        array $node,
+        string $path,
+        Context $c,
+        array $pos,
+        int $marker,
+        int $content,
+        array $reportedLines,
+    ): void {
         // A later paragraph can start with a block-shaped line, while its
         // position still begins after the quote marks. Measure that authored
         // first line against the item column as for other later blocks.
@@ -615,22 +625,8 @@ final class NodeRulesB
                 continue;
             }
             $column = $c->layout->columnOf($line->start + $offset, $quotes);
-            if ($column > $marker && $column < $content) {
-                $start = $line->start + $offset;
-                $duplicate = false;
-                foreach ($c->diagnostics as $finding) {
-                    if (
-                        $finding->code === 'list-item-body-below-content-column'
-                        && $finding->startOffset === $start && $finding->endOffset === $line->end
-                    ) {
-                        $duplicate = true;
-
-                        break;
-                    }
-                }
-                if (!$duplicate) {
-                    $c->report('list-item-body-below-content-column', $start, $line->end, $path);
-                }
+            if ($column > $marker && $column < $content && !isset($reportedLines[$number])) {
+                $c->report('list-item-body-below-content-column', $line->start + $offset, $line->end, $path);
             }
         }
     }

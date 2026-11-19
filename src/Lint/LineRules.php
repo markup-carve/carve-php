@@ -775,9 +775,11 @@ final class LineRules
             return;
         }
         $previous = self::prior($line, $c);
+        $indented = ($line->text[0] ?? '') === ' ' || ($line->text[0] ?? '') === "\t";
         if (
             ($c->nodeTypes[$line->path] ?? null) === 'definition_term'
             && ($c->firstLines[$line->path] ?? $line->number) < $line->number
+            && !$indented
         ) {
             return;
         }
@@ -788,7 +790,6 @@ final class LineRules
         ) {
             return;
         }
-        $indented = ($line->text[0] ?? '') === ' ' || ($line->text[0] ?? '') === "\t";
         if (!$indented && count(explode('/', $line->path)) <= 3) {
             return;
         }

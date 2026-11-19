@@ -415,6 +415,13 @@ i) y',
                 'unattached-inline-attribute',
                 [],
             ],
+            '#5362 indented term variant' => [
+                "   :: term\n: #H\n  [a]: u\n::::\n",
+                'definition-in-container',
+                [
+                    ['definition-in-container', 18, 22],
+                ],
+            ],
         ];
     }
 
