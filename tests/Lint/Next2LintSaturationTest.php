@@ -97,6 +97,21 @@ final class Next2LintSaturationTest extends TestCase
             'C2-B-004: a tab-indented term counts its tab stop' => [
                 "\t:: t\n   : d\n", 'description-separator-below-content-column', 1,
             ],
+            'C2-B-031: a glued mark before a definition is text' => [
+                "\t>[a]: u\n", 'definition-in-container', 0,
+            ],
+            'C2-B-031: a glued mark before a hyphen run is text' => [
+                ">----\n", 'thematic-break-spelling', 0,
+            ],
+            'C2-B-031: a glued mark before a spaced run is text' => [
+                ">* * *\n", 'deprecated-spaced-thematic-break', 0,
+            ],
+            'C2-B-031: a quote candidate holds the list marker' => [
+                ">[^n]:\n> - [\n", 'list-marker-without-blank-line', 0,
+            ],
+            'C2-B-160: a quoted hyphen run below paragraph text' => [
+                "a\n> ---\n", 'setext-heading-underline', 1,
+            ],
         ];
     }
 
