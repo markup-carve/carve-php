@@ -44,6 +44,8 @@ final class HubImporter
         } catch (Exception|Error $e) {
             throw new ImportInputError($format . ': ' . $e->getMessage(), 0, $e);
         }
+        // The library trees are cyclic; left to the collector they tax whatever the host runs next.
+        gc_collect_cycles();
         $options = ['rawHtml' => true] + array_intersect_key($options, ['strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true]);
         $result = HtmlImporter::import(
             $html,
