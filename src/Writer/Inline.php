@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
 
 /**
@@ -59,6 +60,11 @@ final class Inline
         'xref' => '<',
         'non_breaking_space' => ' ',
     ];
+
+    /**
+     * The node written before the one being written in its list, null at the start of the list.
+     */
+    private mixed $before = null;
 
     public function __construct(private State $w)
     {
@@ -168,11 +174,58 @@ final class Inline
                 if ($atom !== null) {
                     $c->flatAtoms[$offset] = $atom;
                 }
+                if ($atom === null && is_array($node)) {
+                    $c->flatNodes[$offset] = $node;
+                }
                 $c->flatBraces[$offset] = $atom === null && (!is_array($node) || isset($node['attrs'])
                     || in_array($type, ['span', 'raw_inline', 'comment', 'critic_comment'], true) || !isset(self::FIRST[$type]));
                 $c->flat .= "\0";
             }
         }
+    }
+
+    /**
+     * Every string a node holds, its own fields and those of its descendants, each closed by `\0`.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string
+     */
+    public static function strings(array $node): string
+    {
+        $out = '';
+        array_walk_recursive($node, function (mixed $v) use (&$out): void {
+            if (is_string($v)) {
+                $out .= $v . "\0";
+            }
+        });
+
+        return $out;
+    }
+
+    /**
+     * The mark a bare form of the type ends with, or null.
+     *
+     * @param string $type
+     *
+     * @return string|null
+     */
+    public static function bareMark(string $type): ?string
+    {
+        return self::PAIRED[$type] ?? null;
+    }
+
+    /**
+     * Whether the writer knows how the type is spelled, so the brace test of `Text` can read past it.
+     *
+     * @param string $type
+     *
+     * @return bool
+     */
+    public static function known(string $type): bool
+    {
+        return isset(self::FIRST[$type]) || isset(self::BRACED[$type]) || isset(self::PAIRED[$type])
+            || in_array($type, ['comment', 'critic_comment', 'hard_break', 'smart_punctuation', 'abbreviation'], true);
     }
 
     /**
@@ -311,6 +364,7 @@ final class Inline
 
             return $out;
         }
+        $this->before = $before;
         $out = $this->own($node, $type, $path, $c, $next);
         if ($out === null) {
             $this->w->lose($path, $type, null);
@@ -375,7 +429,7 @@ final class Inline
         // C2-W-125 case six: a name character behind a mention or a tag would lengthen its name.
         if (
             is_array($before) && in_array($before['type'] ?? '', ['mention', 'tag'], true) && $value !== ''
-            && str_contains('_-.', $value[0])
+            && str_contains('_-.', $value[0]) && self::lengthens(self::str($before, $before['type'] === 'tag' ? 'name' : 'target'), $value)
         ) {
             $prefix = '\\' . $value[0];
             $value = substr($value, 1);
@@ -400,6 +454,22 @@ final class Inline
         }
 
         return $prefix . Text::escape($value, $c, $next);
+    }
+
+    /**
+     * C2-I-092: whether the name a reader takes from the name and the text behind it is longer than the name. A name is
+     * runs of letters, digits, `_` and `-` joined by single dots, and a trailing dot or hyphen is text.
+     *
+     * @param string $name
+     * @param string $value
+     *
+     * @return bool
+     */
+    private static function lengthens(string $name, string $value): bool
+    {
+        preg_match('/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*/', $name . $value, $m);
+
+        return strlen(rtrim($m[0] ?? '', '.-')) > strlen($name);
     }
 
     /**
@@ -459,13 +529,13 @@ final class Inline
             'soft_break' => "\n",
             'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : "\\\n",
             'footnote_ref' => '[^' . self::labelText(self::str($node, 'key'), $c) . ']',
-            'symbol' => ':' . self::str($node, 'name') . ':',
-            'tag' => '#' . self::str($node, 'name'),
+            'symbol' => $this->sigil($node, $type, $path, $c, $next, ':' . self::str($node, 'name') . ':'),
+            'tag' => $this->sigil($node, $type, $path, $c, $next, '#' . self::str($node, 'name')),
             'non_breaking_space' => $this->noBreakSpace($path, $c, $next),
-            'smart_punctuation' => self::str($node, 'source'),
+            'smart_punctuation' => $this->smart($node, $path, $c, $next),
             // C2-W-116: the mark of a caption number (C2-B-150); its number is a resolution result.
             'caption_number' => '#',
-            'mention' => $this->mention($node, $path),
+            'mention' => $this->sigil($node, $type, $path, $c, $next, $this->mention($node, $path)),
             'xref' => $this->xref($node, $path),
             'abbreviation' => $this->abbreviation($node, $path),
             default => null,
@@ -1039,6 +1109,73 @@ final class Inline
         $this->w->lose($path, self::str($node, 'type'), 'value');
 
         return str_replace("\n", ' ', $value);
+    }
+
+    /**
+     * C2-I-090: a sigil after a letter or number starts no form, so the node reads back as text. C2-I-092: a letter or
+     * digit behind a mention or a tag lengthens its name, and no backslash keeps it out (C2-W-125 case six).
+     *
+     * @param array<mixed> $node
+     * @param string $type
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     * @param string $out
+     *
+     * @return string
+     */
+    private function sigil(array $node, string $type, string $path, Context $c, int $next, string $out): string
+    {
+        if (!$c->lineStart && Chars::isWord($c->last)) {
+            $this->w->lose($path, $type, null);
+        } elseif ($type !== 'symbol' && $next >= 0 && $next < 0x80 && Chars::isWord($next)) {
+            $this->w->lose($path, $type, $type === 'tag' ? 'name' : 'target');
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-I-104, C2-I-105: a straight quote takes its direction from the character before it, and a single quote before
+     * an ASCII digit is the apostrophe. A quote node of the other kind reads back as that kind.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return string
+     */
+    private function smart(array $node, string $path, Context $c, int $next): string
+    {
+        $source = self::str($node, 'source');
+        if ($source !== '"' && $source !== "'") {
+            return $source;
+        }
+        $prev = $this->before;
+        $prevType = is_array($prev) ? self::str($prev, 'type') : '';
+        if ($prevType === 'comment') {
+            return $source;
+        }
+        // C2-I-104: the content of a node starts with nothing before it; behind another node the reader sees a word
+        // character, a quote glyph, a no-break space or a line break.
+        $before = match ($prevType) {
+            '', 'soft_break', 'hard_break', 'non_breaking_space' => -1,
+            'text' => $c->last,
+            'smart_punctuation' => str_starts_with(self::str($prev, 'kind'), 'left_') ? 0x201C : 0x61,
+            default => 0x61,
+        };
+        $opens = Chars::isSpace($before) || ($before >= 0 && $before < 0x80
+            ? str_contains(Tables::SMART_QUOTE_OPENS_AFTER, chr($before))
+            : $before >= 0x80 && mb_strpos(Tables::SMART_QUOTE_OPENS_AFTER, (string)mb_chr($before, 'UTF-8')) !== false);
+        $kind = $source === '"'
+            ? ($opens ? 'left_double_quote' : 'right_double_quote')
+            : ($opens && ($next < 0x30 || $next > 0x39) ? 'left_single_quote' : 'right_single_quote');
+        if ($kind !== self::str($node, 'kind')) {
+            $this->w->lose($path, 'smart_punctuation', 'kind');
+        }
+
+        return $source;
     }
 
     /**

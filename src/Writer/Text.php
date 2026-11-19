@@ -147,7 +147,7 @@ final class Text
 
         return match ($ch) {
             '[' => self::bracket($i, $c),
-            '{' => self::brace($i, $c, $after),
+            '{' => self::brace($i, $c, $after, self::markEscaped($value, $i, $c, $next)),
             // C2-W-097: a backslash before ASCII punctuation, a space or a line end.
             '\\' => $after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && self::isPunct(chr($after))),
             ']' => $c->inBracket,
@@ -254,10 +254,11 @@ final class Text
      * @param int $i
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $after The first character written behind the brace.
+     * @param bool $markEscaped Whether the mark behind the brace takes a backslash of its own.
      *
      * @return bool
      */
-    private static function brace(int $i, Context $c, int $after): bool
+    private static function brace(int $i, Context $c, int $after, bool $markEscaped): bool
     {
         $flat = (string)$c->flat;
         $at = $c->here + $i;
@@ -276,22 +277,157 @@ final class Text
         $mark = $flat[$at + 1] ?? '';
         // C2-W-125 case one: a brace glued before a node reads on into the first character of the node.
         if ($mark === "\0") {
-            return $after >= 0 && $after < 0x80 && str_contains(self::MARKS . '%', chr($after));
+            $mark = $after >= 0 && $after < 0x80 ? chr($after) : '';
+            // C2-I-060: a braced opener with no closer still takes the mark of the node, which then cannot open.
+            if (!isset($c->flatAtoms[$at + 1]) && $mark !== '' && str_contains(self::MARKS . '%', $mark)) {
+                return true;
+            }
+        } elseif ($markEscaped) {
+            return false;
         }
         if ($mark === '' || !str_contains(self::MARKS . '%', $mark)) {
             return false;
         }
-        $rest = substr($flat, $at + 2);
-        if (str_contains($rest, "\0")) {
+
+        return self::closerFollows($flat, $at + 1, $mark, $c);
+    }
+
+    /**
+     * C2-I-043, C2-I-060: whether the closer of the mark at `$from` can follow it in the written leaf.
+     *
+     * @param string $flat
+     * @param int $from
+     * @param string $mark
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function closerFollows(string $flat, int $from, string $mark, Context $c): bool
+    {
+        $c->closers ??= self::closers($flat, $c);
+        [$offsets, $shifts, $closes, $forced] = $c->closers;
+        if (($forced[$mark] ?? -1) > $from) {
             return true;
         }
-        if ($mark === '#') {
-            $closer = strpos($rest, '#}');
+        // The run starts behind the mark, which is the first character of an atom at `$from`.
+        $start = self::writtenAt($from, $offsets, $shifts) + 1;
+        // C2-I-043: an editorial comment holds at least one character.
+        $last = $closes[$mark] ?? -1;
 
-            return $closer !== false && $closer > 0;
+        return $last >= $start + ($mark === '#' ? 1 : 0);
+    }
+
+    /**
+     * The closer facts of a leaf, found once: the flat offsets of its atoms and the growth of the leaf as written behind
+     * each, where an atom is its spelling and every other node one `\0`; the last closer of each mark in the written
+     * leaf; and the last node that may supply a closer of each mark itself. A later atom is read with its spelling.
+     * Text inside another node writes its closers with a backslash, so another node supplies one only by the bare
+     * closing mark of emphasis or strong before a `}` of text, or by the raw body of an editorial comment. For `{#` and
+     * `{%` the body is raw, so a comment or any node that holds the mark may supply it.
+     *
+     * @param string $flat
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>}
+     */
+    private static function closers(string $flat, Context $c): array
+    {
+        $marks = str_split(self::MARKS . '%');
+        $written = '';
+        $offsets = [];
+        $shifts = [];
+        $shift = 0;
+        $forced = [];
+        $k = 0;
+        $end = strlen($flat);
+        while ($k < $end) {
+            $node = strpos($flat, "\0", $k);
+            if ($node === false) {
+                $written .= substr($flat, $k);
+
+                break;
+            }
+            $written .= substr($flat, $k, $node - $k);
+            $k = $node + 1;
+            if (isset($c->flatAtoms[$node])) {
+                $written .= $c->flatAtoms[$node];
+                $shift += strlen($c->flatAtoms[$node]) - 1;
+                $offsets[] = $node;
+                $shifts[] = $shift;
+
+                continue;
+            }
+            $written .= "\0";
+            $type = $c->flatTypes[$node] ?? '';
+            $held = Inline::strings($c->flatNodes[$node] ?? []);
+            $bare = ($flat[$k] ?? '') === '}' ? Inline::bareMark($type) : null;
+            foreach ($marks as $mark) {
+                $raw = $mark === '#' || $mark === '%';
+                $supplies = !Inline::known($type) || $bare === $mark
+                    || ($raw && ($type === ($mark === '%' ? 'comment' : 'critic_comment') || str_contains($held, $mark)))
+                    || (!$raw && $type === 'critic_comment' && str_contains($held, $mark . '}'));
+                if ($supplies) {
+                    $forced[$mark] = $node;
+                }
+            }
+        }
+        $closes = [];
+        foreach ($marks as $mark) {
+            $at = strrpos($written, $mark . '}');
+            $closes[$mark] = $at === false ? -1 : $at;
         }
 
-        return str_contains($rest, $mark . '}');
+        return [$offsets, $shifts, $closes, $forced];
+    }
+
+    /**
+     * The offset in the written leaf of the flat offset `$at`.
+     *
+     * @param int $at
+     * @param array<int> $offsets The flat offsets of the atoms, ascending.
+     * @param array<int> $shifts The growth of the written leaf behind each of them.
+     *
+     * @return int
+     */
+    private static function writtenAt(int $at, array $offsets, array $shifts): int
+    {
+        $low = 0;
+        $high = count($offsets);
+        while ($low < $high) {
+            $mid = ($low + $high) >> 1;
+            if ($offsets[$mid] < $at) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return $at + ($low > 0 ? $shifts[$low - 1] : 0);
+    }
+
+    /**
+     * Whether the mark behind the brace at `$i` takes a backslash of its own, so that the brace opens nothing.
+     *
+     * @param string $value
+     * @param int $i
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return bool
+     */
+    private static function markEscaped(string $value, int $i, Context $c, int $next): bool
+    {
+        $j = $i + 1;
+        if ($j >= strlen($value) || !str_contains(self::MARKS, $value[$j])) {
+            return false;
+        }
+        $after = $j + 1 < strlen($value) ? Chars::at($value, $j + 1) : $next;
+        // The mark is tested as it stands behind a bare brace.
+        $c->escapedAt[$i] = false;
+        $escaped = self::needs($value, $j, 0x7B, true, $after, $c, $next);
+        unset($c->escapedAt[$i]);
+
+        return $escaped;
     }
 
     /**
@@ -326,8 +462,9 @@ final class Text
             $run .= $c->flatAtoms[$node] . self::asWritten(substr($flat, $node + 1, $stop - $node - 1));
             $node = $stop < $end ? $stop : false;
         }
-        if ($node === false) {
-            return AttributeParser::readRun($run, 0, strlen($run), new Attrs()) >= 0;
+        $valid = AttributeParser::readRun($run, 0, strlen($run), new Attrs()) >= 0;
+        if ($node === false || $valid) {
+            return $valid;
         }
         if (!($c->flatBraces[$node] ?? true) && !str_contains(substr($flat, $node + 1, $end - $node - 1), '}')) {
             return false;
