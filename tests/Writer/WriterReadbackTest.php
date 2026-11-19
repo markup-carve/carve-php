@@ -216,7 +216,7 @@ final class WriterReadbackTest extends TestCase
             ],
             'C2-I-043 the raw body of an editorial comment' => [
                 $p($t('a {='), ['type' => 'critic_comment', 'value' => 'x=}']),
-                "a \\{={#x=}#}\n",
+                "a {={#x=}#}\n",
                 [],
             ],
             'C2-I-060 a brace takes the mark of a strong' => [

@@ -125,6 +125,8 @@ final class Text
         $c->escapedAt = [];
         $out = '';
         $prev = $c->last;
+        $balanced = $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [];
+        $c->localPartners = $c->here < 0 ? self::pairedMarks($value) : null;
         for ($i = 0; $i < $n; $i++) {
             $ch = $value[$i];
             $byte = ord($ch);
@@ -137,7 +139,8 @@ final class Text
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
-            $escape = $i === $marks || (str_contains(self::PUNCT, $ch) && self::needs($value, $i, $prev, $after, $c, $next));
+            $escape = $i === $marks || (str_contains(self::PUNCT, $ch) && !($c->inBracket && isset($balanced[$i]))
+                && self::needs($value, $i, $prev, $after, $c, $next));
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
             $prev = $byte;
@@ -392,9 +395,12 @@ final class Text
             foreach ($marks as $mark) {
                 $raw = $mark === '#' || $mark === '%';
                 $supplies = !Inline::known($type) || $bare === $mark
-                    || ($raw && ($type === ($mark === '%' ? 'comment' : 'critic_comment') || str_contains($held, $mark)))
-                    || (!$raw && $type === 'critic_comment' && str_contains($held, $mark . '}'))
-                    || (!$raw && str_contains(Inline::openText($c->flatNodes[$node] ?? [], $mark), $mark . '}'));
+                    || ($mark === '%' && $type === 'comment')
+                    || ($mark === '#' && $type === 'critic_comment')
+                    || ($raw && (str_contains($held, $mark . '}')
+                        || str_contains(BraceBlock::of($c->flatNodes[$node] ?? []), $mark . '}')))
+                    || (!$raw && $type !== 'critic_comment'
+                        && str_contains(Inline::openText($c->flatNodes[$node] ?? [], $mark), $mark . '}'));
                 if ($supplies) {
                     $forced[$mark] = $node;
                 }
@@ -573,6 +579,9 @@ final class Text
         if (($c->counts[$ch] ?? 0) < 2) {
             return false;
         }
+        if ($i > 1 && $value[$i - 1] === $ch && $value[$i - 2] === '{') {
+            return true;
+        }
         // C2-I-049: a run of two or more is text, counted without the mark a bare brace takes (C2-I-055).
         $run = self::run($value, $i, $c);
         if ($run === null || $run[1] > $run[0]) {
@@ -584,11 +593,19 @@ final class Text
         $open = !Chars::isWord($prev) && !Chars::isSpace($after);
         $close = !Chars::isSpace($prev) && !Chars::isWord($after);
         if ($c->here < 0) {
-            return $open || $close;
+            return ($open || $close) && isset($c->localPartners[$ch][$i]);
         }
         $at = $c->here + $i;
+        $c->partners ??= self::pairedMarks((string)$c->flat, $c->flatTypes, $c->flatNodes);
+        $behind = $at + 1;
+        if (
+            $open && !isset($c->partners[$ch][$at]) && $i === strlen($value) - 1 && ($c->flat[$behind] ?? '') === "\0"
+            && str_contains(Inline::strings($c->flatNodes[$behind] ?? []) . ($c->flatAtoms[$behind] ?? ''), $ch)
+        ) {
+            return true;
+        }
 
-        return ($open && self::partner($c, $at, $ch, 1)) || ($close && self::partner($c, $at, $ch, -1));
+        return ($open || $close) && self::partner($c, $at, $ch);
     }
 
     /**
@@ -599,34 +616,94 @@ final class Text
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $at
      * @param string $ch
-     * @param int $step 1 to look for a closer after `$at`, -1 for an opener before it.
      *
      * @return bool
      */
-    private static function partner(Context $c, int $at, string $ch, int $step): bool
+    private static function partner(Context $c, int $at, string $ch): bool
     {
-        if ($c->partners === null) {
-            $flat = (string)$c->flat;
-            $n = strlen($flat);
-            $c->partners = ['*' => [PHP_INT_MAX, -1], '/' => [PHP_INT_MAX, -1]];
-            for ($k = 0; $k < $n; $k++) {
-                $here = $flat[$k];
-                $node = $here === "\0" && !isset(self::WHOLE[$c->flatTypes[$k] ?? '']);
-                foreach (['*', '/'] as $mark) {
-                    $opens = $node || ($here === $mark && !str_contains(" \t\n", $flat[$k + 1] ?? ' '));
-                    $closes = $node || ($here === $mark && !str_contains(" \t\n", $k > 0 ? $flat[$k - 1] : ' '));
-                    if ($opens && $c->partners[$mark][0] === PHP_INT_MAX) {
-                        $c->partners[$mark][0] = $k;
-                    }
-                    if ($closes) {
-                        $c->partners[$mark][1] = $k;
-                    }
-                }
+        $c->partners ??= self::pairedMarks((string)$c->flat, $c->flatTypes, $c->flatNodes);
+
+        return isset($c->partners[$ch][$at]);
+    }
+
+    /**
+     * Pair bare marks with the same flanking and nearest-opener rule as the reader. A bracket bounds the delimiter stack.
+     *
+     * @param string $text
+     * @param array<int, string> $types
+     * @param array<int, array<mixed>> $nodes
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function pairedMarks(string $text, array $types = [], array $nodes = []): array
+    {
+        $paired = ['*' => [], '/' => []];
+        $open = ['*' => [], '/' => []];
+        $brackets = [];
+        $n = strlen($text);
+        for ($at = 0; $at < $n; $at++) {
+            $ch = $text[$at];
+            if ($ch === "\0") {
+                self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired);
+
+                continue;
+            }
+            if ($ch === '[') {
+                $brackets[] = $open;
+                $open = ['*' => [], '/' => []];
+
+                continue;
+            }
+            if ($ch === ']' && $brackets !== []) {
+                $open = array_pop($brackets);
+
+                continue;
+            }
+            if ($ch !== '*' && $ch !== '/') {
+                continue;
+            }
+            $before = $at > 0 ? ord($text[$at - 1]) : -1;
+            $after = $at + 1 < $n ? ord($text[$at + 1]) : -1;
+            if (
+                ($at > 0 && $text[$at - 1] === $ch) || ($at + 1 < $n && $text[$at + 1] === $ch)
+                || ($after >= 0 && Chars::isGlue($after))
+            ) {
+                continue;
+            }
+            $canOpen = !Chars::isWord($before) && !Chars::isSpace($after);
+            $canClose = !Chars::isSpace($before) && !Chars::isWord($after);
+            if ($canClose && $open[$ch] !== []) {
+                $from = array_pop($open[$ch]);
+                $paired[$ch][$from] = true;
+                $paired[$ch][$at] = true;
+            } elseif ($canOpen) {
+                $open[$ch][] = $at;
             }
         }
-        [$firstOpen, $lastClose] = $c->partners[$ch] ?? [PHP_INT_MAX, -1];
 
-        return $step > 0 ? $lastClose > $at : $firstOpen < $at;
+        return $paired;
+    }
+
+    /**
+     * @param string $type
+     * @param array<mixed> $node
+     * @param array<string, array<int>> $open
+     * @param array<string, array<int, true>> $paired
+     */
+    private static function pairNode(string $type, array $node, array &$open, array &$paired): void
+    {
+        if (isset(self::WHOLE[$type])) {
+            return;
+        }
+        $held = Inline::strings($node);
+        foreach (['*', '/'] as $mark) {
+            if (
+                $open[$mark] !== [] && (str_contains($held, $mark)
+                || ($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))
+            ) {
+                $paired[$mark][array_pop($open[$mark])] = true;
+            }
+        }
     }
 
     /**
