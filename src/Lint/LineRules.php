@@ -85,7 +85,8 @@ final class LineRules
      */
     private static function afterQuote(Line $line): array
     {
-        if (preg_match('/^(?:[ \t]*>[ \t]*)+/', $line->text, $match) === 1) {
+        // C2-B-031: a quote mark is `>` and a space; a glued `>` is text.
+        if (preg_match('/^(?:[ \t]*> [ \t]*)+/', $line->text, $match) === 1) {
             $at = strlen($match[0]);
 
             return [Support::trimEnd(substr($line->text, $at)), $line->start + $at];
@@ -546,7 +547,7 @@ final class LineRules
         if ($previous === null || !$line->paragraph || $previous->path !== $line->path || self::blank($previous)) {
             return;
         }
-        [$text, $start] = self::afterQuote($line);
+        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
         if (!str_starts_with($text, '+ ') && self::isListMarker($text)) {
             $owner = $c->nodeTypes[$line->path] ?? null;
             $variant = in_array($owner, ['definition_term', 'definition_description'], true) ? 1 : 0;
