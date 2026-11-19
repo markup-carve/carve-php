@@ -252,7 +252,8 @@ Class. What a matcher receives for the core node it claims (C2-X-007, C2-X-009, 
 
 Class. The host helpers an extension renderer receives (C2-X-033): child lists, plain text, escaping, attributes, generated ids, and the render mode (C2-X-052) with the labels and the profile.
 
-- `attributes(Node $node, bool $block = true): string`: C2-X-033: the attribute string of a node, with a leading space, or empty.
+- `isUrlAllowed(string $url): bool`: C2-H-128: whether a URL passes the URL policy of the render.
+- `attributes(Node $node, bool $block = true, bool $bare = false): string`: C2-X-033: the attribute string of a node, with a leading space, or empty. `$bare` writes only the generated source line of a block element.
 - `label(string $key, string $default = ''): string`
 - `static escapeText(string $value): string`
 - `static escapeAttribute(string $value): string`
@@ -320,3 +321,65 @@ Class. Provisional. `<n>` markers that end a code line become callout bubbles, a
 - `static transform(Node $view): Node`
 - `static renderCode(Node $node, RenderHost $host): string`
 - `static renderList(Node $node, RenderHost $host): string`
+
+### `MarkupCarve\Carve\Extension\Details`
+
+Class. Provisional. `::: details "Title"` as a native disclosure (`carve.details`); static mode writes it expanded.
+
+- `static bundle(): Bundle`
+- `static definition(string $name, string $source, Closure $render, Closure $static): ExtensionDefinition`: The definition of a titled div with the slots `summary` and `body`.
+- `static titledFallback(array $title, array $body): array`: C2-X-042 precedent: the title as a `strong` paragraph, then the body.
+- `static container(string $head, string $inner, string $body, string $tail, RenderHost $host): string`: Writes `head`, the body one level in, then `tail`, indented to the block depth like core containers.
+- `static attrs(Node $node, RenderHost $host, ?string $base = null): string`
+- `static disclosure(Node $node, RenderHost $host, string $label, ?string $base = null): string`: The disclosure element of a titled div; `open` is added in static mode unless authored.
+
+### `MarkupCarve\Carve\Extension\Spoiler`
+
+Class. Provisional. `:spoiler[text]` (`carve.spoiler`) and `::: spoiler "Title"` (`carve.spoilerBlock`): hidden by the host stylesheet or a disclosure, revealed in static mode.
+
+- `static bundle(): Bundle`
+- `static transform(Claim $claim): ?Node`
+
+### `MarkupCarve\Carve\Extension\ListTable`
+
+Class. Provisional. `::: list-table` (`carve.listTable`): a list of rows, each a list of cells, as a table; `^` and `<` cells span from above and from the left. Both channels write the same HTML.
+
+- `static bundle(): Bundle`
+- `static transform(Claim $claim): ?Node`
+- `static render(Node $node, RenderHost $host): string`
+
+### `MarkupCarve\Carve\Extension\ColorSwatch`
+
+Class. Provisional. `:color[value]` (`carve.colorSwatch`) with a swatch chip, for a safe CSS color only. Both channels write the same HTML.
+
+- `static bundle(string $position = 'before', string $shape = 'square', bool $tint = false, bool $reveal = false): Bundle`
+- `static transform(Claim $claim): ?Node`
+
+### `MarkupCarve\Carve\Extension\SemanticSpan`
+
+Class. Provisional. The span keys `samp`, `var`, `cite` and `dfn` for render and lint (carve-js#5060), in the 0.1 order from inside out beside the core three (C2-H-075); a `dfn` value becomes `title`.
+
+- `static bundle(): Bundle`
+
+### `MarkupCarve\Carve\Extension\Wikilinks`
+
+Class. Provisional. The standard `:wiki[Page#anchor|Display]` matcher (C2-X-057) with a link renderer.
+
+- `static bundle(?Closure $urlGenerator = null, string $cssClass = 'wikilink', bool $newWindow = false): Bundle`
+- `static slug(string $page): string`
+
+### `MarkupCarve\Carve\Extension\SmartQuotes`
+
+Class. Provisional. Locale quote glyphs for smart typography (`carve.smartQuotes`); the `smartTypography` option still turns it on. Quote nodes that carry the default glyph of their kind take the locale glyph.
+
+- `static bundle(string $locale = 'en', ?string $openDoubleQuote = null, ?string $closeDoubleQuote = null, ?string $openSingleQuote = null, ?string $closeSingleQuote = null): Bundle`
+- `static locales(): array`
+- `static isLocaleSupported(string $locale): bool`
+
+### `MarkupCarve\Carve\Extension\Transforms`
+
+Class. Provisional. The standard document transforms (C2-X-053): each returns a bundle with one transform and no definitions; pass `$bundle->transforms()` to `Carve::renderWithDocumentTransforms()`.
+
+- `static defaultAttributes(array $defaults): Bundle`: Default attributes per node type, merged under the authored ones: `class` adds classes, `id` sets a missing id, any other key a missing pair.
+- `static tabNormalize(int $width = 2): Bundle`: Replaces each tab in code blocks and code spans with `$width` spaces.
+- `static inlineFootnotesToParentheses(): Bundle`: Writes each inline footnote as its content in parentheses after a space, for targets without notes.

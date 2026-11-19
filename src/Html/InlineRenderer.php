@@ -123,7 +123,11 @@ final class InlineRenderer
             return $out;
         }
         // With no comment in the tree, or a single node, C2-H-069 drops nothing.
-        foreach ($this->state->comments && count($nodes) > 1 ? self::dropCommentLineBreaks($nodes, $nested) : $nodes as $node) {
+        $list = $this->state->comments && count($nodes) > 1 ? self::dropCommentLineBreaks($nodes, $nested) : $nodes;
+        if ($this->o->quotes !== null) {
+            $list = array_values($list);
+        }
+        foreach ($list as $i => $node) {
             $tag = $node->f === [] ? Tables::DELIMITER_HTML[$node->type] ?? null : null;
             if ($tag !== null) {
                 // A delimiter span with no attributes, the common case of node(), without its lookups.
@@ -134,11 +138,65 @@ final class InlineRenderer
                 $out .= is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value) ? $value
                     : Escape::text(PlainText::str($value));
             } else {
-                $out .= $this->node($node, $depth);
+                $out .= $this->other($node, $list, $i, $depth);
             }
         }
 
         return $out;
+    }
+
+    /**
+     * A node that is no plain text and no bare delimiter span.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     * @param array<\MarkupCarve\Carve\Node> $list
+     * @param int $i
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function other(Node $node, array $list, int $i, int $depth): string
+    {
+        if ($node->type === 'smart_punctuation' && $this->o->quotes !== null) {
+            return Escape::text($this->quote($node, $this->o->quotes, $list[$i - 1] ?? null, $list[$i + 1] ?? null));
+        }
+
+        return $this->node($node, $depth);
+    }
+
+    /**
+     * C2-H-078: a quote that carries the glyph of its kind takes the glyph of a registered extension; a closing single
+     * quote between two letters is an apostrophe and keeps its glyph.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     * @param array{0: string, 1: string, 2: string, 3: string} $quotes
+     * @param \MarkupCarve\Carve\Node|null $before
+     * @param \MarkupCarve\Carve\Node|null $after
+     *
+     * @return string
+     */
+    private function quote(Node $node, array $quotes, ?Node $before, ?Node $after): string
+    {
+        $f = $node->f;
+        if (!$this->o->smartTypography) {
+            return PlainText::str($f['source'] ?? '');
+        }
+        $kind = PlainText::str($f['kind'] ?? '');
+        $own = Tables::SMART_GLYPHS[$kind] ?? null;
+        $glyph = PlainText::str($f['glyph'] ?? $own ?? $f['source'] ?? '');
+        $at = array_search($kind, ['left_double_quote', 'right_double_quote', 'left_single_quote', 'right_single_quote'], true);
+        if ($at === false || $glyph !== $own) {
+            return $glyph;
+        }
+        if (
+            $kind === 'right_single_quote' && $before?->type === 'text' && $after?->type === 'text'
+            && preg_match('/\p{L}$/u', PlainText::str($before->f['value'] ?? '')) === 1
+            && preg_match('/^\p{L}/u', PlainText::str($after->f['value'] ?? '')) === 1
+        ) {
+            return $glyph;
+        }
+
+        return $quotes[$at];
     }
 
     /**
@@ -419,7 +477,8 @@ final class InlineRenderer
     }
 
     /**
-     * C2-H-075, C2-H-099, C2-H-175: `abbr`, `time` and `kbd` keys nest from inside out.
+     * C2-H-075, C2-H-099, C2-H-175: `abbr`, `time` and `kbd` keys, and those a registered extension adds, nest from inside
+     * out.
      *
      * @param \MarkupCarve\Carve\Node $node
      * @param \MarkupCarve\Carve\Attrs|null $attrs
@@ -434,7 +493,7 @@ final class InlineRenderer
         $rest = $attrs;
         if ($attrs !== null) {
             $rest = clone $attrs;
-            foreach (['abbr' => 'title', 'time' => 'datetime', 'kbd' => null] as $key => $target) {
+            foreach ($this->o->semanticKeys as [$key, $target]) {
                 $value = null;
                 foreach ($rest->pairs as [$name, $candidate]) {
                     if ($name === $key) {

@@ -1723,10 +1723,10 @@ final class HtmlRenderer
      *
      * @return \MarkupCarve\Carve\Extension\RenderHost
      */
-    private function host(): RenderHost
+    private function host(int $depth = 0): RenderHost
     {
         return new RenderHost(
-            fn (array $nodes): string => implode('', array_map('trim', $this->blocks($nodes, 0))),
+            fn (array $nodes): string => implode("\n", $this->blocks($nodes, 0)),
             fn (array $nodes): string => $this->inline->inlines($nodes, 0),
             static fn (array $nodes): string => PlainText::of($nodes),
             function (string $prefix): string {
@@ -1739,10 +1739,19 @@ final class HtmlRenderer
             $this->o->profile,
             $this->o->label('tabsGroup'),
             $this->state->isIdTaken(...),
-            fn (Node $node, bool $block = true): string => $this->attrs($node, block: $block),
+            function (Node $node, bool $block = true, bool $bare = false): string {
+                if (!$bare) {
+                    return $this->attrs($node, block: $block);
+                }
+                $line = $block ? $this->line($node) : null;
+
+                return $line === null ? '' : ' data-source-line="' . $line . '"';
+            },
             $this->o->mode,
             $this->o->labels,
             $this->o->sourceLines,
+            $depth,
+            fn (string $url): bool => UrlPolicy::passes($url, $this->o),
         );
     }
 
@@ -1760,7 +1769,7 @@ final class HtmlRenderer
         $renderer = $this->o->rendered[Walk::key($node)] ?? null;
         if ($renderer !== null) {
             // C2-X-034: trusted host code; its HTML is written unchanged.
-            return self::pad($depth) . $renderer($node, $this->host());
+            return self::pad($depth) . $renderer($node, $this->host($depth));
         }
         $this->log->loss('extension-fallback-rendered', 'warning', ['name' => PlainText::str($node->f['name'] ?? '')]);
         $fallback = PlainText::nodes($node->f['fallback'] ?? []);

@@ -27,7 +27,7 @@ converter.
 | `$converter->setProfile($profile)`, `getProfile()` | option `profile`: `full`, `article`, `comment`, `minimal` |
 | `$converter->setSafeMode(...)`, `SafeMode` | option `profile` plus `urlPolicy`; raw HTML is off unless `rawHtml` |
 | `$converter->setRenderMode($mode)`, `getRenderMode()` | option `mode`: `interactive` or `static` |
-| `SmartTypographyMode`, `SmartQuotesExtension` | option `smartTypography` (on by default) |
+| `SmartTypographyMode` | option `smartTypography` (on by default); locale quotes through `Extension\SmartQuotes` |
 | `$converter->getWarnings()`, `hasWarnings()`, `clearWarnings()` | `parseWithDiagnostics()->diagnostics`, `renderWithDiagnostics()->diagnostics` |
 | `getProfileViolations()`, `hasProfileViolations()` | `renderWithDiagnostics()`, the entries of channel `render-loss` |
 | `$converter->setRenderers([...])` | gone: a renderer belongs to its `ExtensionDefinition`; option `renderers` is reserved |
@@ -111,9 +111,13 @@ The 0.2 extension host is provisional (see the [guide](README.md#extensions-prov
 | `getExtensions()` | gone: the host keeps its list |
 | `FencedRenderExtension`, `MermaidExtension` and the other diagram presets | `Extension\FencedRender::bundle()` and its presets (`mermaid()`, `presets()`), see [extensions.md](extensions.md) |
 | `MathBlockExtension`, `CodeGroupExtension`, `CodeCalloutsExtension` | `Extension\MathBlock::bundle()`, `Extension\CodeGroup::bundle()`, `Extension\CodeCallouts::bundle()` |
-| `InlineExtension` nodes | inline extensions; the PHP renderer writes their fallback for now |
+| `DetailsExtension`, `SpoilerExtension`, `ListTableExtension`, `ColorSwatchExtension`, `SemanticSpanExtension` | `Extension\Details::bundle()`, `Extension\Spoiler::bundle()`, `Extension\ListTable::bundle()`, `Extension\ColorSwatch::bundle()`, `Extension\SemanticSpan::bundle()` |
+| `WikilinksExtension` | `Extension\Wikilinks::bundle()` (the standard `:wiki` matcher with a link renderer) |
+| `SmartQuotesExtension(locale: 'de')` | `Extension\SmartQuotes::bundle('de')` |
+| `DefaultAttributesExtension`, `TabNormalizeExtension`, `InlineFootnotesExtension` | `Extension\Transforms::defaultAttributes()`, `::tabNormalize()`, `::inlineFootnotesToParentheses()` |
+| `InlineExtension` nodes | inline extensions; a registered renderer writes them, else their fallback |
 | `TabsExtension` | `Extension\Tabs::extensions(true)` |
-| `TableOfContentsExtension`, `WikilinksExtension`, `HeadingNumbersExtension`, `FrontmatterExtension`, `ExternalLinksExtension`, `SpoilerExtension`, `DetailsExtension`, `AutolinkExtension`, `MentionsExtension`, `CitationsExtension`, `AdmonitionExtension`, `ListTableExtension`, `SemanticSpanExtension`, `HeadingLevelShiftExtension`, and the other 0.1 extensions | not ported; several are core syntax in 0.2 (admonitions, mentions, citations, autolinks), the rest wait for the extension catalog |
+| `TableOfContentsExtension`, `HeadingNumbersExtension`, `FrontmatterExtension`, `ExternalLinksExtension`, `AutolinkExtension`, `MentionsExtension`, `CitationsExtension`, `AdmonitionExtension`, `HeadingLevelShiftExtension`, and the other 0.1 extensions | not ported; several are core syntax in 0.2 (admonitions, mentions, citations, autolinks), the rest wait for the extension catalog |
 | `HeadingPermalinksExtension`, `LowercaseHeadingIdsExtension`, `AsciiHeadingIdsExtension` | option `headingIds` for the id forms; permalinks are gone |
 
 ## Errors

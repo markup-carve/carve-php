@@ -59,6 +59,14 @@ final class PublicSurface
         'MarkupCarve\Carve\Extension\MathBlock' => 'provisional',
         'MarkupCarve\Carve\Extension\CodeGroup' => 'provisional',
         'MarkupCarve\Carve\Extension\CodeCallouts' => 'provisional',
+        'MarkupCarve\Carve\Extension\Details' => 'provisional',
+        'MarkupCarve\Carve\Extension\Spoiler' => 'provisional',
+        'MarkupCarve\Carve\Extension\ListTable' => 'provisional',
+        'MarkupCarve\Carve\Extension\ColorSwatch' => 'provisional',
+        'MarkupCarve\Carve\Extension\SemanticSpan' => 'provisional',
+        'MarkupCarve\Carve\Extension\Wikilinks' => 'provisional',
+        'MarkupCarve\Carve\Extension\SmartQuotes' => 'provisional',
+        'MarkupCarve\Carve\Extension\Transforms' => 'provisional',
     ];
 
     /**

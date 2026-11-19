@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Diagnostics\Message;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
+use MarkupCarve\Carve\Options;
 
 /**
  * The state of one lint run over one source. Offsets are bytes of the source.
@@ -154,6 +156,24 @@ final class Context
      *
      * @return int
      */
+
+    /**
+     * C2-H-075 keys with those a registered extension sets (carve-js#5060).
+     *
+     * @return array<array{0: string, 1: string|null}>
+     */
+    public function semanticKeys(): array
+    {
+        $keys = Options::SEMANTIC_KEYS;
+        foreach (is_array($this->options['extensions'] ?? null) ? $this->options['extensions'] : [] as $item) {
+            if ($item instanceof ExtensionDefinition && $item->semanticKeys !== null) {
+                $keys = $item->semanticKeys;
+            }
+        }
+
+        return $keys;
+    }
+
     public function lineOf(int $offset): int
     {
         $low = 0;
