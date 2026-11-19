@@ -79,6 +79,13 @@ final class Text
     private const LINE_OPENERS = '#=>^|+:%-*.[{`~$!<';
 
     /**
+     * C2-I-092: the characters of a name and the dots that join its runs.
+     *
+     * @var string
+     */
+    private const NAME = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.';
+
+    /**
      * Characters that take a backslash wherever they stand in text: a backtick run and the two quotes smart typography
      * replaces (C2-W-095).
      *
@@ -118,7 +125,6 @@ final class Text
         $c->escapedAt = [];
         $out = '';
         $prev = $c->last;
-        $prevBare = true;
         for ($i = 0; $i < $n; $i++) {
             $ch = $value[$i];
             $byte = ord($ch);
@@ -126,16 +132,14 @@ final class Text
                 $len = Chars::len($value, $i);
                 $out .= substr($value, $i, $len);
                 $prev = Chars::at($value, $i);
-                $prevBare = true;
                 $i += $len - 1;
 
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
-            $escape = $i === $marks || (str_contains(self::PUNCT, $ch) && self::needs($value, $i, $prev, $prevBare, $after, $c, $next));
+            $escape = $i === $marks || (str_contains(self::PUNCT, $ch) && self::needs($value, $i, $prev, $after, $c, $next));
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
-            $prevBare = !$escape;
             $prev = $byte;
         }
 
@@ -146,17 +150,21 @@ final class Text
      * @param string $value
      * @param int $i
      * @param int $prev
-     * @param bool $prevBare
      * @param int $after
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $next
      *
      * @return bool
      */
-    private static function needs(string $value, int $i, int $prev, bool $prevBare, int $after, Context $c, int $next): bool
+    private static function needs(string $value, int $i, int $prev, int $after, Context $c, int $next): bool
     {
         $ch = $value[$i];
         if (str_contains(self::ALWAYS, $ch)) {
+            return true;
+        }
+        // C2-I-055, C2-I-060: a mark before `}` closes the node of that mark open around the text, so the mark takes the
+        // backslash; with none open the closer is text.
+        if ($after === 0x7D && $c->marks !== '' && str_contains($c->marks, $ch)) {
             return true;
         }
 
@@ -173,8 +181,7 @@ final class Text
             ']' => $c->inBracket,
             // C2-W-098
             '|' => $c->inCell,
-            // C2-I-055: a mark glued before a closing brace is a braced closer.
-            '}' => $c->here < 0 && $prevBare && $prev >= 0 && $prev < 0x80 && str_contains(self::MARKS, chr($prev)),
+            '}' => false,
             '/', '*' => self::pairs($value, $i, $prev, $after, $c),
             '-' => self::hyphen($value, $i, $c->last, $next),
             '.' => self::dot($value, $i),
@@ -341,8 +348,9 @@ final class Text
      * The closer facts of a leaf, found once: the flat offsets of its atoms and the growth of the leaf as written behind
      * each, where an atom is its spelling and every other node one `\0`; the last closer of each mark in the written
      * leaf; and the last node that may supply a closer of each mark itself. A later atom is read with its spelling.
-     * Text inside another node writes its closers with a backslash, so another node supplies one only by the bare
-     * closing mark of emphasis or strong before a `}` of text, or by the raw body of an editorial comment. For `{#` and
+     * Text inside another node writes its openers with a backslash and its closers bare, so another node supplies one
+     * by a closer in its text outside brackets, by the bare closing mark of emphasis or strong before a `}` of text, or
+     * by the raw body of an editorial comment. For `{#` and
      * `{%` the body is raw, so a comment or any node that holds the mark may supply it.
      *
      * @param string $flat
@@ -385,7 +393,8 @@ final class Text
                 $raw = $mark === '#' || $mark === '%';
                 $supplies = !Inline::known($type) || $bare === $mark
                     || ($raw && ($type === ($mark === '%' ? 'comment' : 'critic_comment') || str_contains($held, $mark)))
-                    || (!$raw && $type === 'critic_comment' && str_contains($held, $mark . '}'));
+                    || (!$raw && $type === 'critic_comment' && str_contains($held, $mark . '}'))
+                    || (!$raw && str_contains(Inline::openText($c->flatNodes[$node] ?? [], $mark), $mark . '}'));
                 if ($supplies) {
                     $forced[$mark] = $node;
                 }
@@ -445,7 +454,7 @@ final class Text
         $after = $j + 1 < strlen($value) ? Chars::at($value, $j + 1) : $next;
         // The mark is tested as it stands behind a bare brace.
         $c->escapedAt[$i] = false;
-        $escaped = self::needs($value, $j, 0x7B, true, $after, $c, $next);
+        $escaped = self::needs($value, $j, 0x7B, $after, $c, $next);
         unset($c->escapedAt[$i]);
 
         return $escaped;
@@ -534,7 +543,7 @@ final class Text
         [$prev, $after, $next] = $around;
 
         return match ($value[$i]) {
-            '@', '#' => !self::isLetterOrNumber($prev) && self::nameFollows($value, $i, $next),
+            '@', '#' => !self::isLetterOrNumber($prev) && self::sigilName($value, $i, $c, $next),
             ':' => !self::isLetterOrNumber($prev) && (self::symbolFollows($value, $i) || self::extensionFollows($value, $i, $next)),
             '<' => $after === 0x2F || $after === 0x2D || $after === 0x3D || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after))),
             '>', '!' => $after === 0x3D,
@@ -743,26 +752,75 @@ final class Text
         return $end < strlen($value) ? $value[$end] === '[' : $next === 0x5B;
     }
 
+    private static function sigilName(string $value, int $i, Context $c, int $next): bool
+    {
+        if (strspn($value, self::NAME, $i + 1) < strlen($value) - $i - 1) {
+            return self::nameFollows($value, $i, $next);
+        }
+        [$tail, $after] = self::runOn($value, $c, $next);
+
+        return self::nameFollows($value . $tail, $i, $after);
+    }
+
     private static function isLetterOrNumber(int $cp): bool
     {
         return $cp >= 0 && Chars::isWord($cp);
     }
 
     /**
-     * C2-I-092: runs of letters, digits, `_` and `-` joined by single dots, holding a letter. A name that runs on into
-     * the next node counts as one, since the node after it may continue it.
+     * C2-I-092: what a name at the end of the text reads on into, where the leaf is known: the spelling of each atom
+     * behind the text and the text behind that atom, up to the first character that ends the name; and the first
+     * character after that, the first character of a node that is no atom, or -1 at the end of the leaf.
      *
      * @param string $value
-     * @param int $i
+     * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $next The first character after the text.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function runOn(string $value, Context $c, int $next): array
+    {
+        $flat = (string)$c->flat;
+        $at = $c->here + strlen($value);
+        if ($c->here < 0 || !isset($c->flatAtoms[$at])) {
+            return ['', $next];
+        }
+        $out = '';
+        while (isset($c->flatAtoms[$at])) {
+            $node = strpos($flat, "\0", $at + 1);
+            $stop = $node === false ? strlen($flat) : $node;
+            $text = substr($flat, $at + 1, $stop - $at - 1);
+            $out .= $c->flatAtoms[$at] . $text;
+            if ($node === false) {
+                return [$out, -1];
+            }
+            if (strspn($text, self::NAME) < strlen($text) || strspn($c->flatAtoms[$at], self::NAME) < strlen($c->flatAtoms[$at])) {
+                return [$out, -1];
+            }
+            $at = $node;
+        }
+
+        return [$out, $c->flatFirst[$at] ?? -1];
+    }
+
+    /**
+     * C2-I-092: runs of letters, digits, `_` and `-` joined by single dots, holding a letter. A name that runs on into
+     * a node that is no atom counts as one, since that node may continue it.
+     *
+     * @param string $value The text, followed by the spelling it reads on into.
+     * @param int $i
+     * @param int $next The first character after `$value`.
      *
      * @return bool
      */
     private static function nameFollows(string $value, int $i, int $next): bool
     {
-        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.';
-        $len = strspn($value, $chars, $i + 1);
-        $runsOn = $i + 1 + $len === strlen($value) && $next >= 0 && $next < 0x80 && str_contains($chars, chr($next));
+        // A dot only joins two runs, so no name starts with one.
+        if (($value[$i + 1] ?? '') === '.' || ($i + 1 === strlen($value) && $next === 0x2E)) {
+            return false;
+        }
+        $len = strspn($value, self::NAME, $i + 1);
+        $runsOn = $i + 1 + $len === strlen($value) && $next >= 0 && $next < 0x80 && str_contains(self::NAME, chr($next));
         if ($len === 0) {
             return $runsOn;
         }

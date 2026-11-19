@@ -30,6 +30,7 @@ final class WriterReadbackTest extends TestCase
         $note = ['type' => 'comment', 'form' => 'braced', 'value' => 'hi'];
         $bob = ['type' => 'mention', 'target' => 'bob', 'kind' => 'user'];
         $link = ['type' => 'link', 'href' => '/u', 'children' => [$t('b')]];
+        $linkOf = static fn (string $value): array => ['type' => 'link', 'href' => '/u', 'children' => [$t($value)]];
         $dash = ['type' => 'smart_punctuation', 'kind' => 'en_dash', 'glyph' => '–', 'source' => '--'];
         $quote = static fn (string $side): array => [
             'type' => 'smart_punctuation',
@@ -224,6 +225,64 @@ final class WriterReadbackTest extends TestCase
                 [],
             ],
             'C2-I-043 a tag inside an attribute block' => [$p($t('a {'), $tag, $t('} b')), "a \\{#tg} b\n", []],
+            // C2-I-055, C2-I-060: openers inside another node take the backslash, so a closer there is text.
+            'C2-I-060 a closer inside a link' => [$p($linkOf('y-}')), "[y-}](/u)\n", []],
+            'C2-I-060 a closer inside a strong' => [$p($t('a '), ['type' => 'strong', 'children' => [$t('y=}')]]), "a *y=}*\n", []],
+            'C2-I-060 a closer behind a bare strong inside a link' => [
+                $p(['type' => 'link', 'href' => '/u', 'children' => [$t('a '), ['type' => 'strong', 'children' => [$t('s')]], $t('} b')]]),
+                "[a *s*} b](/u)\n",
+                [],
+            ],
+            'C2-I-055 a closer of an enclosing braced node' => [
+                $p(['type' => 'highlight', 'children' => [$t('a '), ['type' => 'strong', 'children' => [$t('y=}')]], $t(' b')]]),
+                "{=a *y\\=}* b=}\n",
+                [],
+            ],
+            'C2-I-055 a closer behind a bracket inside a braced node' => [
+                $p(['type' => 'highlight', 'children' => [$t('a '), $linkOf('y=}'), $t(' b')]]),
+                "{=a [y=}](/u) b=}\n",
+                [],
+            ],
+            'C2-I-043 a closer in the text of a later node' => [
+                $p($t('{-a '), ['type' => 'strong', 'children' => [$t('y-}')]], $t(' b')),
+                "\\{-a *y-}* b\n",
+                [],
+            ],
+            'C2-I-043 a closer behind a bracket of a later node' => [
+                $p($t('{-a '), ['type' => 'strong', 'children' => [$linkOf('y-}')]]),
+                "{-a *[y-}](/u)*\n",
+                [],
+            ],
+            'C2-I-092 a sigil before a dash and a space' => [$p($t('a #'), $dash, $t(' b')), "a #-- b\n", []],
+            'C2-I-092 a sigil before a dash and a letter' => [$p($t('a #'), $dash, $t('b')), "a \\#--b\n", []],
+            'C2-I-092 a sigil before two dashes and a letter' => [$p($t('a #'), $dash, $t('-'), $dash, $t('x y')), "a \\#--\\---x y\n", []],
+            'C2-I-092 a sigil before a dash at the end' => [$p($t('a @'), $dash), "a @--\n", []],
+            'C2-I-092 a sigil before a dash and a node' => [
+                $p($t('a #1'), $dash, ['type' => 'emphasis', 'children' => [$t('e')]]),
+                "a #1--/e/\n",
+                [],
+            ],
+            'C2-I-092 a sigil before a dot' => [$p($t('x-}#.x')), "x-}#.x\n", []],
+            'C2-I-092 a sigil before an ellipsis' => [
+                $p($t('a #'), ['type' => 'smart_punctuation', 'kind' => 'ellipsis', 'glyph' => '…', 'source' => '...'], $t('b')),
+                "a #...b\n",
+                [],
+            ],
+            'C2-W-069 a brace before a braced emphasis' => [
+                $p($t('hi{'), ['type' => 'emphasis', 'children' => [$t('e')]], $t('a')),
+                "hi{{/e/}a\n",
+                [],
+            ],
+            'C2-W-069 a brace before a braced strong' => [
+                $p($t('hi{'), ['type' => 'strong', 'children' => [$t('e')]], $t('a')),
+                "hi{{*e*}a\n",
+                [],
+            ],
+            'C2-W-069 a brace before a bare strong' => [
+                $p($t('hi {'), ['type' => 'strong', 'children' => [$t('e')]], $t(' a')),
+                "hi \\{*e* a\n",
+                [],
+            ],
         ];
     }
 
