@@ -604,7 +604,8 @@ final class TreeMigration
     private static function comment(array &$node, array $old): void
     {
         $node['value'] = $old['content'] ?? $old['value'] ?? '';
-        $node['form'] = ($old['block'] ?? false) === true ? 'block' : ((($old['delimited'] ?? false) === true) ? 'braced' : 'line');
+        $node['form'] = $old['form'] ?? (($old['block'] ?? false) === true
+            ? 'block' : ((($old['delimited'] ?? false) === true) ? 'braced' : 'line'));
         unset($node['content'], $node['block'], $node['delimited']);
     }
 
@@ -659,8 +660,18 @@ final class TreeMigration
     private static function lineBlock(array &$node): void
     {
         unset($node['lines']);
+        $children = self::nodeList($node['children'] ?? null);
+        if (
+            $children !== [] && array_reduce(
+                $children,
+                static fn (bool $all, array $child): bool => $all && ($child['type'] ?? null) === 'line',
+                true,
+            )
+        ) {
+            return;
+        }
         $lines = [];
-        foreach (self::nodeList($node['children'] ?? null) as $block) {
+        foreach ($children as $block) {
             if (($block['type'] ?? null) !== 'paragraph') {
                 continue;
             }

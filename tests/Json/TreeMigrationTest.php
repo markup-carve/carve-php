@@ -164,6 +164,24 @@ final class TreeMigrationTest extends TestCase
         self::assertSame([], $result['layout']['nodes']);
     }
 
+    public function testCurrentLineBlockAndCommentFormsArePreserved(): void
+    {
+        $line = ['type' => 'line', 'children' => [['type' => 'text', 'value' => 'kept']]];
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                ['type' => 'line_block', 'children' => [$line]],
+                ['type' => 'comment', 'form' => 'block', 'value' => 'block'],
+                ['type' => 'comment', 'form' => 'braced', 'value' => 'braced'],
+            ],
+        ];
+        $children = Carve::migrateTree($tree)['document']['children'];
+        self::assertSame($line, $children[0]['children'][0]);
+        self::assertSame('block', $children[1]['form']);
+        self::assertSame('braced', $children[2]['form']);
+    }
+
     /**
      * @param array<string, mixed> $value
      * @param array<int, int|string> $path
