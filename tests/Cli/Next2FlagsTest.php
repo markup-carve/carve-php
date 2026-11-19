@@ -167,4 +167,19 @@ final class Next2FlagsTest extends TestCase
         self::assertStringContainsString('markdown-container-flattened', $diagnostics);
         self::assertStringContainsString('"suppressed":0', $diagnostics);
     }
+
+    public function testMarkdownExportValidatesRenderOptions(): void
+    {
+        $in = fopen('php://memory', 'r+');
+        $out = fopen('php://memory', 'r+');
+        $err = fopen('php://memory', 'r+');
+        self::assertIsResource($in);
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        fwrite($in, "# Hello\n");
+        rewind($in);
+        self::assertSame(2, Command::main(['render', '--to', 'markdown', '--heading-ids', 'bogus', '-'], $in, $out, $err));
+        rewind($err);
+        self::assertStringStartsWith('carve[usage]:', (string)stream_get_contents($err));
+    }
 }

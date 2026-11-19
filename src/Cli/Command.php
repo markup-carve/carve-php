@@ -14,6 +14,7 @@ use MarkupCarve\Carve\InputError as CoreInputError;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
+use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Writer\CarveWriteError;
 
 /**
@@ -526,6 +527,7 @@ final class Command
                 $to = $parsed['values']['to'] ?? 'html';
                 $input = ($parsed['values']['from-ast'] ?? false) ? self::decodedTree($source) : $source;
                 if ($to !== 'html') {
+                    Options::from($options);
                     $parseOptions = array_intersect_key($options, ['includes' => true]);
                     $tree = is_string($input) ? Carve::parse($input, $parseOptions) : $input;
                     $exporter = match ($to) {
