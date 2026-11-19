@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Layout;
 
+use MarkupCarve\Carve\Lint\Layout as LintLayout;
 use MarkupCarve\Carve\Node;
 
 /**
@@ -50,8 +51,11 @@ final class LayoutBuilder
      */
     private array $entries = [];
 
+    private LintLayout $measure;
+
     private function __construct(private SourceLines $lines)
     {
+        $this->measure = new LintLayout($lines->s);
     }
 
     /**
@@ -153,7 +157,8 @@ final class LayoutBuilder
      */
     private function list(array $list, string $path, Node $parent, int $quotes, bool $blocks, bool $inCaption): void
     {
-        $limit = $parent->end >= 0 && $parent->type !== 'document' ? $parent->end : strlen($this->lines->s);
+        $limit = $parent->end >= 0 && !in_array($parent->type, ['document', 'block_quote'], true)
+            ? $parent->end : strlen($this->lines->s);
         $previousEnd = max(0, $parent->start);
         $list = array_values($list);
         foreach ($list as $i => $child) {
@@ -196,6 +201,7 @@ final class LayoutBuilder
             $facts = ['rawRef' => $this->rawRef($node, $facts['refEnd'], $quotes)] + $facts;
         }
         unset($facts['refEnd'], $facts['wrapAt'], $facts['spansRows'], $facts['cellWraps']);
+        $facts += $this->sourceFacts($node, $path, $quotes);
         if ($node->type === 'table_cell') {
             $facts += $this->wraps($node, $path);
         }
@@ -205,12 +211,189 @@ final class LayoutBuilder
         }
         if ($blanks !== null && $start >= 0) {
             $facts['blankLinesBefore'] = $this->lines->blankBefore($start, $blanks[0], $quotes);
-            $facts['blankLinesAfter'] = $this->lines->blankAfter($end, $blanks[1], $quotes);
+            $facts['blankLinesAfter'] = $this->lines->blankAfter(
+                $end,
+                $blanks[1],
+                $node->type === 'block_quote' ? $quotes + 1 : $quotes,
+            );
+            if ($node->type === 'block_quote' && $facts['blankLinesAfter'] === 0) {
+                $facts['blankLinesAfter'] = $this->lines->blankAfter($end, $blanks[1], $quotes);
+            }
         }
         if ($start < 0 || $facts === []) {
             return;
         }
         $this->entries[] = ['path' => $path, 'startByte' => $start, 'endByte' => $end] + $facts;
+    }
+
+    /**
+     * Facts measured from source bytes, including the required continuation style of C2-L-052.
+     *
+     * @return array<string, mixed>
+     */
+    private function sourceFacts(Node $node, string $path, int $quotes): array
+    {
+        if ($node->start < 0 || $node->end < 0) {
+            return [];
+        }
+        if (
+            !in_array($node->type, [
+                'list_item', 'definition_description', 'footnote', 'heading', 'definition_term',
+                'link_reference_definition', 'image_reference_definition', 'abbreviation_def',
+                'code_block', 'comment',
+            ], true)
+        ) {
+            return [];
+        }
+        $facts = [];
+        if (in_array($node->type, ['list_item', 'definition_description', 'footnote'], true)) {
+            $this->measure->register($path, [
+                'type' => $node->type,
+                'pos' => ['startOffset' => $node->start, 'endOffset' => $node->end],
+                'task' => $node->f['task'] ?? null,
+            ], $quotes, '');
+            $content = $this->measure->contentColumn($path);
+            if ($content !== null) {
+                $facts['contentColumn'] = $content;
+            }
+            $facts['continuationStyle'] = $this->continuationStyle($node, $content, $quotes);
+        }
+
+        return $facts + $this->markerFacts($node, $quotes) + $this->fenceFacts($node, $quotes)
+            + $this->commentFacts($node, $quotes);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function markerFacts(Node $node, int $quotes): array
+    {
+        $source = $this->lines->s;
+        $firstEnd = $this->lines->lineEnd($node->start);
+        $facts = [];
+        $marker = match ($node->type) {
+            'heading' => '/\G[\#=]+/',
+            'definition_term' => '/\G::/',
+            'definition_description' => '/\G:/',
+            'list_item' => '/\G(?:[-*+]|[0-9A-Za-z]+[.)])/',
+            'footnote', 'link_reference_definition', 'image_reference_definition' => '/\G\[[^\]\n]+\]:/',
+            'abbreviation_def' => '/\G\*\[[^\]\n]+\]:/',
+            default => null,
+        };
+        if ($marker !== null && preg_match($marker, $source, $found, 0, $node->start) === 1) {
+            $facts['markerRaw'] = $found[0];
+            $facts['markerColumn'] = $this->measure->columnOf($node->start, $quotes);
+            if (
+                in_array($node->type, [
+                    'footnote', 'link_reference_definition', 'image_reference_definition',
+                    'abbreviation_def',
+                ], true)
+            ) {
+                $after = $node->start + strlen($found[0]) - 1;
+                $facts['metadataSeparatorRaw'] = ':' . substr(
+                    $source,
+                    $after + 1,
+                    strspn($source, " \t", $after + 1, max(0, $firstEnd - $after - 1)),
+                );
+            } elseif ($node->type === 'definition_term') {
+                $after = $node->start + 2;
+                $facts['metadataSeparatorRaw'] = substr(
+                    $source,
+                    $after,
+                    strspn($source, " \t", $after, max(0, $firstEnd - $after)),
+                );
+            }
+        }
+
+        return $facts;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fenceFacts(Node $node, int $quotes): array
+    {
+        $source = $this->lines->s;
+        $facts = [];
+        if ($node->type === 'code_block' && isset($source[$node->start]) && in_array($source[$node->start], ['`', '~'], true)) {
+            $char = $source[$node->start];
+            $facts['openerRaw'] = str_repeat($char, strspn($source, $char, $node->start));
+            $last = $this->lines->lineStart(max($node->start, $node->end - 1));
+            $content = $this->lines->prefix($last, $node->end, $quotes)[0];
+            $closer = trim(substr($source, $content, max(0, $node->end - $content)));
+            $facts['closerRaw'] = $closer !== '' && strspn($closer, $char) === strlen($closer) ? $closer : '';
+        }
+
+        return $facts;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function commentFacts(Node $node, int $quotes): array
+    {
+        $facts = [];
+        if ($node->type === 'comment' && $quotes > 0) {
+            $line = $this->lines->lineStart($node->start);
+            [$prefix, $marks] = $this->lines->prefix($line, $node->start, $quotes);
+            if ($marks === $quotes && $prefix > $line) {
+                $facts['markerColumn'] = $this->measure->columnOf($prefix - 2, $quotes - 1);
+            }
+        }
+
+        return $facts;
+    }
+
+    private function continuationStyle(Node $node, ?int $column, int $quotes): string
+    {
+        $source = $this->lines->s;
+        $feed = strpos($source, "\n", $node->start);
+        if ($feed === false || $feed >= $node->end || $column === null) {
+            return 'marker_line';
+        }
+        $later = false;
+        while ($feed !== false && $feed + 1 < $node->end) {
+            $line = $feed + 1;
+            $end = $this->lines->lineEnd($line);
+            $at = $this->lines->prefix($line, $end, $quotes)[0];
+            $at += strspn($source, " \t", $at, max(0, $end - $at));
+            if ($at < $end) {
+                $later = true;
+                if ($this->measure->columnOf($at, $quotes) < $column && $this->paragraphAt($node, $at)) {
+                    return 'lazy';
+                }
+            }
+            $feed = strpos($source, "\n", $line);
+        }
+        if (!$later) {
+            return 'marker_line';
+        }
+        for (
+            $feed = strpos($source, "\n", $node->start); $feed !== false && $feed + 1 < $node->end;
+            $feed = strpos($source, "\n", $feed + 1)
+        ) {
+            $at = $this->lines->prefix($feed + 1, $this->lines->lineEnd($feed + 1), $quotes)[0];
+            $at += strspn($source, " \t", $at);
+            if ($this->measure->columnOf($at, $quotes) >= $column) {
+                return 'indent';
+            }
+        }
+
+        return 'none';
+    }
+
+    private function paragraphAt(Node $node, int $offset): bool
+    {
+        if ($node->type === 'paragraph' && $node->start <= $offset && $offset < $node->end) {
+            return true;
+        }
+        foreach ($node->children ?? [] as $child) {
+            if ($this->paragraphAt($child, $offset)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
