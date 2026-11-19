@@ -452,4 +452,11 @@ i) y',
             self::assertNotContains($rule, $codes);
         }
     }
+
+    public function testEscapedCommentRecoveryStopsAtCodeFence(): void
+    {
+        $source = "> %%%\n> %%%\n\n```\n>x\n```";
+        $codes = array_map(static fn ($diagnostic): string => $diagnostic->code, Carve::lint($source));
+        self::assertNotContains('blockquote-marker-without-space', $codes);
+    }
 }

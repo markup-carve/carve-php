@@ -488,45 +488,35 @@ final class LineRules
      */
     public static function escapedOpaque(Line $line, Context $c): void
     {
+        $startLine = $c->blockCommentStartLines[$line->number] ?? null;
         if (
-            isset($c->frontmatterLines[$line->number])
+            $startLine === null || $startLine === $line->number
             || (!preg_match('/^>[^ ]/', $line->text) && preg_match('/<[A-Za-z\/]/', $line->text) !== 1)
         ) {
             return;
         }
-        for ($i = $line->number - 2; $i >= 0; $i--) {
-            $prior = $c->lines[$i];
-            if (preg_match('/%{3,}/', $prior->text, $match, PREG_OFFSET_CAPTURE) !== 1) {
-                continue;
-            }
-            $before = substr($prior->text, 0, $match[0][1]);
-            $quoted = preg_match('/^(?:[ \t]*> )+/', $before) === 1;
-            $listed = preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+/', $before) === 1;
-            if (!$quoted && !$listed) {
-                $owner = $c->lines[$i - 1] ?? null;
-                $nestedCloser = strspn($prior->text, " \t") > 0 && $owner !== null
-                    && preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+.*%{3,}/', $owner->text) === 1;
-                if ($nestedCloser) {
-                    continue;
-                }
-
-                return;
-            }
-            if (
-                ($quoted && str_starts_with($line->text, '> '))
-                || ($listed && strspn($line->text, " \t") > 0)
-            ) {
-                return;
-            }
-            $visible = new Line($line->text, $line->start, $line->end, $line->number, '', false, true);
-            if ($c->active('blockquote-marker-without-space')) {
-                self::quoteWithoutSpace($visible, $c);
-            }
-            if ($c->active('bare-html-tag')) {
-                self::bareHtml($visible, $c);
-            }
-
+        $opener = $c->lines[$startLine - 1] ?? null;
+        if ($opener === null || preg_match('/%{3,}/', $opener->text, $match, PREG_OFFSET_CAPTURE) !== 1) {
             return;
+        }
+        $before = substr($opener->text, 0, $match[0][1]);
+        $quoted = preg_match('/^(?:[ \t]*> )+/', $before) === 1;
+        $listed = preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+/', $before) === 1;
+        $prior = $c->lines[$startLine - 2] ?? null;
+        $nested = strspn($opener->text, " \t") > 0 && $prior !== null
+            && preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+.*%{3,}/', $prior->text) === 1;
+        if (!$quoted && !$listed && !$nested) {
+            return;
+        }
+        if (($quoted && str_starts_with($line->text, '> ')) || (($listed || $nested) && strspn($line->text, " \t") > 0)) {
+            return;
+        }
+        $visible = new Line($line->text, $line->start, $line->end, $line->number, '', false, true);
+        if ($c->active('blockquote-marker-without-space')) {
+            self::quoteWithoutSpace($visible, $c);
+        }
+        if ($c->active('bare-html-tag')) {
+            self::bareHtml($visible, $c);
         }
     }
 

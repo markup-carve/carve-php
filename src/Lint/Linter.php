@@ -191,6 +191,11 @@ final class Linter
         if ($type === 'definition_description') {
             $c->descriptionEntryLines[$pos['startLine']] = true;
         }
+        if ($type === 'comment' && ($node['form'] ?? null) === 'block') {
+            for ($line = $pos['startLine']; $line <= $pos['endLine']; $line++) {
+                $c->blockCommentStartLines[$line] = $pos['startLine'];
+            }
+        }
         if ($type === 'paragraph') {
             $c->paragraphStarts[$path] = $pos['startOffset'];
         }
