@@ -29,6 +29,12 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static render(Node|array|string $input, array $options = []): string`: C2-T-005 `render`: the HTML of Carve source or of a tree. A tree is a `Node` of `parse()` or `decodeTree()`, or the decoded AST JSON as an array; it is validated (C2-A-188) and resolved again with the render options on a copy, so the caller's tree is not changed.
 - `static importDocument(string $input, array $options = []): ImportResult`: C2-T-005 `importDocument`: the importer for `from` (only `html`, the default).
 - `static positionOf(string $source, mixed $offset): array`: C2-T-041: the line and column of C2-T-019 for a range that starts at the UTF-8 byte offset `$offset` of `$source`.
+- `static version(): ?string`: The version of this package as Composer installed it, or null outside a Composer install.
+- `static headingId(string $text, array $options = []): ?string`: The id the `headingIds` option generates for a heading with the plain text `$text` (C2-H-022, C2-H-143 to C2-H-148), or null under `off`. Each call stands alone: no `-2` suffix of a repeated id (C2-H-024).
+- `static sourceFingerprint(string $source): string`: The fingerprint of a source: `sha256:` and the SHA-256 of its bytes.
+- `static treeFingerprint(Node $tree): string`: The fingerprint of a tree: `sha256:` and the SHA-256 of `encodeTree($tree)`.
+- `static diffTree(Node $a, Node $b): array`: The JSON Patch (RFC 6902) that turns the encoded tree `$a` into the encoded tree `$b`, with RFC 6901 paths. Object values are `stdClass`, as `json_decode()` gives them.
+- `static applyPatch(Node $tree, array $patch, array $options = []): Node`: Applies a JSON Patch to the encoded tree and decodes the result; `$tree` is not changed.
 - `static encodeTree(Node $tree): string`: C2-A-012: the bare tree as JSON, without positions where the tree came from JSON without them.
 - `static encodeEnvelope(Node $tree): string`: C2-A-012, C2-A-013: the tree in its envelope, for a storage or process boundary.
 - `static decodeTree(string $json, array $options = []): Node`: C2-A-188: reads the JSON of a 2.0 tree or envelope.

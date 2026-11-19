@@ -50,6 +50,15 @@ $decoded = Carve::decodeTree(Carve::encodeEnvelope(Carve::parse("a\n")));
 check(Carve::encodeTree($decoded) === Carve::encodeTree(Carve::decodeTree(Carve::encodeTree($decoded))), 'encodeTree, encodeEnvelope, decodeTree');
 Carve::validateTree($decoded);
 check(true, 'validateTree');
+check(Carve::positionOf("\u{e4}\nb", 3) === ['line' => 2, 'column' => 1], 'positionOf');
+$before = Carve::parse("a b\n");
+$patch = Carve::diffTree($before, Carve::parse("a c\n"));
+$after = Carve::applyPatch($before, $patch, ['fingerprint' => Carve::treeFingerprint($before)]);
+check(Carve::diffTree($after, Carve::parse("a c\n")) === [], 'diffTree, applyPatch, treeFingerprint');
+check(str_starts_with(Carve::sourceFingerprint('abc'), 'sha256:ba7816bf'), 'sourceFingerprint');
+check(Carve::headingId('A b') === 'A-b', 'headingId');
+check(Carve::SPEC_VERSION['version'] === '0.2' && in_array('text', Carve::NODE_TYPES['inline'], true), 'SPEC_VERSION, NODE_TYPES');
+check(Carve::version() !== '', 'version');
 $registry = Carve::writers()->register(new class implements OutputWriter {
     public function target(): string
     {

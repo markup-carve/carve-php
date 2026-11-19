@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve;
 
+use Composer\InstalledVersions;
 use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Diagnostics\Cap;
@@ -16,6 +17,7 @@ use MarkupCarve\Carve\Export\PlainTextExporter;
 use MarkupCarve\Carve\Extension\DocumentTransform;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Extension\Extensions;
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Html\Profile;
 use MarkupCarve\Carve\Import\HtmlImporter;
@@ -25,6 +27,7 @@ use MarkupCarve\Carve\Include\IncludeResolver;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Json\TreePatch;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Layout\LayoutBuilder;
 use MarkupCarve\Carve\Layout\LayoutReader;
@@ -34,6 +37,7 @@ use MarkupCarve\Carve\Output\HtmlWriter;
 use MarkupCarve\Carve\Output\WriterRegistry;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
+use MarkupCarve\Carve\Resolve\Slug;
 use MarkupCarve\Carve\Resolve\TableGrid;
 use MarkupCarve\Carve\Resolve\Walk;
 use MarkupCarve\Carve\Writer\Writer;
@@ -49,6 +53,20 @@ use WeakMap;
  */
 final class Carve
 {
+    /**
+     * The specification this engine implements, and the commit of markup-carve/carve it pins.
+     *
+     * @var array{version: string, commit: string}
+     */
+    public const SPEC_VERSION = Tables::SPEC_VERSION;
+
+    /**
+     * The node types of the pinned tree schema: those a document holds as blocks, and those a paragraph holds.
+     *
+     * @var array{block: array<string>, inline: array<string>}
+     */
+    public const NODE_TYPES = Tables::NODE_TYPES;
+
     /**
      * The source of each tree `parse()` returned, so `render()` of that tree keeps its source lines.
      *
@@ -650,6 +668,110 @@ final class Carve
         }
 
         return ['line' => $line, 'column' => $column];
+    }
+
+    /**
+     * The version of this package as Composer installed it, or null outside a Composer install.
+     *
+     * @return string|null
+     */
+    public static function version(): ?string
+    {
+        if (!class_exists(InstalledVersions::class) || !InstalledVersions::isInstalled('markup-carve/carve-php')) {
+            return null;
+        }
+
+        return InstalledVersions::getPrettyVersion('markup-carve/carve-php');
+    }
+
+    /**
+     * The id the `headingIds` option generates for a heading with the plain text `$text` (C2-H-022, C2-H-143 to
+     * C2-H-148), or null under `off`. Each call stands alone: no `-2` suffix of a repeated id (C2-H-024).
+     *
+     * @param string $text
+     * @param array<string, mixed> $options `headingIds`, `keep-case` unless given.
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return string|null
+     */
+    public static function headingId(string $text, array $options = []): ?string
+    {
+        foreach (array_keys($options) as $name) {
+            if ($name !== 'headingIds') {
+                throw new OptionError('option ' . $name . ': not an option of headingId');
+            }
+        }
+        $mode = Options::from($options)->headingIds;
+
+        return $mode === 'off' ? null : Slug::of($text, $mode);
+    }
+
+    /**
+     * The fingerprint of a source: `sha256:` and the SHA-256 of its bytes.
+     *
+     * @param string $source
+     *
+     * @return string
+     */
+    public static function sourceFingerprint(string $source): string
+    {
+        return TreePatch::fingerprint($source);
+    }
+
+    /**
+     * The fingerprint of a tree: `sha256:` and the SHA-256 of `encodeTree($tree)`.
+     *
+     * @param \MarkupCarve\Carve\Node $tree
+     *
+     * @return string
+     */
+    public static function treeFingerprint(Node $tree): string
+    {
+        return TreePatch::fingerprint(self::encodeTree($tree));
+    }
+
+    /**
+     * The JSON Patch (RFC 6902) that turns the encoded tree `$a` into the encoded tree `$b`, with RFC 6901 paths.
+     * Object values are `stdClass`, as `json_decode()` gives them.
+     *
+     * @param \MarkupCarve\Carve\Node $a
+     * @param \MarkupCarve\Carve\Node $b
+     *
+     * @return array<array<string, mixed>>
+     */
+    public static function diffTree(Node $a, Node $b): array
+    {
+        return TreePatch::diff(self::encodeTree($a), self::encodeTree($b));
+    }
+
+    /**
+     * Applies a JSON Patch to the encoded tree and decodes the result; `$tree` is not changed.
+     *
+     * @param \MarkupCarve\Carve\Node $tree
+     * @param array<mixed> $patch The operations, as arrays or `stdClass` objects.
+     * @param array<string, mixed> $options `fingerprint`, the `treeFingerprint` of the tree the patch was made against,
+     *   and `extensions` as for `decodeTree`.
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    public static function applyPatch(Node $tree, array $patch, array $options = []): Node
+    {
+        $fingerprint = $options['fingerprint'] ?? null;
+        if ($fingerprint !== null && !is_string($fingerprint)) {
+            throw new OptionError('option fingerprint: not a string');
+        }
+        unset($options['fingerprint']);
+        $reader = self::treeOptions($options);
+
+        return TreePatch::apply(
+            self::encodeTree($tree),
+            $patch,
+            $fingerprint,
+            static fn (string $json): Node => TreeReader::read($json, $reader),
+        );
     }
 
     /**
