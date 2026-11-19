@@ -375,17 +375,13 @@ final class Profile
      *
      * @param \MarkupCarve\Carve\Node $node
      *
-     * @return array<string>|null
+     * @return array<string>
      */
-    public function degradeTightBlock(Node $node): ?array
+    public function degradedParagraphs(Node $node): array
     {
-        $texts = array_values(array_filter($this->degradedTexts($node), static fn (string $text): bool => $text !== ''));
-        if ($texts === []) {
-            return null;
-        }
         $this->report($node);
 
-        return $texts;
+        return array_values(array_filter($this->degradedTexts($node), static fn (string $text): bool => $text !== ''));
     }
 
     /**
@@ -487,6 +483,7 @@ final class Profile
             'heading' => str_repeat('#', self::level($node)) . ' ' . $this->blockInlineText($kids),
             'block_quote' => $this->quoteText($kids),
             'list' => $this->listText($node),
+            'table' => implode(' ', $this->tableRows($node)),
             'thematic_break' => '---',
             'code_block', 'raw_block' => rtrim(PlainText::str($node->f['value'] ?? ''), "\n"),
             'include' => HtmlRenderer::includeText($node),
@@ -550,7 +547,10 @@ final class Profile
     {
         $items = [];
         foreach ($list->children ?? [] as $item) {
-            $items[] = '- ' . $this->joined($item->children ?? []);
+            $text = $this->joined($item->children ?? []);
+            if ($text !== '') {
+                $items[] = '- ' . $text;
+            }
         }
 
         return implode(' ', $items);
@@ -574,6 +574,14 @@ final class Profile
             if ($text !== '') {
                 $parts[] = $text;
             }
+            // C2-H-165: a caption follows the text of its block.
+            $caption = $block->type === 'definition_list' ? null : $block->f['caption'] ?? null;
+            foreach ($caption instanceof Node ? $caption->children ?? [] : [] as $para) {
+                $text = PlainText::of($para->children ?? []);
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
         }
 
         return implode(' ', $parts);
@@ -586,6 +594,18 @@ final class Profile
      */
     private function tableText(Node $table): string
     {
+        return implode("<br>\n", array_map(Escape::text(...), $this->tableRows($table)));
+    }
+
+    /**
+     * The plain text of each row, ` | ` between the cells.
+     *
+     * @param \MarkupCarve\Carve\Node $table
+     *
+     * @return array<string>
+     */
+    private function tableRows(Node $table): array
+    {
         $rows = [];
         foreach ($table->children ?? [] as $group) {
             foreach ($group->children ?? [] as $row) {
@@ -595,13 +615,13 @@ final class Profile
                 $cells = [];
                 foreach ($row->children ?? [] as $cell) {
                     if (!isset($cell->f['span'])) {
-                        $cells[] = Escape::text($this->joined($cell->children ?? []));
+                        $cells[] = $this->joined($cell->children ?? []);
                     }
                 }
                 $rows[] = implode(' | ', $cells);
             }
         }
 
-        return implode("<br>\n", $rows);
+        return $rows;
     }
 }
