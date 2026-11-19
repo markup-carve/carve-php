@@ -1041,7 +1041,6 @@ final class Inline
     {
         if (array_key_exists('decorative', $node)) {
             $this->w->lose($path, 'image', 'decorative');
-
         }
         $alt = self::str($node, 'alt');
         $spelled = AltSource::spell($alt);
