@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Html;
 
 use MarkupCarve\Carve\Diagnostics\Message;
 use MarkupCarve\Carve\Node;
+use Throwable;
 
 /**
  * The render-loss entries of one render (C2-H-132, C2-A-173).
@@ -60,5 +61,13 @@ final class RenderLog
             'slots' => $slots,
             'field' => $field,
         ];
+    }
+
+    public function rendererFailed(Node $node, Throwable $error): void
+    {
+        $name = (string)($node->f['name'] ?? '');
+        $this->loss('extension-renderer-failed', 'warning', ['name' => $name], node: $node);
+        $this->entries[array_key_last($this->entries)]['message'] = 'the extension ' . $name
+            . ' renderer failed: ' . $error->getMessage() . '; its fallback is written unresolved';
     }
 }

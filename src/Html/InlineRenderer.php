@@ -1095,9 +1095,14 @@ final class InlineRenderer
         if (str_contains($name, '.')) {
             $renderer = $this->o->rendered[Walk::key($node)] ?? null;
             if ($renderer !== null) {
-                return $renderer($node, ($this->host)());
+                try {
+                    return $renderer($node, ($this->host)());
+                } catch (Throwable $error) {
+                    $this->log->rendererFailed($node, $error);
+                }
+            } else {
+                $this->log->loss('extension-fallback-rendered', 'warning', ['name' => $name]);
             }
-            $this->log->loss('extension-fallback-rendered', 'warning', ['name' => $name]);
             $fallback = $node->f['fallback'] ?? null;
             $content = $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);
             if ($attrs === null || $attrs->isEmpty() && $lang === null && !isset($node->f['dir'])) {
