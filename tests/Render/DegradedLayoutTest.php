@@ -120,4 +120,46 @@ final class DegradedLayoutTest extends TestCase
         }
         self::assertContains('include-unresolved', Carve::renderWithDiagnostics('{{ a.crv }}')->codes());
     }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function emptiedParagraphs(): array
+    {
+        return [
+            'quote' => ["> [](javascript:x)\n>\n> after", 'comment', '<blockquote><p>after</p></blockquote>'],
+            'nested quote' => [
+                "> > [](javascript:x)\n> >\n> > after",
+                'comment',
+                "<blockquote>\n  <blockquote><p>after</p></blockquote>\n</blockquote>",
+            ],
+            'item' => ["- [](javascript:x)\n\n  after", 'comment', "<ul>\n  <li>after</li>\n</ul>"],
+            'ordered item' => ["1. [](javascript:x)\n\n   after", 'comment', "<ol>\n  <li>after</li>\n</ol>"],
+            'link then a comment line' => ["- [](javascript:x)\n  {% c %}\n\n  after", 'comment', "<ul>\n  <li>after</li>\n</ul>"],
+            'item in a quote' => [
+                "> - [](javascript:x)\n>\n>   after",
+                'comment',
+                "<blockquote>\n  <ul>\n    <li>after</li>\n  </ul>\n</blockquote>",
+            ],
+            'refused link under minimal' => ["- [](javascript:x)\n\n  after", 'minimal', "<ul>\n  <li>after</li>\n</ul>"],
+        ];
+    }
+
+    /**
+     * C2-H-019, C2-H-006, C2-H-007, C2-H-034: a paragraph a refused link leaves writing nothing is no visible child.
+     */
+    #[DataProvider('emptiedParagraphs')]
+    public function testEmptiedParagraphIsNotVisible(string $input, string $profile, string $html): void
+    {
+        self::assertSame($html, Carve::render($input, ['profile' => $profile]));
+    }
+
+    /**
+     * C2-H-069: a hard break keeps the paragraph; the denied destination is reported once.
+     */
+    public function testEmptiedParagraphKeepsHardBreakAndReportsOnce(): void
+    {
+        self::assertSame("<ul>\n  <li><br>\nb</li>\n</ul>", Carve::render("- [](javascript:x)\\\n  b", ['profile' => 'comment']));
+        self::assertSame(['destination-denied'], Carve::renderWithDiagnostics('> [](javascript:x)', ['profile' => 'comment'])->codes());
+    }
 }

@@ -72,7 +72,7 @@ final class NoteRenderer
         if ($note->type === 'inline_footnote') {
             $lines[] = $pad . '  <p>' . $this->r->inline->leaf($note->children ?? [], $depth + 2) . $back . '</p>';
         } else {
-            $visible = HtmlRenderer::visibleOf($note->children ?? []);
+            $visible = $this->r->visibleOf($note->children ?? []);
             $last = $visible === [] ? null : $visible[count($visible) - 1];
             $endsWithParagraph = $last !== null && $this->r->writesParagraph($last);
             foreach ($visible as $block) {

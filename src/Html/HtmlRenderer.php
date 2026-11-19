@@ -16,6 +16,7 @@ use MarkupCarve\Carve\Resolve\Facts;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Walk;
+use WeakMap;
 
 /**
  * Renders a resolved tree to an HTML fragment (C2-H). Block elements and their layout live here,
@@ -79,6 +80,13 @@ final class HtmlRenderer
 
     private TableRenderer $tables;
 
+    /**
+     * C2-H-019: the paragraphs a profile left writing nothing, once found by visibleOf().
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node, true>
+     */
+    private WeakMap $silenced;
+
     private NoteRenderer $notes;
 
     private bool $notesPlaced = false;
@@ -100,6 +108,7 @@ final class HtmlRenderer
     private function __construct(private Node $doc, public Options $o, ?string $source, ?Facts $facts)
     {
         $this->log = new RenderLog();
+        $this->silenced = new WeakMap();
         if ($o->profile !== 'full') {
             $this->profile = new Profile($o->profile, $this->log);
             $this->profile->measure($doc);
@@ -547,15 +556,50 @@ final class HtmlRenderer
     }
 
     /**
+     * C2-H-019: an uncaptioned paragraph whose content writes nothing once the profile has degraded it. A break
+     * counts as written unless a comment line takes it (C2-H-069). It is rendered once here so that what it
+     * reports is reported, and skipped after that.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return bool
+     */
+    private function silent(Node $node): bool
+    {
+        if (isset($this->silenced[$node])) {
+            return true;
+        }
+        if ($this->profile === null || $node->type !== 'paragraph' || isset($node->f['caption'])) {
+            return false;
+        }
+        $kids = $node->children ?? [];
+        $empty = false;
+        foreach (InlineRenderer::dropCommentLineBreaks($kids, false, $this->profile) as $kid) {
+            if ($this->inline->writesNothing($kid)) {
+                $empty = true;
+            } elseif ($kid->type !== 'comment') {
+                return false;
+            }
+        }
+        if (!$empty) {
+            return false;
+        }
+        $this->block($node, 0);
+        $this->silenced[$node] = true;
+
+        return true;
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Node> $nodes
      *
      * @return array<\MarkupCarve\Carve\Node>
      */
-    public static function visibleOf(array $nodes): array
+    public function visibleOf(array $nodes): array
     {
         $out = [];
         foreach ($nodes as $node) {
-            if (self::visible($node)) {
+            if (self::visible($node) && !$this->silent($node)) {
                 $out[] = $node;
             }
         }
@@ -582,6 +626,9 @@ final class HtmlRenderer
 
     private function blockContent(Node $node, int $depth): ?string
     {
+        if (isset($this->silenced[$node])) {
+            return null;
+        }
         if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
             // C2-N-077: a degraded include is reported once, as degraded, and not as unresolved.
             return $this->profile->degradeBlock($node, $depth);
@@ -1133,7 +1180,7 @@ final class HtmlRenderer
     private function quote(Node $node, int $depth): string
     {
         $open = '<blockquote' . $this->attrs($node) . '>';
-        $visible = self::visibleOf(iterator_to_array($this->documentBlocks($node->children ?? []), false));
+        $visible = $this->visibleOf(iterator_to_array($this->documentBlocks($node->children ?? []), false));
         if (
             count($visible) === 1 && self::paragraphLike($visible[0]) && !self::hasFigureCaption($visible[0])
             && $this->allowed($visible[0], $depth + 1)
@@ -1300,7 +1347,7 @@ final class HtmlRenderer
             [$box, $structural, $base, $style] = $task !== null ? self::taskParts($item, $task, $ordered) : ['', [], [], []];
             $open = self::pad($depth) . '<li' . $this->attrs($item, $base, [], $structural, [], $style) . '>' . $box;
         }
-        $visible = self::visibleOf(iterator_to_array($this->documentBlocks($item->children ?? []), false));
+        $visible = $this->visibleOf(iterator_to_array($this->documentBlocks($item->children ?? []), false));
         if ($visible === []) {
             return ($task === null ? rtrim($open, ' ') : $open) . '</li>';
         }
@@ -1441,7 +1488,7 @@ final class HtmlRenderer
     private function description(Node $node, int $depth): string
     {
         $open = '<dd' . $this->attrs($node) . '>';
-        $visible = self::visibleOf($node->children ?? []);
+        $visible = $this->visibleOf($node->children ?? []);
         if ($visible === []) {
             return self::pad($depth) . $open . '</dd>';
         }
@@ -1688,7 +1735,7 @@ final class HtmlRenderer
     public function caption(string $tag, Node $caption, int $depth): string
     {
         $open = '<' . $tag . $this->attrs($caption, block: false) . '>';
-        $visible = self::visibleOf($caption->children ?? []);
+        $visible = $this->visibleOf($caption->children ?? []);
         if (count($visible) === 1 && $visible[0]->type === 'paragraph' && !self::hasFigureCaption($visible[0])) {
             return self::pad($depth) . $open . $this->inline->leaf($visible[0]->children ?? [], $depth + 1) . '</' . $tag . '>';
         }
