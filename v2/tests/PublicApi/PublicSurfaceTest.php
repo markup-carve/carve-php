@@ -22,6 +22,7 @@ final class PublicSurfaceTest extends TestCase
         $this->assertSame([
             'decodeTree', 'encodeEnvelope', 'encodeTree', 'format', 'formatWithDiagnostics', 'importDocument', 'importHtml',
             'includeDependencies', 'lint', 'parse', 'parseWithDiagnostics', 'parseWithLayout', 'render', 'renderWithDiagnostics',
+            'renderWithDocumentTransforms',
             'toHtml', 'toJson', 'validateLayout', 'validateTree', 'write', 'writeTo', 'writeWithDiagnostics', 'writers',
         ], $names);
     }

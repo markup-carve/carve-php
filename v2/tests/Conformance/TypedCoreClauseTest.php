@@ -14,6 +14,7 @@ use MarkupCarve\Carve2\Json\TreeEquality;
 use MarkupCarve\Carve2\Json\TreeError;
 use MarkupCarve\Carve2\Json\TreeReader;
 use MarkupCarve\Carve2\Options;
+use MarkupCarve\Carve2\Test\Support\ClauseHost;
 use MarkupCarve\Carve2\Test\Support\Corpus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -72,7 +73,10 @@ final class TypedCoreClauseTest extends TestCase
             }
         }
         if (isset($expected['html'])) {
-            if (isset($case['tree'])) {
+            if (isset($case['host']['documentTransforms'])) {
+                $result = Carve2::renderWithDocumentTransforms($case['tree'] ?? $source, ClauseHost::documentTransforms($case), $options);
+                self::assertSame($expected['html'], $result->html);
+            } elseif (isset($case['tree'])) {
                 $node = TreeReader::read(json_encode($case['tree'], JSON_THROW_ON_ERROR), $options);
                 self::assertSame($expected['html'], HtmlRenderer::render($node, Options::from($options)));
             } else {
@@ -93,6 +97,11 @@ final class TypedCoreClauseTest extends TestCase
      */
     private static function actualDiagnostics(array $case, ?string $source, array $options): array
     {
+        if (isset($case['host']['documentTransforms'])) {
+            $result = Carve2::renderWithDocumentTransforms($case['tree'] ?? $source, ClauseHost::documentTransforms($case), $options);
+
+            return $result->diagnostics;
+        }
         if (!isset($case['tree'])) {
             return $case['kind'] === 'parse'
                 ? Carve2::parseWithDiagnostics($source, $options)->diagnostics

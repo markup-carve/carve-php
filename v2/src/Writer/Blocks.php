@@ -192,8 +192,24 @@ final class Blocks
         if ($list !== null && Lists::sameKind($list, $node)) {
             return 3;
         }
+        if ($list !== null && ($node['type'] ?? null) === 'list' && self::adjacentOrdered($list, $node)) {
+            return 0;
+        }
 
         return $nested ? 0 : 1;
+    }
+
+    /**
+     * @param array<mixed> $before
+     * @param array<mixed> $after
+     */
+    private static function adjacentOrdered(array $before, array $after): bool
+    {
+        $left = is_array($before['marker'] ?? null) ? $before['marker'] : [];
+        $right = is_array($after['marker'] ?? null) ? $after['marker'] : [];
+
+        return ($left['kind'] ?? null) === 'ordered' && ($right['kind'] ?? null) === 'ordered'
+            && ($left['delimiter'] ?? null) === ($right['delimiter'] ?? null);
     }
 
     /**

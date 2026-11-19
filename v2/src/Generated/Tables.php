@@ -6924,7 +6924,7 @@ final class Tables
             'Use descriptive link text or a specific aria-label.',
         ],
         'ordered-list-kind-split' => [
-            'Nothing after this one-letter marker settles its style, so a lone i reads as roman and any other letter as alphabetic, and the list splits after its first item.',
+            'This one-letter marker fixes its list style, so the next marker starts another list.',
         ],
         'ordered-marker-right-aligned' => [
             'This marker sits left of its list, so it is a sibling item that moves the list\'s column. Write the ordered markers left-aligned, as the formatter does.',

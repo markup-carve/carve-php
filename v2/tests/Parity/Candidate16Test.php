@@ -75,7 +75,8 @@ final class Candidate16Test extends TestCase
         $source = "- ::: |\n  a\nb\n\n- v.  x\n  vi.  y\n";
         self::assertSame(
             "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>a<br>\nb</p>\n    </div>\n  </li>\n"
-                . "  <li>\n    <ol type=\"i\" start=\"5\">\n      <li>x</li>\n      <li>y</li>\n    </ol>\n  </li>\n</ul>",
+                . "  <li>\n    <ol type=\"a\" start=\"22\">\n      <li>x</li>\n    </ol>\n"
+                . "    <ol type=\"i\" start=\"6\">\n      <li>y</li>\n    </ol>\n  </li>\n</ul>",
             Carve2::toHtml($source),
         );
     }

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve2;
 
 use Closure;
 use MarkupCarve\Carve2\Extension\ExtensionDefinition;
+use MarkupCarve\Carve2\Extension\Standard;
 use MarkupCarve\Carve2\Generated\Tables;
 
 /**
@@ -37,6 +38,11 @@ final class Options
      *   registered renderers by name and version (C2-X-033).
      */
     public array $rendered = [];
+
+    /**
+     * @var array<string, \Closure|string>
+     */
+    private array $rendererOptions = [];
 
     public bool $roundtrip = false;
 
@@ -112,6 +118,17 @@ final class Options
             }
             $o->set((string)$name, $value);
         }
+        // Choose the channel after all options are read, independent of map order.
+        foreach ($o->extensions as $extension) {
+            $renderer = $o->rendererOptions[$extension->name] ?? null;
+            if ($renderer === 'standard') {
+                $renderer = Standard::renderer($extension->name, $o->mode);
+            }
+            $renderer ??= $o->mode === 'static' ? $extension->buildTimeRenderer : $extension->renderer;
+            if ($renderer instanceof Closure) {
+                $o->rendered[$extension->name . "\0" . $extension->version] = $renderer;
+            }
+        }
 
         return $o;
     }
@@ -163,7 +180,7 @@ final class Options
             'labels' => $this->labels = array_merge($this->labels, self::stringMap($name, $value)),
             'symbols' => $this->symbols = self::stringMap($name, $value),
             'rules' => self::rules($value),
-            'renderers' => self::renderers($value),
+            'renderers' => $this->setRenderers($value),
             'urlPolicy' => $this->setUrlPolicy($value),
             'social' => $this->setSocial($value),
             'extensions' => $this->setExtensions($value),
@@ -250,22 +267,21 @@ final class Options
     }
 
     /**
-     * C2-H-168: 0.2.0 has no build-time renderer to call, so a nonempty map is refused.
-     *
      * @param mixed $value
      *
      * @throws \MarkupCarve\Carve2\OptionError
-     *
-     * @return void
      */
-    private static function renderers(mixed $value): void
+    private function setRenderers(mixed $value): void
     {
-        if (!is_array($value)) {
+        if (!is_array($value) || ($value !== [] && array_is_list($value))) {
             throw new OptionError('option renderers: not a map');
         }
-        if ($value !== []) {
-            throw new OptionError('option renderers: invalid renderer ' . (string)array_key_first($value));
+        foreach ($value as $name => $renderer) {
+            if (!$renderer instanceof Closure && ($renderer !== 'standard' || Standard::renderer((string)$name, $this->mode) === null)) {
+                throw new OptionError('option renderers: invalid renderer ' . (string)$name);
+            }
         }
+        $this->rendererOptions = $value;
     }
 
     /**
@@ -372,9 +388,21 @@ final class Options
         if (!is_array($value) || !array_is_list($value)) {
             throw new OptionError('option extensions: not a list');
         }
+        $expanded = [];
+        foreach ($value as $item) {
+            if (is_string($item)) {
+                $standard = Standard::definitions($item);
+                if ($standard === null) {
+                    throw new OptionError('option extensions: an invalid extension registration');
+                }
+                array_push($expanded, ...$standard);
+            } else {
+                $expanded[] = $item;
+            }
+        }
         $names = [];
         $claims = [];
-        foreach ($value as $item) {
+        foreach ($expanded as $item) {
             if (!$item instanceof ExtensionDefinition) {
                 throw new OptionError('option extensions: an invalid extension registration');
             }
@@ -389,12 +417,7 @@ final class Options
             }
             $claims[(string)$claim] = true;
         }
-        $this->extensions = $value;
-        foreach ($value as $item) {
-            if ($item->renderer !== null) {
-                $this->rendered[$item->name . "\0" . $item->version] = $item->renderer;
-            }
-        }
+        $this->extensions = $expanded;
     }
 
     /**

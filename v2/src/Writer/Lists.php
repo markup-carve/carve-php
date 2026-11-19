@@ -178,8 +178,21 @@ final class Lists
         $first = Inline::strOr($ma, 'style', '1');
         $second = Inline::strOr($mb, 'style', '1');
 
-        // C2-B-038, C2-B-039: a single letter is a sibling in a list of the other letter style.
-        return $first === $second
-            || ($first !== '1' && $second !== '1' && (strtolower($first) !== $first) === (strtolower($second) !== $second));
+        if ($first === $second) {
+            return true;
+        }
+        if ($first === '1' || $second === '1' || (strtolower($first) !== $first) !== (strtolower($second) !== $second)) {
+            return false;
+        }
+        // C2-W-028: the first written marker of the second list decides whether
+        // the parser would keep it in the first list's style.
+        $start = is_int($mb['start'] ?? null) ? $mb['start'] : 1;
+        $delimiter = is_string($mb['delimiter'] ?? null) ? $mb['delimiter'] : '.';
+        [$written] = self::letters($second, $delimiter, $start, 1);
+        $letters = substr(is_string($written[0] ?? null) ? $written[0] : '', 0, -1);
+
+        return strtolower($first) === 'a'
+            ? strlen($letters) === 1
+            : strlen($letters) === 1 && preg_match('/^[ivxlcdm]$/i', $letters) === 1;
     }
 }

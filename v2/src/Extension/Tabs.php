@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Extension;
 
+use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Resolve\PlainText;
 
@@ -29,6 +30,7 @@ final class Tabs
             matcher: ['form' => 'div', 'name' => 'tabs'],
             transform: self::transform(...),
             renderer: $renderer ? self::render(...) : null,
+            buildTimeRenderer: $renderer ? self::renderStatic(...) : null,
         );
 
         return [$tab, $tabs];
@@ -121,6 +123,7 @@ final class Tabs
         $panels = '';
         $slots = $node->f['slots'] ?? [];
         $tabs = array_values(PlainText::nodes(is_array($slots) ? $slots['tabs'] ?? [] : []));
+        $selected = self::selected($tabs);
         do {
             $group = ($host->nextId)('tabs');
             $conflict = false;
@@ -137,7 +140,7 @@ final class Tabs
             $title = PlainText::nodes($tabSlots['title'] ?? []);
             $label = $title === [] ? 'Tab ' . ($at + 1) : ($host->plainText)($title);
             $id = $group . '-' . $at;
-            $controls .= '<input type="radio" name="' . $group . '" id="' . $id . '"' . ($at === 0 ? ' checked' : '') . '>';
+            $controls .= '<input type="radio" name="' . $group . '" id="' . $id . '"' . ($at === $selected ? ' checked' : '') . '>';
             $controls .= '<label for="' . $id . '">' . ($title === [] ? RenderHost::escapeText($label) : ($host->inlines)($title))
                 . '</label>';
             $panels .= '<div class="tab-panel" role="group" aria-label="' . RenderHost::escapeAttribute($label) . '">'
@@ -146,5 +149,40 @@ final class Tabs
 
         return '<div class="tabs" role="group" aria-label="' . RenderHost::escapeAttribute($host->groupLabel) . '">'
             . $controls . $panels . '</div>';
+    }
+
+    /**
+     * C2-X-043: the build-time channel has content sections and no controls.
+     */
+    public static function renderStatic(Node $node, RenderHost $host): string
+    {
+        $slots = $node->f['slots'] ?? [];
+        $tabs = PlainText::nodes(is_array($slots) ? $slots['tabs'] ?? [] : []);
+        $sections = '';
+        foreach ($tabs as $at => $tab) {
+            $tabSlots = is_array($tab->f['slots'] ?? null) ? $tab->f['slots'] : [];
+            $title = PlainText::nodes($tabSlots['title'] ?? []);
+            $label = $title === [] ? RenderHost::escapeText('Tab ' . ($at + 1)) : ($host->inlines)($title);
+            $sections .= '<section class="tabs-panel"><h3 class="tabs-label">' . $label . '</h3>'
+                . ($host->blocks)(PlainText::nodes($tabSlots['body'] ?? [])) . '</section>';
+        }
+
+        return '<div class="tabs" role="group" aria-label="' . RenderHost::escapeAttribute($host->groupLabel) . '">'
+            . $sections . '</div>';
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve2\Node> $tabs
+     */
+    private static function selected(array $tabs): int
+    {
+        foreach ($tabs as $at => $tab) {
+            $attrs = $tab->f['attrs'] ?? null;
+            if ($attrs instanceof Attrs && $attrs->get('selected') !== null) {
+                return $at;
+            }
+        }
+
+        return 0;
     }
 }

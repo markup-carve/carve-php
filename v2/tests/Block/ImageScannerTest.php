@@ -9,8 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ImageScannerTest extends TestCase
 {
-    public function testC2B197ImageScannerUsesInlineCommentCloser(): void
+    public function testC2B197ImageScannerKeepsCommentToLineEnd(): void
     {
-        self::assertSame('<img src="" alt="{*%%]*}">', Carve2::toHtml('![{*%%]*}]()'));
+        self::assertSame('<p>![<strong>%%]</strong>]()</p>', Carve2::toHtml('![{*%%]*}]()'));
     }
 }

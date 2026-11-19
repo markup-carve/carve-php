@@ -849,6 +849,11 @@ final class HtmlRenderer
         }
         foreach ($node->children ?? [] as $kid) {
             if ($kid->type === 'image' && !(isset($kid->f['key']) && !isset($kid->f['src']))) {
+                $src = $kid->f['src'] ?? null;
+                if (is_string($src) && !UrlPolicy::passes($src, $this->o)) {
+                    return null;
+                }
+
                 return $kid;
             }
         }

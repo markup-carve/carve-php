@@ -1072,7 +1072,6 @@ final class BlockParser
 
             return;
         }
-        $this->settleFirstMarker($m, $j, $c);
         $list = new Frame(Frame::LIST, $j);
         $list->key = $m->key;
         $list->markerCol = $c - $this->base;
@@ -1081,64 +1080,6 @@ final class BlockParser
         $this->take($list);
         $this->push($list);
         $this->openItem($list, $m, $j, $c);
-    }
-
-    private function settleFirstMarker(Marker $first, int $j, int $c): void
-    {
-        if (strlen($first->letters) !== 1 || $first->roman === 0) {
-            return;
-        }
-        $next = $this->nextMarker($j, $c - $this->base);
-        $sameCase = $next !== null && ctype_upper($next->letters) === ctype_upper($first->letters);
-        $roman = $sameCase && $next->roman === $first->roman + 1;
-        $alpha = $sameCase && strlen($next->letters) === 1 && ord(strtolower($next->letters)) === ord(strtolower($first->letters)) + 1;
-        $useRoman = $roman || (!$alpha && strtolower($first->letters) === 'i');
-        $first->style = $useRoman ? (ctype_upper($first->letters) ? 'I' : 'i') : (ctype_upper($first->letters) ? 'A' : 'a');
-        $first->value = $useRoman ? $first->roman : ord(strtolower($first->letters)) - 96;
-        $first->key = $first->style . $first->delimiter;
-    }
-
-    private function nextMarker(int $first, int $column): ?Marker
-    {
-        $s = $this->s;
-        $len = strlen($s);
-        $pos = $this->le < $len && $s[$this->le] === "\n" ? $this->le + 1 : $len;
-        $quotes = substr_count(substr($s, $this->ls, $first - $this->ls), '>');
-        $blanks = 0;
-        while ($pos < $len) {
-            $nl = strpos($s, "\n", $pos);
-            $end = $nl === false ? $len : $nl;
-            if ($end > $pos && $s[$end - 1] === "\r") {
-                $end--;
-            }
-            $k = $pos;
-            for ($q = 0; $q < $quotes; $q++) {
-                $k += strspn($s, " \t", $k, $end - $k);
-                if ($k >= $end || $s[$k] !== '>') {
-                    return null;
-                }
-                $k++;
-                if ($k < $end && $s[$k] === ' ') {
-                    $k++;
-                }
-            }
-            $indent = strspn($s, " \t", $k, $end - $k);
-            $k += $indent;
-            if ($k >= $end) {
-                if (++$blanks >= Tables::LIST_END_BLANK_LINES) {
-                    return null;
-                }
-            } elseif ($s[$k] === '%' && $k + 1 < $end && $s[$k + 1] === '%' && ($k + 2 >= $end || $s[$k + 2] !== '%')) {
-                // C2-B-137: a comment-only line neither interrupts nor resets a blank run.
-            } elseif ($indent > $column) {
-                $blanks = 0;
-            } else {
-                return Markers::quickReject($s, $k, $end) ? null : Markers::read($s, $k, $end);
-            }
-            $pos = $nl === false ? $len : $nl + 1;
-        }
-
-        return null;
     }
 
     /**

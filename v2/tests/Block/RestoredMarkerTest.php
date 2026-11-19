@@ -9,10 +9,10 @@ use PHPUnit\Framework\TestCase;
 
 final class RestoredMarkerTest extends TestCase
 {
-    public function testC2B042SingleRomanLetterUsesNextMarker(): void
+    public function testC2B042FirstMarkerDeterminesStyle(): void
     {
-        self::assertStringStartsWith('<ol type="i" start="5">', Carve2::toHtml("v. a\nvi. b"));
-        self::assertStringStartsWith('<ol type="a" start="9">', Carve2::toHtml("i. a\nj. b"));
+        self::assertStringStartsWith('<ol type="a" start="22">', Carve2::toHtml("v. a\nvi. b"));
+        self::assertStringStartsWith('<ol type="i">', Carve2::toHtml("i. a\nj. b"));
     }
 
     public function testC2B137CommentLineKeepsBlankLookaheadCount(): void

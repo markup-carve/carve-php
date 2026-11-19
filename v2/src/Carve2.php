@@ -8,6 +8,7 @@ use MarkupCarve\Carve2\Block\BlockParser;
 use MarkupCarve\Carve2\Block\TreeSink;
 use MarkupCarve\Carve2\Diagnostics\Diagnostic;
 use MarkupCarve\Carve2\Diagnostics\Findings;
+use MarkupCarve\Carve2\Extension\DocumentTransform;
 use MarkupCarve\Carve2\Extension\ExtensionProvider;
 use MarkupCarve\Carve2\Extension\Extensions;
 use MarkupCarve\Carve2\Html\HtmlRenderer;
@@ -27,8 +28,11 @@ use MarkupCarve\Carve2\Output\CarveWriter;
 use MarkupCarve\Carve2\Output\HtmlWriter;
 use MarkupCarve\Carve2\Output\WriterRegistry;
 use MarkupCarve\Carve2\Resolve\Resolver;
+use MarkupCarve\Carve2\Resolve\Walk;
 use MarkupCarve\Carve2\Writer\Writer;
 use MarkupCarve\Carve2\Writer\WriteResult;
+use Throwable;
+use UnexpectedValueException;
 use WeakMap;
 
 /**
@@ -111,6 +115,28 @@ final class Carve2
      */
     public static function renderWithDiagnostics(Node|array|string $input, array $options = []): RenderResult
     {
+        return self::renderDetailed($input, [], $options);
+    }
+
+    /**
+     * C2-X-053 to C2-X-055: run named host passes on a copied resolved view before HTML rendering.
+     *
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed>|string $input
+     * @param array<\MarkupCarve\Carve2\Extension\DocumentTransform> $transforms
+     * @param array<string, mixed> $options
+     */
+    public static function renderWithDocumentTransforms(Node|array|string $input, array $transforms, array $options = []): RenderResult
+    {
+        return self::renderDetailed($input, $transforms, $options);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node|array<string, mixed>|string $input
+     * @param array<\MarkupCarve\Carve2\Extension\DocumentTransform> $transforms
+     * @param array<string, mixed> $options
+     */
+    private static function renderDetailed(Node|array|string $input, array $transforms, array $options): RenderResult
+    {
         $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
         if (is_string($input)) {
             $source = $input;
@@ -120,8 +146,13 @@ final class Carve2
             [$doc, $source, $facts] = self::resolvedTree($input, $opts);
             $findings = new Findings();
         }
+        $transformEntries = [];
+        if ($transforms !== []) {
+            [$doc, $facts, $transformEntries] = self::applyDocumentTransforms($doc, $source, $opts, $transforms);
+        }
         [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
         $entries = $findings->finish($doc);
+        array_push($entries, ...$transformEntries);
         $losses = new Findings();
         foreach ($log->entries as $entry) {
             [$start, $end] = self::renderLossRange($source, $entry);
@@ -150,6 +181,74 @@ final class Carve2
         }
 
         return new RenderResult($opts->strictLosses && $log->entries !== [] ? '' : $html, $entries);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve2\Node $doc
+     * @param string|null $source
+     * @param \MarkupCarve\Carve2\Options $opts
+     * @param array<mixed> $transforms
+     *
+     * @return array{\MarkupCarve\Carve2\Node, \MarkupCarve\Carve2\Resolve\Facts|null, array<\MarkupCarve\Carve2\Diagnostics\Diagnostic>}
+     */
+    private static function applyDocumentTransforms(Node $doc, ?string $source, Options $opts, array $transforms): array
+    {
+        $view = Extensions::copy($doc);
+        $entries = [];
+        foreach ($transforms as $transform) {
+            if (!$transform instanceof DocumentTransform) {
+                throw new OptionError('document transform: invalid registration');
+            }
+            $candidate = Extensions::copy($view);
+            try {
+                $changed = ($transform->run)($candidate);
+                if ($changed->type !== 'document') {
+                    throw new UnexpectedValueException('document transform did not return a document');
+                }
+                $beforeIds = self::authoredIdCounts($view, $opts);
+                $afterIds = self::authoredIdCounts($changed, $opts);
+                foreach ($afterIds as $id => $count) {
+                    if ($count > 1 && $count > ($beforeIds[$id] ?? 0)) {
+                        throw new UnexpectedValueException('document transform duplicated an authored id');
+                    }
+                }
+                TreeReader::read(TreeEncoder::json($changed, null), self::readerExtensions($opts->extensions));
+                $view = $changed;
+            } catch (Throwable) {
+                $entries[] = new Diagnostic(
+                    'extension-transform-failed',
+                    'warning',
+                    'render-loss',
+                    'Document transform failed: ' . $transform->name . '.',
+                    '',
+                );
+            }
+        }
+        $facts = Resolver::resolve($view, $source, $opts, true)->facts;
+
+        return [$view, $facts, $entries];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private static function authoredIdCounts(Node $doc, Options $opts): array
+    {
+        Walk::$rendered = $opts->rendered;
+        $counts = [];
+        $pending = [$doc];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            $attrs = $node->f['attrs'] ?? null;
+            if ($attrs instanceof Attrs && $attrs->id !== null) {
+                $counts[$attrs->id] = ($counts[$attrs->id] ?? 0) + 1;
+            }
+            foreach (array_reverse(Walk::kids($node)) as $child) {
+                $pending[] = $child;
+            }
+        }
+
+        return $counts;
     }
 
     /**
