@@ -8,7 +8,9 @@ use MarkupCarve\Carve2\Carve2;
 use MarkupCarve\Carve2\Extension\Claim;
 use MarkupCarve\Carve2\Extension\ExtensionDefinition;
 use MarkupCarve\Carve2\Extension\RenderHost;
+use MarkupCarve\Carve2\Html\HtmlRenderer;
 use MarkupCarve\Carve2\Node;
+use MarkupCarve\Carve2\Options;
 use PHPUnit\Framework\TestCase;
 
 final class PhpFix16Test extends TestCase
@@ -56,6 +58,9 @@ final class PhpFix16Test extends TestCase
                 ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'a']]],
             ],
         ], ['sourceLines' => true]));
+        $paragraph = Node::at('paragraph', 3, 4);
+        $paragraph->children = [Node::text('b', 3, 4)];
+        $this->assertSame('<p>b</p>', HtmlRenderer::render(new Node('document', [$paragraph]), Options::from(['sourceLines' => true])));
     }
 
     public function testC2N085IncludedParseFindingKeepsItsFileAndRange(): void

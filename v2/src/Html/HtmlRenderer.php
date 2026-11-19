@@ -435,8 +435,8 @@ final class HtmlRenderer
             return null;
         }
         $position = $node->layout['pos'] ?? null;
-        if ($this->positionsFromTree && is_array($position) && is_int($position['startLine'] ?? null)) {
-            return $position['startLine'];
+        if ($this->positionsFromTree) {
+            return is_array($position) && is_int($position['startLine'] ?? null) ? $position['startLine'] : null;
         }
         if ($node->start < 0) {
             return null;
