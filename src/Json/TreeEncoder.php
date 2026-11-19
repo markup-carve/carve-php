@@ -57,6 +57,49 @@ final class TreeEncoder
     }
 
     /**
+     * The decoded AST shape for consumers that do not need canonical JSON or positions.
+     *
+     * @return array<string, mixed>
+     */
+    public static function decoded(Node $root): array
+    {
+        $encoder = new self();
+
+        return self::decodedArray($encoder->encode($root, null));
+    }
+
+    /**
+     * Match json_decode(..., true) for object-valued node fields without serializing the tree.
+     *
+     * @return mixed
+     */
+    private static function decodedValue(mixed $value): mixed
+    {
+        if ($value instanceof stdClass) {
+            $value = get_object_vars($value);
+        }
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        return self::decodedArray($value);
+    }
+
+    /**
+     * @param array<mixed> $value
+     *
+     * @return array<mixed>
+     */
+    private static function decodedArray(array $value): array
+    {
+        foreach ($value as $key => $item) {
+            $value[$key] = self::decodedValue($item);
+        }
+
+        return $value;
+    }
+
+    /**
      * C2-A-217: JCS orders object keys by UTF-16 code units and keeps array order.
      */
     private static function canonical(mixed $value): mixed
