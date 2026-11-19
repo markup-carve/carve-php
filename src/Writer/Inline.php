@@ -62,9 +62,19 @@ final class Inline
     ];
 
     /**
-     * The node written before the one being written in its list, null at the start of the list.
+     * The node written before the one being written in its list past braced comments, null at the start of the list.
      */
     private mixed $before = null;
+
+    /**
+     * The character written before the node being written past braced comments, -1 at the start of a line.
+     */
+    private int $visibleLast = -1;
+
+    /**
+     * The first character written behind the node being written past braced comments.
+     */
+    private int $visibleNext = -1;
 
     public function __construct(private State $w)
     {
@@ -131,6 +141,8 @@ final class Inline
         }
         $out = '';
         $count = count($nodes);
+        $visible = $c->lineStart ? -1 : $c->last;
+        $visibleNode = null;
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -138,6 +150,9 @@ final class Inline
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $following = $nodes[$at + 1] ?? null;
+            $this->before = $visibleNode;
+            $this->visibleLast = $visible;
+            $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
@@ -145,9 +160,47 @@ final class Inline
                 $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
             }
             $out .= $part;
+            if (!self::isBracedComment($node)) {
+                $visible = $c->lineStart ? -1 : $c->last;
+                $visibleNode = $node;
+            }
         }
 
         return $out;
+    }
+
+    /**
+     * C2-I-026: a braced comment counts as nothing for its neighbors.
+     *
+     * @param mixed $node
+     *
+     * @return bool
+     */
+    private static function isBracedComment(mixed $node): bool
+    {
+        return is_array($node) && ($node['type'] ?? '') === 'comment' && ($node['form'] ?? '') === 'braced';
+    }
+
+    /**
+     * The first character written behind the node at `$at` past braced comments, `$next` at the end of the list.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return int
+     */
+    private static function visibleNext(array $nodes, int $at, Context $c, int $next): int
+    {
+        $count = count($nodes);
+        for ($k = $at + 1; $k < $count; $k++) {
+            if (is_array($nodes[$k]) && !self::isBracedComment($nodes[$k])) {
+                return self::first($nodes[$k], $c);
+            }
+        }
+
+        return $next;
     }
 
     /**
@@ -364,7 +417,6 @@ final class Inline
 
             return $out;
         }
-        $this->before = $before;
         $out = $this->own($node, $type, $path, $c, $next);
         if ($out === null) {
             $this->w->lose($path, $type, null);
@@ -529,13 +581,13 @@ final class Inline
             'soft_break' => "\n",
             'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : "\\\n",
             'footnote_ref' => '[^' . self::labelText(self::str($node, 'key'), $c) . ']',
-            'symbol' => $this->sigil($node, $type, $path, $c, $next, ':' . self::str($node, 'name') . ':'),
-            'tag' => $this->sigil($node, $type, $path, $c, $next, '#' . self::str($node, 'name')),
+            'symbol' => $this->sigil($type, $path, $next, ':' . self::str($node, 'name') . ':'),
+            'tag' => $this->sigil($type, $path, $next, '#' . self::str($node, 'name')),
             'non_breaking_space' => $this->noBreakSpace($path, $c, $next),
-            'smart_punctuation' => $this->smart($node, $path, $c, $next),
+            'smart_punctuation' => $this->smart($node, $path),
             // C2-W-116: the mark of a caption number (C2-B-150); its number is a resolution result.
             'caption_number' => '#',
-            'mention' => $this->sigil($node, $type, $path, $c, $next, $this->mention($node, $path)),
+            'mention' => $this->sigil($type, $path, $next, $this->mention($node, $path)),
             'xref' => $this->xref($node, $path),
             'abbreviation' => $this->abbreviation($node, $path),
             default => null,
@@ -1115,18 +1167,16 @@ final class Inline
      * C2-I-090: a sigil after a letter or number starts no form, so the node reads back as text. C2-I-092: a letter or
      * digit behind a mention or a tag lengthens its name, and no backslash keeps it out (C2-W-125 case six).
      *
-     * @param array<mixed> $node
      * @param string $type
      * @param string $path
-     * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $next
      * @param string $out
      *
      * @return string
      */
-    private function sigil(array $node, string $type, string $path, Context $c, int $next, string $out): string
+    private function sigil(string $type, string $path, int $next, string $out): string
     {
-        if (!$c->lineStart && Chars::isWord($c->last)) {
+        if (Chars::isWord($this->visibleLast)) {
             $this->w->lose($path, $type, null);
         } elseif ($type !== 'symbol' && $next >= 0 && $next < 0x80 && Chars::isWord($next)) {
             $this->w->lose($path, $type, $type === 'tag' ? 'name' : 'target');
@@ -1141,12 +1191,10 @@ final class Inline
      *
      * @param array<mixed> $node
      * @param string $path
-     * @param \MarkupCarve\Carve\Writer\Context $c
-     * @param int $next
      *
      * @return string
      */
-    private function smart(array $node, string $path, Context $c, int $next): string
+    private function smart(array $node, string $path): string
     {
         $source = self::str($node, 'source');
         if ($source !== '"' && $source !== "'") {
@@ -1154,14 +1202,11 @@ final class Inline
         }
         $prev = $this->before;
         $prevType = is_array($prev) ? self::str($prev, 'type') : '';
-        if ($prevType === 'comment') {
-            return $source;
-        }
         // C2-I-104: the content of a node starts with nothing before it; behind another node the reader sees a word
         // character, a quote glyph, a no-break space or a line break.
         $before = match ($prevType) {
             '', 'soft_break', 'hard_break', 'non_breaking_space' => -1,
-            'text' => $c->last,
+            'text' => $this->visibleLast,
             'smart_punctuation' => str_starts_with(self::str($prev, 'kind'), 'left_') ? 0x201C : 0x61,
             default => 0x61,
         };
@@ -1170,7 +1215,7 @@ final class Inline
             : $before >= 0x80 && mb_strpos(Tables::SMART_QUOTE_OPENS_AFTER, (string)mb_chr($before, 'UTF-8')) !== false);
         $kind = $source === '"'
             ? ($opens ? 'left_double_quote' : 'right_double_quote')
-            : ($opens && ($next < 0x30 || $next > 0x39) ? 'left_single_quote' : 'right_single_quote');
+            : ($opens && ($this->visibleNext < 0x30 || $this->visibleNext > 0x39) ? 'left_single_quote' : 'right_single_quote');
         if ($kind !== self::str($node, 'kind')) {
             $this->w->lose($path, 'smart_punctuation', 'kind');
         }

@@ -27,6 +27,7 @@ final class WriterReadbackTest extends TestCase
         $smile = ['type' => 'symbol', 'name' => 'smile'];
         $nbsp = ['type' => 'non_breaking_space'];
         $tag = ['type' => 'tag', 'name' => 'tg'];
+        $note = ['type' => 'comment', 'form' => 'braced', 'value' => 'hi'];
         $bob = ['type' => 'mention', 'target' => 'bob', 'kind' => 'user'];
         $link = ['type' => 'link', 'href' => '/u', 'children' => [$t('b')]];
         $dash = ['type' => 'smart_punctuation', 'kind' => 'en_dash', 'glyph' => '–', 'source' => '--'];
@@ -135,6 +136,21 @@ final class WriterReadbackTest extends TestCase
             ],
             'C2-I-090 a tag behind a letter' => [$p($t('ab'), $tag), "ab#tg\n", ['structure-unspellable /children/0/children/1']],
             'C2-I-090 a mention behind a digit' => [$p($t('x1'), $bob), "x1@bob\n", ['structure-unspellable /children/0/children/1']],
+            'C2-I-026 a braced comment between a letter and a tag' => [
+                $p($t('a'), $note, $tag),
+                "a{% hi %}#tg\n",
+                ['structure-unspellable /children/0/children/2'],
+            ],
+            'C2-I-026 a braced comment between a letter and a quote' => [
+                $p($t('a'), $note, $quote('left'), $t('x')),
+                "a{% hi %}\"x\n",
+                ['field-unspellable /children/0/children/2/kind'],
+            ],
+            'C2-I-026 a braced comment between a space and a quote' => [
+                $p($t('a '), $note, $quote('left'), $t('x')),
+                "a {% hi %}\"x\n",
+                [],
+            ],
             'C2-I-090 a tag behind a node' => [$p(['type' => 'strong', 'children' => [$t('x')]], $tag), "*x*#tg\n", []],
             'C2-I-092 a letter behind a tag' => [$p($tag, $t('a')), "#tga\n", ['field-unspellable /children/0/children/0/name']],
             'C2-I-092 a digit behind a mention' => [$p($bob, $t('9')), "@bob9\n", ['field-unspellable /children/0/children/0/target']],
