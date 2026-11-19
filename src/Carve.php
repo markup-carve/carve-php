@@ -201,12 +201,16 @@ final class Carve
         foreach ($losses->finish($doc) as $i => $loss) {
             $entry = $log->entries[$i];
             $severity = $opts->strictLosses ? 'error' : $entry['severity'];
+            $path = $loss->path;
+            if ($source === null && $path !== null && $entry['field'] !== null) {
+                $path .= '/' . str_replace(['~', '/'], ['~0', '~1'], $entry['field']);
+            }
             $entries[] = new Diagnostic(
                 $entry['code'],
                 $severity,
                 $entry['channel'],
                 $entry['message'],
-                $loss->path,
+                $path,
                 $loss->startOffset,
                 $loss->endOffset,
                 $loss->file,
