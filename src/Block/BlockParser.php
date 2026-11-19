@@ -249,6 +249,17 @@ final class BlockParser
     {
         $j = $ls + strspn($this->s, " \t", $ls, $le - $ls);
         $end = LineShapes::trimEnd($this->s, $j, $le);
+        $quoteDepth = 0;
+        foreach ($this->stack as $frame) {
+            if ($frame->kind === Frame::QUOTE) {
+                $quoteDepth++;
+            }
+        }
+        while ($quoteDepth > 0 && $j < $end && $this->s[$j] === '>') {
+            $j++;
+            $j += strspn($this->s, " \t", $j, $end - $j);
+            $quoteDepth--;
+        }
 
         return $j < $end && strspn($this->s, '%', $j, $end - $j) === $end - $j && $end - $j >= $level;
     }

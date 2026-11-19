@@ -37,7 +37,7 @@ final class ImportCommand
     public static function main(array $args, $in, $out, $err): int
     {
         try {
-            [$from, $options, $files] = self::parse($args);
+            [$from, $options, $files, $output] = self::parse($args);
         } catch (OptionError $e) {
             return self::fail($err, 'usage', $e->getMessage(), 2);
         }
@@ -72,7 +72,26 @@ final class ImportCommand
         foreach ($result->diagnostics as $entry) {
             fwrite($err, 'carve[' . $entry->code . ']: ' . $entry->message . "\n");
         }
-        fwrite($out, $result->source);
+
+        return self::writeProduct($result->source, $output, $out, $err);
+    }
+
+    /**
+     * @param string $source
+     * @param string|null $path
+     * @param resource $out
+     * @param resource $err
+     */
+    private static function writeProduct(string $source, ?string $path, $out, $err): int
+    {
+        if ($path === null) {
+            fwrite($out, $source);
+
+            return 0;
+        }
+        if (@file_put_contents($path, $source) === false) {
+            return self::fail($err, 'output-unwritable', $path . ': cannot be written', 2);
+        }
 
         return 0;
     }
@@ -80,13 +99,14 @@ final class ImportCommand
     /**
      * @param array<string> $args
      *
-     * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>}
+     * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>, 3: string|null}
      */
     private static function parse(array $args): array
     {
         $from = null;
         $options = ['rawHtml' => false];
         $files = [];
+        $output = null;
         $count = count($args);
         for ($i = 0; $i < $count; $i++) {
             $arg = $args[$i];
@@ -96,17 +116,24 @@ final class ImportCommand
                 $from = $args[++$i] ?? '';
             } elseif ($arg === '--raw-html') {
                 $options['rawHtml'] = true;
+            } elseif ($arg === '-o' || $arg === '--output') {
+                $output = $args[++$i] ?? null;
+                if ($output === null) {
+                    throw new OptionError('missing value for --output');
+                }
+            } elseif (str_starts_with($arg, '--output=')) {
+                $output = substr($arg, 9);
             } elseif (preg_match('/^--(allow-loss|max-render-losses)(?:=(.*))?$/s', $arg, $m) === 1) {
                 // C2-T-027, C2-T-029: the importer reads allowLosses and maxLosses (C2-H-204, C2-H-205).
                 Command::optionFlag($m[1], $m[2] ?? ($args[++$i] ?? null), $options);
             } elseif ($arg === '-' || !str_starts_with($arg, '-')) {
                 $files[] = $arg;
             } else {
-                return [null, [], []];
+                return [null, [], [], null];
             }
         }
 
-        return [$from, $options, $files];
+        return [$from, $options, $files, $output];
     }
 
     /**

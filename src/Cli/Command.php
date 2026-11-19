@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Cli;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Include\FileResolver;
+use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Writer\CarveWriteError;
 
@@ -19,12 +20,29 @@ final class Command
     /**
      * @var array<string, true>
      */
-    private const COMMANDS = ['render' => true, 'ast' => true, 'diagnostics' => true, 'lint' => true, 'fmt' => true, 'format' => true];
+    private const COMMANDS = [
+        'render' => true,
+        'ast' => true,
+        'diagnostics' => true,
+        'lint' => true,
+        'fix' => true,
+        'flatten' => true,
+        'fmt' => true,
+        'format' => true,
+    ];
 
     /**
      * @var array<string, true>
      */
-    private const VALUED = ['include-root' => true, 'rules' => true, 'platforms' => true, 'to' => true, 'heading-ids' => true];
+    private const VALUED = [
+        'include-root' => true,
+        'rules' => true,
+        'platforms' => true,
+        'to' => true,
+        'heading-ids' => true,
+        'ignore' => true,
+        'output' => true,
+    ];
 
     /**
      * The output formats of `render --to`.
@@ -44,7 +62,7 @@ final class Command
     /**
      * @var array<string, bool>
      */
-    private const FLAGS = ['json' => true, 'tree' => true, 'includes' => true, 'no-includes' => false];
+    private const FLAGS = ['json' => true, 'tree' => true, 'includes' => true, 'no-includes' => false, 'strict' => true, 'fix' => true];
 
     /**
      * @var array<string, true>
@@ -74,13 +92,14 @@ final class Command
         try {
             $parsed = self::parse($args);
             $files = $parsed['files'] === [] ? ['-'] : $parsed['files'];
+            self::validateCombination($parsed);
             if (($parsed['values']['write'] ?? false) && in_array('-', $files, true)) {
                 throw new OptionError('cannot write standard input in place');
             }
             $status = 0;
             $records = [];
             foreach ($files as $file) {
-                [$code, $record] = self::one($parsed, $file, $in, $out);
+                [$code, $record] = self::one($parsed, $file, $in, $out, $err);
                 $status = max($status, $code);
                 if ($record !== null) {
                     $records[] = $record;
@@ -167,12 +186,18 @@ final class Command
             return $equals !== false ? $i : $i + 1;
         }
         $fmt = $parsed['command'] === 'fmt';
-        if ($fmt && $arg === '-w') {
+        if ($arg === '-o') {
+            self::valued('output', $args[$i + 1] ?? null, $parsed);
+
+            return $i + 1;
+        }
+        if (($fmt || $parsed['command'] === 'lint' || $parsed['command'] === 'fix') && $arg === '-w') {
             $parsed['values']['write'] = true;
 
             return $i;
         }
-        $flags = self::FLAGS + ($fmt ? self::FMT_FLAGS : []);
+        $flags = self::FLAGS + ($fmt ? self::FMT_FLAGS : [])
+            + ($parsed['command'] === 'lint' || $parsed['command'] === 'fix' ? ['write' => true] : []);
         if (!str_starts_with($arg, '--') || !array_key_exists($name, $flags) || $equals !== false) {
             throw new OptionError('unknown option ' . $arg);
         }
@@ -227,6 +252,17 @@ final class Command
 
             return;
         }
+        if ($name === 'ignore') {
+            $ignore = $parsed['values']['ignore'] ?? [];
+            $parsed['values']['ignore'] = is_array($ignore) ? [...$ignore, $value] : [$value];
+
+            return;
+        }
+        if ($name === 'output') {
+            $parsed['values']['output'] = $value;
+
+            return;
+        }
         $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
             : ($name === 'include-root' ? $value : self::json($name, $value));
     }
@@ -273,17 +309,20 @@ final class Command
         return $decoded;
     }
 
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     /**
      * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
      * @param string $file
      * @param resource $in
      * @param resource $out
+     * @param resource $err
      *
      * @throws \MarkupCarve\Carve\Cli\InputError
      *
      * @return array{0: int, 1: array<string, mixed>|null}
      */
-    private static function one(array $parsed, string $file, $in, $out): array
+    private static function one(array $parsed, string $file, $in, $out, $err): array
     {
         $source = $file === '-' ? stream_get_contents($in) : @file_get_contents($file);
         $display = $file === '-' ? '<stdin>' : $file;
@@ -306,11 +345,11 @@ final class Command
                 return [0, self::report([$display, $source, self::root($parsed, $file)], $entries, $json, $out)];
             case 'fmt':
                 return [self::format($parsed, $file, $display, $source, $out), null];
+            case 'flatten':
+                return [self::flatten($source, $options, $display, $parsed, $out, $err), null];
+            case 'fix':
             case 'lint':
-                $lint = ['includes' => $options['includes'] ?? null] + self::lintOptions($parsed);
-                $entries = Carve::lint($source, array_filter($lint, static fn (mixed $v): bool => $v !== null));
-
-                return [$entries === [] ? 0 : 1, self::report([$display, $source, self::root($parsed, $file)], $entries, $json, $out)];
+                return self::lintFile($parsed, $file, $display, $source, $options, $out, $err);
             default:
                 $to = $parsed['values']['to'] ?? 'html';
                 if ($to !== 'html') {
@@ -318,10 +357,65 @@ final class Command
 
                     return [0, null];
                 }
-                fwrite($out, Carve::toHtml($source, $options) . "\n");
+                $result = Carve::renderWithDiagnostics($source, $options);
+                self::product($parsed, $result->html . "\n", $out);
+                self::report([$display, $source, self::root($parsed, $file)], $result->diagnostics, false, $err);
 
-                return [0, null];
+                return [($parsed['values']['strict'] ?? false) && $result->diagnostics !== [] ? 1 : 0, null];
         }
+    }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     * @param string $file
+     * @param string $display
+     * @param string $source
+     * @param array<string, mixed> $options
+     * @param resource $out
+     * @param resource $err
+     *
+     * @throws \MarkupCarve\Carve\Cli\InputError
+     *
+     * @return array{0: int, 1: array<string, mixed>|null}
+     */
+    private static function lintFile(array $parsed, string $file, string $display, string $source, array $options, $out, $err): array
+    {
+        $lint = array_filter(
+            ['includes' => $options['includes'] ?? null] + self::lintOptions($parsed),
+            static fn (mixed $v): bool => $v !== null,
+        );
+        $fix = $parsed['command'] === 'fix' || ($parsed['values']['fix'] ?? false);
+        if ($fix) {
+            $fixed = Fixer::fix($source, $lint);
+            if ($parsed['values']['write'] ?? false) {
+                if ($fixed !== $source && @file_put_contents($file, $fixed) === false) {
+                    throw new InputError($file . ': cannot be written', 'output-unwritable');
+                }
+            } else {
+                self::product($parsed, $fixed, $out);
+            }
+            $source = $fixed;
+        }
+        $ignore = $parsed['values']['ignore'] ?? [];
+        $ignore = is_array($ignore) ? $ignore : [];
+        $entries = array_values(array_filter(
+            Carve::lint($source, $lint),
+            static fn (Diagnostic $d): bool => !in_array($d->file ?? $display, $ignore, true) && !in_array($display, $ignore, true),
+        ));
+        $failed = array_filter(
+            $entries,
+            static fn (Diagnostic $d): bool => ($parsed['values']['strict'] ?? false) || $d->severity !== 'hint',
+        ) !== [];
+        $report = self::report(
+            [$display, $source, self::root($parsed, $file)],
+            $entries,
+            (bool)($parsed['values']['json'] ?? false),
+            $fix ? $err : $out,
+        );
+
+        return [$failed ? 1 : 0, $report];
     }
 
     /**
@@ -359,10 +453,119 @@ final class Command
             throw new InputError($file . ': cannot be written');
         }
         if (!$check && !$diff && !$write) {
-            fwrite($out, $output);
+            self::product($parsed, $output, $out);
         }
 
         return ($check || $diff) && $changed ? 1 : 0;
+    }
+
+    /**
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    private static function validateCombination(array $parsed): void
+    {
+        $v = $parsed['values'];
+        $fix = $parsed['command'] === 'fix' || ($v['fix'] ?? false);
+        if (($v['write'] ?? false) && $parsed['command'] === 'lint' && !$fix) {
+            throw new OptionError('--write requires --fix');
+        }
+        if ($fix && ($v['json'] ?? false) && !($v['write'] ?? false)) {
+            throw new OptionError('--json with --fix requires --write');
+        }
+        if (($v['fix'] ?? false) && $parsed['command'] !== 'lint') {
+            throw new OptionError('--fix is for lint');
+        }
+        if (($v['strict'] ?? false) && !in_array($parsed['command'], ['render', 'lint', 'fix'], true)) {
+            throw new OptionError('--strict is for render or lint');
+        }
+        if (isset($v['ignore']) && !in_array($parsed['command'], ['lint', 'fix'], true)) {
+            throw new OptionError('--ignore is for lint');
+        }
+        if (
+            isset($v['output']) && $parsed['command'] === 'fmt'
+            && (($v['write'] ?? false) || ($v['check'] ?? false) || ($v['diff'] ?? false))
+        ) {
+            throw new OptionError('--output conflicts with fmt write, check or diff');
+        }
+        if (isset($v['output']) && !in_array($parsed['command'], ['render', 'fmt', 'flatten'], true)) {
+            throw new OptionError('--output is unavailable for this command');
+        }
+    }
+
+    /**
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     * @param string $source
+     * @param resource $out
+     *
+     * @throws \MarkupCarve\Carve\Cli\InputError
+     */
+    private static function product(array $parsed, string $source, $out): void
+    {
+        $path = $parsed['values']['output'] ?? null;
+        if (!is_string($path)) {
+            fwrite($out, $source);
+
+            return;
+        }
+        if (@file_put_contents($path, $source) === false) {
+            throw new InputError($path . ': cannot be written', 'output-unwritable');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     * @param string $source
+     * @param string $display
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     * @param resource $out
+     * @param resource $err
+     */
+    private static function flatten(string $source, array $options, string $display, array $parsed, $out, $err): int
+    {
+        $result = Carve::parseWithDiagnostics($source, $options);
+        $unresolved = array_values(array_filter(
+            $result->diagnostics,
+            static fn (Diagnostic $d): bool => str_starts_with($d->code, 'include-'),
+        ));
+        if ($unresolved !== []) {
+            fwrite($err, "carve[include-unresolved]: {$display}: include did not expand\n");
+            self::report([$display, $source, null], $unresolved, false, $err);
+
+            return 1;
+        }
+        self::expandTree($result->tree);
+        $flat = Carve::write($result->tree);
+        if (Carve::toHtml($flat) !== Carve::toHtml($source, $options)) {
+            fwrite($err, "carve[flatten-changed]: {$display}: flattened source renders differently\n");
+
+            return 1;
+        }
+        self::product($parsed, $flat, $out);
+
+        return 0;
+    }
+
+    private static function expandTree(Node $node): void
+    {
+        $children = [];
+        foreach ($node->children ?? [] as $child) {
+            if ($child->type === 'include') {
+                self::expandTree($child);
+                foreach ($child->children ?? [] as $expanded) {
+                    if ($expanded->type !== 'frontmatter') {
+                        $children[] = $expanded;
+                    }
+                }
+            } else {
+                self::expandTree($child);
+                $children[] = $child;
+            }
+        }
+        if ($node->children !== null) {
+            $node->children = $children;
+        }
     }
 
     /**
