@@ -171,7 +171,8 @@ final class HubImporterTest extends TestCase
     public function testAllowLossesAndMaxLossesReachTheHtmlImporter(): void
     {
         $input = "[a](javascript:x) [b](javascript:y)\n";
-        $this->assertSame([], Carve::importDocument($input, ['from' => 'markdown', 'allowLosses' => ['import-destination-denied']])->diagnostics);
+        $allowed = Carve::importDocument($input, ['from' => 'markdown', 'allowLosses' => ['import-destination-denied']]);
+        $this->assertSame([], $allowed->diagnostics);
         $capped = Carve::importDocument($input, ['from' => 'markdown', 'maxLosses' => 1]);
         $this->assertCount(1, $capped->diagnostics);
         $this->assertSame(1, $capped->suppressedDiagnostics);
