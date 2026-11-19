@@ -551,7 +551,9 @@ final class BlockReader
         $parts = $this->titled($node);
         $rest = $parts['rest'];
         unset($parts['rest']);
-        $mapped = Attrs::withoutKeys(Attrs::withoutClasses(Attrs::of($node), ['admonition', $kind]), ['aria-label', 'aria-labelledby']);
+        $generated = $this->context->labels['admonition' . ucfirst($kind)] ?? null;
+        $omit = $node->attr('aria-label') === $generated ? ['aria-label', 'aria-labelledby'] : ['aria-labelledby'];
+        $mapped = Attrs::withoutKeys(Attrs::withoutClasses(Attrs::of($node), ['admonition', $kind]), $omit);
 
         return [['type' => 'admonition', 'kind' => $kind] + $parts + ['children' => $this->flow($rest, $node)] + $mapped];
     }

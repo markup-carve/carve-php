@@ -70,13 +70,16 @@ or `null` to keep the default.
 
 Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
 (`html`, `markdown`, `gfm` or `djot`), `rawHtml` (HTML only: keep raw HTML nodes), `strictLosses`, `allowLosses` and
-`maxLosses`. Markdown, GFM and Djot go through the HTML importer: `league/commonmark` (CommonMark 0.31 and the GFM
+`maxLosses`, and `labels` (the labels used to render generated accessible names). Markdown, GFM and Djot go through
+the HTML importer: `league/commonmark` (CommonMark 0.31 and the GFM
 extensions) and `php-collective/djot` render HTML, which the HTML importer reads. Includes: an
 `Include\IncludeResolver` such as `Include\FileResolver::forRoot($root)` in the `includes` option, or an array with
 `resolver` and the lowered limits `depth`, `bytes` and `maxDiagnostics` (include failures kept, at most 100).
 
 Extensions (provisional) are passed as `ExtensionDefinition` or `ExtensionProvider` objects in the `extensions` option.
-`Extension\Tabs::extensions()` gives the standard tabs extension; pass `true` to get its renderer as well.
+`Extension\Tabs::extensions()` gives the standard tabs extension. Register `carve.tabs` by name and set
+`renderers['carve.tabs']` to `['standard' => ['mode' => 'aria']]` for accessible tab controls; the default `css`
+mode uses radio controls. `Tabs::extensions(true, 'aria')` registers that renderer directly.
 
 ## Command line
 
@@ -93,7 +96,8 @@ vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] FILE...
 
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
 `--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br`; `render` and `import` take `--allow-loss CODE`
-(repeatable) and `--max-render-losses N`. `-` reads standard input.
+(repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`.
+`-` reads standard input.
 
 Exit codes: `0` done; `1` a lint finding, a file that `fmt --check` would change, or a write loss; `2` a usage or
 input error.

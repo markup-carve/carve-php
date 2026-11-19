@@ -20,6 +20,7 @@ final class Standard
     {
         return match ($name) {
             'carve.tabs' => Tabs::extensions(),
+            'carve.tab' => [Tabs::extensions()[0]],
             'carve.wiki' => [
                 new ExtensionDefinition(
                     'carve.wiki',
@@ -27,16 +28,25 @@ final class Standard
                 ),
             ],
             'carve.cite' => [Citations::citeDefinition()],
+            'carve.codeGroup' => CodeGroup::bundle()->withoutRenderers()->definitions(),
+            'carve.details' => Details::bundle()->withoutRenderers()->definitions(),
+            'carve.fencedRender.mermaid' => FencedRender::bundle('mermaid')->withoutRenderers()->definitions(),
+            'carve.mathBlock' => MathBlock::bundle()->withoutRenderers()->definitions(),
+            'carve.spoiler', 'carve.spoilerBlock' => array_values(array_filter(
+                Spoiler::bundle()->withoutRenderers()->definitions(),
+                static fn (ExtensionDefinition $definition): bool => $definition->name === $name,
+            )),
             'carve.imgFence.img' => [ImgFence::definition('img')],
             'carve.imgFence.image' => [ImgFence::definition('image')],
             default => null,
         };
     }
 
-    public static function renderer(string $name, string $mode): ?Closure
+    public static function renderer(string $name, string $mode, string $tabsMode = 'css'): ?Closure
     {
         return match ($name) {
-            'carve.tabs' => $mode === 'static' ? Tabs::renderStatic(...) : Tabs::render(...),
+            'carve.tabs' => $mode === 'static' ? Tabs::renderStatic(...)
+                : ($tabsMode === 'aria' ? Tabs::renderAria(...) : Tabs::render(...)),
             'carve.imgFence.img', 'carve.imgFence.image' => ImgFence::render(...),
             default => null,
         };
@@ -51,7 +61,9 @@ final class Standard
         $node->f['name'] = 'carve.' . $claim->name;
         $node->f['version'] = '1';
         $text = new Node('text');
-        $text->f['value'] = PlainText::of($claim->node->children ?? []);
+        $plain = PlainText::of($claim->node->children ?? []);
+        $bar = strpos($plain, '|');
+        $text->f['value'] = $claim->name === 'wiki' && $bar !== false ? trim(substr($plain, $bar + 1)) : $plain;
         $node->f['fallback'] = [$text];
 
         return $node;

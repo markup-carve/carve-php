@@ -27,7 +27,7 @@ assert(Carve::render($tree, ['sections' => false]) === '<h1 id="Title">Title</h1
 ## Diagnostics
 
 The `...WithDiagnostics` calls return the result and a list of `Diagnostic` entries (`code`, `severity`, `channel`,
-`message`, `path`, byte offsets, `file`).
+`message`, `path`, byte offsets, `file`; optional `includedBy` is a chain of include-site ranges).
 
 ```php
 use MarkupCarve\Carve\Carve;
@@ -96,7 +96,8 @@ assert(Carve::render($tree) === '<p>a</p>');
 ## Includes
 
 Pass a resolver in the `includes` option: `Include\FileResolver::forRoot()` reads files under an absolute root
-(C2-N-012), or implement `Include\IncludeResolver` to read from anywhere else. Without a resolver an include stays
+(C2-N-012). Its `allowAbsolute` argument defaults to `true`; set it to `false` to reject absolute include paths
+before reading. Or implement `Include\IncludeResolver` to read from anywhere else. Without a resolver an include stays
 unexpanded and is reported.
 
 ```php

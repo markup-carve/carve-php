@@ -97,8 +97,7 @@ final class Slug
     }
 
     /**
-     * C2-H-147: the transliteration belongs to the host. Decompose accented characters and keep
-     * characters that have no ASCII mapping.
+     * C2-H-147: table folds, canonical decomposition, removal of U+0300 to U+036F, then recomposition.
      *
      * @param string $text
      *
@@ -106,8 +105,9 @@ final class Slug
      */
     private static function ascii(string $text): string
     {
-        $nfd = Normalizer::normalize($text, Normalizer::FORM_D);
+        $nfd = Normalizer::normalize(strtr($text, Tables::SLUG_FOLDS), Normalizer::FORM_D);
+        $withoutMarks = (string)preg_replace('/[\x{0300}-\x{036F}]/u', '', is_string($nfd) ? $nfd : $text);
 
-        return (string)preg_replace('/\p{Mn}+/u', '', is_string($nfd) ? $nfd : $text);
+        return Normalizer::normalize($withoutMarks, Normalizer::FORM_C) ?: $withoutMarks;
     }
 }

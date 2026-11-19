@@ -5726,7 +5726,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '88eca15807b0e01a5468b5161de4818dd882a2cb',
+        'commit' => '1aa8d7ea24b82979051ac8dd150cc333526fbdfb',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6160,6 +6160,27 @@ final class Tables
         '≥' => '>=',
     ];
 
+    /** C2-H-147 heading-slug.json */
+    public const SLUG_FOLDS = [
+        'Æ' => 'AE',
+        'Ð' => 'D',
+        'Ø' => 'O',
+        'Þ' => 'Th',
+        'ß' => 'ss',
+        'æ' => 'ae',
+        'ð' => 'd',
+        'ø' => 'o',
+        'þ' => 'th',
+        'Đ' => 'D',
+        'đ' => 'd',
+        'ı' => 'i',
+        'Ł' => 'L',
+        'ł' => 'l',
+        'Œ' => 'OE',
+        'œ' => 'oe',
+        'ẞ' => 'SS',
+    ];
+
     /** C2-H-159 url-policy.json: code point ranges */
     public const URL_PROBE_REMOVES = [
         [
@@ -6358,7 +6379,10 @@ final class Tables
         ],
         'headingIds' => [
             'kind' => 'resolution',
-            'readBy' => 'resolve',
+            'readBy' => [
+                'lint',
+                'resolve',
+            ],
             'type' => 'enum',
             'values' => [
                 'off',
@@ -6380,7 +6404,10 @@ final class Tables
         ],
         'labels' => [
             'kind' => 'render',
-            'readBy' => 'render',
+            'readBy' => [
+                'import',
+                'render',
+            ],
             'type' => 'map',
             'values' => null,
             'default' => [

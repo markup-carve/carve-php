@@ -40,7 +40,7 @@ final class Options
     public array $rendered = [];
 
     /**
-     * @var array<string, \Closure|string>
+     * @var array<string, \Closure|string|array{standard: array{mode: string}}>
      */
     private array $rendererOptions = [];
 
@@ -160,8 +160,9 @@ final class Options
         // Choose the channel after all options are read, independent of map order.
         foreach ($o->extensions as $extension) {
             $renderer = $o->rendererOptions[$extension->name] ?? null;
-            if ($renderer === 'standard') {
-                $renderer = Standard::renderer($extension->name, $o->mode);
+            if ($renderer === 'standard' || is_array($renderer)) {
+                $tabsMode = is_array($renderer) ? $renderer['standard']['mode'] : 'css';
+                $renderer = Standard::renderer($extension->name, $o->mode, $tabsMode);
             }
             $renderer ??= $o->mode === 'static' ? $extension->buildTimeRenderer : $extension->renderer;
             if ($renderer instanceof Closure) {
@@ -387,12 +388,32 @@ final class Options
         if (!is_array($value) || ($value !== [] && array_is_list($value))) {
             throw new OptionError('option renderers: not a map');
         }
+        $validated = [];
         foreach ($value as $name => $renderer) {
-            if (!$renderer instanceof Closure && ($renderer !== 'standard' || Standard::renderer((string)$name, $this->mode) === null)) {
+            if (!is_string($name)) {
+                throw new OptionError('option renderers: invalid renderer name');
+            }
+            if ($renderer instanceof Closure) {
+                $validated[$name] = $renderer;
+
+                continue;
+            }
+            if ($renderer === 'standard' && Standard::renderer($name, $this->mode) !== null) {
+                $validated[$name] = $renderer;
+
+                continue;
+            }
+            if (
+                $name !== 'carve.tabs' || !is_array($renderer) || array_keys($renderer) !== ['standard']
+                || !is_array($renderer['standard']) || array_keys($renderer['standard']) !== ['mode']
+                || !is_string($renderer['standard']['mode'])
+                || !in_array($renderer['standard']['mode'], ['css', 'aria'], true)
+            ) {
                 throw new OptionError('option renderers: invalid renderer ' . (string)$name);
             }
+            $validated[$name] = $renderer;
         }
-        $this->rendererOptions = $value;
+        $this->rendererOptions = $validated;
     }
 
     /**

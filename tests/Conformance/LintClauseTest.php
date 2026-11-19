@@ -49,7 +49,10 @@ final class LintClauseTest extends TestCase
 
             return;
         }
-        $options = array_intersect_key(Corpus::caseOptions($case), array_flip(['rules', 'platforms', 'includes', 'extensions']));
+        $options = array_intersect_key(
+            Corpus::caseOptions($case),
+            array_flip(['rules', 'platforms', 'includes', 'extensions', 'headingIds']),
+        );
         $actual = Carve::lint($source, $options);
         $this->assertDiagnostics($case, $source, $expected, $actual);
     }

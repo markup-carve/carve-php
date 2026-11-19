@@ -62,7 +62,11 @@ final class ImportContext
 
     public ?string $rootDir = null;
 
-    public function __construct(public readonly bool $rawHtml)
+    /**
+     * @param bool $rawHtml
+     * @param array<string, string> $labels
+     */
+    public function __construct(public readonly bool $rawHtml, public readonly array $labels = [])
     {
         $this->templates = new SplObjectStorage();
     }

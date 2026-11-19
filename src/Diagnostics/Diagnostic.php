@@ -20,6 +20,8 @@ final class Diagnostic
      * @param int $endOffset
      * @param string|null $file
      * @param string|null $foreignType C2-M-081: the HTML node an importer entry is about.
+     * @param array<array{file?: string, range: array{startOffset: int, endOffset: int}}>|null $includedBy C2-T-020:
+     *   include sites from outermost to innermost.
      */
     public function __construct(
         public readonly string $code,
@@ -31,6 +33,7 @@ final class Diagnostic
         public readonly int $endOffset = -1,
         public readonly ?string $file = null,
         public readonly ?string $foreignType = null,
+        public readonly ?array $includedBy = null,
     ) {
     }
 
@@ -51,6 +54,9 @@ final class Diagnostic
         }
         if ($this->foreignType !== null) {
             $out['foreignType'] = $this->foreignType;
+        }
+        if ($this->includedBy !== null) {
+            $out['includedBy'] = $this->includedBy;
         }
 
         return $out;

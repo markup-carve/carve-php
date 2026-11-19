@@ -66,7 +66,7 @@ final class Linter
         self::validate($options);
         $own = self::lintSource($source, $options);
         if (!isset($options['includes'])) {
-            $parsed = Carve::parseWithDiagnostics($source, array_intersect_key($options, ['extensions' => true]));
+            $parsed = Carve::parseWithDiagnostics($source, array_intersect_key($options, ['extensions' => true, 'headingIds' => true]));
 
             return self::ordered(array_merge($own, $parsed->diagnostics));
         }
@@ -84,7 +84,7 @@ final class Linter
      */
     public static function lintSource(string $source, array $options): array
     {
-        $parsed = Carve::parseWithLayout($source, array_intersect_key($options, ['extensions' => true]));
+        $parsed = Carve::parseWithLayout($source, array_intersect_key($options, ['extensions' => true, 'headingIds' => true]));
         $tree = (new TreeEncoder())->encode($parsed->tree, $source);
         $c = new Context($source, $options, self::catalog());
         $c->layout->rawRefs((array)$parsed->layout['nodes']);
@@ -528,7 +528,7 @@ final class Linter
     private static function validate(array $options): void
     {
         foreach (array_keys($options) as $name) {
-            if (!in_array($name, ['rules', 'platforms', 'includes', 'extensions'], true)) {
+            if (!in_array($name, ['rules', 'platforms', 'includes', 'extensions', 'headingIds'], true)) {
                 throw new OptionError('option ' . $name . ': unknown option');
             }
         }

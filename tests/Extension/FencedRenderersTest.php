@@ -185,10 +185,10 @@ final class FencedRenderersTest extends TestCase
         $this->assertSame('carve.fencedRender.d2', $node['name']);
         $this->assertSame(['id' => 'c1'], $node['attrs']);
         $this->assertSame(['language' => 'd2'], $node['props']);
-        $this->assertSame(['form' => 'fence', 'name' => 'd2', 'body' => "a\n"], $node['source']);
+        $this->assertSame(['body' => "a\n", 'form' => 'fence', 'name' => 'd2'], $node['source']);
         $this->assertSame('code_block', $node['fallback'][0]['type']);
         $this->assertArrayNotHasKey('attrs', $node['fallback'][0]);
-        $this->assertSame([['name' => 'carve.fencedRender.d2', 'version' => '1', 'required' => false, 'slots' => []]], $json['extensions']);
+        $this->assertSame([['name' => 'carve.fencedRender.d2', 'required' => false, 'slots' => [], 'version' => '1']], $json['extensions']);
         $this->assertSame(Carve::encodeTree($tree), Carve::encodeTree(Carve::decodeTree(Carve::encodeTree($tree), $options)));
         $source = "{#c1 .x}\n```mermaid\ngraph TD; A-->B\n```\n";
         $options = ['extensions' => [FencedRender::mermaid()]];
@@ -236,22 +236,22 @@ final class FencedRenderersTest extends TestCase
 
     public function testMathBlock(): void
     {
-        $this->assertSame('<div class="math display">\[x^2\]</div>', self::html("```math\nx^2\n```", MathBlock::bundle()));
+        $this->assertSame('<div class="math display" role="math">\[x^2\]</div>', self::html("```math\nx^2\n```", MathBlock::bundle()));
         $this->assertSame(
-            '<div class="math display">\[a&lt;b &amp; c&gt;d\]</div>',
+            '<div class="math display" role="math">\[a&lt;b &amp; c&gt;d\]</div>',
             self::html("```math\na<b & c>d\n```", MathBlock::bundle()),
         );
-        $this->assertSame('<div class="math display">\[x\]</div>', self::html("```tex\nx\n```", MathBlock::bundle('tex')));
+        $this->assertSame('<div class="math display" role="math">\[x\]</div>', self::html("```tex\nx\n```", MathBlock::bundle('tex')));
         $this->assertSame(Carve::render("```js\nx\n```"), self::html("```js\nx\n```", MathBlock::bundle()));
         $this->assertSame("<pre><code class=\"language-math\">x\n</code></pre>", Carve::render("```math\nx\n```"));
         $this->assertSame(
-            '<div id="e1" class="math display big" data-n="1">\[x\]</div>',
+            '<div id="e1" class="math display big" data-n="1" role="math">\[x\]</div>',
             self::html("{#e1 .big data-n=1}\n```math\nx\n```", MathBlock::bundle()),
         );
         $build = static fn (string $tex, bool $display): string => '<math display="' . ($display ? 'block' : 'inline') . '">'
             . $tex . '</math>';
         $this->assertSame(
-            '<div class="math display"><math display="block">x</math></div>',
+            '<div class="math display" role="math"><math display="block">x</math></div>',
             self::html("```math\nx\n```", MathBlock::bundle(build: $build), 'static'),
         );
         $this->assertSame(
@@ -392,7 +392,7 @@ final class FencedRenderersTest extends TestCase
         $output = Carve::renderWithDocumentTransforms($source, $all->transforms(), ['extensions' => [$all]])->html;
         $this->assertStringContainsString('<pre class="mermaid" role="img" aria-label="mermaid">A &lt;1></pre>', $output);
         $this->assertStringContainsString('<div class="code-group"', $output);
-        $this->assertStringContainsString('<div class="math display">\[x\]</div>', $output);
+        $this->assertStringContainsString('<div class="math display" role="math">\[x\]</div>', $output);
 
         $all = Bundle::merge(CodeGroup::bundle(), CodeCallouts::bundle());
         $source = "::: code-group\n```js\na\n```\n\n{selected}\n```sh\nb <1>\n```\n:::\n";

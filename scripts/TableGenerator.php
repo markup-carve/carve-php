@@ -371,6 +371,11 @@ final class TableGenerator
             $reversed[$row['glyph']] = $row['ascii'];
         }
         $consts['SLUG_REVERSED'] = ['C2-H-145 heading-slug.json', $reversed];
+        $folds = [];
+        foreach ($slug['transliteration']['folds'] as $row) {
+            $folds[$row['letter']] = $row['ascii'];
+        }
+        $consts['SLUG_FOLDS'] = ['C2-H-147 heading-slug.json', $folds];
     }
 
     /**

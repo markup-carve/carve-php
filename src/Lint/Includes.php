@@ -49,7 +49,7 @@ final class Includes
     {
         $visit = new self($options);
         $config = $visit->recording($includes);
-        $parseOptions = ['includes' => $config] + array_intersect_key($options, ['extensions' => true]);
+        $parseOptions = ['includes' => $config] + array_intersect_key($options, ['extensions' => true, 'headingIds' => true]);
         $parsed = Carve::parseWithDiagnostics($source, $parseOptions);
         $tree = json_decode(Carve::encodeTree($parsed->tree), true, 4096, JSON_THROW_ON_ERROR);
         $visit->out = $parsed->diagnostics;

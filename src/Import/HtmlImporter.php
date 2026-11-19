@@ -21,7 +21,8 @@ final class HtmlImporter
 {
     /**
      * @param string $html
-     * @param array<string, mixed> $options `rawHtml` (C2-M-066), `strictLosses` (C2-M-082), `allowLosses` and `maxLosses`
+     * @param array<string, mixed> $options `rawHtml` (C2-M-066), `labels` (C2-M-101), `strictLosses` (C2-M-082),
+     *   `allowLosses` and `maxLosses`
      *   (C2-H-204, C2-H-205).
      * @param bool $legacyParser Read with the libxml parser even where `Dom\HTMLDocument` exists.
      * @param \Closure(\MarkupCarve\Carve\Import\HtmlNode): void|null $prepare The Markdown and Djot hub's carriers, set on the parsed HTML.
@@ -45,13 +46,13 @@ final class HtmlImporter
         }
         $opts = Options::from(array_intersect_key(
             $options,
-            ['rawHtml' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
+            ['rawHtml' => true, 'labels' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
         ));
         $root = HtmlParser::parse($html, $legacyParser);
         if ($prepare !== null) {
             $prepare($root);
         }
-        $context = new ImportContext($opts->rawHtml);
+        $context = new ImportContext($opts->rawHtml, $opts->labels);
         Notes::collect($root->children, $context);
         self::rootLanguage($root, $context);
         foreach ($root->children as $child) {

@@ -15,15 +15,17 @@ final class FileResolver
     private const CHUNK = 1 << 16;
 
     /**
-     * The file resolver of C2-N-012 for an absolute root, as an `IncludeResolver`.
+     * The file resolver of C2-N-012 for an absolute root, as an `IncludeResolver`. `allowAbsolute` defaults to true;
+     * false rejects an absolute include path before reading it.
      *
      * @param string $root
+     * @param bool $allowAbsolute
      *
      * @return \MarkupCarve\Carve\Include\IncludeResolver
      */
-    public static function forRoot(string $root): IncludeResolver
+    public static function forRoot(string $root, bool $allowAbsolute = true): IncludeResolver
     {
-        $read = self::closure($root);
+        $read = self::closure($root, $allowAbsolute);
 
         return new class ($read) implements IncludeResolver {
             public function __construct(private Closure $read)
@@ -42,7 +44,7 @@ final class FileResolver
         };
     }
 
-    public static function closure(string $root): Closure
+    public static function closure(string $root, bool $allowAbsolute = true): Closure
     {
         if (!str_starts_with($root, '/')) {
             throw new OptionError('option includes: root must be absolute');
@@ -52,8 +54,11 @@ final class FileResolver
             throw new OptionError('option includes: root is unavailable');
         }
 
-        return static function (array $request) use ($canonicalRoot): array {
+        return static function (array $request) use ($canonicalRoot, $allowAbsolute): array {
             $path = $request['path'];
+            if (!$allowAbsolute && str_starts_with($path, '/')) {
+                return ['error' => 'outside_root'];
+            }
             if (preg_match('~^[A-Za-z][A-Za-z0-9+.-]*:~', $path) === 1) {
                 return ['error' => 'outside_root'];
             }

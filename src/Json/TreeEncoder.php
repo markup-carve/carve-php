@@ -53,10 +53,98 @@ final class TreeEncoder
     {
         $encoder = new self();
 
-        return json_encode(
-            $encoder->encode($root, $source),
-            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE,
-        ) ?: '{}';
+        return self::jsonValue(self::canonical($encoder->encode($root, $source)));
+    }
+
+    /**
+     * C2-A-217: JCS orders object keys by UTF-16 code units and keeps array order.
+     */
+    private static function canonical(mixed $value): mixed
+    {
+        if ($value instanceof stdClass) {
+            $value = get_object_vars($value);
+            $object = true;
+        } else {
+            $object = false;
+        }
+        if (!is_array($value)) {
+            return $value;
+        }
+        if (!$object && array_is_list($value)) {
+            return array_map(self::canonical(...), $value);
+        }
+        uksort($value, static fn (string $a, string $b): int => strcmp(
+            mb_convert_encoding($a, 'UTF-16BE', 'UTF-8'),
+            mb_convert_encoding($b, 'UTF-16BE', 'UTF-8'),
+        ));
+        $sorted = new stdClass();
+        foreach ($value as $key => $item) {
+            $sorted->{(string)$key} = self::canonical($item);
+        }
+
+        return $sorted;
+    }
+
+    /**
+     * The JSON string and number spellings of RFC 8785, after canonical() has ordered the object keys.
+     */
+    private static function jsonValue(mixed $value): string
+    {
+        if ($value instanceof stdClass) {
+            $members = [];
+            foreach (get_object_vars($value) as $key => $item) {
+                $members[] = self::jsonValue((string)$key) . ':' . self::jsonValue($item);
+            }
+
+            return '{' . implode(',', $members) . '}';
+        }
+        if (is_array($value)) {
+            return '[' . implode(',', array_map(self::jsonValue(...), $value)) . ']';
+        }
+        if (is_float($value)) {
+            return self::jsonNumber($value);
+        }
+
+        $json = json_encode(
+            $value,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
+
+        return $json === false ? 'null' : $json;
+    }
+
+    private static function jsonNumber(float $value): string
+    {
+        if ($value === 0.0) {
+            return '0';
+        }
+        $text = (string)json_encode($value);
+        if (!str_contains($text, 'e')) {
+            return $text;
+        }
+        [$mantissa, $power] = explode('e', $text, 2);
+        $exponent = (int)$power;
+        if ($value < 0) {
+            $sign = '-';
+            $mantissa = substr($mantissa, 1);
+        } else {
+            $sign = '';
+        }
+        $mantissa = rtrim(rtrim($mantissa, '0'), '.');
+        if (abs($value) < 1e-6 || abs($value) >= 1e21) {
+            return $sign . $mantissa . 'e' . ($exponent >= 0 ? '+' : '') . $exponent;
+        }
+        $point = strpos($mantissa, '.');
+        $before = $point === false ? strlen($mantissa) : $point;
+        $digits = str_replace('.', '', $mantissa);
+        $place = $before + $exponent;
+        if ($place <= 0) {
+            return $sign . '0.' . str_repeat('0', -$place) . $digits;
+        }
+
+        return $sign . ($place >= strlen($digits)
+            ? $digits . str_repeat('0', $place - strlen($digits))
+            : substr($digits, 0, $place) . '.' . substr($digits, $place));
     }
 
     /**
