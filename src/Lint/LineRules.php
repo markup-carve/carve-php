@@ -229,11 +229,12 @@ final class LineRules
     private static function setextHeading(Line $line, Context $c): void
     {
         $previous = self::prior($line, $c);
+        [$text, $start] = self::afterQuote($line);
         if (
-            (self::isRun(self::trimmed($line)[0], '-', 3) || self::isRun(self::trimmed($line)[0], '=', 3))
+            (self::isRun($text, '-', 3) || self::isRun($text, '=', 3))
             && $previous !== null && $previous->paragraph && !self::blank($previous)
         ) {
-            self::reportLine('setext-heading-underline', $line, $c);
+            $c->report('setext-heading-underline', $start, $start + strlen($text), $line->path);
         }
     }
 
@@ -432,7 +433,7 @@ final class LineRules
         if ($previous === null || !$line->paragraph || $previous->path !== $line->path || self::blank($previous)) {
             return;
         }
-        [$text, $start] = self::trimmed($line);
+        [$text, $start] = self::afterQuote($line);
         if (!self::startsBlock($text) || (str_starts_with($text, '{') && !str_ends_with($text, '}'))) {
             return;
         }
