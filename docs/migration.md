@@ -91,7 +91,9 @@ named `plain`. `docs/README.md` lists the losses the exports report.
 | `(new HtmlToCarve())->convert($html)` | `Carve::importDocument($html)->source` |
 | `convertWithReport($html)`, `convertWithFidelityReport($html)` | `Carve::importDocument($html)->diagnostics` |
 | `convertToAst($html)` | `Carve::importDocument($html)->document` |
-| `MarkdownToCarve`, `DjotToCarve`, `BbcodeToCarve` | gone from 0.2: not in the specification (C2-T-003); keep them on 0.1 |
+| `(new MarkdownToCarve())->convert($md)` | `Carve::importDocument($md, ['from' => 'markdown'])->source` (`'gfm'` for GitHub Markdown) |
+| `DjotToCarve::convert($djot)` | `Carve::importDocument($djot, ['from' => 'djot'])->source` |
+| `BbcodeToCarve` | not in PHP 0.2; BBCode import is JavaScript only (`@markup-carve/carve/import`) |
 | `MigrationResult`, `MigrationDiagnostic` | `ImportResult` and its diagnostics |
 
 ## Tree

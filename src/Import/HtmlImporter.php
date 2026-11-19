@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Import;
 
+use Closure;
 use MarkupCarve\Carve\Diagnostics\Cap;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeError;
@@ -23,6 +24,8 @@ final class HtmlImporter
      * @param array<string, mixed> $options `rawHtml` (C2-M-066), `strictLosses` (C2-M-082), `allowLosses` and `maxLosses`
      *   (C2-H-204, C2-H-205).
      * @param bool $legacyParser Read with the libxml parser even where `Dom\HTMLDocument` exists.
+     * @param \Closure(\MarkupCarve\Carve\Import\HtmlNode): void|null $prepare The Markdown and Djot hub's carriers, set on the parsed HTML.
+     * @param \Closure(array<array<string, mixed>>): array<array<string, mixed>>|null $finish The hub's changes to the imported children.
      *
      * @throws \MarkupCarve\Carve\Import\ImportInputError C2-M-006, or without `ext-dom`.
      * @throws \MarkupCarve\Carve\OptionError ! An option the importer reads has a value it refuses.
@@ -30,8 +33,13 @@ final class HtmlImporter
      *
      * @return \MarkupCarve\Carve\Import\ImportResult
      */
-    public static function import(string $html, array $options = [], bool $legacyParser = false): ImportResult
-    {
+    public static function import(
+        string $html,
+        array $options = [],
+        bool $legacyParser = false,
+        ?Closure $prepare = null,
+        ?Closure $finish = null,
+    ): ImportResult {
         if (!HtmlParser::available()) {
             throw new ImportInputError('HTML import requires the PHP DOM extension (ext-dom)');
         }
@@ -40,6 +48,9 @@ final class HtmlImporter
             ['rawHtml' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
         ));
         $root = HtmlParser::parse($html, $legacyParser);
+        if ($prepare !== null) {
+            $prepare($root);
+        }
         $context = new ImportContext($opts->rawHtml);
         Notes::collect($root->children, $context);
         self::rootLanguage($root, $context);
@@ -50,6 +61,9 @@ final class HtmlImporter
         $reader = new BlockReader(new InlineReader($context));
         $children = $root->children === [] ? [] : $reader->flow($root->children, $root, true);
         $children = array_merge($children, self::rebuilt($context, $children), $context->footnotes);
+        if ($finish !== null) {
+            $children = $finish($children);
+        }
         $document = ['type' => 'document', 'astVersion' => '2.0', 'children' => $children];
         if ($context->rootLang !== null) {
             $document['lang'] = $context->rootLang;

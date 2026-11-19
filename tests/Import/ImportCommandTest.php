@@ -53,7 +53,7 @@ final class ImportCommandTest extends TestCase
     public function testUsageAndInputErrors(): void
     {
         $this->assertSame(2, self::call(['import'])[0]);
-        $this->assertSame(2, self::call(['import', '--from=markdown'])[0]);
+        $this->assertSame(2, self::call(['import', '--from=rst'])[0]);
         $this->assertSame(2, self::call(['import', '--from=html', '--bogus'])[0]);
         [$status, , $err] = self::call(['import', '--from=html', '/nonexistent/x.html']);
         $this->assertSame(2, $status);
