@@ -16,19 +16,19 @@ final class Next2LintSaturationTest extends TestCase
     public static function cases(): array
     {
         return [
-            "C2-B-046: a task box is no label" => [
+            'C2-B-046: a task box is no label' => [
                 "- [ ] a\n", 'blank-reference-label', 0,
             ],
-            "C2-I-072: a bracket pair with nothing glued to it is no reference" => [
+            'C2-I-072: a bracket pair with nothing glued to it is no reference' => [
                 "a [ ]\n", 'blank-reference-label', 0,
             ],
-            "C2-I-079: a blank full reference label" => [
+            'C2-I-079: a blank full reference label' => [
                 "x [a][ ]\n", 'blank-reference-label', 1,
             ],
-            "C2-I-079: a blank definition label" => [
+            'C2-I-079: a blank definition label' => [
                 "[ ]: u\n", 'blank-reference-label', 1,
             ],
-            "C2-I-079: an image with no alt text holds no label" => [
+            'C2-I-079: an image with no alt text holds no label' => [
                 "![](i.png)\n", 'blank-reference-label', 0,
             ],
             "C2-B-069: a term's later line is no opener candidate" => [
@@ -37,46 +37,46 @@ final class Next2LintSaturationTest extends TestCase
             "C2-B-069: a term's later line is no paragraph line" => [
                 "2) :: t\n    : {#id}\n", 'markdown-definition-paragraph', 0,
             ],
-            "C2-B-074: a colon line below a `::` line" => [
+            'C2-B-074: a colon line below a `::` line' => [
                 ":::{.c}\n:: key\n:  key\n", 'markdown-definition-paragraph', 0,
             ],
-            "C2-B-074: the first line of a paragraph" => [
+            'C2-B-074: the first line of a paragraph' => [
                 ": x\n", 'markdown-definition-paragraph', 0,
             ],
-            "C2-B-074: a later paragraph line" => [
+            'C2-B-074: a later paragraph line' => [
                 "a\n: x\n", 'markdown-definition-paragraph', 1,
             ],
-            "C2-B-031: a quote run that is text leaves the next quote line a candidate" => [
+            'C2-B-031: a quote run that is text leaves the next quote line a candidate' => [
                 ">>> |= A |= B |\n> | x | y |\n", 'block-opener-without-blank-line', 1,
             ],
-            "C2-B-031: a glued mark is no container prefix" => [
+            'C2-B-031: a glued mark is no container prefix' => [
                 ">*\n> : more\n", 'markdown-definition-paragraph', 0,
             ],
-            "C2-B-151: a two-mark heading is a candidate" => [
+            'C2-B-151: a two-mark heading is a candidate' => [
                 "a\n## b\n", 'block-opener-without-blank-line', 1,
             ],
-            "C2-B-151: a six-mark heading is a candidate" => [
+            'C2-B-151: a six-mark heading is a candidate' => [
                 "a\n====== b\n", 'block-opener-without-blank-line', 1,
             ],
-            "C2-B-151: seven marks are text" => [
+            'C2-B-151: seven marks are text' => [
                 "a\n####### b\n", 'block-opener-without-blank-line', 0,
             ],
-            "C2-B-149: a caption line in a footnote body" => [
+            'C2-B-149: a caption line in a footnote body' => [
                 "[^n]: ^ x\n", 'unattached-caption', 1,
             ],
-            "C2-B-081: a definition on a list marker line" => [
+            'C2-B-081: a definition on a list marker line' => [
                 "- [a]: u\n", 'definition-in-container', 1,
             ],
-            "C2-B-081: a definition behind a description mark" => [
+            'C2-B-081: a definition behind a description mark' => [
                 ":: t\n: [a]: u\n", 'definition-in-container', 1,
             ],
-            "C2-B-081: a footnote definition is not reported for its own mark" => [
+            'C2-B-081: a footnote definition is not reported for its own mark' => [
                 "[^n]: ^ x\n", 'definition-in-container', 0,
             ],
             "C2-B-075: a quote mark opening a term's text" => [
                 ":: > x\n", 'definition-term-block-folded', 1,
             ],
-            "C2-B-075: a block opener on a later line of the term" => [
+            'C2-B-075: a block opener on a later line of the term' => [
                 ":: c\n# H\n", 'definition-term-block-folded', 0,
             ],
         ];
