@@ -722,7 +722,8 @@ final class InlineRenderer
         if (UrlPolicy::passes($url, $this->o)) {
             return $url;
         }
-        $field ??= ($owner ?? $this->log->currentNode)?->type === 'image' ? 'src' : 'href';
+        $reportedNode = $owner ?? $this->log->currentNode;
+        $field ??= isset($reportedNode?->f['src']) ? 'src' : (isset($reportedNode?->f['href']) ? 'href' : null);
         $this->log->loss(
             'destination-denied',
             'error',

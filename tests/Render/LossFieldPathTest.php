@@ -39,4 +39,11 @@ final class LossFieldPathTest extends TestCase
         $result = Carve::renderWithDiagnostics('[a](javascript:x)');
         self::assertSame('/children/0/children/0', $result->diagnostics[0]->path);
     }
+
+    public function testGeneratedSocialDestinationHasNoField(): void
+    {
+        $tree = Carve::decodeTree(Carve::encodeTree(Carve::parse('@alice')));
+        $result = Carve::renderWithDiagnostics($tree, ['social' => ['mentionUrl' => 'javascript:{name}']]);
+        self::assertSame('/children/0/children/0', $result->diagnostics[0]->path);
+    }
 }
