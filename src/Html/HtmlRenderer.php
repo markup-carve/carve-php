@@ -16,6 +16,8 @@ use MarkupCarve\Carve\Resolve\Facts;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Walk;
+use Throwable;
+use UnexpectedValueException;
 use WeakMap;
 
 /**
@@ -1881,9 +1883,20 @@ final class HtmlRenderer
         $renderer = $this->o->rendered[Walk::key($node)] ?? null;
         if ($renderer !== null) {
             // C2-X-034: trusted host code; its HTML is written unchanged.
-            return self::pad($depth) . $renderer($node, $this->host($depth));
+            try {
+                /** @var mixed $html */
+                $html = $renderer($node, $this->host($depth));
+                if (!is_string($html)) {
+                    throw new UnexpectedValueException('renderer returned a value that is not a string');
+                }
+
+                return self::pad($depth) . $html;
+            } catch (Throwable $error) {
+                $this->log->rendererFailed($node, $error);
+            }
+        } else {
+            $this->log->loss('extension-fallback-rendered', 'warning', ['name' => PlainText::str($node->f['name'] ?? '')]);
         }
-        $this->log->loss('extension-fallback-rendered', 'warning', ['name' => PlainText::str($node->f['name'] ?? '')]);
         $fallback = PlainText::nodes($node->f['fallback'] ?? []);
         // An attribute that the writer drops (an event handler) leaves no carrier behind.
         if ($this->attrs($node, block: false) !== '') {

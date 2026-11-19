@@ -7,10 +7,10 @@ namespace MarkupCarve\Carve\Extension;
 use DOMDocument;
 use DOMElement;
 use MarkupCarve\Carve\Node;
-use MarkupCarve\Carve\Resolve\PlainText;
+use RuntimeException;
 
 /**
- * C2-X-059 and C2-X-060: an SVG code fence is an image only after sanitation.
+ * C2-X-059 and C2-X-060: claim an image fence and sanitize its SVG when rendering.
  */
 final class ImgFence
 {
@@ -81,7 +81,7 @@ final class ImgFence
     public static function transform(Claim $claim): ?Node
     {
         $source = $claim->node->f['value'] ?? null;
-        if (!is_string($source) || self::sanitize($source) === null) {
+        if (!is_string($source)) {
             return null;
         }
         $node = new Node('block_extension', []);
@@ -101,7 +101,7 @@ final class ImgFence
         $payload = is_array($first) ? ($first['value'] ?? null) : null;
         $svg = is_string($payload) ? self::sanitize($payload) : null;
         if ($svg === null) {
-            return ($host->blocks)(PlainText::nodes($node->f['fallback'] ?? []));
+            throw new RuntimeException('the SVG is not a single well-formed safe image');
         }
 
         return '<img src="data:image/svg+xml,' . rawurlencode($svg) . '" alt="">';
