@@ -47,6 +47,18 @@ final class TreeDecoder
     }
 
     /**
+     * A node from its decoded JSON object; the object is not changed or kept.
+     *
+     * @param \stdClass $node
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    public static function object(stdClass $node): Node
+    {
+        return self::node($node);
+    }
+
+    /**
      * @param array<string, mixed> $tree A tree decoded with associative arrays.
      *
      * @return \MarkupCarve\Carve\Node|null

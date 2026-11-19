@@ -126,19 +126,10 @@ final class TreeReader
     /**
      * @param mixed $decoded
      * @param array<string, mixed> $options
-     *
-     * @throws \MarkupCarve\Carve\Json\TreeError
      */
     public static function readValue(mixed $decoded, array $options = []): Node
     {
-        $root = self::checked($decoded, $options);
-        $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
-        $node = TreeDecoder::json($json, self::JSON_DEPTH);
-        if ($node === null) {
-            throw new TreeError('schema', '');
-        }
-
-        return $node;
+        return TreeDecoder::object(self::checked($decoded, $options));
     }
 
     /**

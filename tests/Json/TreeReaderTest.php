@@ -230,6 +230,25 @@ final class TreeReaderTest extends TestCase
         }
     }
 
+    /**
+     * An invalid node under a deep run of inline containers is refused at its own pointer; checking each level's
+     * branch once keeps this linear (it took about twice as long per level before).
+     */
+    public function testInvalidNodeUnderDeepInlineNestingIsRefusedAtItsPointer(): void
+    {
+        $node = ['type' => 'nope'];
+        for ($i = 0; $i < 40; $i++) {
+            $node = ['type' => 'superscript', 'children' => [$node]];
+        }
+        $json = json_encode(['type' => 'document', 'astVersion' => '2.0', 'children' => [['type' => 'paragraph', 'children' => [$node]]]]);
+        try {
+            TreeReader::read((string)$json);
+            self::fail('Expected TreeError');
+        } catch (TreeError $error) {
+            self::assertSame(['schema', '/children/0' . str_repeat('/children/0', 41)], [$error->reason, $error->pointer]);
+        }
+    }
+
     private function assertReason(string $reason, string $json): void
     {
         try {
