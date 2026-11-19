@@ -1884,6 +1884,7 @@ final class HtmlRenderer
         if ($renderer !== null) {
             // C2-X-034: trusted host code; its HTML is written unchanged.
             try {
+                /** @var mixed $html */
                 $html = $renderer($node, $this->host($depth));
                 if (!is_string($html)) {
                     throw new UnexpectedValueException('renderer returned a value that is not a string');

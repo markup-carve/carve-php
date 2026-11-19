@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Html;
 
 use MarkupCarve\Carve\Diagnostics\Message;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Resolve\PlainText;
 use Throwable;
 
 /**
@@ -65,7 +66,7 @@ final class RenderLog
 
     public function rendererFailed(Node $node, Throwable $error): void
     {
-        $name = (string)($node->f['name'] ?? '');
+        $name = PlainText::str($node->f['name'] ?? '');
         $this->loss('extension-renderer-failed', 'warning', ['name' => $name], node: $node);
         $this->entries[array_key_last($this->entries)]['message'] = 'the extension ' . $name
             . ' renderer failed: ' . $error->getMessage() . '; its fallback is written unresolved';

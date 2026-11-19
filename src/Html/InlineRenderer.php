@@ -1097,6 +1097,7 @@ final class InlineRenderer
             $renderer = $this->o->rendered[Walk::key($node)] ?? null;
             if ($renderer !== null) {
                 try {
+                    /** @var mixed $html */
                     $html = $renderer($node, ($this->host)());
                     if (!is_string($html)) {
                         throw new UnexpectedValueException('renderer returned a value that is not a string');
