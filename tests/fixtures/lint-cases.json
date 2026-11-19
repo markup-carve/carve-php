@@ -1452,15 +1452,7 @@
    "trigger": "-{#k} {#h}\n # h\n",
    "near": "-{#k} {#h}\n\n",
    "options": {},
-   "findings": [
-    [
-     "deprecated-indented-line-under-heading",
-     "/children/0/children/0/children/0",
-     11,
-     15,
-     "This indented line directly below a heading is part of the heading in 0.2; in 0.1 it started a paragraph. Remove the indent to make it a separate block again; if it then reads as a list marker or another opener and a paragraph is meant, escape its first character."
-    ]
-   ]
+   "findings": []
   },
   "deprecated-loose-attribute#2": {
    "trigger": "***\n\n{loose}\n1. Note text.\n",
