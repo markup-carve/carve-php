@@ -604,6 +604,19 @@ final class NodeRulesBTest extends TestCase
         $this->assertSame([], $this->findings($near, $expected[0], $options));
     }
 
+    public function testTableColumnOverlapUsesTheMatchingAxis(): void
+    {
+        $source = "{valigns=\"top,bottom\" aligns=\"left,right\"}\n|= A |={?^} B |\n| a | b |";
+        $found = $this->findings($source, 'table-column-overlap', []);
+        self::assertCount(1, $found);
+        self::assertSame(1, $found[0][2]);
+        self::assertSame(8, $found[0][3]);
+        self::assertStringContainsString('Column 2 ', $found[0][4]);
+
+        self::assertCount(1, $this->findings("{valigns=top}\n|={?v} a |", 'table-column-overlap', []));
+        self::assertSame([], $this->findings("{widths=50}\n|={>} a |", 'table-column-overlap', []));
+    }
+
     /**
      * @param string $source
      * @param string $code

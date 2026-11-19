@@ -27,7 +27,7 @@ final class CorpusTest extends TestCase
     /**
      * @var array<string, true>
      */
-    private const HELD_LINT = ['syntax-blocks-273' => true, 'syntax-blocks-286' => true];
+    private const HELD_LINT = ['syntax-blocks-286' => true];
 
     /**
      * Kinds run outside this class: `import` by `Import\ImportCorpusTest`.

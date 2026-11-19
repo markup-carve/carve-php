@@ -1,4 +1,3 @@
-syntax-blocks-273: Hold the `table-column-overlap` diagnostic assertion; table lint is outside the core scope at candidate 12.
 syntax-blocks-286: Hold the `figure-group-nested` diagnostic assertion; figure lint is outside the core scope at candidate 12.
 CC-455: Hold attributed block extension fallback rendering; C2-X-035 is provisional under open issue O15.
 CC-456: Hold attributed inline extension fallback rendering; C2-X-035 is provisional under open issue O15.
