@@ -989,7 +989,8 @@ final class NodeRulesA
             return;
         }
         $raw = Support::raw($node, $c);
-        $pattern = '/(?<![A-Za-z0-9_-])(abbr|time|kbd)(?:=(?:"(?:\\\\.|[^"])*"|[^\s}]+))?(?=[\s}])/';
+        $names = implode('|', array_map(static fn (array $pair): string => $pair[0], $c->semanticKeys()));
+        $pattern = '/(?<![A-Za-z0-9_-])(' . $names . ')(?:=(?:"(?:\\\\.|[^"])*"|[^\s}]+))?(?=[\s}])/';
         preg_match_all($pattern, $raw, $matches, PREG_OFFSET_CAPTURE);
         foreach ($matches[0] as $index => [$spelling, $offset]) {
             $before = substr($raw, 0, $offset);
@@ -1019,13 +1020,13 @@ final class NodeRulesA
             return;
         }
         foreach (Support::keyValues($node) as [$name, $value]) {
-            if ($value !== '' && $name === 'kbd') {
+            if ($value !== '' && in_array([$name, null], $c->semanticKeys(), true)) {
                 $bounds = Support::bounds($node);
                 if ($bounds === null) {
                     continue;
                 }
                 $raw = Support::raw($node, $c);
-                if (preg_match('/\b(kbd=(?:"(?:\\\\.|[^"])*"|[^\s}]+))/', $raw, $match, PREG_OFFSET_CAPTURE) === 1) {
+                if (preg_match('/\b(' . $name . '=(?:"(?:\\\\.|[^"])*"|[^\s}]+))/', $raw, $match, PREG_OFFSET_CAPTURE) === 1) {
                     $start = $bounds[0] + $match[1][1];
                     $c->report('semantic-attribute-value-ignored', $start, $start + strlen($match[1][0]), $path, ['name' => $name]);
                 }

@@ -46,6 +46,25 @@ final class Options
 
     public bool $roundtrip = false;
 
+    /**
+     * C2-H-075: the semantic span keys from inside out, with what a registered extension sets.
+     *
+     * @var array<array{0: string, 1: string|null}>
+     */
+    public array $semanticKeys = self::SEMANTIC_KEYS;
+
+    /**
+     * The quote glyphs of a registered extension, or null for those of C2-H-078.
+     *
+     * @var array{0: string, 1: string, 2: string, 3: string}|null
+     */
+    public ?array $quotes = null;
+
+    /**
+     * @var array<array{0: string, 1: string|null}>
+     */
+    public const SEMANTIC_KEYS = [['abbr', 'title'], ['time', 'datetime'], ['kbd', null]];
+
     public bool $sections = true;
 
     public bool $smartTypography = true;
@@ -377,6 +396,32 @@ final class Options
     }
 
     /**
+     * The provisional semantic keys a definition carries for the host: lowercase names, each once, the core three among
+     * them.
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    private static function checkHostFields(ExtensionDefinition $item): void
+    {
+        if ($item->semanticKeys === null) {
+            return;
+        }
+        $names = [];
+        foreach ($item->semanticKeys as [$key, $target]) {
+            if (
+                preg_match('/^[a-z]+$/', $key) !== 1 || isset($names[$key])
+                || ($target !== null && preg_match('/^[a-z-]+$/', $target) !== 1)
+            ) {
+                throw new OptionError('option extensions: invalid semantic keys');
+            }
+            $names[$key] = true;
+        }
+        if (!isset($names['abbr'], $names['time'], $names['kbd'])) {
+            throw new OptionError('option extensions: invalid semantic keys');
+        }
+    }
+
+    /**
      * @param mixed $value
      *
      * @throws \MarkupCarve\Carve\OptionError
@@ -389,6 +434,8 @@ final class Options
             throw new OptionError('option extensions: not a list');
         }
         $expanded = [];
+        $this->semanticKeys = self::SEMANTIC_KEYS;
+        $this->quotes = null;
         foreach ($value as $item) {
             if (is_string($item)) {
                 $standard = Standard::definitions($item);
@@ -410,6 +457,13 @@ final class Options
                 throw new OptionError('option extensions: duplicate name ' . $item->name);
             }
             $names[$item->name] = true;
+            self::checkHostFields($item);
+            if ($item->semanticKeys !== null) {
+                $this->semanticKeys = $item->semanticKeys;
+            }
+            if ($item->quotes !== null) {
+                $this->quotes = $item->quotes;
+            }
             // C2-X-014: two enabled matchers cannot claim one core node.
             $claim = $item->matcher === null ? null : $item->matcher['form'] . ':' . $item->matcher['name'];
             if ($claim !== null && isset($claims[$claim])) {

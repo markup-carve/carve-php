@@ -72,3 +72,68 @@ $result = Carve::renderWithDocumentTransforms("```js\nlet a = 1 <1>\n```\n<1> On
     'extensions' => [$bundle],
 ]);
 ```
+
+## Details and spoiler
+
+`Details::bundle()` claims `::: details "Title"` (`carve.details`, slots `summary` and `body`) and writes a native
+`<details>` with the title as `<summary>` (the `details` label, `Details`, without one). Static mode adds `open`
+unless the author wrote it.
+
+`Spoiler::bundle()` claims `:spoiler[text]` (`carve.spoiler`, a `<span class="spoiler">`) and `::: spoiler "Title"`
+(`carve.spoilerBlock`, a `<details class="spoiler">`). Static mode reveals both: the span gains `spoiler-revealed`,
+and the block becomes a `<section class="spoiler spoiler-revealed">` headed by `<h3 class="spoiler-title">`.
+
+Without a renderer, a titled div falls back to its title as a strong paragraph and then its body.
+
+## List table
+
+`ListTable::bundle()` claims a `::: list-table` div whose body is one list of rows, each row a list of cells. A cell
+of only `<` spans from the left, `^` from above. The div attributes `header-rows`, `header-cols`, `footer-rows`,
+`aligns`, `valigns` and `widths` shape the table; a cell takes `header`, `header-row`, `align` and `valign`. The
+quoted title is the caption, a bracket label a `<p class="div-label">` before the table.
+
+## Color swatch
+
+`ColorSwatch::bundle(position, shape, tint, reveal)` claims `:color[value]` for a hex, `rgb()`/`hsl()` or named
+CSS color, and writes a chip beside the value (`position`: `before`, `after` or `none`; `shape`: `square`, `round`
+or `ring`). `{contrast}` writes the value on its own color instead. Any other value stays the core span.
+
+## Semantic spans
+
+`SemanticSpan::bundle()` adds the span keys `samp`, `var`, `cite` and `dfn` to the core `abbr`, `time` and `kbd`
+(C2-H-075), nesting from inside out in the 0.1 order. A `dfn` value becomes `title`. Lint reads the same keys for
+`semantic-attribute-outside-span` and `semantic-attribute-value-ignored`.
+
+```php
+Carve::render('[x]{samp} [w]{dfn=term}', ['extensions' => [SemanticSpan::bundle()]]);
+// <p><samp>x</samp> <dfn title="term">w</dfn></p>
+```
+
+## Wiki links
+
+`Wikilinks::bundle(urlGenerator, cssClass, newWindow)` is the standard `:wiki` matcher (C2-X-057) with a link
+renderer. `:wiki[Page#anchor|Display]` links the page through `urlGenerator` (default: a lowercase hyphen slug) and
+appends the anchor. A URL the URL policy refuses renders as text. The generated `data-wikilink`, `target` and `rel`
+replace authored pairs of those names.
+
+## Smart quotes
+
+`SmartQuotes::bundle(locale, openDoubleQuote, closeDoubleQuote, openSingleQuote, closeSingleQuote)` sets the quote
+glyphs smart typography writes; the `smartTypography` option still turns it on. The locale is matched exactly, then
+by its language, then falls back to English; `SmartQuotes::locales()` lists the table and
+`SmartQuotes::isLocaleSupported()` checks one. Only quote nodes that carry the default glyph of their kind change,
+and a closing single quote between two letters stays an apostrophe.
+
+```php
+Carve::render("\"Hi\" it's 'x'", ['extensions' => [SmartQuotes::bundle('de')]]);
+// <p>„Hi“ it’s ‚x‘</p>
+```
+
+## Document transforms
+
+`Transforms` holds three bundles with one document transform each and no definitions:
+
+- `defaultAttributes(['heading' => ['class' => 'h', 'data-a' => '1']])`: default attributes per node type, under
+  the authored ones (`class` adds classes, `id` sets a missing id, other keys a missing pair).
+- `tabNormalize($width = 2)`: each tab in code blocks and code spans becomes `$width` spaces (0 to 16).
+- `inlineFootnotesToParentheses()`: each inline footnote becomes its content in parentheses after a space.

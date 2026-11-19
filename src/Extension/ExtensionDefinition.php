@@ -22,6 +22,11 @@ final class ExtensionDefinition
      * @param (\Closure(\MarkupCarve\Carve\Extension\Claim): (\MarkupCarve\Carve\Node|null))|null $transform
      * @param (\Closure(\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Extension\RenderHost): string)|null $renderer
      * @param (\Closure(\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Extension\RenderHost): string)|null $buildTimeRenderer
+     * @param array<array{0: string, 1: string|null}>|null $semanticKeys Provisional (carve-js#5060): the semantic span keys
+     *   from inside out, each with the attribute a value maps to; holds `abbr`, `time` and `kbd` and replaces their order
+     *   (C2-H-075).
+     * @param array{0: string, 1: string, 2: string, 3: string}|null $quotes Provisional: the opening and closing double, then
+     *   single, quote glyphs that smart typography writes.
      */
     public function __construct(
         public readonly string $name,
@@ -32,6 +37,8 @@ final class ExtensionDefinition
         public readonly ?Closure $transform = null,
         public readonly ?Closure $renderer = null,
         public readonly ?Closure $buildTimeRenderer = null,
+        public readonly ?array $semanticKeys = null,
+        public readonly ?array $quotes = null,
     ) {
     }
 
@@ -53,6 +60,8 @@ final class ExtensionDefinition
             $this->transform,
             $renderer,
             $this->buildTimeRenderer,
+            $this->semanticKeys,
+            $this->quotes,
         );
     }
 
@@ -61,7 +70,16 @@ final class ExtensionDefinition
      */
     public function withoutRenderers(): self
     {
-        return new self($this->name, $this->version, $this->slots, $this->matcher, $this->parent, $this->transform);
+        return new self(
+            $this->name,
+            $this->version,
+            $this->slots,
+            $this->matcher,
+            $this->parent,
+            $this->transform,
+            semanticKeys: $this->semanticKeys,
+            quotes: $this->quotes,
+        );
     }
 
     /**
@@ -80,6 +98,8 @@ final class ExtensionDefinition
             $this->transform,
             $this->renderer,
             $renderer,
+            $this->semanticKeys,
+            $this->quotes,
         );
     }
 }
