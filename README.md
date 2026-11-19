@@ -11,7 +11,7 @@
 carve-php parses and renders Carve in PHP. It implements Carve spec 0.2: parser, HTML renderer, linter, HTML importer
 and canonical writer. Read the [Carve documentation](https://markup-carve.github.io/carve/) for the language.
 
-PHP 8.2 or later. HTML import needs `ext-dom`; it uses `Dom\HTMLDocument` from PHP 8.4 on and `DOMDocument` before that.
+PHP 8.2 or later. Import (HTML, Markdown, GFM, Djot) needs `ext-dom`; it uses `Dom\HTMLDocument` from PHP 8.4 on and `DOMDocument` before that.
 
 ## Install
 
@@ -65,7 +65,9 @@ record), `maxLosses` (the cap on kept losses, default 100; the result's `suppres
 or `null` to keep the default.
 
 Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
-(`html`), `rawHtml` (keep raw HTML nodes), `strictLosses`, `allowLosses` and `maxLosses`. Includes: an
+(`html`, `markdown`, `gfm` or `djot`), `rawHtml` (HTML only: keep raw HTML nodes), `strictLosses`, `allowLosses` and
+`maxLosses`. Markdown, GFM and Djot go through the HTML importer: `league/commonmark` (CommonMark 0.31 and the GFM
+extensions) and `php-collective/djot` render HTML, which the HTML importer reads. Includes: an
 `Include\IncludeResolver` such as `Include\FileResolver::forRoot($root)` in the `includes` option, or an array with
 `resolver` and the lowered limits `depth`, `bytes` and `maxDiagnostics` (include failures kept, at most 100).
 
@@ -82,7 +84,7 @@ vendor/bin/carve diagnostics FILE...        diagnostics
 vendor/bin/carve lint FILE...               lint findings
 vendor/bin/carve fmt FILE...                canonical form (alias: format)
     --check  --diff  --write|-w  --normalize  --align-tables  --from-ast
-vendor/bin/carve import --from=html [--raw-html] FILE...
+vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] FILE...
 ```
 
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
