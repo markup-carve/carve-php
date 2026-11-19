@@ -712,15 +712,25 @@ final class InlineRenderer
      * C2-H-082, C2-H-160: a denied destination is written empty and reported.
      *
      * @param string $url
+     * @param \MarkupCarve\Carve\Node|null $owner The image node when its paragraph renders it directly.
+     * @param string|null $field The destination field of that direct image.
      *
      * @return string
      */
-    public function destination(string $url): string
+    public function destination(string $url, ?Node $owner = null, ?string $field = null): string
     {
         if (UrlPolicy::passes($url, $this->o)) {
             return $url;
         }
-        $this->log->loss('destination-denied', 'error', field: $this->log->currentNode?->type === 'image' ? 'src' : 'href');
+        $reportedNode = $owner ?? $this->log->currentNode;
+        $field ??= isset($reportedNode?->f['src']) ? 'src' : (isset($reportedNode?->f['href']) ? 'href' : null);
+        $this->log->loss(
+            'destination-denied',
+            'error',
+            variant: $field === 'src' ? 1 : 0,
+            node: $owner,
+            field: $field,
+        );
 
         return '';
     }
@@ -834,7 +844,7 @@ final class InlineRenderer
         $def = is_string($key) ? $this->state->linkDefs[$key] ?? null : null;
         $merged = self::mergeDefinition($attrs, $def);
         $tooltip = $def === null ? $node->f['tooltip'] ?? null : $def->f['tooltip'] ?? null;
-        $structural = [['src', $this->destination(PlainText::str($src))], ['alt', PlainText::str($node->f['alt'] ?? '')]];
+        $structural = [['src', $this->destination(PlainText::str($src), $node, 'src')], ['alt', PlainText::str($node->f['alt'] ?? '')]];
         if (is_string($tooltip)) {
             $structural[] = ['title', $tooltip];
         }
