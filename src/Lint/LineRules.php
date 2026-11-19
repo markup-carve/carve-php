@@ -616,6 +616,7 @@ final class LineRules
             && $previous !== null && $previous->path === $line->path && !self::blank($previous)
             && ($c->firstLines[$line->path] ?? $line->number) < $line->number
             && !str_starts_with(self::paragraphContent($previous, $c)[0], ':: ')
+            && self::belowListColumn($line, $c) === null
             && !str_starts_with(self::afterQuotes($previous, $c->layout->quoteDepth($line->path))[0], ':: ')
         ) {
             $c->report('markdown-definition-paragraph', $start, $start + strlen($text), $line->path);
@@ -805,31 +806,85 @@ final class LineRules
 
     private static function descriptionColumn(Line $line, Context $c): void
     {
-        $previous = self::prior($line, $c);
-        [$text, $start] = self::trimmed($line);
-        if ($previous === null || (!str_starts_with($text, ': ') && !str_starts_with($text, ':: '))) {
+        $found = self::belowListColumn($line, $c);
+        if ($found === null) {
             return;
         }
-        while ($previous !== null && self::blank($previous) && $previous->number > 1) {
-            $previous = $c->lines[$previous->number - 2] ?? null;
-        }
-        if ($previous === null) {
-            return;
-        }
-        [$host, $hostStart] = self::trimmed($previous);
-        if (!str_starts_with($host, ': ') && !str_starts_with($host, ':: ')) {
-            return;
-        }
-        $hostContent = $hostStart - $previous->start + (str_starts_with($host, '::') ? 3 : 2);
-        $column = $start - $line->start;
-        if ($column === $hostStart - $previous->start || $column >= $hostContent) {
-            return;
-        }
+        [$text, $start, $column, $host] = $found;
         $c->report('description-separator-below-content-column', $start, $start + strlen($text), $line->path, [
             'name' => str_starts_with($text, '::') ? 'term' : 'description',
-            'column' => (string)($start - $line->start + 1),
-            'host.column' => (string)($hostStart - $previous->start + 1),
+            'column' => (string)($column + 1),
+            'host.column' => (string)($host + 1),
         ]);
+    }
+
+    /**
+     * C2-B-067, C2-B-071, C2-B-074: a colon mark that opens no entry, below a description list whose first term mark
+     * stands further right; columns count tab stops (C2-B-004).
+     *
+     * @return array{0: string, 1: int, 2: int, 3: int}|null
+     */
+    private static function belowListColumn(Line $line, Context $c): ?array
+    {
+        if (!str_contains($line->text, ':')) {
+            return null;
+        }
+        $depth = $c->layout->quoteDepth($line->path);
+        [$text, $start] = self::afterQuotes($line, $depth);
+        if (preg_match('/^::?(?:[ \t]|$)/', $text) !== 1 || self::opensEntry($line, $c)) {
+            return null;
+        }
+        $host = self::listColumnAbove($line, $depth, $c);
+        $column = $c->layout->columnOf($start, $depth);
+
+        return $host !== null && $host > $column ? [$text, $start, $column, $host] : null;
+    }
+
+    private static function opensEntry(Line $line, Context $c): bool
+    {
+        if (($c->nodeTypes[$line->path] ?? null) === 'definition_term' && ($c->firstLines[$line->path] ?? null) === $line->number) {
+            return true;
+        }
+        $description = self::ancestorOf($line->path, $c, 'definition_description');
+
+        return $description !== null && ($c->firstLines[$description] ?? null) === $line->number;
+    }
+
+    /**
+     * The column of the first term mark of the description list the nearest non-blank line above at the same quote
+     * depth lies in.
+     */
+    private static function listColumnAbove(Line $line, int $depth, Context $c): ?int
+    {
+        for ($at = $line->number - 2; $at >= 0; $at--) {
+            $host = $c->lines[$at] ?? null;
+            if ($host === null || self::blank($host) || $c->layout->quoteDepth($host->path) !== $depth) {
+                continue;
+            }
+            $list = self::ancestorOf($host->path, $c, 'definition_list');
+            $start = $list === null ? null : $c->layout->startOffset($list);
+
+            return $list === null || $start === null ? null : $c->layout->columnOf($start, $c->layout->quoteDepth($list));
+        }
+
+        return null;
+    }
+
+    private static function ancestorOf(string $path, Context $c, string $type): ?string
+    {
+        $current = $path;
+        while ($current !== '') {
+            if (($c->nodeTypes[$current] ?? null) === $type) {
+                return $current;
+            }
+            $split = strrpos($current, '/children/');
+            if ($split === false) {
+                return null;
+            }
+            $current = substr($current, 0, $split);
+        }
+
+        return null;
     }
 
     private static function rowWithoutPipe(Line $line, Context $c): void

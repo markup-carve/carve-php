@@ -79,6 +79,24 @@ final class Next2LintSaturationTest extends TestCase
             'C2-B-075: a block opener on a later line of the term' => [
                 ":: c\n# H\n", 'definition-term-block-folded', 0,
             ],
+            'C2-B-153: closing hashes on an `=` heading' => [
+                "== H #\n", 'heading-closing-hashes', 1,
+            ],
+            'C2-B-153: a run that is the only text' => [
+                "= ##\n", 'heading-closing-hashes', 0,
+            ],
+            'C2-B-067: a lower-column separator after a folded term' => [
+                "::: box\n   :: t\n: d\n:::\n", 'description-separator-below-content-column', 1,
+            ],
+            'C2-B-067: a separator at the list column' => [
+                ":: t\n: d\n", 'description-separator-below-content-column', 0,
+            ],
+            'C2-B-074: a line the column rule reports is left to it' => [
+                "- :: t\n  : d\n: x\n", 'markdown-definition-paragraph', 0,
+            ],
+            'C2-B-004: a tab-indented term counts its tab stop' => [
+                "\t:: t\n   : d\n", 'description-separator-below-content-column', 1,
+            ],
         ];
     }
 
