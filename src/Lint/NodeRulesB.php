@@ -98,7 +98,7 @@ final class NodeRulesB
         $length = strlen($source);
         for ($at = 0; $at < $length - 2; $at++) {
             $ch = $source[$at];
-            if (($ch !== '*' && $ch !== '/') || $source[$at + 1] !== '{') {
+            if (!str_contains('*_/~=', $ch) || $source[$at + 1] !== '{') {
                 continue;
             }
             if ($at > 0 && $source[$at - 1] === '\\') {
@@ -108,9 +108,31 @@ final class NodeRulesB
             if ($end === false) {
                 continue;
             }
+            // A glued run at the start of a cell belongs to the alignment rule; keep scanning after it.
+            if (
+                $at <= 1 && self::opensCell($c, $range[0])
+                && strlen(NodeRulesA::oldAlignmentRun($source)['prefix'] ?? '') === $end + 1
+            ) {
+                $at = $end;
+
+                continue;
+            }
             $c->report('emphasis-marker-before-attributes', $range[0] + $at, $range[0] + $end + 1, $path, ['ch' => $ch], 0);
             $at = $end;
         }
+    }
+
+    private static function opensCell(Context $c, int $start): bool
+    {
+        $at = $start - 1;
+        while (in_array($c->source[$at] ?? '', [' ', "\t"], true)) {
+            $at--;
+        }
+        if (($c->source[$at] ?? '') === '=') {
+            $at--;
+        }
+
+        return ($c->source[$at] ?? '') === '|';
     }
 
     /**

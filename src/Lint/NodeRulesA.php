@@ -1239,16 +1239,19 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'text') {
             return;
         }
+        $parent = substr($path, 0, (int)strrpos($path, '/children/'));
+        if (($c->nodeTypes[$parent] ?? '') === 'cell_paragraph') {
+            return;
+        }
         $source = Support::raw($node, $c);
-        if (preg_match('/(?<!\\\\)\{[.#][^{}]*\}/', $source, $match, PREG_OFFSET_CAPTURE) !== 1) {
-            return;
-        }
-        [$block, $at] = $match[0];
-        if ($at < 1) {
-            return;
-        }
         $range = Support::bounds($node);
-        if ($range !== null) {
+        if ($range === null || preg_match_all('/(?<!\\\\)\{[.#][^{}]*\}/', $source, $matches, PREG_OFFSET_CAPTURE) === 0) {
+            return;
+        }
+        foreach ($matches[0] as [$block, $at]) {
+            if ($at < 1) {
+                continue;
+            }
             $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $at + strlen($block), $path);
         }
     }
@@ -1265,24 +1268,61 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'table_cell') {
             return;
         }
-        $source = self::jsTrimStart(Support::raw($node, $c));
-        $header = str_starts_with($source, '=');
-        if ($header) {
-            $source = substr($source, 1);
-        }
-        $prefix = $source[0] ?? '';
-        $space = $source[1] ?? '';
-        if (!in_array($prefix, ['<', '>', '~'], true) || ($space !== ' ' && $space !== "\t")) {
-            return;
-        }
-        if (self::jsTrim(substr($source, 1)) === '') {
+        $raw = Support::raw($node, $c);
+        $source = ($node['header'] ?? false) && str_starts_with($raw, '=') ? substr($raw, 1) : $raw;
+        $run = self::oldAlignmentRun(self::jsTrimStart($source));
+        if ($run === null) {
             return;
         }
         $bounds = Support::bounds($node);
         if ($bounds !== null) {
-            $start = $bounds[0] + ($header ? 1 : 0);
-            $c->report('deprecated-cell-alignment', $start, $start + 1, $path, ['prefix' => $prefix, 'braced' => '{' . $prefix . '}']);
+            $start = $bounds[0] + (int)strpos($raw, $run['prefix']);
+            $c->report('deprecated-cell-alignment', $start, $start + strlen($run['prefix']), $path, $run);
         }
+    }
+
+    /**
+     * The complete 0.1.13 alignment spelling at the start of a cell.
+     *
+     * @return array{prefix: string, braced: string}|null
+     */
+    public static function oldAlignmentRun(string $source): ?array
+    {
+        $mark = self::oldAlignmentPrefix($source);
+        if ($mark === '') {
+            return null;
+        }
+        $block = '';
+        $offset = strlen($mark);
+        if (($source[$offset] ?? '') === '{') {
+            $end = strpos($source, '}', $offset);
+            if ($end === false) {
+                return null;
+            }
+            $block = substr($source, $offset + 1, $end - $offset - 1);
+            if (str_contains($block, '{')) {
+                return null;
+            }
+        }
+        $prefix = $block === '' && ($source[$offset] ?? '') !== '{' ? $mark : substr($source, 0, $offset + strlen($block) + 2);
+        $after = $source[strlen($prefix)] ?? '';
+        if (($after !== ' ' && $after !== "\t") || self::jsTrim(substr($source, strlen($prefix))) === '') {
+            return null;
+        }
+
+        return ['prefix' => $prefix, 'braced' => '{' . $mark . (self::jsTrim($block) === '' ? '' : ' ' . self::jsTrim($block)) . '}'];
+    }
+
+    private static function oldAlignmentPrefix(string $source): string
+    {
+        $first = $source[0] ?? '';
+        $second = $source[1] ?? '';
+        $vertical = $second === '^' || $second === 'v' || $second === '~';
+        if (in_array($first, ['<', '>', '~'], true)) {
+            return $first . ($vertical ? $second : '');
+        }
+
+        return $first === '?' && $vertical ? '?' . $second : '';
     }
 
     /**
