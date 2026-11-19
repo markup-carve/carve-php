@@ -8,7 +8,10 @@ use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Diagnostics\Findings;
+use MarkupCarve\Carve\Export\AnsiExporter;
 use MarkupCarve\Carve\Export\CodeFence;
+use MarkupCarve\Carve\Export\MarkdownExporter;
+use MarkupCarve\Carve\Export\PlainTextExporter;
 use MarkupCarve\Carve\Extension\DocumentTransform;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Extension\Extensions;
@@ -715,13 +718,20 @@ final class Carve
     }
 
     /**
-     * A writer registry with the `html` and `carve` targets; register further `OutputWriter`s on it.
+     * A writer registry with the `html` and `carve` targets and the exports `markdown`, `plain` and `ansi`; register
+     * further `OutputWriter`s on it.
      *
      * @return \MarkupCarve\Carve\Output\WriterRegistry
      */
     public static function writers(): WriterRegistry
     {
-        return new WriterRegistry([new HtmlWriter(), new CarveWriter()]);
+        return new WriterRegistry([
+            new HtmlWriter(),
+            new CarveWriter(),
+            new MarkdownExporter(),
+            new PlainTextExporter(),
+            new AnsiExporter(),
+        ]);
     }
 
     /**

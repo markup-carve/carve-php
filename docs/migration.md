@@ -50,15 +50,16 @@ converter.
 
 | 0.1 | 0.2 |
 |---|---|
-| `CarveConverter::markdown()`, `MarkdownRenderer` | coming: `Carve::writeTo('markdown', $tree)` |
-| `CarveConverter::plainText()`, `PlainTextRenderer` | coming: `Carve::writeTo('text', $tree)` |
-| `CarveConverter::ansi()`, `AnsiRenderer` | coming: `Carve::writeTo('ansi', $tree)` |
+| `CarveConverter::markdown()`, `MarkdownRenderer` | `(new Export\MarkdownExporter())->export($tree)`, or `Carve::writeTo('markdown', $tree)` |
+| `CarveConverter::plainText()`, `PlainTextRenderer` | `(new Export\PlainTextExporter())->export($tree)`, or `Carve::writeTo('plain', $tree)` |
+| `CarveConverter::ansi()`, `AnsiRenderer` | `(new Export\AnsiExporter())->export($tree)`, or `Carve::writeTo('ansi', $tree)` |
 | `RendererInterface`, `RenderTarget`, `RenderTargetInterface` | `Output\OutputWriter`, registered on `Carve::writers()` |
 | `TableLayout::expand()` | `Carve::tableGrid($table)` |
 | `StringUtil::findSafeCodeFence()` | `Carve::safeCodeFence($content)` |
 | `SoftBreakMode` | gone |
 
-Until the three writers arrive, keep carve-php 0.1 for those targets.
+The `roundtrip` option of the 0.1 Markdown writer is gone: 0.2 has no Markdown carrier format. The target `text` is
+named `plain`. `docs/README.md` lists the losses the exports report.
 
 ## Includes
 

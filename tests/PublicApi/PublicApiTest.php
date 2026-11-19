@@ -190,7 +190,7 @@ final class PublicApiTest extends TestCase
     public function testWriterRegistry(): void
     {
         $registry = Carve::writers();
-        $this->assertSame(['html', 'carve'], $registry->targets());
+        $this->assertSame(['html', 'carve', 'markdown', 'plain', 'ansi'], $registry->targets());
         $tree = Carve::parse("Some *x*\n");
         $this->assertSame('<p>Some <strong>x</strong></p>', Carve::writeTo('html', $tree));
         $this->assertSame("Some *x*\n", Carve::writeTo('carve', $tree));
@@ -210,14 +210,16 @@ final class PublicApiTest extends TestCase
             }
         };
         $registry->register($stub);
-        $this->assertSame(['html', 'carve', 'text'], $registry->targets());
+        $this->assertSame(['html', 'carve', 'markdown', 'plain', 'ansi', 'text'], $registry->targets());
         $this->assertTrue($registry->has('text'));
         $this->assertSame('DOCUMENT:1', Carve::writeTo('text', $tree, ['upper' => true], $registry));
         $this->assertSame('document:1', (new WriterRegistry([$stub]))->write('text', $tree));
         $this->assertFalse(Carve::writers()->has('text'));
 
+        $this->assertSame("Some **x**\n", Carve::writeTo('markdown', $tree));
         $this->expectException(OptionError::class);
-        Carve::writeTo('markdown', $tree);
+        $this->expectExceptionMessage('unknown output target pdf; known targets: html, carve, markdown, plain, ansi');
+        Carve::writeTo('pdf', $tree);
     }
 
     /**

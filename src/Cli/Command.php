@@ -24,7 +24,14 @@ final class Command
     /**
      * @var array<string, true>
      */
-    private const VALUED = ['include-root' => true, 'rules' => true, 'platforms' => true];
+    private const VALUED = ['include-root' => true, 'rules' => true, 'platforms' => true, 'to' => true];
+
+    /**
+     * The output formats of `render --to`.
+     *
+     * @var array<string>
+     */
+    private const RENDER_TARGETS = ['html', 'markdown', 'plain', 'ansi'];
 
     /**
      * @var array<string, bool>
@@ -151,7 +158,8 @@ final class Command
             if ($value === null) {
                 throw new OptionError('missing value for --' . $name);
             }
-            $parsed['values'][$name] = $name === 'include-root' ? $value : self::json($name, $value);
+            $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
+                : ($name === 'include-root' ? $value : self::json($name, $value));
 
             return $equals !== false ? $i : $i + 1;
         }
@@ -168,6 +176,28 @@ final class Command
         $parsed['values'][$name === 'no-includes' ? 'includes' : $name] = $flags[$name];
 
         return $i;
+    }
+
+    /**
+     * The output format of `render --to`.
+     *
+     * @param string $command
+     * @param string $value
+     *
+     * @throws \MarkupCarve\Carve\OptionError For another command or an unknown format.
+     *
+     * @return string
+     */
+    private static function renderTarget(string $command, string $value): string
+    {
+        if ($command !== 'render') {
+            throw new OptionError('unknown option --to');
+        }
+        if (!in_array($value, self::RENDER_TARGETS, true)) {
+            throw new OptionError('unknown output format ' . $value . ' for --to; known formats: ' . implode(', ', self::RENDER_TARGETS));
+        }
+
+        return $value;
     }
 
     private static function json(string $name, string $value): mixed
@@ -219,6 +249,12 @@ final class Command
 
                 return [$entries === [] ? 0 : 1, self::report([$display, $source, self::root($parsed, $file)], $entries, $json, $out)];
             default:
+                $to = $parsed['values']['to'] ?? 'html';
+                if ($to !== 'html') {
+                    fwrite($out, Carve::writeTo(is_string($to) ? $to : 'html', Carve::parse($source, $options)));
+
+                    return [0, null];
+                }
                 fwrite($out, Carve::toHtml($source, $options) . "\n");
 
                 return [0, null];

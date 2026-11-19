@@ -4,15 +4,29 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Output;
 
+use MarkupCarve\Carve\Export\AnsiExporter;
+use MarkupCarve\Carve\Export\MarkdownExporter;
+use MarkupCarve\Carve\Export\PlainTextExporter;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 
 /**
- * The output targets by name. `Carve::writers()` gives a registry with `html` and `carve`; the 0.1 Markdown, plain text
- * and ANSI writers join as further targets. A registry is a plain object: no state is shared between instances.
+ * The output targets by name. `Carve::writers()` gives a registry with `html`, `carve` and the exports `markdown`,
+ * `plain` and `ansi`. A registry is a plain object: no state is shared between instances.
  */
 final class WriterRegistry
 {
+    /**
+     * Targets kept for the exports of `MarkupCarve\Carve\Export`, which only they may register.
+     *
+     * @var array<string, class-string<\MarkupCarve\Carve\Output\OutputWriter>>
+     */
+    public const RESERVED_TARGETS = [
+        'markdown' => MarkdownExporter::class,
+        'plain' => PlainTextExporter::class,
+        'ansi' => AnsiExporter::class,
+    ];
+
     /**
      * @var array<string, \MarkupCarve\Carve\Output\OutputWriter>
      */
@@ -29,15 +43,23 @@ final class WriterRegistry
     }
 
     /**
-     * Adds a writer; a target that is already registered is replaced.
+     * Adds a writer; a target that is already registered is replaced. Only the export of a reserved target
+     * (`markdown`, `plain`, `ansi`) may take it.
      *
      * @param \MarkupCarve\Carve\Output\OutputWriter $writer
+     *
+     * @throws \MarkupCarve\Carve\OptionError For another writer of a reserved target.
      *
      * @return $this
      */
     public function register(OutputWriter $writer)
     {
-        $this->writers[$writer->target()] = $writer;
+        $target = $writer->target();
+        $reserved = self::RESERVED_TARGETS[$target] ?? null;
+        if ($reserved !== null && !$writer instanceof $reserved) {
+            throw new OptionError('the output target ' . $target . ' is reserved');
+        }
+        $this->writers[$target] = $writer;
 
         return $this;
     }
@@ -50,13 +72,14 @@ final class WriterRegistry
     /**
      * @param string $target
      *
-     * @throws \MarkupCarve\Carve\OptionError For a target no writer is registered for.
+     * @throws \MarkupCarve\Carve\OptionError For a target no writer is registered for; the message lists the known ones.
      *
      * @return \MarkupCarve\Carve\Output\OutputWriter
      */
     public function get(string $target): OutputWriter
     {
-        return $this->writers[$target] ?? throw new OptionError('unknown output target ' . $target);
+        return $this->writers[$target]
+            ?? throw new OptionError('unknown output target ' . $target . '; known targets: ' . implode(', ', $this->targets()));
     }
 
     /**

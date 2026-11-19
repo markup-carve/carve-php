@@ -100,11 +100,44 @@ assert(Carve::render('{{ intro.crv }}', ['includes' => $resolver]) === '<p>Inclu
 assert(Carve::includeDependencies('{{ intro.crv }}', ['includes' => $resolver])[0]['file'] === 'db:intro.crv');
 ```
 
+## Exports: Markdown, plain text and ANSI
+
+`Export\MarkdownExporter`, `Export\PlainTextExporter` and `Export\AnsiExporter` write a tree as Markdown (CommonMark
+with the GFM tables, task lists, strikethrough and footnotes), as plain text, or as text styled with ANSI escape
+sequences for a terminal. Each `export($tree, $options)` returns an `Export\ExportResult`: the text in `output` and the
+losses of the run in `diagnostics`. The tree is not changed. The behavior follows the carve-js exports
+(`docs/export.md` in carve-js).
+
+```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Export\AnsiExporter;
+use MarkupCarve\Carve\Export\MarkdownExporter;
+use MarkupCarve\Carve\Export\PlainTextExporter;
+
+$tree = Carve::parse("= Notes\n\nSee *this* and </#Notes>.\n");
+assert((new MarkdownExporter())->export($tree)->output === "# Notes\n\nSee **this** and [Notes](#notes).\n");
+assert((new PlainTextExporter())->export($tree)->output === "Notes\n\nSee this and Notes.\n");
+assert(str_contains((new AnsiExporter())->export($tree)->output, "\e[1mthis\e[0m"));
+assert((new MarkdownExporter())->export(Carve::parse("::: x\nz\n:::\n"))->codes() === ['markdown-container-flattened']);
+```
+
+Options: `smartTypography` (default `true`: the glyph of smart punctuation; `false`: the characters as typed),
+`strictLosses` (throw `Export\CarveExportError` with the `diagnostics` instead of returning a result that lost
+something) and `urlPolicy` (`['deny' => [...]]` or `['allow' => [...]]`; a denied destination is written empty and
+reported). An unknown option throws `OptionError`.
+
+The losses are `render-loss` entries with the pointer of their node: `markdown-container-flattened`,
+`markdown-caption-flattened`, `markdown-attributes-dropped`, `fence-title-dropped`, `raw-html-escaped`,
+`table-header-row-demoted`, `table-header-cell-demoted` and `list-style-dropped` (Markdown); `ruby-flattened` and
+`editorial-comment-flattened` (plain, ANSI); and `table-span-flattened`, `raw-format-dropped`, `destination-denied`,
+`include-unresolved` and `derived-text-budget` (all three). The command line writes them with
+`carve render --to markdown|plain|ansi`.
+
 ## Output writers
 
-`Carve::writers()` returns a registry with the `html` and `carve` targets. A host adds its own `OutputWriter`. The
-0.1 Markdown, plain text and ANSI writers are coming to 0.2 as the targets `markdown`, `text` and `ansi` on this same
-interface, so code written against `writeTo()` will not change when they arrive.
+`Carve::writers()` returns a registry with the `html` and `carve` targets and the exports under the reserved targets
+`markdown`, `plain` and `ansi`, which no other writer may take. A host adds its own `OutputWriter`. An unknown target
+throws `OptionError`, whose message lists the known targets.
 
 ```php
 use MarkupCarve\Carve\Carve;

@@ -35,7 +35,7 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static plainText(Node|array $nodes): string`: C2-H-143: the plain text of a node or a node list of a tree, the text `RenderHost::$plainText` gives a renderer. A block node gives the plain text of its children.
 - `static tableGrid(Node $table): array`: The cell grid of a `table` node with its spans filled in, for an output that cannot express rowspan and colspan: per row in order (head, body, foot), the row, its group and, per column, the cell that occupies the slot. A cell spanning columns or rows fills every slot it covers and a slot no cell reaches is null; every row has as many columns as the widest.
 - `static safeCodeFence(string $content, string $marker = '`'): string`: The shortest code fence of `$marker` (three at least) that is longer than every run of it opening a line of `$content`, so the content cannot close the fence.
-- `static writers(): WriterRegistry`: A writer registry with the `html` and `carve` targets; register further `OutputWriter`s on it.
+- `static writers(): WriterRegistry`: A writer registry with the `html` and `carve` targets and the exports `markdown`, `plain` and `ansi`; register further `OutputWriter`s on it.
 - `static writeTo(string $target, Node $tree, array $options = [], ?WriterRegistry $registry = null): string`: Writes a tree with the writer of `$target`, from `$registry` or from `writers()`.
 
 ## Tree
@@ -158,14 +158,14 @@ Class.
 
 Interface. A writer of one output target. It reads the resolved tree and an option map; it validates its own options and throws `OptionError` for one it does not take.
 
-- `target(): string`: The target name, unique in a registry: `html`, `carve`, and later `markdown`, `text`, `ansi`.
+- `target(): string`: The target name, unique in a registry: `html`, `carve`, `markdown`, `plain`, `ansi` or a host's own.
 - `write(Node $tree, array $options = []): string`
 
 ### `MarkupCarve\Carve\Output\WriterRegistry`
 
-Class. The output targets by name. `Carve::writers()` gives a registry with `html` and `carve`; the 0.1 Markdown, plain text and ANSI writers join as further targets. A registry is a plain object: no state is shared between instances.
+Class. The output targets by name. `Carve::writers()` gives a registry with `html`, `carve` and the exports `markdown`, `plain` and `ansi`. A registry is a plain object: no state is shared between instances.
 
-- `register(OutputWriter $writer)`: Adds a writer; a target that is already registered is replaced.
+- `register(OutputWriter $writer)`: Adds a writer; a target that is already registered is replaced. Only the export of a reserved target (`markdown`, `plain`, `ansi`) may take it.
 - `has(string $target): bool`
 - `get(string $target): OutputWriter`
 - `targets(): array`
@@ -184,6 +184,46 @@ Class. The `carve` target: `Carve::write()` of a tree, with `alignTables` and `e
 
 - `target(): string`
 - `write(Node $tree, array $options = []): string`
+
+## Exports
+
+### `MarkupCarve\Carve\Export\MarkdownExporter`
+
+Class. The Markdown export of a 0.2 tree: CommonMark with the GFM tables, task lists, strikethrough and footnotes. It is also the writer of the reserved target `markdown`.
+
+- `export(Node $tree, array $options = []): ExportResult`: The Markdown of `$tree` and the losses of the run.
+- `target(): string`
+- `write(Node $tree, array $options = []): string`
+
+### `MarkupCarve\Carve\Export\PlainTextExporter`
+
+Class. The plain-text export of a 0.2 tree. It is also the writer of the reserved target `plain`.
+
+- `export(Node $tree, array $options = []): ExportResult`: The plain text of `$tree` and the losses of the run.
+- `target(): string`
+- `write(Node $tree, array $options = []): string`
+
+### `MarkupCarve\Carve\Export\AnsiExporter`
+
+Class. The export of a 0.2 tree as text styled with ANSI escape sequences for a terminal. It is also the writer of the reserved target `ansi`.
+
+- `export(Node $tree, array $options = []): ExportResult`: The ANSI-styled text of `$tree` and the losses of the run.
+- `target(): string`
+- `write(Node $tree, array $options = []): string`
+
+### `MarkupCarve\Carve\Export\ExportResult`
+
+Class. What an export returns: its text and the losses of the run, entries of the `render-loss` channel with the pointer of their node.
+
+Fields: `string $output`, `array $diagnostics`.
+
+- `codes(): array`
+
+### `MarkupCarve\Carve\Export\CarveExportError`
+
+Class. Thrown under `strictLosses` when an export lost something.
+
+Fields: `array $diagnostics`.
 
 ## Extensions (provisional)
 
