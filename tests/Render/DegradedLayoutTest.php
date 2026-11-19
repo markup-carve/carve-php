@@ -94,6 +94,21 @@ final class DegradedLayoutTest extends TestCase
     }
 
     /**
+     * C2-H-165: a degraded node is reported once, also where it is the only block of its container.
+     */
+    public function testDegradedBlockInAQuoteIsReportedOnce(): void
+    {
+        foreach (["> :: a\n> : b", '> | a |', ":: t\n: | a |\n\n  | b |"] as $input) {
+            $codes = array_map(
+                static fn ($d): string => $d->code,
+                Carve::renderWithDiagnostics($input, ['profile' => 'comment'])->diagnostics,
+            );
+            self::assertSame(['profile-construct-degraded'], array_values(array_unique($codes)), $input);
+            self::assertCount(1, $codes, $input);
+        }
+    }
+
+    /**
      * C2-N-077: a degraded include is reported once, as degraded, and not as unresolved.
      */
     public function testDegradedIncludeIsNotReportedUnresolved(): void

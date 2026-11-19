@@ -1148,6 +1148,9 @@ final class HtmlRenderer
         if ($texts !== null && count($texts[0]) === 1) {
             return self::pad($depth) . $open . '<p>' . $texts[0][0] . '</p></blockquote>';
         }
+        if ($texts !== null) {
+            return $this->container($open, '</blockquote>', self::paragraphLines($texts[0], $depth + 1), $depth);
+        }
 
         return $this->container($open, '</blockquote>', $this->blocks($node->children ?? [], $depth + 1), $depth);
     }
@@ -1349,6 +1352,17 @@ final class HtmlRenderer
     }
 
     /**
+     * @param array<string> $texts Escaped paragraph contents.
+     * @param int $depth
+     *
+     * @return array<string>
+     */
+    private static function paragraphLines(array $texts, int $depth): array
+    {
+        return array_map(static fn (string $text): string => self::pad($depth) . '<p>' . $text . '</p>', $texts);
+    }
+
+    /**
      * The degraded paragraphs of the first block when the profile refuses it, and the blocks after it.
      *
      * @param array<\MarkupCarve\Carve\Node> $blocks
@@ -1374,11 +1388,8 @@ final class HtmlRenderer
      */
     private function itemTail(array $rest, array $degradedTail, int $depth): array
     {
-        $lines = [];
         $kept = $degradedTail !== [];
-        foreach ($degradedTail as $text) {
-            $lines[] = self::pad($depth + 1) . '<p>' . $text . '</p>';
-        }
+        $lines = self::paragraphLines($degradedTail, $depth + 1);
         foreach ($rest as $child) {
             if (!$this->allowed($child, $depth + 1)) {
                 // C2-H-165: a degraded block that leaves no text is dropped, with no line of its own.
@@ -1443,6 +1454,9 @@ final class HtmlRenderer
         $texts = count($visible) === 1 ? $this->degradedLead($visible, $depth + 1) : null;
         if ($texts !== null && count($texts[0]) === 1) {
             return self::pad($depth) . $open . $texts[0][0] . '</dd>';
+        }
+        if ($texts !== null) {
+            return $this->container($open, '</dd>', self::paragraphLines($texts[0], $depth + 1), $depth);
         }
 
         return $this->container($open, '</dd>', $this->blocks($node->children ?? [], $depth + 1), $depth);
