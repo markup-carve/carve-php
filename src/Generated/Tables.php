@@ -5694,6 +5694,29 @@ final class Tables
     /** C2-N-065 limits.json include_bytes */
     public const INCLUDE_BYTES = 8388608;
 
+    /** C2-T-024 limits.json include_diagnostics */
+    public const INCLUDE_DIAGNOSTICS = 100;
+
+    /** C2-T-024 includes.json: the codes of the include causes */
+    public const INCLUDE_CAUSE_CODES = [
+        'include-no-resolver' => true,
+        'include-option-invalid' => true,
+        'include-selection-conflict' => true,
+        'include-depth' => true,
+        'include-budget' => true,
+        'include-outside-root' => true,
+        'include-not-found' => true,
+        'include-unreadable' => true,
+        'include-non-text' => true,
+        'include-cycle' => true,
+        'include-section' => true,
+        'include-region-invalid' => true,
+        'include-lines-out-of-range' => true,
+        'include-rows-out-of-range' => true,
+        'include-cols-invalid' => true,
+        'include-cols-duplicate' => true,
+    ];
+
     /** C2-B-052 limits.json */
     public const LIST_END_BLANK_LINES = 3;
 
@@ -6231,6 +6254,23 @@ final class Tables
             'values' => null,
             'default' => false,
         ],
+        'allowLosses' => [
+            'kind' => 'render',
+            'readBy' => [
+                'import',
+                'render',
+            ],
+            'type' => 'list',
+            'values' => null,
+            'default' => [],
+        ],
+        'codeBlockRenderer' => [
+            'kind' => 'render',
+            'readBy' => 'render',
+            'type' => 'structure',
+            'values' => null,
+            'default' => null,
+        ],
         'extensions' => [
             'kind' => 'parse',
             'readBy' => [
@@ -6286,6 +6326,16 @@ final class Tables
                 'admonitionExample' => 'Example',
                 'admonitionQuote' => 'Quote',
             ],
+        ],
+        'maxLosses' => [
+            'kind' => 'render',
+            'readBy' => [
+                'import',
+                'render',
+            ],
+            'type' => 'count',
+            'values' => null,
+            'default' => 100,
         ],
         'mode' => [
             'kind' => 'render',
@@ -6376,6 +6426,17 @@ final class Tables
             'type' => 'structure',
             'values' => null,
             'default' => null,
+        ],
+        'softBreak' => [
+            'kind' => 'render',
+            'readBy' => 'render',
+            'type' => 'enum',
+            'values' => [
+                'newline',
+                'space',
+                'br',
+            ],
+            'default' => 'newline',
         ],
         'sourceLines' => [
             'kind' => 'render',

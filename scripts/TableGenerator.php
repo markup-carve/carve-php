@@ -120,6 +120,12 @@ final class TableGenerator
         $consts['INLINE_DEPTH'] = ['C2-I-118 limits.json inline_depth', $limits['inline_depth']];
         $consts['INCLUDE_DEPTH'] = ['C2-N-064 limits.json include_depth', $limits['include_depth']];
         $consts['INCLUDE_BYTES'] = ['C2-N-065 limits.json include_bytes', $limits['include_bytes']];
+        $consts['INCLUDE_DIAGNOSTICS'] = ['C2-T-024 limits.json include_diagnostics', $limits['include_diagnostics']];
+        $causes = [];
+        foreach ($load('includes')['causes'] as $row) {
+            $causes[$row['code']] = true;
+        }
+        $consts['INCLUDE_CAUSE_CODES'] = ['C2-T-024 includes.json: the codes of the include causes', $causes];
         $consts['LIST_END_BLANK_LINES'] = ['C2-B-052 limits.json', $limits['list_end_blank_lines']];
         $consts['TAB_STOP'] = ['C2-B-004 limits.json', $limits['tab_stop']];
     }
@@ -433,8 +439,10 @@ final class TableGenerator
         ksort($codes, SORT_STRING);
         ksort($messages, SORT_STRING);
         $consts['MESSAGES'] = ['C2-A-173 lint-rules.json: the messages of each code, slots unfilled', $messages];
-        $consts['DIAGNOSTICS'] = ['C2-A-173 lint-rules.json: severity, channel and first message of each parse' .
-            ' and render-loss code', $codes];
+        $consts['DIAGNOSTICS'] = [
+            'C2-A-173 lint-rules.json: severity, channel and first message of each parse'
+            . ' and render-loss code', $codes,
+        ];
         $consts['INCLUDE_OPTIONS'] = ['C2-B-205 include-options.json', self::stripClauses($include['options'] ?? $include)];
     }
 
@@ -445,7 +453,7 @@ final class TableGenerator
      *
      * @return array<string, array{0: string, 1: mixed}>
      */
-    private static function inlineTables(\Closure $load): array
+    private static function inlineTables(Closure $load): array
     {
         $smart = $load('smart-punctuation');
         $byFirst = [];

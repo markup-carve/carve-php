@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve;
 
 use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TreeSink;
+use MarkupCarve\Carve\Diagnostics\Cap;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Export\AnsiExporter;
@@ -78,9 +79,11 @@ final class Carve
      */
     public static function parseWithDiagnostics(string $source, array $options = []): ParseResult
     {
-        [$doc, $findings] = self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']));
+        $opts = Options::from(self::normalize($options), ['parse', 'resolve']);
+        [$doc, $findings] = self::parsed($source, $opts);
+        [$entries, $suppressed] = Cap::apply($findings->finish($doc), $opts, false);
 
-        return new ParseResult(self::remember($doc, $source), $findings->finish($doc));
+        return new ParseResult(self::remember($doc, $source), $entries, $suppressed);
     }
 
     /**
@@ -186,7 +189,9 @@ final class Carve
             );
         }
 
-        return new RenderResult($opts->strictLosses && $log->entries !== [] ? '' : $html, $entries);
+        [$entries, $suppressed] = Cap::apply($entries, $opts, true);
+
+        return new RenderResult($opts->strictLosses && $log->entries !== [] ? '' : $html, $entries, $suppressed);
     }
 
     /**
@@ -607,6 +612,42 @@ final class Carve
         }
 
         return self::importHtml($input, $options);
+    }
+
+    /**
+     * C2-T-041: the line and column of C2-T-019 for a range that starts at the UTF-8 byte offset `$offset` of `$source`.
+     *
+     * @param string $source The source bytes, as `parse` takes them.
+     * @param mixed $offset
+     *
+     * @throws \MarkupCarve\Carve\OptionError An offset outside the source, or inside one code point or one ill-formed
+     *   sequence that a U+FFFD replaces (C2-B-218).
+     *
+     * @return array{line: int, column: int}
+     */
+    public static function positionOf(string $source, mixed $offset): array
+    {
+        $length = strlen($source);
+        if (!is_int($offset) || $offset < 0 || $offset > $length) {
+            throw new OptionError('option offset: ' . json_encode($offset) . ' is no offset into ' . $length . ' bytes');
+        }
+        $line = 1;
+        $column = 1;
+        $at = 0;
+        while ($at < $offset) {
+            if ($source[$at] === "\n") {
+                $line++;
+                $column = 1;
+            } else {
+                $column++;
+            }
+            $at += Utf8::unitLength($source, $at);
+        }
+        if ($at !== $offset) {
+            throw new OptionError('option offset: ' . $offset . ' is inside the bytes of one code point');
+        }
+
+        return ['line' => $line, 'column' => $column];
     }
 
     /**

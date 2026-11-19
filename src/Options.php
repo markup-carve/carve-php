@@ -93,6 +93,26 @@ final class Options
 
     public int $includeBytes = Tables::INCLUDE_BYTES;
 
+    public int $includeDiagnostics = Tables::INCLUDE_DIAGNOSTICS;
+
+    public string $softBreak = 'newline';
+
+    /**
+     * C2-H-204: the allowed render-loss codes.
+     *
+     * @var array<string, true>
+     */
+    public array $allowLosses = [];
+
+    public int $maxLosses = 100;
+
+    /**
+     * C2-H-206: host HTML for a code block, or null to keep the default.
+     *
+     * @var \Closure(\MarkupCarve\Carve\Node, string): mixed|null
+     */
+    public ?Closure $codeBlockRenderer = null;
+
     /**
      * @param array<string, mixed> $options
      * @param array<string>|null $stages
@@ -185,6 +205,22 @@ final class Options
             'social' => $this->setSocial($value),
             'extensions' => $this->setExtensions($value),
             'platforms' => self::platforms($value),
+            default => $this->setRenderValue($name, $value),
+        };
+    }
+
+    /**
+     * @param string $name
+     * @param mixed $value
+     *
+     * @return void
+     */
+    private function setRenderValue(string $name, mixed $value): void
+    {
+        match ($name) {
+            'allowLosses' => $this->setAllowLosses($value),
+            'maxLosses' => $this->setMaxLosses($value),
+            'codeBlockRenderer' => $this->setCodeBlockRenderer($value),
             default => $this->includes($value),
         };
     }
@@ -219,6 +255,7 @@ final class Options
         match ($name) {
             'headingIds' => $this->headingIds = $value,
             'mode' => $this->mode = $value,
+            'softBreak' => $this->softBreak = $value,
             default => $this->profile = $value,
         };
     }
@@ -264,6 +301,61 @@ final class Options
                 throw new OptionError('option rules: a rule is on or off');
             }
         }
+    }
+
+    /**
+     * C2-H-204: every entry is a code of the render-loss channel.
+     *
+     * @param mixed $value
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return void
+     */
+    private function setAllowLosses(mixed $value): void
+    {
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new OptionError('option allowLosses: not a list');
+        }
+        $this->allowLosses = [];
+        foreach ($value as $code) {
+            if (!is_string($code) || (Tables::DIAGNOSTICS[$code][1] ?? null) !== 'render-loss') {
+                throw new OptionError('option allowLosses: ' . json_encode($code) . ' is no render-loss code');
+            }
+            $this->allowLosses[$code] = true;
+        }
+    }
+
+    /**
+     * C2-H-205: a count.
+     *
+     * @param mixed $value
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return void
+     */
+    private function setMaxLosses(mixed $value): void
+    {
+        if (!is_int($value) || $value < 0) {
+            throw new OptionError('option maxLosses: not a count');
+        }
+        $this->maxLosses = $value;
+    }
+
+    /**
+     * @param mixed $value
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return void
+     */
+    private function setCodeBlockRenderer(mixed $value): void
+    {
+        if ($value !== null && !$value instanceof Closure) {
+            throw new OptionError('option codeBlockRenderer: not a function');
+        }
+        $this->codeBlockRenderer = $value;
     }
 
     /**
@@ -470,16 +562,39 @@ final class Options
 
                 continue;
             }
-            if (($key === 'depth' || $key === 'bytes') && is_int($item) && $item >= 0) {
-                $limit = $key === 'depth' ? Tables::INCLUDE_DEPTH : Tables::INCLUDE_BYTES;
-                if ($item <= $limit) {
-                    $key === 'depth' ? $this->includeDepth = $item : $this->includeBytes = $item;
-
-                    continue;
-                }
+            if ($this->includeLimit((string)$key, $item)) {
+                continue;
             }
 
             throw new OptionError('option includes: invalid field ' . $key);
         }
+    }
+
+    /**
+     * C2-N-064, C2-N-065, C2-T-024: a host may lower a limit and may not raise it.
+     *
+     * @param string $key
+     * @param mixed $item
+     *
+     * @return bool Whether `$key` is a limit and `$item` a value it takes.
+     */
+    private function includeLimit(string $key, mixed $item): bool
+    {
+        $limit = match ($key) {
+            'depth' => Tables::INCLUDE_DEPTH,
+            'bytes' => Tables::INCLUDE_BYTES,
+            'maxDiagnostics' => Tables::INCLUDE_DIAGNOSTICS,
+            default => null,
+        };
+        if ($limit === null || !is_int($item) || $item < 0 || $item > $limit) {
+            return false;
+        }
+        match ($key) {
+            'depth' => $this->includeDepth = $item,
+            'bytes' => $this->includeBytes = $item,
+            default => $this->includeDiagnostics = $item,
+        };
+
+        return true;
     }
 }

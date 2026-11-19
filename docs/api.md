@@ -28,6 +28,7 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult`: `format()` with the writer losses as diagnostics (C2-W-134).
 - `static render(Node|array|string $input, array $options = []): string`: C2-T-005 `render`: the HTML of Carve source or of a tree. A tree is a `Node` of `parse()` or `decodeTree()`, or the decoded AST JSON as an array; it is validated (C2-A-188) and resolved again with the render options on a copy, so the caller's tree is not changed.
 - `static importDocument(string $input, array $options = []): ImportResult`: C2-T-005 `importDocument`: the importer for `from` (only `html`, the default).
+- `static positionOf(string $source, mixed $offset): array`: C2-T-041: the line and column of C2-T-019 for a range that starts at the UTF-8 byte offset `$offset` of `$source`.
 - `static encodeTree(Node $tree): string`: C2-A-012: the bare tree as JSON, without positions where the tree came from JSON without them.
 - `static encodeEnvelope(Node $tree): string`: C2-A-012, C2-A-013: the tree in its envelope, for a storage or process boundary.
 - `static decodeTree(string $json, array $options = []): Node`: C2-A-188: reads the JSON of a 2.0 tree or envelope.
@@ -53,7 +54,7 @@ Class. One node of the AST 2.0 tree (C2-A-021). The type name is the schema type
 
 Class. The tree of a parse and the entries of its parse channel.
 
-Fields: `Node $tree`, `array $diagnostics`.
+Fields: `Node $tree`, `array $diagnostics`, `int $suppressedDiagnostics`.
 
 - `codes(): array`
 
@@ -61,7 +62,7 @@ Fields: `Node $tree`, `array $diagnostics`.
 
 Class. The HTML of a render and the entries of its parse and render-loss channels.
 
-Fields: `string $html`, `array $diagnostics`.
+Fields: `string $html`, `array $diagnostics`, `int $suppressedDiagnostics`.
 
 - `codes(): array`
 
@@ -83,7 +84,7 @@ Fields: `string $source`, `array $diagnostics`.
 
 Class. C2-M-001: the tree of an import, its canonical Carve source and the diagnostics record.
 
-Fields: `Node $tree`, `array $document`, `array $diagnostics`, `string $source`.
+Fields: `Node $tree`, `array $document`, `array $diagnostics`, `string $source`, `int $suppressedDiagnostics`.
 
 - `codes(): array`
 

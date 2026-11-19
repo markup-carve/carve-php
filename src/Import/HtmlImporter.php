@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Import;
 
+use MarkupCarve\Carve\Diagnostics\Cap;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Json\TreeReader;
@@ -19,7 +20,8 @@ final class HtmlImporter
 {
     /**
      * @param string $html
-     * @param array<string, mixed> $options `rawHtml` (C2-M-066) and `strictLosses` (C2-M-082).
+     * @param array<string, mixed> $options `rawHtml` (C2-M-066), `strictLosses` (C2-M-082), `allowLosses` and `maxLosses`
+     *   (C2-H-204, C2-H-205).
      * @param bool $legacyParser Read with the libxml parser even where `Dom\HTMLDocument` exists.
      *
      * @throws \MarkupCarve\Carve\Import\ImportInputError C2-M-006, or without `ext-dom`.
@@ -32,7 +34,10 @@ final class HtmlImporter
         if (!HtmlParser::available()) {
             throw new ImportInputError('HTML import requires the PHP DOM extension (ext-dom)');
         }
-        $opts = Options::from(array_intersect_key($options, ['rawHtml' => true, 'strictLosses' => true]));
+        $opts = Options::from(array_intersect_key(
+            $options,
+            ['rawHtml' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
+        ));
         $root = HtmlParser::parse($html, $legacyParser);
         $context = new ImportContext($opts->rawHtml);
         Notes::collect($root->children, $context);
@@ -57,6 +62,7 @@ final class HtmlImporter
         $written = Writer::writeWithDiagnostics($document);
         $source = $written->source;
         $diagnostics = array_merge($diagnostics, $written->diagnostics);
+        [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
             $diagnostics = array_map(static fn (Diagnostic $d): Diagnostic => new Diagnostic(
                 $d->code,
@@ -71,7 +77,7 @@ final class HtmlImporter
             ), $diagnostics);
         }
 
-        return new ImportResult($tree, $document, $diagnostics, $source);
+        return new ImportResult($tree, $document, $diagnostics, $source, $suppressed);
     }
 
     /**

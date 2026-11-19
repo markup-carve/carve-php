@@ -17,12 +17,14 @@ final class ImportResult
      * @param array<string, mixed> $document The document in JSON form, without positions.
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics The importer's entries, then the writer's.
      * @param string $source The canonical source (C2-M-074).
+     * @param int $suppressedDiagnostics The losses `maxLosses` held back (C2-H-205).
      */
     public function __construct(
         public readonly Node $tree,
         public readonly array $document,
         public readonly array $diagnostics,
         public readonly string $source,
+        public readonly int $suppressedDiagnostics = 0,
     ) {
     }
 

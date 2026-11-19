@@ -24,13 +24,18 @@ final class InlineRenderer
      * @var array<string, string>
      */
     private const FIXED = [
-
-        'soft_break' => "\n",
         'hard_break' => "<br>\n",
         'non_breaking_space' => '&nbsp;',
         'comment' => '',
         'citation' => '',
     ];
+
+    /**
+     * C2-H-203: the `softBreak` values.
+     *
+     * @var array<string, string>
+     */
+    private const SOFT_BREAKS = ['newline' => "\n", 'space' => ' ', 'br' => "<br>\n"];
 
     /**
      * The writer of each inline type, called with the node, its attributes, its language and the depth.
@@ -233,6 +238,9 @@ final class InlineRenderer
         }
         if (isset(self::FIXED[$type])) {
             return self::FIXED[$type];
+        }
+        if ($type === 'soft_break') {
+            return self::SOFT_BREAKS[$this->o->softBreak];
         }
         $attrs = $node->f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? $attrs : null;
