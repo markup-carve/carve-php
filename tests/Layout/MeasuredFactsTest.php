@@ -50,4 +50,15 @@ final class MeasuredFactsTest extends TestCase
             }
         }
     }
+
+    public function testQuotedFenceKeepsItsClosingRun(): void
+    {
+        $layout = Carve::parseWithLayout("> ```\n> x\n> ```\n")->layout;
+        $fence = array_values(array_filter(
+            $layout['nodes'],
+            static fn (array $entry): bool => $entry['path'] === '/children/0/children/0',
+        ))[0];
+        self::assertSame('```', $fence['openerRaw']);
+        self::assertSame('```', $fence['closerRaw']);
+    }
 }

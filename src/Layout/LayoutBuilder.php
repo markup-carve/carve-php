@@ -259,7 +259,7 @@ final class LayoutBuilder
             $facts['continuationStyle'] = $this->continuationStyle($node, $content, $quotes);
         }
 
-        return $facts + $this->markerFacts($node, $quotes) + $this->fenceFacts($node)
+        return $facts + $this->markerFacts($node, $quotes) + $this->fenceFacts($node, $quotes)
             + $this->commentFacts($node, $quotes);
     }
 
@@ -311,7 +311,7 @@ final class LayoutBuilder
     /**
      * @return array<string, mixed>
      */
-    private function fenceFacts(Node $node): array
+    private function fenceFacts(Node $node, int $quotes): array
     {
         $source = $this->lines->s;
         $facts = [];
@@ -319,7 +319,8 @@ final class LayoutBuilder
             $char = $source[$node->start];
             $facts['openerRaw'] = str_repeat($char, strspn($source, $char, $node->start));
             $last = $this->lines->lineStart(max($node->start, $node->end - 1));
-            $closer = trim(substr($source, $last, max(0, $node->end - $last)));
+            $content = $this->lines->prefix($last, $node->end, $quotes)[0];
+            $closer = trim(substr($source, $content, max(0, $node->end - $content)));
             $facts['closerRaw'] = $closer !== '' && strspn($closer, $char) === strlen($closer) ? $closer : '';
         }
 
