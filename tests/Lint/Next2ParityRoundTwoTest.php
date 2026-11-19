@@ -25,7 +25,7 @@ final class Next2ParityRoundTwoTest extends TestCase
             'tabbed heading continuation' => ["# H\n\t---", ['deprecated-indented-line-under-heading', 'thematic-break-spelling']],
             'tabbed block in item' => [
                 "- item\n  # H\n\t***",
-                ['block-opener-without-blank-line', 'list-item-body-below-content-column', 'list-item-block-overindented'],
+                ['block-opener-without-blank-line', 'list-item-block-overindented'],
             ],
             'line outside quote heading' => ["> # H\n ---", ['thematic-break-spelling']],
             'indented heading continuation' => ["# H\n  text", ['deprecated-indented-line-under-heading']],

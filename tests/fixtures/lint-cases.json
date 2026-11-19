@@ -1,5 +1,5 @@
 {
- "source": "carve-js 2b8b95c1 v2/lint/lint.test.mjs CASES and corpus-cases.json; findings of that engine",
+ "source": "carve-js 2b8b95c1 v2/lint/lint.test.mjs CASES and corpus-cases.json; findings of that engine; 0.2 pinned lint corrections",
  "cases": {
   "deprecated-continuation-marker": {
    "trigger": "- a\n+\nb",
@@ -1253,7 +1253,7 @@
     [
      "colon-fence-length-mismatch",
      "/children/0/children/0/children/0",
-     13,
+     15,
      19,
      "Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the container."
     ]
@@ -1330,16 +1330,16 @@
    ]
   },
   "definition-term-block-folded": {
-   "trigger": ":: c\n# H\n",
-   "near": ":: c\n\n",
+   "trigger": ":: > x\n",
+   "near": ":: c\n# H\n",
    "options": {},
    "findings": [
     [
      "definition-term-block-folded",
      "/children/0/children/0",
-     5,
-     8,
-     "This block opener is indented under a definition term, which has no content column, so it folds into the term as text (a fence line or a table row does not fold: it closes the description list). Dedent it to the container's content column to open the block, or put it in the term's \": \" description."
+     3,
+     4,
+     "A quote mark or list marker after the term mark is term text. Put the intended block on a `: ` description line at the list column, such as `: > text` or `: - item`."
     ]
    ]
   },
@@ -1511,16 +1511,16 @@
    ]
   },
   "description-separator-below-content-column": {
-   "trigger": ":: t\n: a\n : b\n",
-   "near": ":: t\n: a\n \n",
+   "trigger": "::: box\n   :: t\n: d\n:::\n",
+   "near": ":: t\n: a\n : b\n",
    "options": {},
    "findings": [
     [
      "description-separator-below-content-column",
-     "/children/0/children/1/children/0",
-     10,
-     13,
-     "This description starts at column 2, below the column 1 of the definition list above, so it adds no entry to that list. Indent it to column 1 to continue the list."
+     "/children/0/children/0/children/0",
+     16,
+     19,
+     "This description starts at column 1, below the column 4 of the definition list above, so it adds no entry to that list. Indent it to column 4 to continue the list."
     ]
    ]
   },
@@ -1805,8 +1805,8 @@
    ]
   },
   "list-item-body-below-content-column": {
-   "trigger": "- a\n\n\tb",
-   "near": "- a\n\n\t",
+   "trigger": "- a\n\n b",
+   "near": "- a\n\n\tb",
    "options": {},
    "findings": [
     [
@@ -1847,15 +1847,15 @@
    ]
   },
   "markdown-definition-paragraph": {
-   "trigger": "> :: t\n : d\n",
-   "near": "> :: t\n \n",
+   "trigger": "a\n: x\n",
+   "near": "> :: t\n : d\n",
    "options": {},
    "findings": [
     [
      "markdown-definition-paragraph",
-     "/children/0/children/0/children/0",
-     8,
-     11,
+     "/children/0",
+     2,
+     5,
      "This markdown definition remains paragraph text; use a :: term line before the definition."
     ]
    ]

@@ -135,6 +135,16 @@ final class LineRules
             return null;
         }
         [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
+        $earlier = self::prior($line, $c);
+        if (
+            str_starts_with($line->text, '> ')
+            && (self::hasAncestor($line->path, $c, 'footnote') || self::hasAncestor($line->path, $c, 'list_item'))
+            && $earlier !== null
+            && preg_match('/(?:\[\^[^\]]+\]:|(?:^|[ \t])(?:[-*]|[0-9]+[.)]))[ \t]+.*> /', $earlier->text) === 1
+            && !self::startsBlock($text)
+        ) {
+            [$text, $start] = self::trimmed($line);
+        }
 
         return [$text, $start, $previous];
     }
@@ -258,7 +268,14 @@ final class LineRules
 
     private static function thematicBreak(Line $line, Context $c): void
     {
-        $text = self::afterQuote($line)[0];
+        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
+        if (!self::isRun($text, '-_', 3) && $line->paragraph) {
+            [$text, $start] = self::paragraphContent($line, $c);
+        }
+        if (!self::isRun($text, '-_', 3) && preg_match('/^(?:[-*]|[0-9]+[.)])[ \t]+(?=[-_]{3})/', $text, $match) === 1) {
+            $start += strlen($match[0]);
+            $text = substr($text, strlen($match[0]));
+        }
         if (!self::isRun($text, '-_', 3)) {
             return;
         }
@@ -269,7 +286,6 @@ final class LineRules
         ) {
             return;
         }
-        [$text, $start] = self::afterQuote($line);
         $raw = self::shown($line, $c, $start - $line->start, strlen($text));
         $c->report('thematic-break-spelling', $start, $start + strlen($text), $line->path, ['raw' => $raw]);
     }
@@ -288,8 +304,12 @@ final class LineRules
 
     private static function spacedBreak(Line $line, Context $c): void
     {
-        if (self::isSpacedRun(self::afterQuote($line)[0])) {
-            self::reportLine('deprecated-spaced-thematic-break', $line, $c);
+        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
+        if (!self::isSpacedRun($text) && $line->paragraph) {
+            [$text, $start] = self::paragraphContent($line, $c);
+        }
+        if (self::isSpacedRun($text) && ($c->nodeTypes[$line->path] ?? null) !== 'definition_term') {
+            $c->report('deprecated-spaced-thematic-break', $start, $start + strlen($text), $line->path);
         }
     }
 
@@ -395,7 +415,7 @@ final class LineRules
 
     private static function emptyReference(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
+        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
         if (!str_starts_with($text, '[') || !str_ends_with($text, ']:') || strlen($text) < 4) {
             return;
         }
@@ -415,6 +435,9 @@ final class LineRules
             return;
         }
         [$leaf, $from] = self::paragraphContent($line, $c);
+        if (str_starts_with(Support::trimStart($leaf), '> ')) {
+            [$leaf, $from] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
+        }
         if (preg_match_all('/\[\^[ \t]+\]|(?<=\])\[[ \t]+\]|^\[[ \t]+\]:/', $leaf, $matches, PREG_OFFSET_CAPTURE) < 1) {
             return;
         }
@@ -457,6 +480,47 @@ final class LineRules
         }
         $value = substr($line->text, 1);
         $c->report('blockquote-marker-without-space', $line->start, $line->start + 1, $line->path, ['text' => $value], 1);
+    }
+
+    /**
+     * A comment inside a quote or item ends when its owner ends. The parser may still mark a later physical line opaque;
+     * recover the two spelling rules whose candidates begin on that escaped line.
+     */
+    public static function escapedOpaque(Line $line, Context $c): void
+    {
+        if (
+            isset($c->frontmatterLines[$line->number])
+            || (!preg_match('/^>[^ ]/', $line->text) && preg_match('/<[A-Za-z\/]/', $line->text) !== 1)
+        ) {
+            return;
+        }
+        for ($i = $line->number - 2; $i >= 0; $i--) {
+            $prior = $c->lines[$i];
+            if (preg_match('/%{3,}/', $prior->text, $match, PREG_OFFSET_CAPTURE) !== 1) {
+                continue;
+            }
+            $before = substr($prior->text, 0, $match[0][1]);
+            $quoted = preg_match('/^(?:[ \t]*> )+/', $before) === 1;
+            $listed = preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+/', $before) === 1;
+            if (!$quoted && !$listed) {
+                continue;
+            }
+            if (
+                ($quoted && str_starts_with($line->text, '> '))
+                || ($listed && strspn($line->text, " \t") > 0)
+            ) {
+                return;
+            }
+            $visible = new Line($line->text, $line->start, $line->end, $line->number, '', false, true);
+            if ($c->active('blockquote-marker-without-space')) {
+                self::quoteWithoutSpace($visible, $c);
+            }
+            if ($c->active('bare-html-tag')) {
+                self::bareHtml($visible, $c);
+            }
+
+            return;
+        }
     }
 
     private static function isListMarker(string $text): bool
@@ -570,24 +634,41 @@ final class LineRules
     private static function unattachedCaption(Line $line, Context $c): void
     {
         [$text, $start] = self::paragraphContent($line, $c);
+        if (!str_starts_with($text, '^ ')) {
+            [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
+        }
         if (!str_starts_with($text, '^ ') || !$line->paragraph || self::hasAncestor($line->path, $c, 'caption')) {
             return;
-        }
-        $previous = self::prior($line, $c);
-        // C2-B-149: below any other block the line is text; below a definition, which is no block, it is left alone.
-        if ($previous !== null && !$previous->paragraph) {
-            $lead = Support::trimStart($previous->text);
-            if (str_starts_with($lead, '[') || str_starts_with($lead, '*[')) {
-                return;
-            }
         }
         $c->report('unattached-caption', $start, $start + strlen($text), $line->path);
     }
 
     private static function unattachedAttribute(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
-        if (!$line->paragraph || !str_starts_with($text, '{') || !str_ends_with($text, '}') || strlen($text) < 3) {
+        if (!$line->paragraph) {
+            return;
+        }
+        if (
+            ($c->nodeTypes[$line->path] ?? null) === 'definition_term'
+            && ($c->firstLines[$line->path] ?? $line->number) < $line->number
+        ) {
+            return;
+        }
+        $text = $line->text;
+        $at = 0;
+        while (preg_match('/\G[ \t]*> /A', $text, $match, 0, $at) === 1) {
+            $at += strlen($match[0]);
+        }
+        if (preg_match('/\G[ \t]*(?:[-*]|[0-9]+[.)]|:)[ \t]+/A', $text, $match, 0, $at) === 1) {
+            $at += strlen($match[0]);
+        }
+        $at += strspn($text, " \t", $at);
+        $text = Support::trimEnd(substr($text, $at));
+        $start = $line->start + $at;
+        if (
+            !str_starts_with($text, '{') || !str_ends_with($text, '}') || strlen($text) < 3
+            || !self::isAttributeLine($text)
+        ) {
             return;
         }
         $second = $text[1];
@@ -598,7 +679,10 @@ final class LineRules
             return;
         }
         $next = $c->lines[$line->number] ?? null;
-        if ($next !== null && !self::blank($next) && !$next->paragraph) {
+        if (
+            $next !== null && !self::blank($next) && !$next->paragraph
+            && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
+        ) {
             return;
         }
         $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], self::blank($next) ? 1 : 0);
@@ -683,6 +767,20 @@ final class LineRules
         if (self::hasAncestor($line->path, $c, 'footnote')) {
             return;
         }
+        $previous = self::prior($line, $c);
+        if (
+            ($c->nodeTypes[$line->path] ?? null) === 'definition_term'
+            && ($c->firstLines[$line->path] ?? $line->number) < $line->number
+        ) {
+            return;
+        }
+        if (
+            $previous !== null && $previous->path === $line->path
+            && $c->layout->quoteDepth($line->path) === 0
+            && preg_match('/^[ \t]*> /', $line->text) === 1
+        ) {
+            return;
+        }
         $indented = ($line->text[0] ?? '') === ' ' || ($line->text[0] ?? '') === "\t";
         if (!$indented && count(explode('/', $line->path)) <= 3) {
             return;
@@ -707,6 +805,9 @@ final class LineRules
 
     private static function githubAlert(Line $line, Context $c): void
     {
+        if (preg_match('/^[ \t]*>:/', $line->text) === 1) {
+            return;
+        }
         $at = strpos($line->text, '[!');
         if ($at === false || !str_contains(substr($line->text, $at), ']') || !str_starts_with(Support::trimStart($line->text), '>')) {
             return;
@@ -784,7 +885,7 @@ final class LineRules
 
     private static function captionLooking(Line $line, Context $c): void
     {
-        if (!$line->paragraph || str_contains($line->path, '/caption/')) {
+        if (!$line->paragraph || ($c->nodeTypes[$line->path] ?? null) !== 'paragraph' || str_contains($line->path, '/caption/')) {
             return;
         }
         [$text, $start] = self::paragraphContent($line, $c);
@@ -798,7 +899,7 @@ final class LineRules
             $prev = $c->lines[$line->number - 1 - $distance] ?? null;
             $below = $below || ($next !== null && str_starts_with(Support::trimStart($next->text), '|'));
             $above = $above || ($prev !== null && (str_starts_with(Support::trimStart($prev->text), '|')
-                || str_starts_with(Support::trimStart($prev->text), '![')));
+                || str_contains($prev->text, '![')));
         }
         if ($below || $above) {
             $c->report('caption-looking-paragraph', $start, $start + 1, $line->path, [], $below ? 0 : 1);
@@ -827,6 +928,9 @@ final class LineRules
      */
     private static function belowListColumn(Line $line, Context $c): ?array
     {
+        if (isset($c->descriptionEntryLines[$line->number])) {
+            return null;
+        }
         if (!str_contains($line->text, ':')) {
             return null;
         }

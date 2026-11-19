@@ -100,6 +100,7 @@ final class Linter
                 if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
                     LineRules::frontmatterQuote($line, $c);
                 }
+                LineRules::escapedOpaque($line, $c);
 
                 continue;
             }
@@ -187,6 +188,9 @@ final class Linter
     private static function placed(array $node, string $type, string $path, array $pos, Context $c, array &$controls): void
     {
         $c->firstLines[$path] = $pos['startLine'];
+        if ($type === 'definition_description') {
+            $c->descriptionEntryLines[$pos['startLine']] = true;
+        }
         if ($type === 'paragraph') {
             $c->paragraphStarts[$path] = $pos['startOffset'];
         }
