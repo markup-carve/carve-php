@@ -85,6 +85,7 @@ final class RuledCallsTest extends TestCase
             [[['op' => 'add', 'path' => '/children/-', 'value' => ['type' => 'thematic_break']], ['op' => 'jump', 'path' => '']], '/1/op'],
             [[['op' => 'replace', 'path' => 'children']], '/0/path'],
             [['x'], '/0'],
+            [[['op' => 'remove', 'path' => '/children/0~2']], '/0/path'],
         ];
         foreach ($cases as [$patch, $pointer]) {
             try {
@@ -127,6 +128,10 @@ final class RuledCallsTest extends TestCase
             json_encode(json_decode(TreeEncoder::json(self::bare("b\n\na\n"), null), true)['children']),
             json_encode(json_decode(TreeEncoder::json($moved, null), true)['children']),
         );
+        foreach (['', '/children/0'] as $same) {
+            $unchanged = Carve::applyPatch($tree, [['op' => 'move', 'from' => $same, 'path' => $same]]);
+            self::assertSame(Carve::encodeTree($tree), Carve::encodeTree($unchanged));
+        }
         $copied = Carve::applyPatch($tree, [['op' => 'copy', 'from' => '/children/0', 'path' => '/children/-']]);
         self::assertCount(3, $copied->children ?? []);
         $this->expectException(PatchError::class);

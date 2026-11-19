@@ -216,6 +216,10 @@ final class TreePatch
         if ($pointer === '') {
             return [];
         }
+        // RFC 6901: `~` escapes only `0` and `1`.
+        if (preg_match('/~(?![01])/', $pointer) === 1) {
+            throw new PatchError($at, 'not a JSON pointer');
+        }
 
         return array_map(
             static fn (string $part): string => str_replace(['~1', '~0'], ['/', '~'], $part),
@@ -466,6 +470,12 @@ final class TreePatch
     {
         $moved = self::decode((string)json_encode(self::walk($root, $from, $at . '/from')));
         if ($op === 'move') {
+            // RFC 6902, section 4.4: a move to its own location changes nothing.
+            if ($path === $from) {
+                self::walk($root, $from, $at . '/from');
+
+                return $root;
+            }
             if (count($path) > count($from) && array_slice($path, 0, count($from)) === $from) {
                 throw new PatchError($at . '/path', 'a value cannot move into itself');
             }
