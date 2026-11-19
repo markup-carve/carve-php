@@ -95,6 +95,36 @@ final class ExtensionSourceTest extends TestCase
         $this->assertSame(['structure-unspellable'], $result->codes());
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function parsedInlineCases(): array
+    {
+        return [
+            'wiki and cite with attributes' => [":wiki[Page] and :cite[doe]{locator=\"p. 4\"}\n"],
+            'emphasis in the body' => [":wiki[*a* /b/] x\n"],
+            'escaped bracket in the body' => [":wiki[a \\] b]\n"],
+            'two keys' => [":cite[doe; roe]\n"],
+            'inside a link' => ["[:wiki[Page]](u)\n"],
+        ];
+    }
+
+    /**
+     * C2-X-023, C2-X-026: a parsed inline extension records its body, and a writer without the extension writes it back
+     * with no loss.
+     */
+    #[DataProvider('parsedInlineCases')]
+    public function testParsedInlineSourceFormWritesItsBody(string $source): void
+    {
+        $tree = Carve::parse($source, ['extensions' => ['carve.wiki', 'carve.cite']]);
+        $result = Carve::writeWithDiagnostics($tree);
+        $this->assertSame($source, $result->source);
+        $this->assertSame([], $result->codes());
+        $withExtensions = Carve::writeWithDiagnostics($tree, null, ['extensions' => ['carve.wiki', 'carve.cite']]);
+        $this->assertSame($source, $withExtensions->source);
+        $this->assertSame([], $withExtensions->codes());
+    }
+
     public function testC2X049TabsReadBackThroughTheTransform(): void
     {
         $source = ":::: tabs\n::: tab \"A\"\nB\n:::\n::::\n";

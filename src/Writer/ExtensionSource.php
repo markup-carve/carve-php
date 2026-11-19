@@ -55,7 +55,7 @@ final class ExtensionSource
             'fence' => ($node['type'] ?? '') === 'code_block' && ($node['syntax'] ?? '') === $name && ($node['value'] ?? '') === $body,
             'div' => self::divName($node) === $name && Writer::writeBlocks($children) === $body,
             'inline' => ($node['type'] ?? '') === 'inline_extension' && ($node['name'] ?? '') === $name
-                && self::inlineBody($children) === $body,
+                && self::inlineBody($name, $children) === $body,
             default => false,
         };
     }
@@ -78,17 +78,18 @@ final class ExtensionSource
     }
 
     /**
+     * C2-X-026: the content as spelled between the brackets of `:name[...]`.
+     *
+     * @param string $name
      * @param array<mixed> $children
      *
      * @return string
      */
-    private static function inlineBody(array $children): string
+    private static function inlineBody(string $name, array $children): string
     {
-        if ($children === []) {
-            return '';
-        }
+        $core = ['type' => 'inline_extension', 'name' => $name, 'children' => $children];
 
-        return rtrim(Writer::writeBlocks([['type' => 'paragraph', 'children' => $children]]), "\n");
+        return substr(rtrim(Writer::writeBlocks([['type' => 'paragraph', 'children' => [$core]]]), "\n"), strlen($name) + 2, -1);
     }
 
     /**
