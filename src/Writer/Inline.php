@@ -1019,6 +1019,9 @@ final class Inline
      */
     private function image(array $node, string $path, Context $c): string
     {
+        if (array_key_exists('decorative', $node)) {
+            $this->w->lose($path, 'image', 'decorative');
+        }
         $alt = self::str($node, 'alt');
         // C2-I-074: the alt text is the source between the brackets as it stands.
         if (substr_count($alt, '[') !== substr_count($alt, ']') || str_ends_with($alt, '\\')) {

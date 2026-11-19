@@ -123,8 +123,8 @@ final class State
         }
         $this->lost[$where] = true;
         $message = $field === null
-            ? "a $type node has no spelling in Carve source here"
-            : "the field $field of a $type node has no spelling in Carve source here";
+            ? "Carve source cannot spell a $type node here"
+            : "Carve source cannot spell the $field field of a $type node here";
         $code = $field === null ? 'structure-unspellable' : 'field-unspellable';
         $this->losses[] = new Diagnostic($code, 'warning', 'render-loss', $message, $where);
     }
