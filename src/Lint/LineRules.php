@@ -570,8 +570,11 @@ final class LineRules
 
     private static function djotPlus(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
-        if ($line->paragraph && str_starts_with($text, '+ ') && strlen($text) > 2) {
+        [$text, $start] = self::paragraphContent($line, $c);
+        if (str_starts_with($text, '>') && str_contains($line->text, '>')) {
+            [$text, $start] = self::afterQuote($line);
+        }
+        if ($line->paragraph && preg_match('/^\+[ \t]+\S/', $text) === 1) {
             $c->report('djot-plus-bullet', $start, $start + strlen($text), $line->path);
         }
     }

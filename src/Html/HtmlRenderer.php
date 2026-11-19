@@ -1841,10 +1841,10 @@ final class HtmlRenderer
             fn (array $nodes): string => implode("\n", $this->blocks($nodes, 0)),
             fn (array $nodes): string => $this->inline->inlines($nodes, 0),
             static fn (array $nodes): string => PlainText::of($nodes),
-            function (string $prefix): string {
+            function (string $prefix, bool $reserve = true): string {
                 do {
                     $id = $prefix . '-' . ++$this->extensionIds;
-                } while (!$this->state->reserveExtensionId($id));
+                } while ($reserve && !$this->state->reserveExtensionId($id));
 
                 return $id;
             },

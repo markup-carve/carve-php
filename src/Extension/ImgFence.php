@@ -89,7 +89,7 @@ final class ImgFence
         $node->f['version'] = '1';
         $node->f['props'] = ['language' => $claim->name];
         $node->f['payload'] = [['format' => 'image/svg+xml', 'value' => $source]];
-        $node->f['fallback'] = [$claim->copyNode()];
+        $node->f['fallback'] = [FencedRender::bareFallback($claim->node)];
 
         return $node;
     }
