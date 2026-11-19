@@ -1395,7 +1395,7 @@
   },
   "deprecated-cell-alignment#2": {
    "trigger": "|=> Price |= Item |= Size |= Mood |\n| 12 |< pen |>^ big |~~ ok |\n|?v 3 | ink |>{.num} 9 | fine |\n",
-   "near": "|={>} Price |= Item |= Size |= Mood |\n| 12 |={<} pen |>^ big |~~ ok |\n|?v 3 | ink |>{.num} 9 | fine |\n",
+   "near": "|={>} Price |= Item |= Size |= Mood |\n| 12 |={<} pen |{>^} big |{~~} ok |\n|{?v} 3 | ink |{> .num} 9 | fine |\n",
    "options": {},
    "findings": [
     [
@@ -1411,6 +1411,34 @@
      42,
      43,
      "The table cell alignment prefix \"<\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{<}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/0/children/2",
+     49,
+     51,
+     "The table cell alignment prefix \">^\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{>^}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/0/children/3",
+     57,
+     59,
+     "The table cell alignment prefix \"~~\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{~~}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/1/children/0",
+     66,
+     68,
+     "The table cell alignment prefix \"?v\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{?v}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/1/children/2",
+     78,
+     85,
+     "The table cell alignment prefix \">{.num}\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{> .num}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
     ]
    ]
   },
