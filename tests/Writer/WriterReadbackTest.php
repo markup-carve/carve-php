@@ -91,6 +91,22 @@ final class WriterReadbackTest extends TestCase
                 "!``\n",
                 ['structure-unspellable /children/0/children/0'],
             ],
+            'C2-I-047 stars with no partner that can pair' => [
+                $p(
+                    $t('x*# } '),
+                    ['type' => 'smart_punctuation', 'kind' => 'right_single_quote', 'glyph' => '’', 'source' => "'"],
+                    $t('1*a'),
+                ),
+                "x*# } '1*a\n",
+                [],
+            ],
+            'C2-I-047 an opening star with no star after it' => [$p($t('a *b *c'), $code('d')), "a *b *c`d`\n", []],
+            'C2-I-047 a closer before an opener' => [$p($t('x*a *b')), "x*a *b\n", []],
+            'C2-I-047 a star before a node that may hold its pair' => [
+                $p($t('a *b '), ['type' => 'strong', 'children' => [$t('s')]]),
+                "a \\*b *s*\n",
+                [],
+            ],
             'C2-I-035 an attribute block would take the span in' => [
                 $p($t('hi{key=“'), $span, $t('”')),
                 "hi\\{key=“[abc]{#hi}”\n",
