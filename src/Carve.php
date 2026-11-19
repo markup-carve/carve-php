@@ -29,6 +29,7 @@ use MarkupCarve\Carve\Include\IncludeResolver;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Json\TreeMigration;
 use MarkupCarve\Carve\Json\TreePatch;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Layout\LayoutBuilder;
@@ -874,6 +875,19 @@ final class Carve
     public static function decodeTree(string $json, array $options = []): Node
     {
         return TreeReader::read($json, self::treeOptions($options));
+    }
+
+    /**
+     * C2-A-176 to C2-A-180: migrate a stored 1.x or retired draft tree before strict 2.0 decoding.
+     *
+     * @param array<string, mixed>|string $tree A bare document or envelope, or its JSON spelling.
+     * @param array<string, mixed> $options Optional original source for the source-layout record.
+     *
+     * @return array<string, mixed> The document, optional envelope, layout and migration diagnostics.
+     */
+    public static function migrateTree(array|string $tree, array $options = []): array
+    {
+        return TreeMigration::migrate($tree, $options);
     }
 
     /**

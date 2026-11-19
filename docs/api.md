@@ -38,6 +38,7 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static encodeTree(Node $tree): string`: C2-A-012: the bare tree as JSON, without positions where the tree came from JSON without them.
 - `static encodeEnvelope(Node $tree): string`: C2-A-012, C2-A-013: the tree in its envelope, for a storage or process boundary.
 - `static decodeTree(string $json, array $options = []): Node`: C2-A-188: reads the JSON of a 2.0 tree or envelope.
+- `static migrateTree(array|string $tree, array $options = []): array`: C2-A-176 to C2-A-180: migrate a stored 1.x or retired draft tree before strict 2.0 decoding.
 - `static validateTree(Node|array $tree, array $options = []): void`: C2-A-188: returns when the tree passes the schema and the reader checks, and throws the refusal otherwise.
 - `static plainText(Node|array $nodes): string`: C2-H-143: the plain text of a node or a node list of a tree, the text `RenderHost::$plainText` gives a renderer. A block node gives the plain text of its children.
 - `static tableGrid(Node $table): array`: The cell grid of a `table` node with its spans filled in, for an output that cannot express rowspan and colspan: per row in order (head, body, foot), the row, its group and, per column, the cell that occupies the slot. A cell spanning columns or rows fills every slot it covers and a slot no cell reaches is null; every row has as many columns as the widest.
