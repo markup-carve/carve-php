@@ -130,4 +130,41 @@ final class Next2FlagsTest extends TestCase
         self::assertSame('', stream_get_contents($out));
         self::assertStringStartsWith('carve[render-loss]:', (string)stream_get_contents($err));
     }
+
+    public function testIncludeReportWorksForDiagnosticsAndRender(): void
+    {
+        foreach (['diagnostics', 'render'] as $command) {
+            $in = fopen('php://memory', 'r+');
+            $out = fopen('php://memory', 'r+');
+            $err = fopen('php://memory', 'r+');
+            self::assertIsResource($in);
+            self::assertIsResource($out);
+            self::assertIsResource($err);
+            fwrite($in, "a\n");
+            rewind($in);
+            self::assertSame(0, Command::main([$command, '--report-includes', '-', '-'], $in, $out, $err));
+            rewind($err);
+            self::assertSame(
+                ['files' => [['file' => '<stdin>', 'dependencies' => []]]],
+                json_decode((string)stream_get_contents($err), true, 4096, JSON_THROW_ON_ERROR),
+            );
+        }
+    }
+
+    public function testMarkdownExportReportsLosses(): void
+    {
+        $in = fopen('php://memory', 'r+');
+        $out = fopen('php://memory', 'r+');
+        $err = fopen('php://memory', 'r+');
+        self::assertIsResource($in);
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        fwrite($in, "::: x\nz\n:::\n");
+        rewind($in);
+        self::assertSame(0, Command::main(['render', '--to', 'markdown', '--report-losses', '-', '-'], $in, $out, $err));
+        rewind($err);
+        $diagnostics = (string)stream_get_contents($err);
+        self::assertStringContainsString('markdown-container-flattened', $diagnostics);
+        self::assertStringContainsString('"suppressed":0', $diagnostics);
+    }
 }
