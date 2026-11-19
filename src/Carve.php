@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Diagnostics\Findings;
+use MarkupCarve\Carve\Export\CodeFence;
 use MarkupCarve\Carve\Extension\DocumentTransform;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Extension\Extensions;
@@ -27,7 +28,9 @@ use MarkupCarve\Carve\Lint\Linter;
 use MarkupCarve\Carve\Output\CarveWriter;
 use MarkupCarve\Carve\Output\HtmlWriter;
 use MarkupCarve\Carve\Output\WriterRegistry;
+use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
+use MarkupCarve\Carve\Resolve\TableGrid;
 use MarkupCarve\Carve\Resolve\Walk;
 use MarkupCarve\Carve\Writer\Writer;
 use MarkupCarve\Carve\Writer\WriteResult;
@@ -657,6 +660,58 @@ final class Carve
     public static function validateTree(Node|array $tree, array $options = []): void
     {
         self::readTree($tree, self::treeOptions($options));
+    }
+
+    /**
+     * C2-H-143: the plain text of a node or a node list of a tree, the text `RenderHost::$plainText` gives a renderer.
+     * A block node gives the plain text of its children.
+     *
+     * @param \MarkupCarve\Carve\Node|array<\MarkupCarve\Carve\Node> $nodes
+     *
+     * @return string
+     */
+    public static function plainText(Node|array $nodes): string
+    {
+        return PlainText::of($nodes instanceof Node ? [$nodes] : PlainText::nodes($nodes));
+    }
+
+    /**
+     * The cell grid of a `table` node with its spans filled in, for an output that cannot express rowspan and colspan:
+     * per row in order (head, body, foot), the row, its group and, per column, the cell that occupies the slot. A cell
+     * spanning columns or rows fills every slot it covers and a slot no cell reaches is null; every row has as many
+     * columns as the widest.
+     *
+     * @param \MarkupCarve\Carve\Node $table
+     *
+     * @throws \MarkupCarve\Carve\OptionError For a node that is not a table.
+     *
+     * @return array<int, array{
+     *     row: \MarkupCarve\Carve\Node,
+     *     group: \MarkupCarve\Carve\Node,
+     *     cells: array<int, \MarkupCarve\Carve\Node|null>,
+     * }>
+     */
+    public static function tableGrid(Node $table): array
+    {
+        if ($table->type !== 'table') {
+            throw new OptionError('tableGrid: not a table node but ' . $table->type);
+        }
+
+        return TableGrid::expand($table);
+    }
+
+    /**
+     * The shortest code fence of `$marker` (three at least) that is longer than every run of it opening a line of
+     * `$content`, so the content cannot close the fence.
+     *
+     * @param string $content
+     * @param string $marker A backtick or a tilde.
+     *
+     * @return string
+     */
+    public static function safeCodeFence(string $content, string $marker = '`'): string
+    {
+        return CodeFence::safe($content, $marker);
     }
 
     /**

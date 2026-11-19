@@ -59,6 +59,77 @@ final class TableGrid
     }
 
     /**
+     * The grid with spans filled in: per row in order, its group and, per column, the cell that occupies the slot.
+     * A cell spanning columns or rows fills every slot it covers, a span mark gives the slot to the cell it extends,
+     * and a slot no cell reaches is null; every row has as many columns as the widest.
+     *
+     * @param \MarkupCarve\Carve\Node $table
+     *
+     * @return array<int, array{
+     *     row: \MarkupCarve\Carve\Node,
+     *     group: \MarkupCarve\Carve\Node,
+     *     cells: array<int, \MarkupCarve\Carve\Node|null>,
+     * }>
+     */
+    public static function expand(Node $table): array
+    {
+        $grid = self::of($table);
+        $owner = [];
+        $width = 0;
+        foreach ($grid->rows as $r => [$row]) {
+            foreach ($row->children ?? [] as $cell) {
+                if ($cell->type === 'table_cell') {
+                    $width = max($width, $grid->occupy($owner, $r, $cell));
+                }
+            }
+        }
+        $out = [];
+        foreach ($grid->rows as $r => [$row, $group]) {
+            $cells = [];
+            for ($c = 0; $c < $width; $c++) {
+                $cells[] = $owner[$r][$c] ?? null;
+            }
+            $out[] = ['row' => $row, 'group' => $group, 'cells' => $cells];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Marks the slots `$cell` occupies in `$owner`: a span mark takes the owner of the slot it extends, any other cell
+     * its counts unless the tree has marks.
+     *
+     * @param array<int, array<int, \MarkupCarve\Carve\Node>> $owner
+     * @param int $r
+     * @param \MarkupCarve\Carve\Node $cell
+     *
+     * @return int The column after the last slot of the cell.
+     */
+    private function occupy(array &$owner, int $r, Node $cell): int
+    {
+        $c = $this->column[spl_object_id($cell)];
+        if ($this->marks) {
+            $by = match ($cell->f['span'] ?? null) {
+                'colspan' => $owner[$r][$c - 1] ?? null,
+                'rowspan' => $owner[$r - 1][$c] ?? null,
+                default => null,
+            };
+            $owner[$r][$c] = $by ?? $cell;
+
+            return $c + 1;
+        }
+        $cols = self::count($cell, 'colspan');
+        $rows = min(self::count($cell, 'rowspan'), count($this->rows) - $r);
+        for ($i = 0; $i < $rows; $i++) {
+            for ($j = 0; $j < $cols; $j++) {
+                $owner[$r + $i][$c + $j] ??= $cell;
+            }
+        }
+
+        return $c + $cols;
+    }
+
+    /**
      * The rows of the head, body and foot groups in order; whether any cell is a span mark.
      *
      * @param \MarkupCarve\Carve\Node $table
