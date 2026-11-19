@@ -606,6 +606,9 @@ final class NodeRulesB
             }
             $paragraphLines[$childPos['startLine']] = true;
         }
+        if ($paragraphLines === []) {
+            return;
+        }
         for ($number = $pos['startLine'] + 1; $number <= $pos['endLine']; $number++) {
             $line = $c->lines[$number - 1] ?? null;
             if ($line === null || !isset($paragraphLines[$number])) {

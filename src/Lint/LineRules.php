@@ -652,7 +652,7 @@ final class LineRules
 
     private static function unattachedAttribute(Line $line, Context $c): void
     {
-        if (!$line->paragraph) {
+        if (!$line->paragraph || !str_contains($line->text, '{')) {
             return;
         }
         if (
@@ -763,6 +763,9 @@ final class LineRules
 
     private static function definitionInContainer(Line $line, Context $c): void
     {
+        if (!str_contains($line->text, ']:')) {
+            return;
+        }
         [$text, $start] = self::paragraphContent($line, $c);
         if (!str_starts_with($text, '[') && str_contains($line->text, '>')) {
             [$text, $start] = self::afterQuote($line);
@@ -813,6 +816,9 @@ final class LineRules
 
     private static function githubAlert(Line $line, Context $c): void
     {
+        if (!str_contains($line->text, '[!')) {
+            return;
+        }
         if (preg_match('/^[ \t]*>:/', $line->text) === 1) {
             return;
         }
