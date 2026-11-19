@@ -750,6 +750,36 @@ final class Command
         if (isset($v['output']) && !in_array($parsed['command'], ['render', 'fmt', 'flatten'], true)) {
             throw new OptionError('--output is unavailable for this command');
         }
+        $paths = [];
+        foreach (['report-losses', 'report-includes', 'output'] as $flag) {
+            $path = $v[$flag] ?? null;
+            if (is_string($path) && $path !== '-') {
+                $absolute = self::absoluteOutputPath($path);
+                if (isset($paths[$absolute])) {
+                    throw new OptionError('--' . $flag . ' shares a path with --' . $paths[$absolute]);
+                }
+                $paths[$absolute] = $flag;
+            }
+        }
+    }
+
+    private static function absoluteOutputPath(string $path): string
+    {
+        $cwd = getcwd();
+        $absolute = str_starts_with($path, '/') ? $path : ($cwd === false ? '' : $cwd) . '/' . $path;
+        $parts = [];
+        foreach (explode('/', $absolute) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                array_pop($parts);
+            } else {
+                $parts[] = $part;
+            }
+        }
+
+        return '/' . implode('/', $parts);
     }
 
     /**

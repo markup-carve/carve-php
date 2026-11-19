@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Writer;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Options;
 
 /**
  * The canonical writer (`writer.md`): a tree, and optionally the layout sidecar returned with it (C2-W-001), to Carve
@@ -127,6 +128,7 @@ final class Writer
      */
     public static function formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult
     {
+        Options::from($options, ['format']);
         $parsed = Carve::parseWithLayout($source);
         $tree = json_decode(TreeEncoder::json($parsed->tree, $source), true, 100000, JSON_THROW_ON_ERROR);
 
