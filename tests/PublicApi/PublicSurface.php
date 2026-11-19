@@ -67,6 +67,9 @@ final class PublicSurface
         'MarkupCarve\Carve\Extension\Wikilinks' => 'provisional',
         'MarkupCarve\Carve\Extension\SmartQuotes' => 'provisional',
         'MarkupCarve\Carve\Extension\Transforms' => 'provisional',
+        'MarkupCarve\Carve\Extension\Glossary' => 'provisional',
+        'MarkupCarve\Carve\Extension\IndexTerms' => 'provisional',
+        'MarkupCarve\Carve\Extension\Citations' => 'provisional',
     ];
 
     /**
