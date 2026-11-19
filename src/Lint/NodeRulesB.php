@@ -627,45 +627,61 @@ final class NodeRulesB
      */
     public static function blockOverindent(array $node, string $path, Context $c): void
     {
-        $ownerType = $node['type'] ?? null;
-        if ($ownerType !== 'document' && $ownerType !== 'definition_description') {
+        $pos = Support::pos($node);
+        if ($pos === null) {
             return;
         }
-        $baseColumn = $ownerType === 'document' ? 0 : ($c->layout->contentColumn($path) ?? 0);
-        $kinds = [
-            'block_quote' => 'quote mark',
-            'code_block' => 'code fence',
-            'raw_block' => 'code fence',
-            'div' => 'colon fence',
-            'admonition' => 'colon fence',
-            'heading' => 'heading marker',
-            'thematic_break' => 'thematic break',
-            'table' => 'pipe table row',
-            'line_block' => 'line block',
-            'definition_list' => 'definition term',
-        ];
-        foreach (Support::kids($node) as $at => $child) {
-            $type = Support::str($child, 'type') ?? '';
-            $pos = Support::pos($child);
-            if ($pos === null || !isset($kinds[$type])) {
-                continue;
-            }
-            $line = $c->lines[$pos['startLine'] - 1] ?? null;
-            if ($line === null) {
-                continue;
-            }
-            $indent = self::indentation($line->text);
-            if ($indent <= $baseColumn) {
-                continue;
-            }
-            $start = $line->start + $indent;
-            $c->report('block-opener-overindented', $start, $start + 1, $path . '/children/' . $at, [
-                'kind' => $kinds[$type],
-                'past' => (string)($indent - $baseColumn),
-                'columns' => $indent - $baseColumn === 1 ? 'column' : 'columns',
-                'owner' => $ownerType === 'document' ? 'the document' : 'the description',
-            ]);
+        [$ownerPath, $ownerType] = self::blockOwner($path, $c);
+        if ($ownerType === 'list_item') {
+            return;
         }
+        $quotes = $c->layout->quoteDepth($path);
+        $start = $pos['startOffset'];
+        $column = $c->layout->columnOf($start, $quotes);
+        $content = self::ownerContentColumn($ownerPath, $ownerType, $quotes, $c);
+        if ($column <= $content) {
+            return;
+        }
+        $type = Support::str($node, 'type') ?? '';
+        $colonDiv = in_array($type, ['div', 'directive', 'admonition', 'figure_group'], true);
+        $kind = $type === 'block_quote' ? 'quote' : ($colonDiv ? 'div' : str_replace('_', ' ', $type));
+        $width = $type === 'definition_term' ? 2 : ($colonDiv ? 3 : 1);
+        $past = $column - $content;
+        $c->report('block-opener-overindented', $start, $start + $width, $path, [
+            'kind' => $kind,
+            'past' => (string)$past,
+            'columns' => $past === 1 ? 'column' : 'columns',
+            'owner' => str_replace('_', ' ', $ownerType),
+        ]);
+    }
+
+    /**
+     * @return array{0: string, 1: string} The path and type of the block's owner.
+     */
+    private static function blockOwner(string $path, Context $c): array
+    {
+        $ownerPath = Support::parent($path) ?? '';
+        $ownerType = $c->nodeTypes[$ownerPath] ?? 'document';
+        while ($ownerType === 'definition_list' && $ownerPath !== '') {
+            $ownerPath = Support::parent($ownerPath) ?? '';
+            $ownerType = $c->nodeTypes[$ownerPath] ?? 'document';
+        }
+
+        return [$ownerPath, $ownerType];
+    }
+
+    private static function ownerContentColumn(string $path, string $type, int $quotes, Context $c): int
+    {
+        if ($type === 'document' || $type === 'block_quote') {
+            return 0;
+        }
+        $content = $c->layout->contentColumn($path);
+        if ($content !== null) {
+            return $content;
+        }
+        $start = $c->layout->startOffset($path);
+
+        return $start === null ? 0 : $c->layout->columnOf($start, $quotes);
     }
 
     /**

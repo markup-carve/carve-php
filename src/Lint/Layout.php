@@ -45,6 +45,19 @@ final class Layout
     }
 
     /**
+     * The number of quote prefixes in the source coordinates of a node.
+     */
+    public function quoteDepth(string $path): int
+    {
+        return $this->nodes[$path][1] ?? 0;
+    }
+
+    public function startOffset(string $path): ?int
+    {
+        return self::start($this->nodes[$path][0] ?? null);
+    }
+
+    /**
      * @param string $path
      * @param array<string, mixed> $node
      * @param int $quotes

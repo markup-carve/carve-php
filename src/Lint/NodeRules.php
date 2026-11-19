@@ -114,7 +114,12 @@ final class NodeRules
             ['list-item-body-below-content-column', ['list_item'], NodeRulesB::listItemBodyColumn(...)],
             ['list-item-block-overindented', ['list_item'], NodeRulesB::listItemBlockIndent(...)],
             ['list-marker-below-content-column', ['list'], NodeRulesB::listMarkerBelowColumn(...)],
-            ['block-opener-overindented', ['document', 'definition_description'], NodeRulesB::blockOverindent(...)],
+            [
+                'block-opener-overindented', [
+                    'block_quote', 'div', 'directive', 'admonition', 'figure_group', 'code_block', 'line_block',
+                    'definition_term', 'heading', 'thematic_break', 'table',
+                ], NodeRulesB::blockOverindent(...),
+            ],
             ['braced-span-opener-as-text', ['text'], NodeRulesB::bracedSpanAsText(...)],
             ['colon-fence-length-mismatch', ['div', 'admonition', 'figure_group'], NodeRulesB::colonFenceMismatch(...)],
             ['consumed-key-near-miss', ['code_block'], NodeRulesB::consumedNearMiss(...)],

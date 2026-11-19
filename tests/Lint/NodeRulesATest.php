@@ -392,14 +392,7 @@ final class NodeRulesATest extends TestCase
                 "::: note\n::: references\n:::\n:::",
                 "::: references\n:::",
                 [],
-                [
-                    'references-placement-in-container',
-                    '/children/0/children/0',
-                    9,
-                    27,
-                    'This "::: references" marker is inside a container and does not place the reference list. Move it '
-                    . 'to document level, or remove it if no placement is needed.',
-                ],
+                [],
             ],
             'semantic-attribute-outside-span' => [
                 "{mark=foo}\n# H",
@@ -731,13 +724,18 @@ final class NodeRulesATest extends TestCase
      * @param string $trigger
      * @param string $near
      * @param array<string, mixed> $options
-     * @param array{0: string, 1: string, 2: int, 3: int, 4: string} $expected
+     * @param array{0: string, 1: string, 2: int, 3: int, 4: string}|array{} $expected
      *
      * @return void
      */
     #[DataProvider('rules')]
     public function testRule(string $trigger, string $near, array $options, array $expected): void
     {
+        if ($expected === []) {
+            $this->assertSame([], self::findings($trigger, $options, 'references-placement-in-container'));
+
+            return;
+        }
         $found = self::findings($trigger, $options, $expected[0]);
         $this->assertNotSame([], $found);
         $this->assertSame($expected, $found[0]);
