@@ -10,6 +10,12 @@ use PHPUnit\Framework\TestCase;
 
 final class Next2HtmlCasesTest extends TestCase
 {
+    public function testUniformVerticalAlignmentIsWrittenFromItsColumn(): void
+    {
+        $result = Carve::importHtml('<table><tr><td style="vertical-align: top;">x</td></tr></table>');
+        self::assertSame("{valigns=top}\n| x |\n", $result->source);
+    }
+
     public function testPinnedHtmlImportExamples(): void
     {
         $spec = json_decode(

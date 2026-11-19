@@ -77,9 +77,12 @@ final class TableWriter
     private function fieldKeys(array $node, string $path, bool $delimited): array
     {
         $keys = [];
-        [$aligns, $widths] = $this->columnKeys($node, $path);
+        [$aligns, $valigns, $widths] = $this->columnKeys($node, $path);
         if ($aligns !== '') {
             $keys[] = ['aligns', $aligns];
+        }
+        if ($valigns !== '') {
+            $keys[] = ['valigns', $valigns];
         }
         if ($widths !== '') {
             $keys[] = ['widths', $widths];
@@ -101,24 +104,31 @@ final class TableWriter
     }
 
     /**
-     * C2-B-211, C2-B-212: `aligns` and `widths` from the column fields, up to the last column that sets one.
+     * C2-B-211, C2-B-212: alignment and width lists from the column fields, up to the last column that sets one.
      *
      * @param array<mixed> $node
      * @param string $path
      *
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string, 2: string}
      */
     private function columnKeys(array $node, string $path): array
     {
         $aligns = [];
+        $valigns = [];
         $widths = [];
-        foreach (is_array($node['columns'] ?? null) ? $node['columns'] : [] as $column) {
+        foreach (is_array($node['columns'] ?? null) ? $node['columns'] : [] as $index => $column) {
             $aligns[] = is_array($column) && is_string($column['align'] ?? null) ? $column['align'] : '';
+            $valign = is_array($column) && is_string($column['valign'] ?? null) ? $column['valign'] : '';
+            if ($valign === 'baseline') {
+                $this->w->lose($path . '/columns/' . $index, 'table_column', 'valign');
+                $valign = '';
+            }
+            $valigns[] = $valign;
             $width = is_array($column) ? ($column['width'] ?? null) : null;
             $widths[] = is_int($width) || is_float($width) ? self::percent((float)$width) : '';
         }
 
-        return [$this->listKey($aligns, $path), $this->listKey($widths, $path)];
+        return [$this->listKey($aligns, $path), $this->listKey($valigns, $path), $this->listKey($widths, $path)];
     }
 
     private static function percent(float $width): string
