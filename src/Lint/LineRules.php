@@ -410,6 +410,9 @@ final class LineRules
      */
     private static function blankReference(Line $line, Context $c): void
     {
+        if (!str_contains($line->text, '[')) {
+            return;
+        }
         [$leaf, $from] = self::paragraphContent($line, $c);
         if (preg_match_all('/\[\^[ \t]+\]|(?<=\])\[[ \t]+\]|^\[[ \t]+\]:/', $leaf, $matches, PREG_OFFSET_CAPTURE) < 1) {
             return;
@@ -602,6 +605,9 @@ final class LineRules
 
     private static function markdownDefinition(Line $line, Context $c): void
     {
+        if (!$line->paragraph || !str_contains($line->text, ': ')) {
+            return;
+        }
         [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
         $previous = self::prior($line, $c);
         // C2-B-074: a later paragraph line below a line that is no `::` term.
