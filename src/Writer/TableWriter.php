@@ -87,6 +87,10 @@ final class TableWriter
         if ($widths !== '') {
             $keys[] = ['widths', $widths];
         }
+        $bodyRows = self::bodyRows($node);
+        if ($bodyRows !== '') {
+            $keys[] = ['body-rows', $bodyRows];
+        }
         $groups = $this->groups($node);
         if ($delimited) {
             $head = count($groups['table_head'] ?? []);
@@ -101,6 +105,28 @@ final class TableWriter
         }
 
         return $keys;
+    }
+
+    /**
+     * C2-W-136: a partitioned table spells the data-row count of each body.
+     *
+     * @param array<mixed> $node
+     */
+    private static function bodyRows(array $node): string
+    {
+        $bodies = array_values(array_filter(
+            is_array($node['children'] ?? null) ? $node['children'] : [],
+            static fn (mixed $group): bool => is_array($group) && ($group['type'] ?? '') === 'table_body',
+        ));
+        if (count($bodies) < 2) {
+            return '';
+        }
+        $counts = array_map(static fn (array $body): int => count(array_filter(
+            is_array($body['children'] ?? null) ? $body['children'] : [],
+            static fn (mixed $row): bool => is_array($row) && ($row['type'] ?? '') === 'table_row',
+        )), $bodies);
+
+        return implode(',', $counts);
     }
 
     /**

@@ -49,10 +49,12 @@ final class HtmlImporter
             ['rawHtml' => true, 'labels' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
         ));
         $root = HtmlParser::parse($html, $legacyParser);
+        SourceLocations::assign($html, $root);
         if ($prepare !== null) {
             $prepare($root);
         }
         $context = new ImportContext($opts->rawHtml, $opts->labels);
+        self::fragmentWrapperAttributes($html, $context);
         Notes::collect($root->children, $context);
         self::rootLanguage($root, $context);
         foreach ($root->children as $child) {
@@ -131,6 +133,27 @@ final class HtmlImporter
             }
             if (in_array($dir, ['ltr', 'rtl', 'auto'], true)) {
                 $context->rootDir = $dir;
+            }
+        }
+    }
+
+    /**
+     * C2-M-004: fragment parsing ignores a literal body opener, but its unused attributes still draw losses.
+     */
+    private static function fragmentWrapperAttributes(string $html, ImportContext $context): void
+    {
+        if (HtmlParser::isDocument($html) || preg_match('/^\s*<body\b([^>]*)>/i', $html, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return;
+        }
+        $body = new HtmlNode(HtmlNode::ELEMENT, 'body');
+        $body->sourceStart = $match[0][1];
+        $body->sourceEnd = $body->sourceStart + strlen($match[0][0]);
+        $body->contentStart = $body->sourceEnd;
+        preg_match_all('/([A-Za-z_:][A-Za-z0-9_:.-]*)\s*=\s*(?:"[^"]*"|\x27[^\x27]*\x27|[^\s>]+)/', $match[1][0], $attributes);
+        foreach ($attributes[1] as $name) {
+            $name = strtolower($name);
+            if ($name !== 'lang' && $name !== 'dir') {
+                $context->report($body, 'import-attribute-dropped', 'Attribute ' . $name . ' of body dropped');
             }
         }
     }

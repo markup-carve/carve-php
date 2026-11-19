@@ -65,7 +65,7 @@ final class ImportClausesTest extends TestCase
     public function testC2M002InputThatStartsWithBodyIsAFragment(): void
     {
         $result = HtmlImporter::import('<body class="x"><p>a</p></body>');
-        $this->assertSame([], $result->codes());
+        $this->assertSame(['import-attribute-dropped'], $result->codes());
         $this->assertSame([self::para('a')], $result->document['children']);
     }
 
