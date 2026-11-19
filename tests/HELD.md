@@ -36,7 +36,6 @@ lint-rules/carve-version-unsupported: Hold Lint expectation at candidate 12; lin
 lint-rules/catalog: Hold Lint expectation at candidate 12; lint is outside the core scope.
 lint-rules/comment-shaped-emphasis: Hold Lint expectation at candidate 12; lint is outside the core scope.
 lint-rules/definition-in-container: Hold Lint expectation at candidate 12; lint is outside the core scope.
-lint-rules/definition-term-block-folded: Hold Lint expectation at candidate 12; lint is outside the core scope.
 lint-rules/deprecated-continuation-marker: Hold Lint expectation at candidate 12; lint is outside the core scope.
 lint-rules/deprecated-continuation-marker#2: Hold Lint expectation at candidate 12; lint is outside the core scope.
 lint-rules/djot-heading-continuation: Hold Lint expectation at candidate 12; lint is outside the core scope.

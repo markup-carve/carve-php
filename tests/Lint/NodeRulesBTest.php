@@ -264,7 +264,7 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'list-item-body-below-content-column' => [
-                "- a\n\n\tb",
+                "- a\n\n b",
                 [
                     'list-item-body-below-content-column',
                     '/children/0/children/0',
@@ -273,7 +273,7 @@ final class NodeRulesBTest extends TestCase
                     "This line is indented past the list marker but short of the item's text, and it belongs to "
                         . 'the item. Indent it to the text, or move it to the column of the list to end the item.',
                 ],
-                "- a\n\n\t",
+                "- a\n\n\tb",
                 [],
             ],
             'list-item-block-overindented' => [
@@ -350,7 +350,7 @@ final class NodeRulesBTest extends TestCase
                 [
                     'colon-fence-length-mismatch',
                     '/children/0/children/0/children/0',
-                    13,
+                    15,
                     19,
                     'Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the '
                         . 'container.',

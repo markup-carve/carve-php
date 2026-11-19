@@ -35,6 +35,16 @@ final class Context
     public array $firstLines = [];
 
     /**
+     * @var array<int, true> First lines of parsed description entries.
+     */
+    public array $descriptionEntryLines = [];
+
+    /**
+     * @var array<int, int> First line of the parsed block comment covering each physical line.
+     */
+    public array $blockCommentStartLines = [];
+
+    /**
      * First source byte of each paragraph's content.
      *
      * @var array<string, int>

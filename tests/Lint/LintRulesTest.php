@@ -33,14 +33,6 @@ final class LintRulesTest extends TestCase
             if ($name === 'frontmatter-shaped-thematic-break') {
                 continue;
             }
-            // The shared fixture's lazy `: d` is a later line of the quoted term in 0.2 (C2-B-069), no paragraph line.
-            if ($name === 'markdown-definition-paragraph') {
-                continue;
-            }
-            // The shared fixture's ` : b` stands right of the list's term mark, not below it (C2-B-067).
-            if ($name === 'description-separator-below-content-column') {
-                continue;
-            }
             $id = explode('#', (string)$name)[0];
             /** @var array<string, mixed> $options */
             $options = is_array($case['options'] ?? null) ? $case['options'] : [];

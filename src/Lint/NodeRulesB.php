@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\AttributeParser;
+use MarkupCarve\Carve\Attrs;
+
 /**
  * The second half of the carve-js node rules (`lint/structure.ts`), one method per JS rule function, and the checks that run
  * after the walk.
@@ -106,6 +109,9 @@ final class NodeRulesB
             }
             $end = strpos($source, '}', $at + 2);
             if ($end === false) {
+                continue;
+            }
+            if (AttributeParser::read($source, $at + 1, $end + 1, new Attrs()) !== $end + 1) {
                 continue;
             }
             // A glued run at the start of a cell belongs to the alignment rule; keep scanning after it.
@@ -226,7 +232,8 @@ final class NodeRulesB
         if (($node['type'] ?? null) !== 'comment' || ($node['form'] ?? null) !== 'block' || $pos === null) {
             return;
         }
-        $width = strspn(self::trimStart(($c->lines[$pos['startLine'] - 1] ?? null)->text ?? ''), '%');
+        $first = $c->lines[$pos['startLine'] - 1] ?? null;
+        $width = $first === null ? 0 : strspn($c->source, '%', $pos['startOffset']);
         if ($width < 3) {
             return;
         }
@@ -473,6 +480,10 @@ final class NodeRulesB
             }
             $firstStyle = self::markerField($before, 'style');
             $nextStyle = self::markerField($after, 'style');
+            $firstStart = Support::bounds(Support::kids($before)[0] ?? [])[0] ?? null;
+            if ($firstStart === null || preg_match('/^[ivxlcdmIVXLCDM][.)]/', substr($c->source, $firstStart)) !== 1) {
+                continue;
+            }
             if (($firstStyle === 'i' && $nextStyle === 'a') || ($firstStyle === 'a' && $nextStyle === 'i')) {
                 $beforePos = Support::pos($before);
                 $afterPos = Support::pos($after);
@@ -536,6 +547,7 @@ final class NodeRulesB
         if ($marker === null || $content === null) {
             return;
         }
+        $reportedLines = [];
         foreach (Support::kids($node) as $at => $block) {
             if ($at === 0) {
                 continue;
@@ -546,8 +558,78 @@ final class NodeRulesB
                 continue;
             }
             $indent = self::indentation($line->text);
-            if ($indent > $marker && $indent < $content) {
+            if ($indent < 0) {
+                continue;
+            }
+            $column = $c->layout->columnOf($line->start + $indent, $c->layout->quoteDepth($path));
+            if ($column > $marker && $column < $content) {
                 $c->report('list-item-body-below-content-column', $line->start + $indent, $line->end, $path);
+                $reportedLines[$line->number] = true;
+            }
+        }
+        self::listItemParagraphColumn($node, $path, $c, $pos, $marker, $content, $reportedLines);
+    }
+
+    /**
+     * Check a later paragraph's first authored line when its parsed position begins after a quote prefix.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param array{startLine: int, endLine: int} $pos
+     * @param int $marker
+     * @param int $content
+     * @param array<int, true> $reportedLines
+     *
+     * @return void
+     */
+    private static function listItemParagraphColumn(
+        array $node,
+        string $path,
+        Context $c,
+        array $pos,
+        int $marker,
+        int $content,
+        array $reportedLines,
+    ): void {
+        // A later paragraph can start with a block-shaped line, while its
+        // position still begins after the quote marks. Measure that authored
+        // first line against the item column as for other later blocks.
+        $paragraphLines = [];
+        foreach (Support::kids($node) as $at => $child) {
+            if ($at === 0) {
+                continue;
+            }
+            $childPos = Support::pos($child);
+            if (($child['type'] ?? null) !== 'paragraph' || $childPos === null) {
+                continue;
+            }
+            $paragraphLines[$childPos['startLine']] = true;
+        }
+        if ($paragraphLines === []) {
+            return;
+        }
+        for ($number = $pos['startLine'] + 1; $number <= $pos['endLine']; $number++) {
+            $line = $c->lines[$number - 1] ?? null;
+            if ($line === null || !isset($paragraphLines[$number])) {
+                continue;
+            }
+            $quotes = $c->layout->quoteDepth($path);
+            $offset = 0;
+            for ($i = 0; $i < $quotes; $i++) {
+                $offset += strspn($line->text, " \t", $offset);
+                if (substr($line->text, $offset, 2) !== '> ') {
+                    break;
+                }
+                $offset += 2;
+            }
+            $offset += strspn($line->text, " \t", $offset);
+            if (preg_match('/^(?:::? |[-*] |[0-9]+[.)] |#{1,6} )/', substr($line->text, $offset)) !== 1) {
+                continue;
+            }
+            $column = $c->layout->columnOf($line->start + $offset, $quotes);
+            if ($column > $marker && $column < $content && !isset($reportedLines[$number])) {
+                $c->report('list-item-body-below-content-column', $line->start + $offset, $line->end, $path);
             }
         }
     }
@@ -562,7 +644,9 @@ final class NodeRulesB
     public static function listItemBlockIndent(array $node, string $path, Context $c): void
     {
         foreach (self::overindented($node, $path, $c) as [$at, $line, $indent, , $content]) {
-            $c->report('list-item-block-overindented', $line->start + $indent, $line->end, $path . '/children/' . $at, [
+            $bytes = self::indentation($line->text);
+            $start = $line->start + max(0, $bytes);
+            $c->report('list-item-block-overindented', $start, $line->end, $path . '/children/' . $at, [
                 'contentColumn' => (string)($content + 1),
             ]);
         }
@@ -640,6 +724,15 @@ final class NodeRulesB
         if ($ownerType === 'list_item') {
             return;
         }
+        $quote = self::ancestorPath($path, $c, 'block_quote');
+        if ($quote !== null && $c->lineOf($c->layout->startOffset($quote) ?? -1) === $pos['startLine']) {
+            $lineStart = $c->lines[$pos['startLine'] - 1]->start ?? 0;
+            $before = substr($c->source, $lineStart, $pos['startOffset'] - $lineStart);
+            $mark = strrpos($before, '>');
+            if ($mark !== false && substr($before, $mark + 1) === ' ') {
+                return;
+            }
+        }
         $quotes = $c->layout->quoteDepth($path);
         $start = $pos['startOffset'];
         $column = $c->layout->columnOf($start, $quotes);
@@ -675,6 +768,17 @@ final class NodeRulesB
         return [$ownerPath, $ownerType];
     }
 
+    private static function ancestorPath(string $path, Context $c, string $type): ?string
+    {
+        for ($parent = Support::parent($path); $parent !== null; $parent = Support::parent($parent)) {
+            if (($c->nodeTypes[$parent] ?? null) === $type) {
+                return $parent;
+            }
+        }
+
+        return null;
+    }
+
     private static function ownerContentColumn(string $path, string $type, int $quotes, Context $c): int
     {
         if ($type === 'document' || $type === 'block_quote') {
@@ -683,6 +787,16 @@ final class NodeRulesB
         $content = $c->layout->contentColumn($path);
         if ($content !== null) {
             return $content;
+        }
+        if ($type === 'footnote') {
+            $start = $c->layout->startOffset($path) ?? 0;
+            $marker = strpos($c->source, '[^', $start);
+            $close = $marker === false ? false : strpos($c->source, ']:', $marker + 2);
+            if ($close !== false) {
+                $at = $close + 2 + strspn($c->source, " \t", $close + 2);
+
+                return $c->layout->columnOf($at, $quotes);
+            }
         }
         $start = $c->layout->startOffset($path);
 
@@ -737,11 +851,18 @@ final class NodeRulesB
             return;
         }
         $opener = self::openerRun($node, $c);
+        if ($opener !== null) {
+            self::shorterAnonymousDivRuns($node, $path, $c, $opener);
+        }
         $endLine = $c->lines[$pos['endLine'] - 1] ?? null;
         if ($opener === null || $endLine === null || $c->lineOf($opener[0]) === $endLine->number) {
             return;
         }
         $closer = Support::trim($endLine->text);
+        $previousLine = $c->lines[$pos['endLine'] - 2] ?? null;
+        if ($previousLine !== null && preg_match('/^[ \t]*%{3,}/', $previousLine->text) === 1) {
+            return;
+        }
         [$activeRun, $innerType] = self::activeColonRun($node, $c, $opener, $pos['endLine']);
         if (
             !self::allColons($closer) || strlen($closer) === $activeRun[1]
@@ -751,13 +872,48 @@ final class NodeRulesB
         }
         $activeLine = $c->lineOf($activeRun[0]);
         $activeColumn = $activeRun[0] - ($c->lines[$activeLine - 1]->start ?? 0) + 1;
-        $c->report('colon-fence-length-mismatch', $endLine->start, $endLine->end, $path, [
+        $runStart = $endLine->start + strspn($endLine->text, " \t");
+        $c->report('colon-fence-length-mismatch', $runStart, $endLine->end, $path, [
             'authoredWidth' => (string)strlen($closer),
             'expectedWidth' => (string)$activeRun[1],
             'kind' => str_replace('_', ' ', (string)($innerType ?? $type)),
             'line' => (string)$activeLine,
             'column' => (string)$activeColumn,
         ], strlen($closer) < $activeRun[1] ? ($activeRun !== $opener ? 1 : 0) : 2);
+    }
+
+    /**
+     * A shorter bare run opens an anonymous div when no open run is short enough to close.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param array{0: int, 1: int} $opener
+     *
+     * @return void
+     */
+    private static function shorterAnonymousDivRuns(array $node, string $path, Context $c, array $opener): void
+    {
+        foreach (Support::kids($node) as $at => $child) {
+            if (($child['type'] ?? null) !== 'div') {
+                continue;
+            }
+            $run = self::openerRun($child, $c);
+            if ($run === null || $run[1] >= $opener[1]) {
+                continue;
+            }
+            $runLine = $c->lines[$c->lineOf($run[0]) - 1] ?? null;
+            if ($runLine === null || !self::allColons(Support::trim($runLine->text))) {
+                continue;
+            }
+            $c->report('colon-fence-length-mismatch', $run[0], $run[0] + $run[1], $path . '/children/' . $at, [
+                'authoredWidth' => (string)$run[1],
+                'expectedWidth' => (string)$opener[1],
+                'kind' => 'div',
+                'line' => (string)$c->lineOf($opener[0]),
+                'column' => (string)($opener[0] - ($c->lines[$c->lineOf($opener[0]) - 1]->start ?? 0) + 1),
+            ]);
+        }
     }
 
     /**
@@ -1190,9 +1346,11 @@ final class NodeRulesB
             if (($node['type'] ?? null) === 'footnote' && !isset($c->usedFootnotes[$key])) {
                 $bounds = Support::bounds($node);
                 if ($bounds !== null) {
-                    $close = strpos(Support::raw($node, $c), ']');
+                    $raw = Support::raw($node, $c);
+                    $open = strpos($raw, '[^');
+                    $close = $open === false ? false : strpos($raw, ']', $open + 2);
                     if ($close !== false) {
-                        $c->report('unused-footnote-definition', $bounds[0], $bounds[0] + $close + 1, $path, ['label' => $key]);
+                        $c->report('unused-footnote-definition', $bounds[0] + $open, $bounds[0] + $close + 1, $path, ['label' => $key]);
                     }
                 }
             }
@@ -1321,11 +1479,17 @@ final class NodeRulesB
         foreach (Support::kids($node) as $at => $child) {
             $type = Support::str($child, 'type') ?? '';
             $pos = Support::pos($child);
-            if ($type === 'paragraph' || $type === 'list' || $pos === null) {
+            if ($type === 'list' || $type === 'comment' || $pos === null) {
                 continue;
             }
             $line = $c->lines[$pos['startLine'] - 1] ?? null;
             if ($line === null) {
+                continue;
+            }
+            if (
+                $pos['startLine'] === (Support::pos($node)['startLine'] ?? -1)
+                || ($type === 'paragraph' && ($child['role'] ?? null) !== 'image')
+            ) {
                 continue;
             }
             $offset = self::indentation($line->text);
