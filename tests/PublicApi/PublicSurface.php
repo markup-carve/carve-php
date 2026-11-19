@@ -48,6 +48,12 @@ final class PublicSurface
         'MarkupCarve\Carve\Extension\Claim' => 'provisional',
         'MarkupCarve\Carve\Extension\RenderHost' => 'provisional',
         'MarkupCarve\Carve\Extension\Tabs' => 'provisional',
+        'MarkupCarve\Carve\Extension\DocumentTransform' => 'provisional',
+        'MarkupCarve\Carve\Extension\Bundle' => 'provisional',
+        'MarkupCarve\Carve\Extension\FencedRender' => 'provisional',
+        'MarkupCarve\Carve\Extension\MathBlock' => 'provisional',
+        'MarkupCarve\Carve\Extension\CodeGroup' => 'provisional',
+        'MarkupCarve\Carve\Extension\CodeCallouts' => 'provisional',
     ];
 
     /**

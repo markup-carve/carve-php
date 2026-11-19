@@ -109,6 +109,41 @@ final class RenderState
     }
 
     /**
+     * C2-X-044: reserve a generated extension id that is neither an id in use nor the start of one followed by `-`.
+     */
+    public function reserveExtensionId(string $id): bool
+    {
+        if (isset($this->taken[$id])) {
+            return false;
+        }
+        if ($this->prefixCount !== count($this->taken)) {
+            $this->prefixes = [];
+            foreach ($this->taken as $taken => $_) {
+                for ($at = strpos((string)$taken, '-'); $at !== false; $at = strpos((string)$taken, '-', $at + 1)) {
+                    $this->prefixes[substr((string)$taken, 0, $at)] = true;
+                }
+            }
+        }
+        if (isset($this->prefixes[$id])) {
+            return false;
+        }
+        $this->taken[$id] = true;
+        for ($at = strpos($id, '-'); $at !== false; $at = strpos($id, '-', $at + 1)) {
+            $this->prefixes[substr($id, 0, $at)] = true;
+        }
+        $this->prefixCount = count($this->taken);
+
+        return true;
+    }
+
+    /**
+     * @var array<string, true>
+     */
+    private array $prefixes = [];
+
+    private int $prefixCount = -1;
+
+    /**
      * @var array<string, int>
      */
     private array $suffix = [];

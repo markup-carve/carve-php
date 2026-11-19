@@ -198,6 +198,7 @@ Interface. Provisional (extensions.md: the extension host may change in 0.2.x). 
 Class. The registration of an extension (C2-X-001, C2-X-002, C2-X-033): its qualified name and version, the slots in the order of its declaration, an optional matcher with its transform (C2-X-005 to C2-X-015), the slot of the extension that alone may hold it, and an optional renderer, which is trusted host code (C2-X-034).
 
 - `withRenderer(Closure $renderer): ExtensionDefinition`: The same registration with a renderer.
+- `withoutRenderers(): ExtensionDefinition`: The same registration without its renderers, so its nodes write the fallback (C2-X-035).
 - `withBuildTimeRenderer(Closure $renderer): ExtensionDefinition`: Register the renderer used only in static mode (C2-X-052).
 
 ### `MarkupCarve\Carve\Extension\Claim`
@@ -208,8 +209,10 @@ Class. What a matcher receives for the core node it claims (C2-X-007, C2-X-009, 
 
 ### `MarkupCarve\Carve\Extension\RenderHost`
 
-Class. The host helpers an extension renderer receives (C2-X-033): child lists, plain text, escaping and generated ids.
+Class. The host helpers an extension renderer receives (C2-X-033): child lists, plain text, escaping, attributes, generated ids, and the render mode (C2-X-052) with the labels and the profile.
 
+- `attributes(Node $node, bool $block = true): string`: C2-X-033: the attribute string of a node, with a leading space, or empty.
+- `label(string $key, string $default = ''): string`
 - `static escapeText(string $value): string`
 - `static escapeAttribute(string $value): string`
 
@@ -221,3 +224,58 @@ Class. The standard extensions `carve.tabs` and `carve.tab` (C2-X-039 to C2-X-04
 - `static transform(Claim $claim): ?Node`: C2-X-040 to C2-X-042: a `tabs` div whose body is one or more `tab` divs with a nonempty quoted title.
 - `static render(Node $node, RenderHost $host): string`: C2-X-043 to C2-X-048: one radio input, one linked label and one panel per tab; every panel stays in the HTML.
 - `static renderStatic(Node $node, RenderHost $host): string`: C2-X-043: the build-time channel has content sections and no controls.
+
+### `MarkupCarve\Carve\Extension\DocumentTransform`
+
+Class. A named host pass over a copy of the resolved render view (C2-X-053).
+
+### `MarkupCarve\Carve\Extension\Bundle`
+
+Class. Provisional (extensions.md). The registrations of one or more standard extensions: pass the bundle in the `extensions` option, and its transforms to `Carve::renderWithDocumentTransforms()` (C2-X-053).
+
+- `static merge(Bundle ...$bundles): Bundle`: Merges bundles into one; two claims of one name fail at registration (C2-X-014).
+- `definitions(): array`
+- `transforms(): array`
+- `withoutRenderers(): Bundle`: The same registrations without renderers: every extension node writes its fallback (C2-X-035).
+
+### `MarkupCarve\Carve\Extension\FencedRender`
+
+Class. Provisional. The diagram fences (`carve.fencedRender.<word>`): the fence body goes to a client library as text, or as JSON in a script element; a host `build` function registers the static channel (C2-X-052).
+
+- `static name(string $word): string`: The qualified name of one claimed fence word.
+- `static bundle(array|string $language, ?string $cssClass = null, ?string $tag = null, string $contentMode = 'text', bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`
+- `static transform(Claim $claim): ?Node`
+- `static bareFallback(Node $node): Node`: C2-X-035: the attributes live on the extension node, so the fallback does not repeat them.
+- `static source(Node $node): string`: The fence body without its final line break, as the client libraries read it.
+- `static mermaid(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `mermaid` preset; the parameters are those of `bundle()`.
+- `static d2(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `d2` preset; the parameters are those of `bundle()`.
+- `static graphviz(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `dot, graphviz` preset; the parameters are those of `bundle()`.
+- `static wavedrom(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `wavedrom` preset; the parameters are those of `bundle()`.
+- `static abc(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `abc` preset; the parameters are those of `bundle()`.
+- `static plantuml(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `plantuml, puml` preset; the parameters are those of `bundle()`.
+- `static vegaLite(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `vega-lite` preset; the parameters are those of `bundle()`.
+- `static chart(?string $cssClass = null, ?string $tag = null, bool $wrapInFigure = false, ?string $figureClass = null, ?string $label = null, ?Closure $build = null): Bundle`: The `chart` preset; the parameters are those of `bundle()`.
+- `static presets(array $builders = []): Bundle`: Every diagram preset; `$builders` maps a preset's css class (`mermaid`, `d2`, `graphviz`, `wavedrom`, `abc`, `plantuml`, `vega-lite`, `chart`) to its build-time renderer.
+
+### `MarkupCarve\Carve\Extension\MathBlock`
+
+Class. Provisional. A `math` fence as `<div class="math display">\[…\]</div>`, the delimiters KaTeX and MathJax read.
+
+- `static bundle(string $language = 'math', ?Closure $build = null): Bundle`
+- `static transform(Claim $claim): ?Node`
+
+### `MarkupCarve\Carve\Extension\CodeGroup`
+
+Class. Provisional. `::: code-group` of code blocks as one switcher with a panel per block (`carve.codeGroup`).
+
+- `static bundle(string $mode = 'css', string $wrapperClass = 'code-group', string $panelClass = 'code-group-panel', string $labelClass = 'code-group-label', string $radioClass = 'code-group-radio', string $idPrefix = 'codegroup', ?string $groupLabel = null, ?Closure $highlighter = null): Bundle`
+- `static transform(Claim $claim): ?Node`
+
+### `MarkupCarve\Carve\Extension\CodeCallouts`
+
+Class. Provisional. `<n>` markers that end a code line become callout bubbles, and a following `<n> text` paragraph their list: a document transform (C2-X-053, C2-X-054) that inserts `carve.codeCallouts.code` and `carve.codeCallouts.list`.
+
+- `static bundle(): Bundle`
+- `static transform(Node $view): Node`
+- `static renderCode(Node $node, RenderHost $host): string`
+- `static renderList(Node $node, RenderHost $host): string`

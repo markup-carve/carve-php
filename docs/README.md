@@ -191,9 +191,30 @@ assert(Carve::render($source, ['extensions' => [$embed]]) === '<iframe src="http
 assert(Carve::format($source, ['extensions' => [$embed]]) === $source);
 ```
 
-Not yet in the PHP engine: renderers for inline extensions (an inline extension renders its fallback), the
-build-time renderer channel for `mode: static` and document transforms (rulings D3 and D4 of the 0.2 specification).
-They will be added to `ExtensionDefinition` and the option map without changing the calls above.
+A renderer receives a `RenderHost`: child lists, plain text, escaping, `attributes()` for the authored attributes
+of a node, collision-free generated ids, the `labels`, the `profile` and the render `mode` (C2-X-033). In
+`mode: static` the engine uses the definition's `buildTimeRenderer`, and writes the fallback when there is none
+(C2-X-052). Document transforms (C2-X-053) are `DocumentTransform` objects passed to
+`Carve::renderWithDocumentTransforms()`; they run in order on a copy of the resolved tree.
+
+### Standard extensions
+
+The provisional standard extensions are bundles (`Extension\Bundle`, an `ExtensionProvider`) of definitions with
+their renderers, and of document transforms where the extension needs one. Pass a bundle in `extensions` and its
+`transforms()` to `renderWithDocumentTransforms()`; `Bundle::merge()` combines several. The catalog is in
+[extensions.md](extensions.md).
+
+```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\Bundle;
+use MarkupCarve\Carve\Extension\CodeCallouts;
+use MarkupCarve\Carve\Extension\FencedRender;
+
+$bundle = Bundle::merge(FencedRender::mermaid(), CodeCallouts::bundle());
+$source = "```mermaid\ngraph TD; A-->B\n```\n";
+$html = Carve::renderWithDocumentTransforms($source, $bundle->transforms(), ['extensions' => [$bundle]])->html;
+assert($html === '<pre class="mermaid" role="img" aria-label="mermaid">graph TD; A-->B</pre>');
+```
 
 ## Command line
 

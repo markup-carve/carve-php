@@ -33,7 +33,7 @@ converter.
 | `$converter->setRenderers([...])` | gone: a renderer belongs to its `ExtensionDefinition`; option `renderers` is reserved |
 | `$converter->on($event, $listener)`, `RenderEvent` | gone: no render events; use an extension renderer or walk the tree |
 | `$converter->addOutputTransformer($fn)` | gone: post-process the HTML string |
-| `$converter->transform($document, ...$transformers)` | gone: claim nodes with an extension transform; document transforms come with ruling D4 |
+| `$converter->transform($document, ...$transformers)` | gone: claim nodes with an extension transform, or pass `Extension\DocumentTransform`s to `Carve::renderWithDocumentTransforms()` |
 | `tryRenderHtmlStreaming()` | gone |
 | `getRenderer()`, `getHtmlRenderer()`, `getParser()`, `getHeadingIdTracker()` | gone: internal in 0.2 |
 | `createEditorSession()`, `parseWithNodeIdentity()`, `parseWithProvenance()`, `supportsIncrementalParagraphReuse()` | gone: not part of the 0.2 library contract |
@@ -108,10 +108,11 @@ The 0.2 extension host is provisional (see the [guide](README.md#extensions-prov
 |---|---|
 | `ExtensionInterface::register(CarveConverter $converter)`, `addExtension()`, `addExtensions()` | an `Extension\ExtensionProvider` (or `ExtensionDefinition`s) in option `extensions` |
 | `getExtensions()` | gone: the host keeps its list |
-| `FencedRenderExtension` | `ExtensionDefinition` with a `fence` matcher, a transform and a renderer |
+| `FencedRenderExtension`, `MermaidExtension` and the other diagram presets | `Extension\FencedRender::bundle()` and its presets (`mermaid()`, `presets()`), see [extensions.md](extensions.md) |
+| `MathBlockExtension`, `CodeGroupExtension`, `CodeCalloutsExtension` | `Extension\MathBlock::bundle()`, `Extension\CodeGroup::bundle()`, `Extension\CodeCallouts::bundle()` |
 | `InlineExtension` nodes | inline extensions; the PHP renderer writes their fallback for now |
 | `TabsExtension` | `Extension\Tabs::extensions(true)` |
-| `TableOfContentsExtension`, `WikilinksExtension`, `HeadingNumbersExtension`, `FrontmatterExtension`, `ExternalLinksExtension`, `SpoilerExtension`, `DetailsExtension`, `AutolinkExtension`, `MentionsExtension`, `CitationsExtension`, `AdmonitionExtension`, `CodeGroupExtension`, `ListTableExtension`, `SemanticSpanExtension`, `HeadingLevelShiftExtension`, and the other 0.1 extensions | not ported; several are core syntax in 0.2 (admonitions, mentions, citations, autolinks), the rest wait for the extension catalog |
+| `TableOfContentsExtension`, `WikilinksExtension`, `HeadingNumbersExtension`, `FrontmatterExtension`, `ExternalLinksExtension`, `SpoilerExtension`, `DetailsExtension`, `AutolinkExtension`, `MentionsExtension`, `CitationsExtension`, `AdmonitionExtension`, `ListTableExtension`, `SemanticSpanExtension`, `HeadingLevelShiftExtension`, and the other 0.1 extensions | not ported; several are core syntax in 0.2 (admonitions, mentions, citations, autolinks), the rest wait for the extension catalog |
 | `HeadingPermalinksExtension`, `LowercaseHeadingIdsExtension`, `AsciiHeadingIdsExtension` | option `headingIds` for the id forms; permalinks are gone |
 
 ## Errors
