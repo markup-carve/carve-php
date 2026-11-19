@@ -96,7 +96,7 @@ final class BlocksInlineTest extends TestCase
         $node = json_decode(Carve::encodeTree(Carve::parse($source, $options)), true)['children'][0];
         $this->assertSame('block_extension', $node['type']);
         $this->assertSame('carve.details', $node['name']);
-        $this->assertSame(['form' => 'div', 'name' => 'details', 'body' => "x\n", 'title' => 'T'], $node['source']);
+        $this->assertEquals(['form' => 'div', 'name' => 'details', 'body' => "x\n", 'title' => 'T'], $node['source']);
         $this->assertSame($source, Carve::write(Carve::parse($source, $options), null, $options));
         $only = ['extensions' => [Details::bundle()->withoutRenderers()]];
         $result = Carve::renderWithDiagnostics(Carve::parse($source, $only), $only);

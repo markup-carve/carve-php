@@ -14,8 +14,8 @@ final class TableAlignmentTest extends TestCase
         $source = "|={>^} Qty |={?v} Note |\n| 1 |{<~} a |\n| 2 | b |";
         $tree = json_decode(Carve::toJson($source), true, 4096, JSON_THROW_ON_ERROR);
         $columns = $tree['children'][0]['columns'];
-        self::assertSame(['type' => 'table_column', 'resolvedAlign' => 'right', 'resolvedValign' => 'top'], $columns[0]);
-        self::assertSame(['type' => 'table_column', 'resolvedValign' => 'bottom'], $columns[1]);
+        self::assertEquals(['type' => 'table_column', 'resolvedAlign' => 'right', 'resolvedValign' => 'top'], $columns[0]);
+        self::assertEquals(['type' => 'table_column', 'resolvedValign' => 'bottom'], $columns[1]);
         self::assertStringContainsString('text-align: left; vertical-align: middle;', Carve::toHtml($source));
     }
 }

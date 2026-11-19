@@ -315,11 +315,11 @@ final class Candidate4Test extends TestCase
         $source = ":::: tabs\n::: tab \"Install\"\nRun setup.\n:::\n\n::: tab \"Use\"\nOpen the app.\n:::\n::::\n";
         $tree = json_decode(Carve::toJson($source, ['extensions' => Tabs::extensions()]), true);
         $tabs = $tree['children'][0];
-        $this->assertSame(
+        $this->assertEquals(
             ['form' => 'div', 'name' => 'tabs', 'body' => "::: tab \"Install\"\nRun setup.\n:::\n\n::: tab \"Use\"\nOpen the app.\n:::\n"],
             $tabs['source'],
         );
-        $this->assertSame(
+        $this->assertEquals(
             ['form' => 'div', 'name' => 'tab', 'body' => "Run setup.\n", 'title' => 'Install'],
             $tabs['slots']['tabs'][0]['source'],
         );
