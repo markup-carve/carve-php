@@ -34,6 +34,14 @@ final class Command
     private const RENDER_TARGETS = ['html', 'markdown', 'plain', 'ansi'];
 
     /**
+     * Flags that set one option: `softBreak` (C2-T-010), `allowLosses` one code per instance (C2-T-027) and `maxLosses`
+     * (C2-T-029).
+     *
+     * @var array<string, string>
+     */
+    private const OPTION_FLAGS = ['soft-break' => 'softBreak', 'allow-loss' => 'allowLosses', 'max-render-losses' => 'maxLosses'];
+
+    /**
      * @var array<string, bool>
      */
     private const FLAGS = ['json' => true, 'tree' => true, 'includes' => true, 'no-includes' => false];
@@ -153,13 +161,8 @@ final class Command
         }
         $equals = strpos($arg, '=');
         $name = substr($arg, 2, $equals === false ? null : $equals - 2);
-        if (isset(self::VALUED[$name])) {
-            $value = $equals !== false ? substr($arg, $equals + 1) : ($args[$i + 1] ?? null);
-            if ($value === null) {
-                throw new OptionError('missing value for --' . $name);
-            }
-            $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
-                : ($name === 'include-root' ? $value : self::json($name, $value));
+        if (isset(self::VALUED[$name]) || (isset(self::OPTION_FLAGS[$name]) && $parsed['command'] === 'render')) {
+            self::valued($name, $equals !== false ? substr($arg, $equals + 1) : ($args[$i + 1] ?? null), $parsed);
 
             return $equals !== false ? $i : $i + 1;
         }
@@ -198,6 +201,61 @@ final class Command
         }
 
         return $value;
+    }
+
+    /**
+     * @param string $name
+     * @param string|null $value
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return void
+     */
+    private static function valued(string $name, ?string $value, array &$parsed): void
+    {
+        if (isset(self::OPTION_FLAGS[$name])) {
+            self::optionFlag($name, $value, $parsed['options']);
+
+            return;
+        }
+        if ($value === null) {
+            throw new OptionError('missing value for --' . $name);
+        }
+        $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
+            : ($name === 'include-root' ? $value : self::json($name, $value));
+    }
+
+    /**
+     * @internal Shared with `ImportCommand`.
+     *
+     * @param string $name A key of `OPTION_FLAGS`.
+     * @param string|null $value
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return void
+     */
+    public static function optionFlag(string $name, ?string $value, array &$options): void
+    {
+        if ($value === null) {
+            throw new OptionError('missing value for --' . $name);
+        }
+        $option = self::OPTION_FLAGS[$name];
+        if ($option === 'allowLosses') {
+            $list = $options[$option] ?? [];
+            $list = is_array($list) ? $list : [];
+            $list[] = $value;
+            $options[$option] = $list;
+        } elseif ($option === 'maxLosses') {
+            if (preg_match('/^(0|[1-9][0-9]*)$/', $value) !== 1) {
+                throw new OptionError('--' . $name . ' takes a count');
+            }
+            $options[$option] = (int)$value;
+        } else {
+            $options[$option] = $value;
+        }
     }
 
     private static function json(string $name, string $value): mixed

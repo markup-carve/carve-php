@@ -47,6 +47,7 @@ Every error a call throws implements `CarveException`.
 | `decodeTree($json, $options)`, `validateTree($tree, $options)` | the tree of AST JSON, or `TreeError` |
 | `lint($source, $options)` | lint diagnostics |
 | `includeDependencies($sourceOrTree, $options)` | the files the includes of a document read |
+| `positionOf($source, $offset)` | `['line' => ..., 'column' => ...]` of a UTF-8 byte offset, as the command line counts them |
 | `importDocument($html, $options)`, `importHtml($html, $options)` | `ImportResult`: tree, AST array, diagnostics and the Carve source |
 | `write($tree, $layout = null, $options)` | Carve source of a tree; throws `CarveWriteError` on a loss |
 | `writeWithDiagnostics($tree, $layout = null, $options)` | `WriteResult`: source and the loss diagnostics |
@@ -58,9 +59,15 @@ Every error a call throws implements `CarveException`.
 The Markdown, plain-text and ANSI exports are `Export\MarkdownExporter`, `Export\PlainTextExporter` and
 `Export\AnsiExporter`; each `export($tree, $options)` returns an `Export\ExportResult` with the text and the losses.
 
+Render options of note: `softBreak` (`newline`, `space` or `br`), `allowLosses` (render-loss codes left out of the
+record), `maxLosses` (the cap on kept losses, default 100; the result's `suppressedDiagnostics` counts the rest) and
+`codeBlockRenderer`, a `Closure(Node $node, string $defaultHtml): ?string` that returns trusted HTML for a code block,
+or `null` to keep the default.
+
 Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
-(`html`), `rawHtml` (keep raw HTML nodes) and `strictLosses`. Includes: an `Include\IncludeResolver` such as
-`Include\FileResolver::forRoot($root)` in the `includes` option.
+(`html`), `rawHtml` (keep raw HTML nodes), `strictLosses`, `allowLosses` and `maxLosses`. Includes: an
+`Include\IncludeResolver` such as `Include\FileResolver::forRoot($root)` in the `includes` option, or an array with
+`resolver` and the lowered limits `depth`, `bytes` and `maxDiagnostics` (include failures kept, at most 100).
 
 Extensions (provisional) are passed as `ExtensionDefinition` or `ExtensionProvider` objects in the `extensions` option.
 `Extension\Tabs::extensions()` gives the standard tabs extension; pass `true` to get its renderer as well.
@@ -79,7 +86,8 @@ vendor/bin/carve import --from=html [--raw-html] FILE...
 ```
 
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
-`--option=NAME=JSON`. `-` reads standard input.
+`--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br`; `render` and `import` take `--allow-loss CODE`
+(repeatable) and `--max-render-losses N`. `-` reads standard input.
 
 Exit codes: `0` done; `1` a lint finding, a file that `fmt --check` would change, or a write loss; `2` a usage or
 input error.

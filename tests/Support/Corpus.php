@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Support;
 
+use Closure;
 use MarkupCarve\Carve\Extension\Tabs;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Node;
 use RuntimeException;
 
 /**
@@ -92,12 +94,41 @@ final class Corpus
             };
             $options['includes'] = $includes;
         }
+        if (is_array($options['codeBlockRenderer'] ?? null)) {
+            $options['codeBlockRenderer'] = self::codeBlockRenderer($options['codeBlockRenderer']);
+        }
         if (isset($options['extensions']) && in_array('carve.tabs', $options['extensions'], true)) {
             $options['extensions'] = Tabs::extensions(($options['renderers']['carve.tabs'] ?? null) === 'standard');
             unset($options['renderers']);
         }
 
         return $options;
+    }
+
+    /**
+     * The runner function of conformance/README.md ("Options") for a `codeBlockRenderer` object.
+     *
+     * @param array<string, mixed> $spec
+     *
+     * @return \Closure(\MarkupCarve\Carve\Node, string): mixed
+     */
+    private static function codeBlockRenderer(array $spec): Closure
+    {
+        return static function (Node $node, string $default) use ($spec): mixed {
+            $syntax = $node->f['syntax'] ?? null;
+            if ((array_key_exists('syntax', $spec) && $syntax !== $spec['syntax']) || $spec['result'] === null) {
+                return null;
+            }
+            if (!is_string($spec['result'])) {
+                return $spec['result'];
+            }
+
+            return preg_replace_callback(
+                '/\{default\}|\{syntax\}/',
+                static fn (array $m): string => $m[0] === '{default}' ? $default : (is_string($syntax) ? $syntax : ''),
+                $spec['result'],
+            );
+        };
     }
 
     /**

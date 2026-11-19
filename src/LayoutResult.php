@@ -13,8 +13,13 @@ final class LayoutResult
      * @param \MarkupCarve\Carve\Node $tree
      * @param array<string, mixed> $layout
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics
+     * @param int $suppressedDiagnostics The include failures the cap held back (C2-T-024).
      */
-    public function __construct(public readonly Node $tree, public readonly array $layout, public readonly array $diagnostics)
-    {
+    public function __construct(
+        public readonly Node $tree,
+        public readonly array $layout,
+        public readonly array $diagnostics,
+        public readonly int $suppressedDiagnostics = 0,
+    ) {
     }
 }

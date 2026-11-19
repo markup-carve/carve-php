@@ -46,6 +46,34 @@ final class Utf8
         return $out;
     }
 
+    /**
+     * The byte length of the code point at `$at`, or of the ill-formed sequence that one U+FFFD replaces there.
+     *
+     * @param string $bytes
+     * @param int $at
+     *
+     * @return int
+     */
+    public static function unitLength(string $bytes, int $at): int
+    {
+        $b = ord($bytes[$at]);
+        if ($b < 0x80) {
+            return 1;
+        }
+        $length = self::length($b);
+        $n = strlen($bytes);
+        $used = 1;
+        while ($used < $length && $at + $used < $n) {
+            $next = ord($bytes[$at + $used]);
+            if ($next < 0x80 || $next > 0xBF || ($used === 1 && !self::second($b, $next))) {
+                break;
+            }
+            $used++;
+        }
+
+        return $used;
+    }
+
     private static function length(int $first): int
     {
         if ($first >= 0xC2 && $first <= 0xDF) {

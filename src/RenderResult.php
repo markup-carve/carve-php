@@ -14,9 +14,13 @@ final class RenderResult
     /**
      * @param string $html
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics
+     * @param int $suppressedDiagnostics The entries a cap held back (C2-T-024, C2-H-205).
      */
-    public function __construct(public readonly string $html, public readonly array $diagnostics)
-    {
+    public function __construct(
+        public readonly string $html,
+        public readonly array $diagnostics,
+        public readonly int $suppressedDiagnostics = 0,
+    ) {
     }
 
     /**

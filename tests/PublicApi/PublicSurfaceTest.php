@@ -21,8 +21,8 @@ final class PublicSurfaceTest extends TestCase
         sort($names);
         $this->assertSame([
             'decodeTree', 'encodeEnvelope', 'encodeTree', 'format', 'formatWithDiagnostics', 'importDocument', 'importHtml',
-            'includeDependencies', 'lint', 'parse', 'parseWithDiagnostics', 'parseWithLayout', 'plainText', 'render',
-            'renderWithDiagnostics', 'renderWithDocumentTransforms', 'safeCodeFence', 'tableGrid',
+            'includeDependencies', 'lint', 'parse', 'parseWithDiagnostics', 'parseWithLayout', 'plainText', 'positionOf',
+            'render', 'renderWithDiagnostics', 'renderWithDocumentTransforms', 'safeCodeFence', 'tableGrid',
             'toHtml', 'toJson', 'validateLayout', 'validateTree', 'write', 'writeTo', 'writeWithDiagnostics', 'writers',
         ], $names);
     }

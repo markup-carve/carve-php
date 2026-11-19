@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Include\Expander;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Resolve\Facts;
 use MarkupCarve\Carve\Resolve\PlainText;
@@ -174,6 +175,13 @@ final class HtmlRenderer
             if ($gc) {
                 gc_enable();
             }
+        }
+        if ($opts->allowLosses !== []) {
+            // C2-H-204: an allowed loss is left out of the record and counts for neither strictLosses nor maxLosses.
+            $r->log->entries = array_values(array_filter(
+                $r->log->entries,
+                static fn (array $entry): bool => !isset($opts->allowLosses[$entry['code']]),
+            ));
         }
         if ($opts->strictLosses && $r->log->entries !== []) {
             $html = '';
@@ -632,11 +640,23 @@ final class HtmlRenderer
      * @param \MarkupCarve\Carve\Node $node
      * @param int $depth
      *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
      * @return string
      */
     private function codeBlockAt(Node $node, int $depth): string
     {
-        return self::pad($depth) . $this->codeBlock($node);
+        $html = $this->codeBlock($node);
+        if ($this->o->codeBlockRenderer !== null) {
+            // C2-H-206, C2-H-207: trusted host HTML in place of the default, or null to keep it.
+            $host = ($this->o->codeBlockRenderer)($node, $html);
+            if ($host !== null && !is_string($host)) {
+                throw new OptionError('option codeBlockRenderer: returned a value that is neither text nor nothing');
+            }
+            $html = $host ?? $html;
+        }
+
+        return self::pad($depth) . $html;
     }
 
     /**
@@ -849,11 +869,6 @@ final class HtmlRenderer
         }
         foreach ($node->children ?? [] as $kid) {
             if ($kid->type === 'image' && !(isset($kid->f['key']) && !isset($kid->f['src']))) {
-                $src = $kid->f['src'] ?? null;
-                if (is_string($src) && !UrlPolicy::passes($src, $this->o)) {
-                    return null;
-                }
-
                 return $kid;
             }
         }

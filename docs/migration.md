@@ -18,7 +18,7 @@ converter.
 |---|---|
 | `new CarveConverter(...)`, `CarveConverter::create(...)` | none; pass the settings as `$options` to each call |
 | `$converter->convert($source)` | `Carve::render($source, $options)` |
-| `$converter->convertWithReport($source, $strict, $max)` | `Carve::renderWithDiagnostics($source, ['strictLosses' => $strict])`; cap the list yourself |
+| `$converter->convertWithReport($source, $strict, $max)` | `Carve::renderWithDiagnostics($source, ['strictLosses' => $strict, 'maxLosses' => $max])`; `suppressedDiagnostics` counts the entries past the cap |
 | `$converter->parse($source)` | `Carve::parse($source, $options)` |
 | `$converter->render($document)` | `Carve::render($tree, $options)` |
 | `$converter->renderWithReport($document, ...)` | `Carve::renderWithDiagnostics($tree, $options)` |
@@ -56,7 +56,7 @@ converter.
 | `RendererInterface`, `RenderTarget`, `RenderTargetInterface` | `Output\OutputWriter`, registered on `Carve::writers()` |
 | `TableLayout::expand()` | `Carve::tableGrid($table)` |
 | `StringUtil::findSafeCodeFence()` | `Carve::safeCodeFence($content)` |
-| `SoftBreakMode` | gone |
+| `SoftBreakMode` | option `softBreak` (`newline`, `space` or `br`) |
 
 The `roundtrip` option of the 0.1 Markdown writer is gone: 0.2 has no Markdown carrier format. The target `text` is
 named `plain`. `docs/README.md` lists the losses the exports report.

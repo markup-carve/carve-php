@@ -5,79 +5,197 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Parity;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Cli\Command;
+use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\OptionError;
+use MarkupCarve\Carve\RenderError;
+use MarkupCarve\Carve\Test\Support\Corpus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class Candidate16Test extends TestCase
 {
     /**
-     * @return array<string, array{0: string, 1: string, 2: array{0: int, 1: int}|null}>
+     * @return array<string, array{0: array<string, mixed>}>
      */
-    public static function lintCases(): array
+    public static function positionCases(): array
     {
-        return [
-            'C2-B-025 second item block' => ["- = a\n == b\n", 'list-item-body-below-content-column', [7, 11]],
-            'C2-I-124 later bare tag' => [
-                "<https://example.com/a_b?c=*d*> and <a@b.com> and <a@b> and <not a link>\n",
-                'bare-html-tag',
-                [60, 72],
-            ],
-            'C2-I-077 inline footnote is not a label' => ["^[a %% c\nd] e\n", 'comment-in-reference-label', null],
-            'C2-B-044 three blank lines separate lists' => [
-                "i.  first 1\n\n\n\nc.  second 1\nd.  second 2\n",
-                'ordered-list-kind-split',
-                null,
-            ],
-            'C2-B-044 adjacent split remains reported' => ["i. first\nk. second\n", 'ordered-list-kind-split', [0, 8]],
-            'C2-B-055 first nested marker has no deeper list yet' => ["- a\n - %%%\n%%%\nx\n", 'list-marker-below-content-column', null],
-            'C2-B-055 marker between two lists is reported' => ["- a\n  - b\n - c\n", 'list-marker-below-content-column', [11, 14]],
-            'C2-B-054 marker still inside an outer list is even' => ["- a\n  - b\n - c\n", 'uneven-list-indent', null],
-        ];
+        return self::casesOf('position');
     }
 
-    #[DataProvider('lintCases')]
-    public function testLintRange(string $source, string $code, ?array $range): void
+    /**
+     * C2-T-041.
+     *
+     * @param array<string, mixed> $case
+     */
+    #[DataProvider('positionCases')]
+    public function testPositionOf(array $case): void
     {
-        $matching = array_values(array_filter(
-            Carve::lint($source),
-            static fn ($diagnostic): bool => $diagnostic->code === $code,
-        ));
-        if ($range === null) {
-            self::assertSame([], $matching);
-
-            return;
+        $source = isset($case['inputBytes']) ? (string)hex2bin(str_replace(' ', '', $case['inputBytes'])) : $case['input'];
+        if (isset($case['expected']['refusal'])) {
+            $this->expectException(OptionError::class);
+            $this->expectExceptionMessage('offset');
         }
-        self::assertCount(1, $matching);
-        self::assertSame($range, [$matching[0]->startOffset, $matching[0]->endOffset]);
-    }
-
-    public function testC2B085DuplicateFootnoteRangesOnlyItsMarker(): void
-    {
-        $source = "[^a]: +\n[^a]: +\n- b\n\n[^a]\n";
-        $matching = array_values(array_filter(
-            Carve::parseWithDiagnostics($source)->diagnostics,
-            static fn ($diagnostic): bool => $diagnostic->code === 'duplicate-footnote-definition',
-        ));
-        self::assertCount(1, $matching);
-        self::assertSame([8, 13], [$matching[0]->startOffset, $matching[0]->endOffset]);
-    }
-
-    public function testC2A151LineBlockCommentEndsAtLastOwnedCharacter(): void
-    {
-        $tree = json_decode(Carve::toJson("::: |\na\n%%%\nhidden\n:::\n"), true, 512, JSON_THROW_ON_ERROR);
-        $comment = $tree['children'][0]['children'][1];
-        self::assertSame('comment', $comment['type']);
-        self::assertSame(18, $comment['pos']['endOffset']);
-    }
-
-    public function testC2B024BlankLineEndsLazyLineBlockStanza(): void
-    {
-        $source = "- ::: |\n  a\nb\n\n- v.  x\n  vi.  y\n";
         self::assertSame(
-            "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>a<br>\nb</p>\n    </div>\n  </li>\n"
-                . "  <li>\n    <ol type=\"a\" start=\"22\">\n      <li>x</li>\n    </ol>\n"
-                . "    <ol type=\"i\" start=\"6\">\n      <li>y</li>\n    </ol>\n  </li>\n</ul>",
-            Carve::toHtml($source),
+            ['line' => $case['expected']['line'] ?? null, 'column' => $case['expected']['column'] ?? null],
+            Carve::positionOf($source, $case['offset']),
         );
+    }
+
+    /**
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    public static function suppressedCases(): array
+    {
+        $out = [];
+        foreach (Corpus::clauseCases() as $id => $case) {
+            if (isset($case['expected']['suppressed'])) {
+                $out[$id] = [$case];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-H-205, C2-T-024: the count of the entries a cap held back.
+     *
+     * @param array<string, mixed> $case
+     */
+    #[DataProvider('suppressedCases')]
+    public function testSuppressedDiagnostics(array $case): void
+    {
+        $options = Corpus::caseOptions($case);
+        $result = match ($case['kind']) {
+            'import' => Carve::importHtml($case['html'], $options),
+            'parse' => Carve::parseWithDiagnostics($case['input'], $options),
+            default => Carve::renderWithDiagnostics($case['input'], $options),
+        };
+        self::assertSame($case['expected']['suppressed'], $result->suppressedDiagnostics);
+        foreach ($case['expected']['diagnostics'] ?? [] as $item) {
+            self::assertContains(is_string($item) ? $item : $item['code'], $result->codes());
+        }
+    }
+
+    public function testAllowedImporterCodeDoesNotFailStrictImport(): void
+    {
+        $result = Carve::importHtml('<p>a<wbr>b</p>', ['allowLosses' => ['import-element-dropped'], 'strictLosses' => true]);
+        self::assertSame("ab\n", $result->source);
+        self::assertSame([], $result->diagnostics);
+    }
+
+    public function testAllowedLossDoesNotFailStrictRender(): void
+    {
+        $options = ['allowLosses' => ['destination-denied'], 'strictLosses' => true];
+        self::assertSame('<p><a href="">a</a></p>', Carve::toHtml("[a](javascript:x)\n", $options));
+        $this->expectException(RenderError::class);
+        Carve::toHtml("[a](javascript:x)\n\n``` =latex\nb\n```\n", $options);
+    }
+
+    public function testIncludeDiagnosticsCap(): void
+    {
+        $resolver = static fn (array $request): array => ['error' => 'not_found'];
+        $source = "{{ \"a\" }}\n\n{{ \"b\" }}\n\n{{ \"c\" }}\n";
+        $result = Carve::parseWithDiagnostics($source, ['includes' => ['resolver' => $resolver, 'maxDiagnostics' => 1]]);
+        self::assertSame(['include-not-found'], $result->codes());
+        self::assertSame(2, $result->suppressedDiagnostics);
+        $this->expectException(OptionError::class);
+        Carve::parse($source, ['includes' => ['resolver' => $resolver, 'maxDiagnostics' => 101]]);
+    }
+
+    public function testIncludeDiagnosticsCapHoldsForLayout(): void
+    {
+        $resolver = static fn (array $request): array => ['error' => 'not_found'];
+        $result = Carve::parseWithLayout("{{ \"a\" }}\n\n{{ \"b\" }}\n", ['includes' => ['resolver' => $resolver, 'maxDiagnostics' => 1]]);
+        self::assertCount(1, $result->diagnostics);
+        self::assertSame(1, $result->suppressedDiagnostics);
+    }
+
+    public function testImportCommandTakesTheLossFlags(): void
+    {
+        [$status, $out, $err] = self::command(['import', '--from=html', '--max-render-losses', '1', '-'], '<p>a<wbr>b<wbr>c</p>');
+        self::assertSame([0, "abc\n"], [$status, $out]);
+        self::assertSame(1, substr_count($err, 'import-element-dropped'));
+        [$status, $out, $err] = self::command(['import', '--from=html', '--allow-loss=import-element-dropped', '-'], '<p>a<wbr>b</p>');
+        self::assertSame([0, "ab\n", ''], [$status, $out, $err]);
+        self::assertSame(2, self::command(['import', '--from=html', '--allow-loss=nope', '-'], '<p>a</p>')[0]);
+    }
+
+    public function testCodeBlockRendererSeesTheNodeAndDefault(): void
+    {
+        $seen = [];
+        $html = Carve::toHtml("- a\n\n  ``` ts\n  x\n  ```\n", [
+
+            'codeBlockRenderer' => static function (Node $node, string $default) use (&$seen): ?string {
+                $seen[] = [$node->type, $node->f['syntax'] ?? null, $default];
+
+                return null;
+            },
+        ]);
+        self::assertSame([['code_block', 'ts', "<pre><code class=\"language-ts\">x\n</code></pre>"]], $seen);
+        self::assertStringContainsString('<pre><code class="language-ts">x', $html);
+    }
+
+    public function testCodeBlockRendererRefusesANonTextResult(): void
+    {
+        $this->expectException(OptionError::class);
+        $this->expectExceptionMessage('codeBlockRenderer');
+        Carve::toHtml("``` ts\nx\n```\n", ['codeBlockRenderer' => static fn (Node $node, string $default): int => 1]);
+    }
+
+    public function testSoftBreakFlag(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'crv');
+        file_put_contents((string)$file, "a\nb\n");
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        $in = fopen('php://memory', 'r');
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        self::assertIsResource($in);
+        self::assertSame(0, Command::main(['render', '--soft-break', 'space', (string)$file], $in, $out, $err));
+        rewind($out);
+        self::assertSame("<p>a b</p>\n", stream_get_contents($out));
+        unlink((string)$file);
+    }
+
+    /**
+     * @param array<string> $args
+     * @param string $stdin
+     *
+     * @return array{0: int, 1: string, 2: string}
+     */
+    private static function command(array $args, string $stdin): array
+    {
+        $in = fopen('php://memory', 'w+');
+        $out = fopen('php://memory', 'w+');
+        $err = fopen('php://memory', 'w+');
+        self::assertIsResource($in);
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        fwrite($in, $stdin);
+        rewind($in);
+        $status = Command::main($args, $in, $out, $err);
+        rewind($out);
+        rewind($err);
+
+        return [$status, (string)stream_get_contents($out), (string)stream_get_contents($err)];
+    }
+
+    /**
+     * @param string $kind
+     *
+     * @return array<string, array{0: array<string, mixed>}>
+     */
+    private static function casesOf(string $kind): array
+    {
+        $out = [];
+        foreach (Corpus::clauseCases() as $id => $case) {
+            if (($case['kind'] ?? null) === $kind) {
+                $out[$id] = [$case];
+            }
+        }
+
+        return $out;
     }
 }
