@@ -73,7 +73,7 @@ final class Linter
         $rest = $options;
         unset($rest['includes']);
 
-        return array_merge($own, Includes::lint($source, $options['includes'], $rest));
+        return self::ordered(array_merge($own, Includes::lint($source, $options['includes'], $rest)));
     }
 
     /**

@@ -50,7 +50,9 @@ final class Includes
         $visit = new self($options);
         $config = $visit->recording($includes);
         $parseOptions = ['includes' => $config] + array_intersect_key($options, ['extensions' => true]);
-        $tree = json_decode(Carve2::toJson($source, $parseOptions), true, 4096, JSON_THROW_ON_ERROR);
+        $parsed = Carve2::parseWithDiagnostics($source, $parseOptions);
+        $tree = json_decode(Carve2::encodeTree($parsed->tree), true, 4096, JSON_THROW_ON_ERROR);
+        $visit->out = $parsed->diagnostics;
         if (is_array($tree)) {
             $visit->walk(Support::node($tree), '');
         }

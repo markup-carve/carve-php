@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve2\Html;
 
+use Closure;
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Generated\Tables;
 use MarkupCarve\Carve2\Node;
 use MarkupCarve\Carve2\Options;
 use MarkupCarve\Carve2\Resolve\PlainText;
+use MarkupCarve\Carve2\Resolve\Walk;
 use Throwable;
 
 /**
@@ -68,8 +70,20 @@ final class InlineRenderer
 
     public ?Profile $profile = null;
 
-    public function __construct(private Options $o, private RenderState $state, private AttrWriter $aw, private RenderLog $log)
-    {
+    /**
+     * @param \MarkupCarve\Carve2\Options $o
+     * @param \MarkupCarve\Carve2\Html\RenderState $state
+     * @param \MarkupCarve\Carve2\Html\AttrWriter $aw
+     * @param \MarkupCarve\Carve2\Html\RenderLog $log
+     * @param \Closure(): \MarkupCarve\Carve2\Extension\RenderHost $host
+     */
+    public function __construct(
+        private Options $o,
+        private RenderState $state,
+        private AttrWriter $aw,
+        private RenderLog $log,
+        private Closure $host,
+    ) {
     }
 
     /**
@@ -961,7 +975,7 @@ final class InlineRenderer
     }
 
     /**
-     * C2-H-076: an unknown inline extension is a span around its content; a qualified one renders its fallback.
+     * C2-H-076, C2-X-034: a qualified inline extension uses its registered renderer or its fallback.
      *
      * @param \MarkupCarve\Carve2\Node $node
      * @param \MarkupCarve\Carve2\Attrs|null $attrs
@@ -974,6 +988,10 @@ final class InlineRenderer
     {
         $name = PlainText::str($node->f['name'] ?? '');
         if (str_contains($name, '.')) {
+            $renderer = $this->o->rendered[Walk::key($node)] ?? null;
+            if ($renderer !== null) {
+                return $renderer($node, ($this->host)());
+            }
             $this->log->loss('extension-fallback-rendered', 'warning', ['name' => $name]);
             $fallback = $node->f['fallback'] ?? null;
             $content = $this->inlines(PlainText::nodes(is_array($fallback) ? $fallback : $node->children), $depth + 1, true);
