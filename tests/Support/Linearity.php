@@ -11,7 +11,8 @@ use Closure;
  *
  * The large input is timed against the small input run `$factor` times back to back: the
  * same number of bytes through a path that is linear by construction, measured in the same
- * rounds, so load and clock speed cancel out. Linear work gives about 1, quadratic work
+ * rounds, so load and clock speed cancel out. Process CPU time leaves out time the runner
+ * spends on other processes. Linear work gives about 1, quadratic work
  * about `$factor`.
  */
 final class Linearity
@@ -40,15 +41,15 @@ final class Linearity
             $single = INF;
             for ($round = 0; $round < $rounds; $round++) {
                 gc_collect_cycles();
-                $start = hrtime(true);
+                $start = self::cpuMicros();
                 for ($i = 0; $i < $factor; $i++) {
                     $small();
                 }
-                $batch = min($batch, hrtime(true) - $start);
+                $batch = min($batch, self::cpuMicros() - $start);
                 gc_collect_cycles();
-                $start = hrtime(true);
+                $start = self::cpuMicros();
                 $large();
-                $single = min($single, hrtime(true) - $start);
+                $single = min($single, self::cpuMicros() - $start);
             }
             $best = min($best, $single / max(1, $batch));
             if ($best <= self::LIMIT) {
@@ -57,5 +58,16 @@ final class Linearity
         }
 
         return $best;
+    }
+
+    private static function cpuMicros(): int
+    {
+        $usage = getrusage();
+        if ($usage === false) {
+            return intdiv(hrtime(true), 1000);
+        }
+
+        return ($usage['ru_utime.tv_sec'] + $usage['ru_stime.tv_sec']) * 1000000
+            + $usage['ru_utime.tv_usec'] + $usage['ru_stime.tv_usec'];
     }
 }
