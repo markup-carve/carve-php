@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Walk;
 use Throwable;
+use UnexpectedValueException;
 use WeakMap;
 
 /**
@@ -1883,7 +1884,12 @@ final class HtmlRenderer
         if ($renderer !== null) {
             // C2-X-034: trusted host code; its HTML is written unchanged.
             try {
-                return self::pad($depth) . $renderer($node, $this->host($depth));
+                $html = $renderer($node, $this->host($depth));
+                if (!is_string($html)) {
+                    throw new UnexpectedValueException('renderer returned a value that is not a string');
+                }
+
+                return self::pad($depth) . $html;
             } catch (Throwable $error) {
                 $this->log->rendererFailed($node, $error);
             }

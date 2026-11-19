@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Extension;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\Bundle;
 use MarkupCarve\Carve\Extension\FencedRender;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -43,5 +44,15 @@ final class ImgFenceFailureTest extends TestCase
         self::assertSame("<pre><code class=\"language-diagram\">a\n</code></pre>", $result->html);
         self::assertSame(['extension-renderer-failed'], $result->codes());
         self::assertStringContainsString('carve.fencedRender.diagram', $result->diagnostics[0]->message);
+    }
+
+    public function testNonStringRendererResultAlsoUsesTheFallback(): void
+    {
+        $definition = FencedRender::bundle('diagram')->definitions()[0];
+        $bundle = new Bundle([$definition->withRenderer(static fn (): int => 42)]);
+        $result = Carve::renderWithDiagnostics("```diagram\na\n```\n", ['extensions' => [$bundle]]);
+
+        self::assertSame("<pre><code class=\"language-diagram\">a\n</code></pre>", $result->html);
+        self::assertSame(['extension-renderer-failed'], $result->codes());
     }
 }

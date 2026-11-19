@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Walk;
 use Throwable;
+use UnexpectedValueException;
 
 /**
  * Inline nodes to HTML (C2-H-072 to C2-H-101).
@@ -1096,7 +1097,12 @@ final class InlineRenderer
             $renderer = $this->o->rendered[Walk::key($node)] ?? null;
             if ($renderer !== null) {
                 try {
-                    return $renderer($node, ($this->host)());
+                    $html = $renderer($node, ($this->host)());
+                    if (!is_string($html)) {
+                        throw new UnexpectedValueException('renderer returned a value that is not a string');
+                    }
+
+                    return $html;
                 } catch (Throwable $error) {
                     $this->log->rendererFailed($node, $error);
                 }
