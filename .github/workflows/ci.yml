@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [next2]
+    branches: [main, next2]
   pull_request:
-    branches: [next2]
+    branches: [main, next2]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
