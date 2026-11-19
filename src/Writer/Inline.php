@@ -34,6 +34,13 @@ final class Inline
     private const PAIRED = ['emphasis' => '/', 'strong' => '*'];
 
     /**
+     * The nodes whose content stands between brackets, a barrier of the delimiter stack.
+     *
+     * @var array<string>
+     */
+    private const BARRIERS = ['link', 'image', 'span', 'inline_footnote', 'inline_extension', 'citation_group'];
+
+    /**
      * The first character of the written form of a node, where it does not depend on its fields.
      *
      * @var array<string, string>
@@ -143,6 +150,7 @@ final class Inline
         $count = count($nodes);
         $visible = $c->lineStart ? -1 : $c->last;
         $visibleNode = null;
+        $redo = null;
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -156,8 +164,7 @@ final class Inline
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
-                $after = $at + 1 < $count && is_array($nodes[$at + 1]) ? self::first($nodes[$at + 1], $c) : $next;
-                $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
+                $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
             $out .= $part;
             if (!self::isBracedComment($node)) {
@@ -167,6 +174,40 @@ final class Inline
         }
 
         return $out;
+    }
+
+    /**
+     * Writes the node at `$at` of a list. C2-W-069: a text that ends in `{` before emphasis or strong reads the first
+     * character of the form the node takes, so it is written again once the node comes out braced.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     * @param string $out What the list wrote so far.
+     * @param array{0: int, 1: int, 2: \MarkupCarve\Carve\Writer\Context}|null $redo Where the text before stands in
+     *   `$out`, and the context it was written in.
+     *
+     * @return string
+     */
+    private function listed(array $nodes, int $at, string $path, Context $c, int $next, string &$out, ?array &$redo): string
+    {
+        $node = (array)$nodes[$at];
+        $following = $nodes[$at + 1] ?? null;
+        $after = is_array($following) ? self::first($following, $c) : $next;
+        $retry = self::str($node, 'type') === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
+            && str_ends_with(self::str($node, 'value'), '{');
+        $snapshot = $retry ? clone $c : null;
+        $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
+        if ($redo !== null && str_starts_with($part, '{')) {
+            [$from, $length, $text] = $redo;
+            $again = $this->node((array)$nodes[$at - 1], $path . '/' . ($at - 1), $text, 0x7B, $nodes[$at - 2] ?? null);
+            $out = substr_replace($out, $again, $from, $length);
+        }
+        $redo = $snapshot === null ? null : [strlen($out), strlen($part), $snapshot];
+
+        return $part;
     }
 
     /**
@@ -252,6 +293,32 @@ final class Inline
                 $out .= $v . "\0";
             }
         });
+
+        return $out;
+    }
+
+    /**
+     * The text a node holds outside brackets and outside nodes of `$mark`, each text closed by `\0`: where its closers of
+     * `$mark` are written bare (C2-I-055).
+     *
+     * @param array<mixed> $node
+     * @param string $mark
+     *
+     * @return string
+     */
+    public static function openText(array $node, string $mark): string
+    {
+        $type = self::str($node, 'type');
+        if ($type === 'text') {
+            return self::str($node, 'value') . "\0";
+        }
+        if (in_array($type, self::BARRIERS, true) || (self::BRACED[$type] ?? self::PAIRED[$type] ?? '') === $mark) {
+            return '';
+        }
+        $out = '';
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            $out .= is_array($child) ? self::openText($child, $mark) : '';
+        }
 
         return $out;
     }
@@ -686,9 +753,12 @@ final class Inline
         $c->last = ord($mark);
         $c->lineStart = false;
         $open = $c->open;
+        $marks = $c->marks;
         $c->open[$type] = ($c->open[$type] ?? 0) + 1;
+        $c->marks .= $mark;
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
         $c->open = $open;
+        $c->marks = $marks;
         $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($inner, $mark, $prev, $next);
 
         return $bare ? $mark . $inner . $mark : '{' . $mark . $inner . $mark . '}';
@@ -766,8 +836,12 @@ final class Inline
         }
         $c->last = ord($mark);
         $c->lineStart = false;
+        $marks = $c->marks;
+        $c->marks .= $mark;
+        $inner = $this->content($children, $path . '/children', $c, ord($mark));
+        $c->marks = $marks;
 
-        return '{' . $mark . $this->content($children, $path . '/children', $c, ord($mark)) . $mark . '}';
+        return '{' . $mark . $inner . $mark . '}';
     }
 
     /**
@@ -809,11 +883,15 @@ final class Inline
     private function inside(array $children, string $path, Context $c): string
     {
         $bracket = $c->inBracket;
+        $marks = $c->marks;
         $c->inBracket = true;
+        // A bracket is a barrier of the delimiter stack: no closer inside it reaches a node outside.
+        $c->marks = '';
         $c->last = 0x5B;
         $c->lineStart = false;
         $inner = $this->content($children, $path, $c, 0x5D);
         $c->inBracket = $bracket;
+        $c->marks = $marks;
 
         return $inner;
     }

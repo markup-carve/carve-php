@@ -53,6 +53,11 @@ final class Context
     public array $open = [];
 
     /**
+     * The marks of the braced, emphasis and strong nodes open around the content since the last bracket (C2-I-055).
+     */
+    public string $marks = '';
+
+    /**
      * The text of the leaf's own text nodes, each other node one `\0`, each break a line feed; null until the leaf
      * is first written. C2-W-094, C2-W-096: the bracket and brace tests read what follows a character in it.
      */
