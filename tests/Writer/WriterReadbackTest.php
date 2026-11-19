@@ -26,6 +26,11 @@ final class WriterReadbackTest extends TestCase
         $span = ['type' => 'span', 'attrs' => ['id' => 'hi'], 'children' => [$t('abc')]];
         $smile = ['type' => 'symbol', 'name' => 'smile'];
         $nbsp = ['type' => 'non_breaking_space'];
+        $tag = ['type' => 'tag', 'name' => 'tg'];
+        $note = ['type' => 'comment', 'form' => 'braced', 'value' => 'hi'];
+        $bob = ['type' => 'mention', 'target' => 'bob', 'kind' => 'user'];
+        $link = ['type' => 'link', 'href' => '/u', 'children' => [$t('b')]];
+        $dash = ['type' => 'smart_punctuation', 'kind' => 'en_dash', 'glyph' => '–', 'source' => '--'];
         $quote = static fn (string $side): array => [
             'type' => 'smart_punctuation',
             'kind' => $side . '_double_quote',
@@ -124,6 +129,85 @@ final class WriterReadbackTest extends TestCase
                 ['structure-unspellable /children/0/children/1'],
             ],
             'C2-I-011 a no-break space between words' => [$p($t('x'), $nbsp, $t('y')), "x\\ y\n", []],
+            'C2-I-090 a symbol behind a letter' => [
+                $p($t('a.c'), $smile),
+                "a.c:smile:\n",
+                ['structure-unspellable /children/0/children/1'],
+            ],
+            'C2-I-090 a tag behind a letter' => [$p($t('ab'), $tag), "ab#tg\n", ['structure-unspellable /children/0/children/1']],
+            'C2-I-090 a mention behind a digit' => [$p($t('x1'), $bob), "x1@bob\n", ['structure-unspellable /children/0/children/1']],
+            'C2-I-026 a braced comment between a letter and a tag' => [
+                $p($t('a'), $note, $tag),
+                "a{% hi %}#tg\n",
+                ['structure-unspellable /children/0/children/2'],
+            ],
+            'C2-I-026 a braced comment between a letter and a quote' => [
+                $p($t('a'), $note, $quote('left'), $t('x')),
+                "a{% hi %}\"x\n",
+                ['field-unspellable /children/0/children/2/kind'],
+            ],
+            'C2-I-026 a braced comment between a space and a quote' => [
+                $p($t('a '), $note, $quote('left'), $t('x')),
+                "a {% hi %}\"x\n",
+                [],
+            ],
+            'C2-I-090 a tag behind a node' => [$p(['type' => 'strong', 'children' => [$t('x')]], $tag), "*x*#tg\n", []],
+            'C2-I-092 a letter behind a tag' => [$p($tag, $t('a')), "#tga\n", ['field-unspellable /children/0/children/0/name']],
+            'C2-I-092 a digit behind a mention' => [$p($bob, $t('9')), "@bob9\n", ['field-unspellable /children/0/children/0/target']],
+            'C2-I-092 a trailing hyphen is no name' => [$p($tag, $t('-} x')), "#tg-} x\n", []],
+            'C2-I-092 a trailing dot is no name' => [$p($tag, $t('.(')), "#tg.(\n", []],
+            'C2-W-125 a hyphen that lengthens the name' => [$p($tag, $t('-a')), "#tg\\-a\n", []],
+            'C2-I-104 a left quote behind a letter' => [
+                $p($t('a'), $quote('left'), $t('a')),
+                "a\"a\n",
+                ['field-unspellable /children/0/children/1/kind'],
+            ],
+            'C2-I-104 a left quote behind a left quote' => [$p($quote('left'), $quote('left'), $t('a')), "\"\"a\n", []],
+            'C2-I-104 a left quote behind a node' => [
+                $p(['type' => 'strong', 'children' => [$t('x')]], $quote('left'), $t('a')),
+                "*x*\"a\n",
+                ['field-unspellable /children/0/children/1/kind'],
+            ],
+            'C2-I-105 a left single quote before a digit' => [
+                $p(['type' => 'smart_punctuation', 'kind' => 'left_single_quote', 'glyph' => '‘', 'source' => "'"], $t('9')),
+                "'9\n",
+                ['field-unspellable /children/0/children/0/kind'],
+            ],
+            'C2-I-043 a braced opener that nothing closes' => [$p($t('a {='), $link), "a {=[b](/u)\n", []],
+            'C2-I-043 a braced opener before a link' => [$p($t('a {-k '), $link), "a {-k [b](/u)\n", []],
+            'C2-I-043 an escaped mark opens nothing' => [$p($t('a {#i'), $code('c')), "a {\\#i`c`\n", []],
+            'C2-I-043 a closer in later text' => [
+                $p($t('a {=x '), ['type' => 'strong', 'children' => [$t('y')]], $t(' z=}')),
+                "a \\{=x *y* z=}\n",
+                [],
+            ],
+            'C2-I-043 a closer in the spelling of an atom' => [$p($t('a {-'), $tag, $t(' '), $dash, $t('}')), "a \\{-#tg --}\n", []],
+            'C2-I-043 a closer of a strong mark' => [
+                $p($t('a {*x '), ['type' => 'strong', 'children' => [$t('s')]], $t('}')),
+                "a \\{\\*x *s*}\n",
+                [],
+            ],
+            'C2-I-043 a braced comment closes a comment opener' => [
+                $p($t('a {%'), ['type' => 'comment', 'form' => 'braced', 'value' => 'c']),
+                "a \\{%{% c %}\n",
+                [],
+            ],
+            'C2-I-043 an editorial comment closes an editorial opener' => [
+                $p($t('a {#'), ['type' => 'critic_comment', 'value' => 'c']),
+                "a \\{#{#c#}\n",
+                [],
+            ],
+            'C2-I-043 the raw body of an editorial comment' => [
+                $p($t('a {='), ['type' => 'critic_comment', 'value' => 'x=}']),
+                "a \\{={#x=}#}\n",
+                [],
+            ],
+            'C2-I-060 a brace takes the mark of a strong' => [
+                $p($t('a {'), ['type' => 'strong', 'children' => [$t('s')]]),
+                "a \\{*s*\n",
+                [],
+            ],
+            'C2-I-043 a tag inside an attribute block' => [$p($t('a {'), $tag, $t('} b')), "a \\{#tg} b\n", []],
         ];
     }
 

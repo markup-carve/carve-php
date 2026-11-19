@@ -84,6 +84,17 @@ final class Context
     public array $flatBraces = [];
 
     /**
+     * @var array<int, array<mixed>> The node of each `\0` that is no atom, by offset.
+     */
+    public array $flatNodes = [];
+
+    /**
+     * @var array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>}|null The closer facts of
+     *   the leaf for the brace test, found on first use.
+     */
+    public ?array $closers = null;
+
+    /**
      * The offset in `$flat` of the text being escaped, -1 for a text inside another node.
      */
     public int $here = -1;
