@@ -18,7 +18,7 @@ final class Next2WriterCasesTest extends TestCase
             4096,
             JSON_THROW_ON_ERROR,
         );
-        $ids = ['CC-499', 'CC-1041', 'CC-1042', 'CC-1047'];
+        $ids = ['CC-499', 'CC-1041', 'CC-1042', 'CC-1047', 'CC-1184'];
         $seen = [];
         foreach ($spec['cases'] as $case) {
             if (!in_array($case['id'], $ids, true)) {

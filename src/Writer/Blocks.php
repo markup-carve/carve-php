@@ -778,7 +778,7 @@ final class Blocks
     {
         $out = '';
         $type = Inline::str($node, 'type');
-        if ($title !== null && (str_contains($title, '"') || str_contains($title, "\n"))) {
+        if ($title !== null && str_contains($title, "\n")) {
             $this->w->lose($path, $type, 'title');
         } elseif ($title !== null) {
             $out .= ' "' . $spelled . '"';

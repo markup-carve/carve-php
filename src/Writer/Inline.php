@@ -883,6 +883,7 @@ final class Inline
      */
     private function inside(array $children, string $path, Context $c): string
     {
+        $outer = clone $c;
         $bracket = $c->inBracket;
         $marks = $c->marks;
         $pairs = $c->bracketPairs;
@@ -892,7 +893,26 @@ final class Inline
         $c->marks = '';
         $c->last = 0x5B;
         $c->lineStart = false;
+        // A bracketed list is its own escape leaf. Its text offsets cannot use the surrounding list's flattened text.
+        $c->flat = null;
+        $c->flatAt = [];
+        $c->flatTypes = [];
+        $c->flatFirst = [];
+        $c->flatAtoms = [];
+        $c->flatBraces = [];
+        $c->flatNodes = [];
+        $c->closers = null;
+        $c->partners = null;
         $inner = $this->content($children, $path, $c, 0x5D);
+        $c->flat = $outer->flat;
+        $c->flatAt = $outer->flatAt;
+        $c->flatTypes = $outer->flatTypes;
+        $c->flatFirst = $outer->flatFirst;
+        $c->flatAtoms = $outer->flatAtoms;
+        $c->flatBraces = $outer->flatBraces;
+        $c->flatNodes = $outer->flatNodes;
+        $c->closers = $outer->closers;
+        $c->partners = $outer->partners;
         $c->inBracket = $bracket;
         $c->bracketPairs = $pairs;
         $c->marks = $marks;
