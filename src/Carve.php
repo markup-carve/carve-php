@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Export\CodeFence;
 use MarkupCarve\Carve\Export\MarkdownExporter;
 use MarkupCarve\Carve\Export\PlainTextExporter;
 use MarkupCarve\Carve\Extension\DocumentTransform;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Generated\Tables;
@@ -168,6 +169,7 @@ final class Carve
     private static function renderDetailed(Node|array|string $input, array $transforms, array $options): RenderResult
     {
         $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
+        $transforms = [...self::registeredTransforms($opts->extensions), ...$transforms];
         if (is_string($input)) {
             $source = $input;
             self::checkRenderInput($source, $opts);
@@ -213,6 +215,48 @@ final class Carve
         [$entries, $suppressed] = Cap::apply($entries, $opts, true);
 
         return new RenderResult($opts->strictLosses && $log->entries !== [] ? '' : $html, $entries, $suppressed);
+    }
+
+    /**
+     * The HTML of a render that runs the registered document transforms; under `strictLosses` a loss, a failed
+     * transform included, throws.
+     *
+     * @param \MarkupCarve\Carve\Node|array<string, mixed>|string $input
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Options $opts
+     *
+     * @throws \MarkupCarve\Carve\RenderError
+     *
+     * @return string
+     */
+    private static function transformedHtml(Node|array|string $input, array $options, Options $opts): string
+    {
+        $result = self::renderDetailed($input, [], $options);
+        $lost = array_values(array_filter($result->diagnostics, static fn (Diagnostic $d): bool => $d->channel === 'render-loss'));
+        if ($lost !== [] && $opts->strictLosses) {
+            throw new RenderError($lost);
+        }
+
+        return $result->html;
+    }
+
+    /**
+     * C2-X-053: the document transforms of the registered extensions, in registration order.
+     *
+     * @param array<mixed> $extensions
+     *
+     * @return array<\MarkupCarve\Carve\Extension\DocumentTransform>
+     */
+    private static function registeredTransforms(array $extensions): array
+    {
+        $transforms = [];
+        foreach ($extensions as $extension) {
+            if ($extension instanceof ExtensionDefinition && $extension->documentTransform !== null) {
+                $transforms[] = new DocumentTransform($extension->name, $extension->documentTransform);
+            }
+        }
+
+        return $transforms;
     }
 
     /**
@@ -428,6 +472,9 @@ final class Carve
     public static function toHtml(string $source, array $options = []): string
     {
         $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
+        if (self::registeredTransforms($opts->extensions) !== []) {
+            return self::transformedHtml($source, $options, $opts);
+        }
         self::checkRenderInput($source, $opts);
         $gc = self::collectorOff();
         try {
@@ -605,6 +652,9 @@ final class Carve
             return self::toHtml($input, $options);
         }
         $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
+        if (self::registeredTransforms($opts->extensions) !== []) {
+            return self::transformedHtml($input, $options, $opts);
+        }
         [$doc, $source, $facts] = self::resolvedTree($input, $opts);
         [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
         if ($opts->strictLosses && $log->entries !== []) {

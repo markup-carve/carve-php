@@ -416,3 +416,33 @@ Class. Provisional. `:cite[key]` (`carve.cite`, C2-X-058) resolved against the e
 - `static citeDefinition(): ExtensionDefinition`: C2-X-058: the registered `cite` matcher. Without the transform each citation keeps its core-text fallback.
 - `static claim(Claim $claim): ?Node`
 - `static transform(Node $view, string $mode, ?array $bibliography): Node`
+
+### `MarkupCarve\Carve\Extension\Navigation`
+
+Class. Provisional. The navigation extensions: each factory returns one `ExtensionDefinition` with a document transform (C2-X-053) that `render()` runs. The table of contents also writes through its renderer (C2-X-052).
+
+- `static headingPermalinks(string $symbol = '¶', string $cssClass = 'permalink', string $ariaLabel = 'Permalink', array $levels = array (
+  0 => 1,
+  1 => 2,
+  2 => 3,
+  3 => 4,
+  4 => 5,
+  5 => 6,
+), bool $prepend = false, bool $showOnHover = false, bool $copyToClipboard = false): ExtensionDefinition`: Adds a link to its own id to each heading that has one. The anchor is a core link, so no renderer is needed.
+- `static headingNumbers(int $minLevel = 1, string $label = 'Section', string $crossref = 'number-title'): ExtensionDefinition`: Numbers the sections, `1`, `1.1` and so on, in a `<span class="section-number">` before the heading text, and writes a cross-reference `</#id>` to a numbered heading as "Section 1.2 - Title". Headings in a quote or a note, with the class `unnumbered` or above `$minLevel` take no number.
+- `static headingLevelShift(int $shift = 1): ExtensionDefinition`: Moves every heading down by `$shift` levels (clamped to 0-5), to at most 6, for a page whose `<h1>` is its title.
+- `static headingReference(string $cssClass = 'heading-ref'): ExtensionDefinition`: Gives the class `heading-ref` to each reference link a heading resolves (`[Heading][]`, `[text][Heading]`, C2-H-083). The 0.1 `[[Heading]]` spelling is gone: 0.2 adds no delimiter for it (C2-X-013, C2-X-057).
+- `static externalLinks(string $target = '_blank', string $rel = 'noopener noreferrer', bool $nofollow = false): ExtensionDefinition`: Sets `target` and `rel` on each link and autolink to an `http` or `https` URL.
+- `static linkPolicy(?array $allowedSchemes = null, array $deniedSchemes = array (
+  0 => 'javascript',
+  1 => 'vbscript',
+  2 => 'data',
+  3 => 'file',
+), ?array $allowedDomains = null, array $deniedDomains = [], bool $allowExternal = true, bool $allowInternal = true, array $rel = [], ?string $baseHost = null): ExtensionDefinition`: Applies a link policy to the render view: a link, autolink or image whose URL the policy refuses is written as its text, and each link that stays gets the `$rel` values. It narrows the core URL policy (C2-H-159), never widens it. A host is read as a browser reads it, and a bare relative path is internal.
+- `static autolink(array $allowedSchemes = array (
+  0 => 'https',
+  1 => 'http',
+  2 => 'mailto',
+)): ExtensionDefinition`: Links bare URLs and email addresses in the text of the render view; angle autolinks `<url>` are core, and this adds no delimiter (C2-X-013). Trailing sentence punctuation stays outside the link.
+- `static tableOfContents(int $minLevel = 1, int $maxLevel = 6, string $listType = 'ul', string $cssClass = 'toc', string $position = 'top', bool $collapsible = false, string $summary = 'Table of Contents', bool $open = false): ExtensionDefinition`: A table of contents of the top-level headings, inserted at the top or bottom of the render view, as `carve.toc` with the list of links as its fallback; the renderer writes it inside a named `<nav>`.
+- `static tocPlacement(): ExtensionDefinition`: Writes a table of contents at each `toc` directive, claimed as `carve.tocPlacement`; its headings window comes from `{depth=N}` or `{from=X to=Y}`. Without this extension the directive stays the core `<div class="toc">`.
