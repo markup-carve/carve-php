@@ -46,6 +46,22 @@ final class ReferenceApparatusTest extends TestCase
     }
 
     /**
+     * Raises the memory limit to `$bytes`; never lowers it, so the rest of the suite keeps the limit it runs with.
+     */
+    private static function raiseMemoryLimit(int $bytes): void
+    {
+        $limit = trim((string)ini_get('memory_limit'));
+        if ($limit === '-1') {
+            return;
+        }
+        $units = ['k' => 1024, 'm' => 1024 ** 2, 'g' => 1024 ** 3];
+        $current = (int)$limit * ($units[strtolower(substr($limit, -1))] ?? 1);
+        if ($current < $bytes) {
+            ini_set('memory_limit', (string)$bytes);
+        }
+    }
+
+    /**
      * @param array<string> $lines
      */
     private static function lines(array $lines): string
@@ -189,7 +205,7 @@ final class ReferenceApparatusTest extends TestCase
     public function testIndexOutputIsCapped(): void
     {
         // Each document transform validates its view as a tree, which holds thousands of back-links here.
-        ini_set('memory_limit', '512M');
+        self::raiseMemoryLimit(512 * 1024 * 1024);
         $markers = implode(' ', array_fill(0, 3000, ':index[x]'));
         $out = $this->html($markers . "\n\n::: index\n:::\n", IndexTerms::bundle(str_repeat('L', 500)));
         $this->assertLessThan(1500000, strlen($out));
