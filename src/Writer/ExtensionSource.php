@@ -18,13 +18,16 @@ final class ExtensionSource
      * @param array<mixed> $node
      * @param string $text The opener, `source.body` and the closer, or `:name[body]`.
      * @param array<mixed> $extensions The registrations of the caller, `[]` for a writer without the extension.
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\State|null $state
      *
      * @return bool
      */
-    public static function readsBack(array $node, string $text, array $extensions): bool
+    public static function readsBack(array $node, string $text, array $extensions, ?State $state = null, string $path = ''): bool
     {
         $source = is_array($node['source'] ?? null) ? $node['source'] : [];
         $form = Inline::str($source, 'form');
+        $state?->chargeRepair($path, 'extension-core', $text);
         $core = self::parse($text, []);
         $claimed = $form === 'inline' ? self::onlyInline($core) : self::only($core);
         if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'))) {
@@ -33,6 +36,7 @@ final class ExtensionSource
         if ($extensions === []) {
             return true;
         }
+        $state?->chargeRepair($path, 'extension-registered', $text);
         $extended = self::parse($text, $extensions);
         $back = $form === 'inline' ? self::onlyInline($extended) : self::only($extended);
 

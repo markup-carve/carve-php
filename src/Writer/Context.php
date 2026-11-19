@@ -116,6 +116,8 @@ final class Context
 
     public string $textPath = '';
 
+    public ?State $writerState = null;
+
     /**
      * The offset in `$flat` of the text being escaped, -1 for a text inside another node.
      */

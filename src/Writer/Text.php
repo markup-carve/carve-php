@@ -1000,6 +1000,7 @@ final class Text
         if ($ch === ':' && $c->afterDescriptions && in_array($line[1] ?? '', [' ', "\t", ''], true)) {
             return 0;
         }
+        $c->writerState?->chargeRepair($c->textPath, 'first-line', $line . "\n");
         $children = Carve::parse($line . "\n")->children ?? [];
         if (count($children) === 1 && $children[0]->type === 'paragraph') {
             return -1;
