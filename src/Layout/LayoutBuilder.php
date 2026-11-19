@@ -239,7 +239,7 @@ final class LayoutBuilder
         if (
             !in_array($node->type, [
                 'list_item', 'definition_description', 'footnote', 'heading', 'definition_term',
-                'link_reference_definition', 'image_reference_definition', 'abbreviation_definition',
+                'link_reference_definition', 'image_reference_definition', 'abbreviation_def',
                 'code_block', 'comment',
             ], true)
         ) {
@@ -276,8 +276,8 @@ final class LayoutBuilder
             'definition_term' => '/\G::/',
             'definition_description' => '/\G:/',
             'list_item' => '/\G(?:[-*+]|[0-9A-Za-z]+[.)])/',
-            'footnote', 'link_reference_definition', 'image_reference_definition',
-            'abbreviation_definition' => '/\G\[[^\]\n]+\]:/',
+            'footnote', 'link_reference_definition', 'image_reference_definition' => '/\G\[[^\]\n]+\]:/',
+            'abbreviation_def' => '/\G\*\[[^\]\n]+\]:/',
             default => null,
         };
         if ($marker !== null && preg_match($marker, $source, $found, 0, $node->start) === 1) {
@@ -286,7 +286,7 @@ final class LayoutBuilder
             if (
                 in_array($node->type, [
                     'footnote', 'link_reference_definition', 'image_reference_definition',
-                    'abbreviation_definition',
+                    'abbreviation_def',
                 ], true)
             ) {
                 $after = $node->start + strlen($found[0]) - 1;

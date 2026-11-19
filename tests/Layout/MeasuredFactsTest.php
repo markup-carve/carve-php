@@ -61,4 +61,12 @@ final class MeasuredFactsTest extends TestCase
         self::assertSame('```', $fence['openerRaw']);
         self::assertSame('```', $fence['closerRaw']);
     }
+
+    public function testAbbreviationMarkerIncludesItsAsterisk(): void
+    {
+        $layout = Carve::parseWithLayout("*[A]: alpha\n")->layout;
+        $definition = $layout['nodes'][0];
+        self::assertSame('*[A]:', $definition['markerRaw']);
+        self::assertSame(': ', $definition['metadataSeparatorRaw']);
+    }
 }
