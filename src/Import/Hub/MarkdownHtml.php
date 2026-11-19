@@ -46,6 +46,7 @@ final class MarkdownHtml
             $environment->addExtension(new TableExtension());
             $environment->addExtension(new TaskListExtension());
             $environment->addExtension(new FootnoteExtension());
+            $environment->addBlockStartParser(new FootnoteStartParser(), self::PRIORITY);
             $footnotes = new FootnoteRenderer();
             foreach ([FootnoteRef::class, FootnoteBackref::class, Footnote::class, FootnoteContainer::class] as $class) {
                 $environment->addRenderer($class, $footnotes, self::PRIORITY);

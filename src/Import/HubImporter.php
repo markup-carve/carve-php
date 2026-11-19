@@ -151,7 +151,8 @@ final class HubImporter
     }
 
     /**
-     * C2-M-065: each placeholder comment back to the raw block it stands for, with its format.
+     * C2-M-065: each placeholder comment back to the raw block it stands for, with its format. A raw block after text
+     * in a tight list item reaches the tree as inline raw content, and stays inline.
      *
      * @param array<mixed> $nodes
      * @param array<array{format: string, value: string}> $raw
@@ -165,11 +166,17 @@ final class HubImporter
                 continue;
             }
             $value = $node['value'] ?? null;
-            if (($node['type'] ?? null) === 'raw_block' && is_string($value) && preg_match(Sink::RAW_PLACEHOLDER, $value, $m) === 1) {
+            $type = $node['type'] ?? null;
+            if (
+                ($type === 'raw_block' || $type === 'raw_inline')
+                && is_string($value)
+                && preg_match(Sink::RAW_PLACEHOLDER, $type === 'raw_inline' ? $value . "\n" : $value, $m) === 1
+            ) {
                 $kept = $raw[(int)$m[1]] ?? null;
                 if ($kept !== null) {
+                    $text = str_ends_with($kept['value'], "\n") ? substr($kept['value'], 0, -1) : $kept['value'];
                     $node['format'] = $kept['format'];
-                    $node['value'] = str_ends_with($kept['value'], "\n") ? $kept['value'] : $kept['value'] . "\n";
+                    $node['value'] = $type === 'raw_block' ? $text . "\n" : $text;
                 }
             }
             if (isset($node['children']) && is_array($node['children'])) {

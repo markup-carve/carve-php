@@ -28,6 +28,21 @@ final class HubImporterTest extends TestCase
         );
     }
 
+    public function testRestoresARawBlockThatATightListItemReadsInline(): void
+    {
+        $this->assertSame("- a\n  `<!--x-->`{=html}\n- b\n", self::source("- a\n  <!--x-->\n- b\n", 'markdown'));
+        $this->assertSame("- a\n  `<div>\n  x`{=html}\n- b\n", self::source("- a\n  <div>\n  x\n- b\n", 'markdown'));
+    }
+
+    public function testKeepsTheNoteOfANonAsciiFootnoteLabel(): void
+    {
+        $this->assertSame("x[^%C3%A9]\n\n[^%C3%A9]: note\n", self::source("x[^é]\n\n[^é]: note\n", 'gfm'));
+        $this->assertSame(
+            "x[^%E6%97%A5%E6%9C%AC]\n\n[^%E6%97%A5%E6%9C%AC]: note word\n",
+            self::source("x[^日本]\n\n[^日本]: note word\n", 'gfm'),
+        );
+    }
+
     public function testKeepsAScriptBlockOfGfmRawInsteadOfTagFilteredText(): void
     {
         $this->assertSame("```=html\n<script>a()</script>\n```\n", self::source("<script>a()</script>\n", 'gfm'));
