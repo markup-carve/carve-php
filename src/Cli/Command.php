@@ -96,15 +96,7 @@ final class Command
             if (($parsed['values']['write'] ?? false) && in_array('-', $files, true)) {
                 throw new OptionError('cannot write standard input in place');
             }
-            $status = 0;
-            $records = [];
-            foreach ($files as $file) {
-                [$code, $record] = self::one($parsed, $file, $in, $out, $err);
-                $status = max($status, $code);
-                if ($record !== null) {
-                    $records[] = $record;
-                }
-            }
+            [$status, $records] = self::runFiles($parsed, $files, $in, $out, $err);
             if ($parsed['values']['json'] ?? false) {
                 $json = (string)json_encode(['files' => $records], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 // The carve-js command line indents by two spaces.
@@ -127,6 +119,43 @@ final class Command
 
             return 1;
         }
+    }
+
+    /**
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     * @param array<string> $files
+     * @param resource $in
+     * @param resource $out
+     * @param resource $err
+     *
+     * @throws \MarkupCarve\Carve\Cli\InputError
+     *
+     * @return array{int, array<array<string, mixed>>}
+     */
+    private static function runFiles(array $parsed, array $files, $in, $out, $err): array
+    {
+        $path = $parsed['values']['output'] ?? null;
+        $target = is_string($path) ? @fopen($path, 'wb') : null;
+        if ($target === false) {
+            throw new InputError($path . ': cannot be written', 'output-unwritable');
+        }
+        $status = 0;
+        $records = [];
+        try {
+            foreach ($files as $file) {
+                [$code, $record] = self::one($parsed, $file, $in, $target ?? $out, $err);
+                $status = max($status, $code);
+                if ($record !== null) {
+                    $records[] = $record;
+                }
+            }
+        } finally {
+            if (is_resource($target)) {
+                fclose($target);
+            }
+        }
+
+        return [$status, $records];
     }
 
     /**
@@ -353,12 +382,12 @@ final class Command
             default:
                 $to = $parsed['values']['to'] ?? 'html';
                 if ($to !== 'html') {
-                    fwrite($out, Carve::writeTo(is_string($to) ? $to : 'html', Carve::parse($source, $options)));
+                    self::product(Carve::writeTo(is_string($to) ? $to : 'html', Carve::parse($source, $options)), $out);
 
                     return [0, null];
                 }
                 $result = Carve::renderWithDiagnostics($source, $options);
-                self::product($parsed, $result->html . "\n", $out);
+                self::product($result->html . "\n", $out);
                 self::report([$display, $source, self::root($parsed, $file)], $result->diagnostics, false, $err);
 
                 return [($parsed['values']['strict'] ?? false) && $result->diagnostics !== [] ? 1 : 0, null];
@@ -394,7 +423,7 @@ final class Command
                     throw new InputError($file . ': cannot be written', 'output-unwritable');
                 }
             } else {
-                self::product($parsed, $fixed, $out);
+                self::product($fixed, $out);
             }
             $source = $fixed;
         }
@@ -412,7 +441,7 @@ final class Command
             [$display, $source, self::root($parsed, $file)],
             $entries,
             (bool)($parsed['values']['json'] ?? false),
-            $fix ? $err : $out,
+            $fix && !($parsed['values']['write'] ?? false) ? $err : $out,
         );
 
         return [$failed ? 1 : 0, $report];
@@ -453,7 +482,7 @@ final class Command
             throw new InputError($file . ': cannot be written');
         }
         if (!$check && !$diff && !$write) {
-            self::product($parsed, $output, $out);
+            self::product($output, $out);
         }
 
         return ($check || $diff) && $changed ? 1 : 0;
@@ -483,6 +512,17 @@ final class Command
         if (isset($v['ignore']) && !in_array($parsed['command'], ['lint', 'fix'], true)) {
             throw new OptionError('--ignore is for lint');
         }
+        self::validateOutputCombination($parsed);
+    }
+
+    /**
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    private static function validateOutputCombination(array $parsed): void
+    {
+        $v = $parsed['values'];
         if (
             isset($v['output']) && $parsed['command'] === 'fmt'
             && (($v['write'] ?? false) || ($v['check'] ?? false) || ($v['diff'] ?? false))
@@ -495,23 +535,12 @@ final class Command
     }
 
     /**
-     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
      * @param string $source
      * @param resource $out
-     *
-     * @throws \MarkupCarve\Carve\Cli\InputError
      */
-    private static function product(array $parsed, string $source, $out): void
+    private static function product(string $source, $out): void
     {
-        $path = $parsed['values']['output'] ?? null;
-        if (!is_string($path)) {
-            fwrite($out, $source);
-
-            return;
-        }
-        if (@file_put_contents($path, $source) === false) {
-            throw new InputError($path . ': cannot be written', 'output-unwritable');
-        }
+        fwrite($out, $source);
     }
 
     /**
@@ -542,7 +571,7 @@ final class Command
 
             return 1;
         }
-        self::product($parsed, $flat, $out);
+        self::product($flat, $out);
 
         return 0;
     }

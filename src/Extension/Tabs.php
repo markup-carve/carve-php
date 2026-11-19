@@ -125,17 +125,7 @@ final class Tabs
         $slots = $node->f['slots'] ?? [];
         $tabs = array_values(PlainText::nodes(is_array($slots) ? $slots['tabs'] ?? [] : []));
         $selected = self::selected($tabs);
-        do {
-            $group = ($host->nextId)('tabs');
-            $conflict = false;
-            foreach ($tabs as $at => $_tab) {
-                if (($host->idTaken)($group . '-' . $at)) {
-                    $conflict = true;
-
-                    break;
-                }
-            }
-        } while ($conflict);
+        $group = self::group($tabs, $host, false);
         foreach ($tabs as $at => $tab) {
             $tabSlots = is_array($tab->f['slots'] ?? null) ? $tab->f['slots'] : [];
             $title = PlainText::nodes($tabSlots['title'] ?? []);
@@ -212,7 +202,7 @@ final class Tabs
     private static function group(array $tabs, RenderHost $host, bool $aria): string
     {
         do {
-            $group = ($host->nextId)('tabs');
+            $group = ($host->nextId)('tabs', false);
             $conflict = false;
             foreach ($tabs as $at => $_tab) {
                 if (($host->idTaken)($group . '-' . $at) || ($aria && ($host->idTaken)($group . '-' . $at . '-panel'))) {

@@ -79,4 +79,42 @@ final class BatchPortTest extends TestCase
         $this->assertCount(1, $plus);
         $this->assertSame(2, $plus[0]->startOffset);
     }
+
+    public function testOutputCollectsAllFilesAndNonHtmlTargets(): void
+    {
+        $dir = sys_get_temp_dir() . '/carve-output-' . bin2hex(random_bytes(5));
+        mkdir($dir);
+        $one = $dir . '/one.crv';
+        $two = $dir . '/two.crv';
+        $product = $dir . '/out.html';
+        file_put_contents($one, "one\n");
+        file_put_contents($two, "two\n");
+        try {
+            $this->assertSame([0, '', ''], self::callCommand(['render', '-o', $product, $one, $two]));
+            $this->assertSame("<p>one</p>\n<p>two</p>\n", file_get_contents($product));
+            $this->assertSame([0, '', ''], self::callCommand(['render', '--to', 'plain', '-o', $product, $one]));
+            $this->assertSame("one\n", file_get_contents($product));
+        } finally {
+            unlink($one);
+            unlink($two);
+            unlink($product);
+            rmdir($dir);
+        }
+    }
+
+    public function testFixWriteReportsRemainingFindingsOnStdout(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'carve-fix-');
+        self::assertNotFalse($file);
+        file_put_contents($file, "a ~s~ b\n");
+        try {
+            [$status, $out, $err] = self::callCommand(['fix', '--write', $file]);
+            $this->assertSame(1, $status);
+            $this->assertStringContainsString('deprecated-bare-strike', $out);
+            $this->assertSame('', $err);
+            $this->assertSame("a ~s~ b\n", file_get_contents($file));
+        } finally {
+            unlink($file);
+        }
+    }
 }

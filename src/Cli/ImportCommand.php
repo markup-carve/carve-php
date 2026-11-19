@@ -99,6 +99,8 @@ final class ImportCommand
     /**
      * @param array<string> $args
      *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
      * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>, 3: string|null}
      */
     private static function parse(array $args): array
