@@ -1245,10 +1245,6 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'text') {
             return;
         }
-        $parent = substr($path, 0, (int)strrpos($path, '/children/'));
-        if (in_array($c->nodeTypes[$parent] ?? '', ['cell_paragraph', 'definition_description', 'definition_term'], true)) {
-            return;
-        }
         $source = Support::raw($node, $c);
         $range = Support::bounds($node);
         if ($range === null || preg_match_all('/(?<!\\\\)\{[ ]*[.#][^{}]*\}/', $source, $matches, PREG_OFFSET_CAPTURE) === 0) {

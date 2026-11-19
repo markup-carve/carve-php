@@ -95,6 +95,42 @@ final class LineRules
         return self::trimmed($line);
     }
 
+    /**
+     * The text of the line behind its container prefixes (C2-B-027): quote marks, item, description and footnote markers
+     * and indentation, as the tree places the line's content.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function lineText(Line $line): array
+    {
+        if ($line->content === null || $line->content < $line->start || $line->content > $line->end) {
+            return self::afterQuote($line);
+        }
+
+        return [Support::trimEnd(substr($line->text, $line->content - $line->start)), $line->content];
+    }
+
+    /**
+     * A spaced run parses as nested list markers, so it reaches back from the line's text over its own markers.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function spacedText(Line $line): array
+    {
+        if ($line->content === null) {
+            return self::afterQuote($line);
+        }
+        [$own, $start] = self::lineText($line);
+        $marker = $own[0] ?? '';
+        $at = $start - $line->start;
+        while ($at > 0 && in_array($line->text[$at - 1], [' ', "\t", $marker], true)) {
+            $at--;
+        }
+        $at += strspn($line->text, " \t", $at);
+
+        return [Support::trimEnd(substr($line->text, $at)), $line->start + $at];
+    }
+
     private static function quoteDepth(Line $line): int
     {
         return preg_match('/^(?:[ \t]*>[ \t]*)+/', $line->text, $match) === 1
@@ -134,17 +170,8 @@ final class LineRules
         if (!in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'caption', 'cell_paragraph'], true)) {
             return null;
         }
-        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
-        $earlier = self::prior($line, $c);
-        if (
-            str_starts_with($line->text, '> ')
-            && (self::hasAncestor($line->path, $c, 'footnote') || self::hasAncestor($line->path, $c, 'list_item'))
-            && $earlier !== null
-            && preg_match('/(?:\[\^[^\]]+\]:|(?:^|[ \t])(?:[-*]|[0-9]+[.)]))[ \t]+.*> /', $earlier->text) === 1
-            && !self::startsBlock($text)
-        ) {
-            [$text, $start] = self::trimmed($line);
-        }
+        // C2-B-024, C2-B-025: a lazy line's content starts at its first marker, a quote mark included (carve#6178).
+        [$text, $start] = self::lineText($line);
 
         return [$text, $start, $previous];
     }
@@ -268,14 +295,7 @@ final class LineRules
 
     private static function thematicBreak(Line $line, Context $c): void
     {
-        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
-        if (!self::isRun($text, '-_', 3) && $line->paragraph) {
-            [$text, $start] = self::paragraphContent($line, $c);
-        }
-        if (!self::isRun($text, '-_', 3) && preg_match('/^(?:[-*]|[0-9]+[.)])[ \t]+(?=[-_]{3})/', $text, $match) === 1) {
-            $start += strlen($match[0]);
-            $text = substr($text, strlen($match[0]));
-        }
+        [$text, $start] = self::lineText($line);
         if (!self::isRun($text, '-_', 3)) {
             return;
         }
@@ -304,11 +324,8 @@ final class LineRules
 
     private static function spacedBreak(Line $line, Context $c): void
     {
-        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
-        if (!self::isSpacedRun($text) && $line->paragraph) {
-            [$text, $start] = self::paragraphContent($line, $c);
-        }
-        if (self::isSpacedRun($text) && ($c->nodeTypes[$line->path] ?? null) !== 'definition_term') {
+        [$text, $start] = self::spacedText($line);
+        if (self::isSpacedRun($text)) {
             $c->report('deprecated-spaced-thematic-break', $start, $start + strlen($text), $line->path);
         }
     }
@@ -415,7 +432,7 @@ final class LineRules
 
     private static function emptyReference(Line $line, Context $c): void
     {
-        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
+        [$text, $start] = self::lineText($line);
         if (!str_starts_with($text, '[') || !str_ends_with($text, ']:') || strlen($text) < 4) {
             return;
         }
@@ -567,8 +584,11 @@ final class LineRules
         if (str_starts_with($text, '[') && self::hasAncestor($line->path, $c, 'footnote')) {
             return;
         }
+        // A lazy line carries no mark of the quote before its content, so its own `>` is the candidate (carve#6178).
+        $prefix = $line->content === null ? '>' : substr($line->text, 0, max(0, $line->content - $line->start));
+        $ownMark = str_contains($prefix, '>');
         if (
-            str_starts_with($text, '> ') && str_starts_with(Support::trimStart($previous->text), '> ')
+            str_starts_with($text, '> ') && $ownMark && str_starts_with(Support::trimStart($previous->text), '> ')
             && self::hasAncestor($line->path, $c, 'block_quote')
         ) {
             return;

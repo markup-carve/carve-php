@@ -847,7 +847,7 @@ final class NodeRulesB
         $type = $node['type'] ?? null;
         $pos = Support::pos($node);
         // C2-L-027: a figure group records no opener and closer run.
-        if (($type !== 'div' && $type !== 'admonition') || $pos === null) {
+        if (!in_array($type, ['div', 'directive', 'admonition'], true) || $pos === null) {
             return;
         }
         $opener = self::openerRun($node, $c);
@@ -876,7 +876,7 @@ final class NodeRulesB
         $c->report('colon-fence-length-mismatch', $runStart, $endLine->end, $path, [
             'authoredWidth' => (string)strlen($closer),
             'expectedWidth' => (string)$activeRun[1],
-            'kind' => str_replace('_', ' ', (string)($innerType ?? $type)),
+            'kind' => str_replace(['directive', '_'], ['div', ' '], (string)($innerType ?? $type)),
             'line' => (string)$activeLine,
             'column' => (string)$activeColumn,
         ], strlen($closer) < $activeRun[1] ? ($activeRun !== $opener ? 1 : 0) : 2);
@@ -928,7 +928,7 @@ final class NodeRulesB
     {
         $children = Support::kids($node);
         $inner = $children === [] ? null : $children[array_key_last($children)];
-        if ($inner === null || !in_array($inner['type'] ?? null, ['div', 'admonition'], true)) {
+        if ($inner === null || !in_array($inner['type'] ?? null, ['div', 'directive', 'admonition'], true)) {
             return [$opener, null];
         }
         $innerRun = self::openerRun($inner, $c);
@@ -1549,7 +1549,7 @@ final class NodeRulesB
                 return false;
             }
             $type = $last['type'] ?? null;
-            if (in_array($type, ['div', 'admonition', 'figure_group', 'line_block'], true)) {
+            if (in_array($type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)) {
                 $run = self::openerRun($last, $c);
                 if ($run !== null && $run[1] <= $length) {
                     return true;
