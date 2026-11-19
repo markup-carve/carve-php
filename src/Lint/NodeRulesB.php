@@ -310,7 +310,10 @@ final class NodeRulesB
      */
     public static function tableColumnOverlap(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) !== 'table' || !self::hasAttribute($node, $c, 'aligns')) {
+        if (
+            ($node['type'] ?? null) !== 'table'
+            || (!self::hasAttribute($node, $c, 'aligns') && !self::hasAttribute($node, $c, 'valigns'))
+        ) {
             return;
         }
         $head = self::firstOfType(Support::kids($node), 'table_head');
@@ -320,9 +323,11 @@ final class NodeRulesB
         }
         $cells = Support::kids($first);
         foreach (Support::kids($node, 'columns') as $at => $column) {
-            // C2-A-095: the column fields carry the fact that `aligns` or `widths` wrote them.
-            if ((isset($column['align']) || isset($column['width'])) && isset($cells[$at]['align'])) {
-                $range = NodeRulesA::tableKeyRange($node, 'aligns', $c);
+            // C2-A-095: the column fields carry the fact that `aligns` or `valigns` wrote them.
+            $horizontal = isset($column['align'], $cells[$at]['align']);
+            $vertical = isset($column['valign'], $cells[$at]['valign']);
+            if ($horizontal || $vertical) {
+                $range = NodeRulesA::tableKeyRange($node, $horizontal ? 'aligns' : 'valigns', $c);
                 if ($range !== null) {
                     $c->report('table-column-overlap', $range[0], $range[1], $path, ['n' => (string)($at + 1)]);
                 }
