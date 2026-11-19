@@ -271,14 +271,14 @@ final class NodeRulesATest extends TestCase
                 ],
             ],
             'frontmatter-shaped-thematic-break' => [
-                '---',
+                "---\nplain",
                 "---\ntitle: x\n---",
                 [],
                 [
                     'frontmatter-shaped-thematic-break',
                     '/children/0',
                     0,
-                    3,
+                    9,
                     'Three hyphens on line 1 open frontmatter, not a thematic break. Write three stars for a break.',
                 ],
             ],

@@ -790,7 +790,8 @@ final class NodeRulesA
         $firstValue = $pos === null ? null : ($c->lines[$pos['startLine']] ?? null);
         if (
             $first !== null && Support::trim($first->text) === '---'
-            && ($value === '' || !str_contains($value, ':') || $firstValue === null || Support::trim($firstValue->text) === '')
+            && $firstValue !== null && $pos['endLine'] > $pos['startLine']
+            && ($value === '' || !str_contains($value, ':') || Support::trim($firstValue->text) === '')
         ) {
             Support::reportNode('frontmatter-shaped-thematic-break', $node, $path, $c);
         }

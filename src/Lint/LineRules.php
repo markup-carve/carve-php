@@ -94,6 +94,32 @@ final class LineRules
         return self::trimmed($line);
     }
 
+    private static function quoteDepth(Line $line): int
+    {
+        return preg_match('/^(?:[ \t]*>[ \t]*)+/', $line->text, $match) === 1
+            ? substr_count($match[0], '>') : 0;
+    }
+
+    /**
+     * @return array{0: string, 1: int, 2: \MarkupCarve\Carve\Lint\Line}|null
+     */
+    private static function openerContent(Line $line, Context $c): ?array
+    {
+        $previous = self::prior($line, $c);
+        if ($previous === null || !$line->paragraph || $previous->path !== $line->path || self::blank($previous)) {
+            return null;
+        }
+        $previousDepth = self::quoteDepth($previous);
+        $depth = self::quoteDepth($line);
+        if ($depth > $previousDepth && $previousDepth > 0) {
+            return null;
+        }
+
+        [$text, $start] = $depth > $previousDepth ? self::trimmed($line) : self::afterQuote($line);
+
+        return [$text, $start, $previous];
+    }
+
     /**
      * @return array{0: string, 1: int}
      */
@@ -229,11 +255,12 @@ final class LineRules
     private static function setextHeading(Line $line, Context $c): void
     {
         $previous = self::prior($line, $c);
+        [$text, $start] = self::afterQuote($line);
         if (
-            (self::isRun(self::trimmed($line)[0], '-', 3) || self::isRun(self::trimmed($line)[0], '=', 3))
+            (self::isRun($text, '-', 3) || self::isRun($text, '=', 3))
             && $previous !== null && $previous->paragraph && !self::blank($previous)
         ) {
-            self::reportLine('setext-heading-underline', $line, $c);
+            $c->report('setext-heading-underline', $start, $start + strlen($text), $line->path);
         }
     }
 
@@ -428,11 +455,11 @@ final class LineRules
 
     private static function openerWithoutBlank(Line $line, Context $c): void
     {
-        $previous = self::prior($line, $c);
-        if ($previous === null || !$line->paragraph || $previous->path !== $line->path || self::blank($previous)) {
+        $content = self::openerContent($line, $c);
+        if ($content === null) {
             return;
         }
-        [$text, $start] = self::trimmed($line);
+        [$text, $start, $previous] = $content;
         if (!self::startsBlock($text) || (str_starts_with($text, '{') && !str_ends_with($text, '}'))) {
             return;
         }
