@@ -116,6 +116,54 @@ final class TreeMigrationTest extends TestCase
         ], self::at($result, ['layout', 'nodes', 1, 'wraps']));
     }
 
+    public function testExplicitHeadBodyAndFootGroupsSurviveMigration(): void
+    {
+        $row = static fn (string $value): array => [
+            'type' => 'table_row', 'cells' => [
+                [
+                    'type' => 'table_cell',
+                    'header' => false,
+                    'children' => [['type' => 'text', 'value' => $value]],
+                ],
+            ],
+        ];
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '1.2', 'children' => [
+                [
+                    'type' => 'table',
+                    'rows' => [$row('h'), $row('a'), $row('b'), $row('f')],
+                    'rowGroups' => [
+                        'headRows' => 1, 'bodies' => [
+                            ['headRows' => 0, 'bodyRows' => 1, 'rowHeadColumns' => 1],
+                            ['headRows' => 0, 'bodyRows' => 1],
+                        ], 'footRows' => 1,
+                    ],
+                ],
+            ],
+        ];
+        $groups = Carve::migrateTree($tree)['document']['children'][0]['children'];
+        self::assertSame(['table_head', 'table_body', 'table_body', 'table_foot'], array_column($groups, 'type'));
+        self::assertSame(1, $groups[1]['rowHeadColumns']);
+        self::assertCount(1, $groups[3]['children']);
+    }
+
+    public function testSourceLayoutDoesNotDescribeAnotherStoredTree(): void
+    {
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '1.2', 'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [['type' => 'text', 'value' => 'edited']],
+                ],
+            ],
+        ];
+        $result = Carve::migrateTree($tree, ['source' => "original\n"]);
+        self::assertSame('', $result['layout']['source']);
+        self::assertSame([], $result['layout']['nodes']);
+    }
+
     /**
      * @param array<string, mixed> $value
      * @param array<int, int|string> $path

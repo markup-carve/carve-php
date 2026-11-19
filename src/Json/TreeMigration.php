@@ -30,8 +30,14 @@ final class TreeMigration
         $document['astVersion'] = '2.0';
         Carve::validateTree($document);
         $source = is_string($options['source'] ?? null) ? $options['source'] : '';
-        $layout = is_string($options['source'] ?? null)
-            ? Carve::parseWithLayout($source)->layout : self::layout($old, $document);
+        $layout = self::layout($old, $document);
+        if (is_string($options['source'] ?? null)) {
+            $parsed = Carve::parseWithLayout($source);
+            $parsedDocument = json_decode(Carve::encodeTree($parsed->tree), true, 4096, JSON_THROW_ON_ERROR);
+            if (TreeEquality::equal($document, $parsedDocument)) {
+                $layout = $parsed->layout;
+            }
+        }
         $result = ['document' => $document, 'layout' => $layout, 'diagnostics' => []];
         if ($envelope) {
             $envelopeValue = ['astVersion' => '2.0', 'document' => $document];
@@ -387,7 +393,7 @@ final class TreeMigration
             self::lineBlock($node);
         }
         if ($type === 'table') {
-            self::table($node);
+            self::table($node, $old);
         }
         if ($type === 'table_cell') {
             self::cell($node);
@@ -691,17 +697,18 @@ final class TreeMigration
 
     /**
      * @param array<string, mixed> $node
+     * @param array<string, mixed> $old
      */
-    private static function table(array &$node): void
+    private static function table(array &$node, array $old): void
     {
-        $rows = $node['rows'] ?? null;
-        if (!is_array($rows)) {
+        if (!is_array($node['rows'] ?? null)) {
             return;
         }
+        $rows = self::nodeList($node['rows']);
         self::tableColumns($node, $rows);
         $head = 0;
         foreach ($rows as $row) {
-            $cells = is_array($row) ? self::nodeList($row['children'] ?? null) : [];
+            $cells = self::nodeList($row['children'] ?? null);
             if (
                 $cells === [] || !array_reduce(
                     $cells,
@@ -720,9 +727,65 @@ final class TreeMigration
         if ($head < count($rows)) {
             $groups[] = ['type' => 'table_body', 'children' => array_slice($rows, $head)];
         }
-        $node['children'] = $groups;
+        $explicit = self::explicitTableGroups($rows, $old);
+        $node['children'] = $explicit ?? $groups;
         unset($node['rows'], $node['rowGroups']);
         self::tableAttrs($node);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @param array<string, mixed> $old
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private static function explicitTableGroups(array $rows, array $old): ?array
+    {
+        $declared = self::object($old['rowGroups'] ?? null);
+        if ($declared === null) {
+            return null;
+        }
+        $groups = [];
+        $at = 0;
+        $add = static function (string $type, int $count, array $fields = []) use (&$groups, &$at, $rows): void {
+            $taken = array_slice($rows, $at, $count);
+            $at += $count;
+            if ($taken !== []) {
+                $group = ['type' => $type, 'children' => $taken];
+                if (isset($taken[0]['pos'])) {
+                    $group['pos'] = $taken[0]['pos'];
+                }
+                $groups[] = $group + $fields;
+            }
+        };
+        $add(
+            'table_head',
+            self::groupCount($declared['headRows'] ?? null),
+            isset($declared['headAttrs']) ? ['attrs' => $declared['headAttrs']] : [],
+        );
+        foreach (is_array($declared['bodies'] ?? null) ? $declared['bodies'] : [] as $body) {
+            if (!is_array($body) || array_is_list($body)) {
+                continue;
+            }
+            $add(
+                'table_body',
+                self::groupCount($body['headRows'] ?? null) + self::groupCount($body['bodyRows'] ?? null),
+                array_intersect_key($body, array_flip(['rowHeadColumns', 'attrs'])),
+            );
+        }
+        $add(
+            'table_foot',
+            self::groupCount($declared['footRows'] ?? null),
+            isset($declared['footAttrs']) ? ['attrs' => $declared['footAttrs']] : [],
+        );
+        $add('table_body', count($rows) - $at);
+
+        return $groups;
+    }
+
+    private static function groupCount(mixed $value): int
+    {
+        return is_int($value) && $value > 0 ? $value : 0;
     }
 
     /**
