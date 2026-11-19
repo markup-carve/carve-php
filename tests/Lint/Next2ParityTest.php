@@ -47,6 +47,7 @@ final class Next2ParityTest extends TestCase
                 [['deprecated-cell-alignment', 2, 7], ['emphasis-marker-before-attributes', 10, 15]],
             ],
             'two blocks' => ['| ~{.x}{.y} a |', [['emphasis-marker-before-attributes', 2, 7]]],
+            'ordinary cell attribute stays quiet' => ['| a {.x} b |', []],
         ];
     }
 
