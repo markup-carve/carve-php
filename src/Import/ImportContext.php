@@ -72,12 +72,22 @@ final class ImportContext
     }
 
     /**
-     * C2-M-081: the entry names the HTML node in `foreignType`. PHP's DOM gives no source offsets, so no range is set.
+     * C2-M-081: the entry names the HTML node in `foreignType` and uses its source token where available.
      */
     public function report(HtmlNode $node, string $code, string $message): void
     {
         $severity = ImportTables::CODES[$code] ?? 'warning';
-        $this->diagnostics[] = new Diagnostic($code, $severity, 'render-loss', $message, foreignType: $node->tag());
+        $start = $code === 'import-whitespace-normalized' && $node->contentStart >= 0
+            ? $node->contentStart : $node->sourceStart;
+        $this->diagnostics[] = new Diagnostic(
+            $code,
+            $severity,
+            'render-loss',
+            $message,
+            startOffset: $start,
+            endOffset: $start < 0 ? -1 : max($start, $node->sourceEnd),
+            foreignType: $node->tag(),
+        );
     }
 
     /**

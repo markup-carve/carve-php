@@ -42,6 +42,12 @@ final class HtmlNode
 
     public ?self $parent = null;
 
+    public int $sourceStart = -1;
+
+    public int $sourceEnd = -1;
+
+    public int $contentStart = -1;
+
     /**
      * C2-H-183: the template contents, which the parser keeps apart from the children.
      *

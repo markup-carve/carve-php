@@ -52,7 +52,12 @@ final class InlineCarriers
 
     public static function isNoteRef(HtmlNode $node): bool
     {
-        return $node->isElement('a') && ($node->attr('role') === 'doc-noteref' || $node->has('data-footnote-ref'));
+        if (!$node->isElement('a') || ($node->attr('role') !== 'doc-noteref' && !$node->has('data-footnote-ref'))) {
+            return false;
+        }
+        $href = $node->attr('href') ?? '';
+
+        return str_starts_with($href, '#') && self::footnoteKey($href) !== '';
     }
 
     /**
@@ -319,9 +324,9 @@ final class InlineCarriers
         if ($first === 'mention' || $first === 'tag') {
             return $this->social($node, $first);
         }
-        if (str_starts_with($first, 'ext-') && strlen($first) > 4) {
+        if (preg_match('/\Aext-([A-Za-z_][A-Za-z0-9_-]*)\z/D', $first, $match) === 1) {
             return [
-                ['type' => 'inline_extension', 'name' => substr($first, 4), 'children' => $this->reader->children($node)]
+                ['type' => 'inline_extension', 'name' => $match[1], 'children' => $this->reader->children($node)]
                 + Attrs::withoutClasses(Attrs::of($node), [$first]),
             ];
         }

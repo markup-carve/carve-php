@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Import\HtmlImporter;
 use MarkupCarve\Carve\Import\HubImporter;
 use MarkupCarve\Carve\Import\ImportInputError;
+use MarkupCarve\Carve\Import\ImportResult;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\OptionError;
 
@@ -63,7 +64,26 @@ final class ImportCommand
             // An engine defect: the importer built a tree the reader refuses (C2-M-001).
             return self::fail($err, 'import-tree-invalid', $display . ': ' . $e->getMessage(), 1);
         }
+
+        return self::finish($result, $options, $display, $output, $out, $err);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Import\ImportResult $result
+     * @param array<string, mixed> $options
+     * @param string $display
+     * @param string|null $output
+     * @param resource $out
+     * @param resource $err
+     *
+     * @return int
+     */
+    private static function finish(ImportResult $result, array $options, string $display, ?string $output, $out, $err): int
+    {
         $losses = array_filter($result->diagnostics, static fn (Diagnostic $d): bool => isset(self::WRITER_LOSSES[$d->code]));
+        if (($options['strictLosses'] ?? false) && $result->diagnostics !== []) {
+            return self::fail($err, 'render-loss', $display . ': import reported a loss', 1);
+        }
         if ($losses !== []) {
             $named = array_map(static fn (Diagnostic $d): string => $d->code . ' at ' . ($d->path ?: '/'), $losses);
 
@@ -118,6 +138,8 @@ final class ImportCommand
                 $from = $args[++$i] ?? '';
             } elseif ($arg === '--raw-html') {
                 $options['rawHtml'] = true;
+            } elseif ($arg === '--strict-losses') {
+                $options['strictLosses'] = true;
             } elseif ($arg === '-o' || $arg === '--output') {
                 $output = $args[++$i] ?? null;
                 if ($output === null) {

@@ -64,7 +64,7 @@ final class TableReader
                 $this->context->report($child, 'import-structure-repaired', 'Unsupported table child ' . $child->name);
             }
         }
-        $out = ['type' => 'table', 'children' => $children, 'columns' => self::columns($children, $node)];
+        $out = ['type' => 'table', 'children' => $children, 'columns' => $this->columns($children, $node)];
         if ($captions !== []) {
             $out['caption'] = $this->blocks->caption($captions[0]);
         }
@@ -84,14 +84,27 @@ final class TableReader
             $out[] = ['type' => 'table_body', 'children' => $direct];
         }
         $types = ['thead' => 'table_head', 'tbody' => 'table_body', 'tfoot' => 'table_foot'];
+        $head = null;
+        $foot = null;
         foreach ($node->elements() as $group) {
             $type = $types[$group->name] ?? null;
             if ($type !== null) {
-                $out[] = ['type' => $type, 'children' => $this->rows($group, $type === 'table_head')] + Attrs::of($group);
+                $entry = ['type' => $type, 'children' => $this->rows($group, $type === 'table_head')] + Attrs::of($group);
+                if ($type === 'table_head' && $head === null) {
+                    $head = $entry;
+                } elseif ($type === 'table_foot' && $foot === null) {
+                    $foot = $entry;
+                } else {
+                    if ($type !== 'table_body') {
+                        $entry['type'] = 'table_body';
+                        $this->context->report($group, 'import-structure-repaired', 'Further table head or foot read as a body');
+                    }
+                    $out[] = $entry;
+                }
             }
         }
 
-        return $out;
+        return array_merge($head === null ? [] : [$head], $out, $foot === null ? [] : [$foot]);
     }
 
     /**
@@ -165,6 +178,10 @@ final class TableReader
         }
         $header = $node->name === 'th';
         $children = $blocks ? $this->blocks->blocks($node) : [['type' => 'cell_paragraph', 'children' => $this->inline($node)]];
+        if ($children === []) {
+            $this->context->report($node, 'import-structure-repaired', 'Empty block-bearing cell repaired with a cell paragraph');
+            $children = [['type' => 'cell_paragraph', 'children' => []]];
+        }
         $out = ['type' => 'table_cell', 'header' => $header, 'children' => $children];
         $colspan = self::htmlInteger($node->attr('colspan'));
         if ($colspan !== null && $colspan > 1) {
@@ -176,23 +193,61 @@ final class TableReader
         } elseif ($rowspan !== null && $rowspan > 1) {
             $out['rowspan'] = $rowspan;
         }
+
+        return $out + $this->presentation($node, $header, $inHead);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function presentation(HtmlNode $node, bool $header, bool $inHead): array
+    {
+        $out = [];
         $scope = $node->attr('scope');
+        $scope = $scope === null ? null : strtolower($scope);
         $implied = $header && $scope === ($inHead ? 'col' : 'row');
         if (!$implied && $scope !== null && isset(self::SCOPES[$scope])) {
             $out['scope'] = $scope;
+        } elseif ($scope !== null && !isset(self::SCOPES[$scope])) {
+            $this->context->report($node, 'import-attribute-dropped', 'Invalid scope attribute dropped');
         }
-        $align = $node->attr('align') ?? Attrs::alignOf($node->attr('style'));
+        [$styleAlign, $styleValign] = self::styleAxes($node->attr('style'));
+        $attrAlign = $node->attr('align');
+        $attrValign = $node->attr('valign');
+        $align = $styleAlign ?? ($attrAlign === null ? null : strtolower($attrAlign));
         if ($align !== null && isset(self::ALIGNS[$align])) {
             $out['align'] = $align;
         }
-        $valign = $node->attr('valign');
+        $valign = $styleValign ?? ($attrValign === null ? null : strtolower($attrValign));
         if ($valign !== null && isset(self::VALIGNS[$valign])) {
             $out['valign'] = $valign;
         }
-        $styled = isset($out['align']) && $node->attr('align') === null;
+        if ($attrAlign !== null && ($styleAlign !== null || !isset(self::ALIGNS[strtolower($attrAlign)]))) {
+            $this->context->report($node, 'import-attribute-dropped', 'Align attribute dropped');
+        }
+        if ($attrValign !== null && ($styleValign !== null || !isset(self::VALIGNS[strtolower($attrValign)]))) {
+            $this->context->report($node, 'import-attribute-dropped', 'Valign attribute dropped');
+        }
         $omit = ['colspan', 'rowspan', 'scope', 'align', 'valign'];
 
-        return $out + Attrs::of($node, $styled ? [...$omit, 'style'] : $omit);
+        return $out + Attrs::of($node, $styleAlign !== null || $styleValign !== null ? [...$omit, 'style'] : $omit);
+    }
+
+    /**
+     * @return array{0: string|null, 1: string|null}
+     */
+    private static function styleAxes(?string $style): array
+    {
+        $pattern = '/\A(?:text-align: (left|right|center);(?: vertical-align: (top|middle|bottom|baseline);)?'
+            . '|vertical-align: (top|middle|bottom|baseline);)\z/D';
+        if ($style === null || preg_match($pattern, $style, $match) !== 1) {
+            return [null, null];
+        }
+
+        return [
+            $match[1] !== '' ? $match[1] : null,
+            ($match[2] ?? '') !== '' ? $match[2] : (($match[3] ?? '') !== '' ? $match[3] : null),
+        ];
     }
 
     /**
@@ -246,7 +301,7 @@ final class TableReader
      *
      * @return array<array<string, mixed>>
      */
-    private static function columns(array $groups, HtmlNode $node): array
+    private function columns(array $groups, HtmlNode $node): array
     {
         $width = 0;
         foreach ($groups as $group) {
@@ -262,7 +317,10 @@ final class TableReader
             }
             $style = $col->attr('style') ?? '';
             $value = preg_match('/\Awidth: ([0-9]+(?:\.[0-9]+)?)%;\z/', $style, $m) === 1 ? (float)$m[1] : 0.0;
-            $widths[] = $value > 0 ? $value / 100 : null;
+            $widths[] = $value > 0 && $value <= 100 ? $value / 100 : null;
+            if ($style !== '' && ($value <= 0 || $value > 100)) {
+                $this->context->report($col, 'import-attribute-dropped', 'Column style dropped: invalid width');
+            }
         }
         $out = [];
         for ($i = 0; $i < $width; $i++) {

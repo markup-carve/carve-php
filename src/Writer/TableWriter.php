@@ -20,6 +20,11 @@ final class TableWriter
     private const ALIGN_MARKS = ['left' => '<', 'right' => '>', 'center' => '~'];
 
     /**
+     * @var array<string, string>
+     */
+    private const VALIGN_MARKS = ['top' => '^', 'middle' => '~', 'bottom' => 'v'];
+
+    /**
      * @var array<string>
      */
     private const GROUPS = ['table_head', 'table_body', 'table_foot'];
@@ -72,12 +77,19 @@ final class TableWriter
     private function fieldKeys(array $node, string $path, bool $delimited): array
     {
         $keys = [];
-        [$aligns, $widths] = $this->columnKeys($node, $path);
+        [$aligns, $valigns, $widths] = $this->columnKeys($node, $path);
         if ($aligns !== '') {
             $keys[] = ['aligns', $aligns];
         }
+        if ($valigns !== '') {
+            $keys[] = ['valigns', $valigns];
+        }
         if ($widths !== '') {
             $keys[] = ['widths', $widths];
+        }
+        $bodyRows = self::bodyRows($node);
+        if ($bodyRows !== '') {
+            $keys[] = ['body-rows', $bodyRows];
         }
         $groups = $this->groups($node);
         if ($delimited) {
@@ -96,24 +108,53 @@ final class TableWriter
     }
 
     /**
-     * C2-B-211, C2-B-212: `aligns` and `widths` from the column fields, up to the last column that sets one.
+     * C2-W-136: a partitioned table spells the data-row count of each body.
+     *
+     * @param array<mixed> $node
+     */
+    private static function bodyRows(array $node): string
+    {
+        $bodies = array_values(array_filter(
+            is_array($node['children'] ?? null) ? $node['children'] : [],
+            static fn (mixed $group): bool => is_array($group) && ($group['type'] ?? '') === 'table_body',
+        ));
+        if (count($bodies) < 2) {
+            return '';
+        }
+        $counts = array_map(static fn (array $body): int => count(array_filter(
+            is_array($body['children'] ?? null) ? $body['children'] : [],
+            static fn (mixed $row): bool => is_array($row) && ($row['type'] ?? '') === 'table_row',
+        )), $bodies);
+
+        return implode(',', $counts);
+    }
+
+    /**
+     * C2-B-211, C2-B-212: alignment and width lists from the column fields, up to the last column that sets one.
      *
      * @param array<mixed> $node
      * @param string $path
      *
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string, 2: string}
      */
     private function columnKeys(array $node, string $path): array
     {
         $aligns = [];
+        $valigns = [];
         $widths = [];
-        foreach (is_array($node['columns'] ?? null) ? $node['columns'] : [] as $column) {
+        foreach (is_array($node['columns'] ?? null) ? $node['columns'] : [] as $index => $column) {
             $aligns[] = is_array($column) && is_string($column['align'] ?? null) ? $column['align'] : '';
+            $valign = is_array($column) && is_string($column['valign'] ?? null) ? $column['valign'] : '';
+            if ($valign === 'baseline') {
+                $this->w->lose($path . '/columns/' . $index, 'table_column', 'valign');
+                $valign = '';
+            }
+            $valigns[] = $valign;
             $width = is_array($column) ? ($column['width'] ?? null) : null;
             $widths[] = is_int($width) || is_float($width) ? self::percent((float)$width) : '';
         }
 
-        return [$this->listKey($aligns, $path), $this->listKey($widths, $path)];
+        return [$this->listKey($aligns, $path), $this->listKey($valigns, $path), $this->listKey($widths, $path)];
     }
 
     private static function percent(float $width): string
@@ -404,8 +445,7 @@ final class TableWriter
         if (isset($cell['span'])) {
             return [$header . BraceBlock::of($cell, ['pipes' => true]), [$cell['span'] === 'colspan' ? '<' : '^']];
         }
-        $align = is_string($cell['align'] ?? null) ? (self::ALIGN_MARKS[$cell['align']] ?? '') : '';
-        $prefix = $header . BraceBlock::of($cell, ['mark' => $align, 'pipes' => true]);
+        $prefix = $header . BraceBlock::of($cell, ['mark' => self::alignmentMark($cell), 'pipes' => true]);
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
         $lines = $this->registerWraps($path);
         $content = $this->content($blocks, $path);
@@ -418,6 +458,17 @@ final class TableWriter
     }
 
     /**
+     * @param array<mixed> $cell
+     */
+    private static function alignmentMark(array $cell): string
+    {
+        $align = is_string($cell['align'] ?? null) ? (self::ALIGN_MARKS[$cell['align']] ?? '') : '';
+        $valign = is_string($cell['valign'] ?? null) ? (self::VALIGN_MARKS[$cell['valign']] ?? '') : '';
+
+        return $valign === '' ? $align : ($align === '' ? '?' : $align) . $valign;
+    }
+
+    /**
      * C2-W-011: the cell fields no source spells.
      *
      * @param array<mixed> $cell
@@ -427,10 +478,13 @@ final class TableWriter
      */
     private function unspellable(array $cell, string $path): void
     {
-        foreach (['valign', 'scope', 'headerIds'] as $field) {
+        foreach (['scope', 'headerIds'] as $field) {
             if (isset($cell[$field])) {
                 $this->w->lose($path, 'table_cell', $field);
             }
+        }
+        if (($cell['valign'] ?? null) === 'baseline') {
+            $this->w->lose($path, 'table_cell', 'valign');
         }
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
         if (count($blocks) > 1 || (is_array($blocks[0] ?? null) && ($blocks[0]['type'] ?? '') !== 'cell_paragraph')) {

@@ -326,7 +326,7 @@ final class BlockReader
         $base = $only !== null && $only['type'] === 'image' && ($only['refForm'] ?? null) !== 'shortcut'
             ? ['type' => 'paragraph', 'role' => 'image', 'children' => $children] : self::paragraph($children);
 
-        return $base + Attrs::of($node, [], true);
+        return $base + Attrs::of($node, [], true, $this->context);
     }
 
     /**
@@ -342,7 +342,7 @@ final class BlockReader
     {
         [$authored] = $id ?? $this->headingId($node);
         $omit = $level > 6 ? ['id', 'role', 'aria-level'] : ['id'];
-        $mapped = Attrs::of($node, $omit, true);
+        $mapped = Attrs::of($node, $omit, true, $this->context);
         if ($authored !== null) {
             $mapped['attrs'] = ['id' => $authored] + J::attrs($mapped);
         }
@@ -582,7 +582,7 @@ final class BlockReader
         $parts = $this->titled($node);
         $rest = $parts['rest'];
         unset($parts['rest']);
-        $mapped = Attrs::of($node, [], true);
+        $mapped = Attrs::of($node, [], true, $this->context);
         $kind = J::classes(J::attrs($mapped))[0] ?? '';
         if ((Tables::DIV_NAME_KINDS[$kind] ?? null) === 'directive') {
             return ['type' => 'directive', 'kind' => $kind] + $parts + ['children' => $this->flow($rest, $node)]
@@ -745,10 +745,66 @@ final class BlockReader
         $own = Attrs::withoutClasses(Attrs::of($node), $drop);
         $only = count($children) === 1 ? $children[0] : null;
         if ($only !== null && self::takesCaption($only, $caption !== null)) {
-            return array_merge($only, $captionPart, $own);
+            return $this->mergeFigureAttributes($node, array_merge($only, $captionPart), $own);
         }
 
         return ['type' => 'figure_group', 'children' => $children] + $captionPart + $own;
+    }
+
+    /**
+     * C2-M-043: figure attributes precede the captionable block's attributes; later scalar values win.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param array<string, mixed> $block
+     * @param array<string, mixed> $figure
+     *
+     * @return array<string, mixed>
+     */
+    private function mergeFigureAttributes(HtmlNode $node, array $block, array $figure): array
+    {
+        $outer = J::attrs($figure);
+        $inner = J::attrs($block);
+        $attrs = $outer;
+        if (J::classes($inner) !== []) {
+            $attrs['classes'] = array_merge(J::classes($outer), J::classes($inner));
+        }
+        if (isset($inner['id'])) {
+            if (isset($outer['id'])) {
+                $this->context->report($node, 'import-attribute-dropped', 'Figure id replaced by the child id');
+            }
+            $attrs['id'] = $inner['id'];
+        }
+        $pairs = J::pairs($outer);
+        foreach (J::pairs($inner) as [$key, $value]) {
+            $found = false;
+            foreach ($pairs as $index => [$oldKey]) {
+                if ($oldKey === $key) {
+                    $pairs[$index][1] = $value;
+                    $this->context->report($node, 'import-attribute-dropped', 'Figure attribute ' . $key . ' replaced by the child');
+                    $found = true;
+
+                    break;
+                }
+            }
+            if (!$found) {
+                $pairs[] = [$key, $value];
+            }
+        }
+        if ($pairs !== []) {
+            $attrs['keyValues'] = $pairs;
+        }
+        if ($attrs !== []) {
+            $block['attrs'] = $attrs;
+        }
+        foreach (['lang', 'dir'] as $field) {
+            if (isset($figure[$field]) && !isset($block[$field])) {
+                $block[$field] = $figure[$field];
+            } elseif (isset($figure[$field], $block[$field])) {
+                $this->context->report($node, 'import-attribute-dropped', 'Figure ' . $field . ' replaced by the child');
+            }
+        }
+
+        return $block;
     }
 
     /**

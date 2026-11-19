@@ -963,7 +963,7 @@ final class InlineRenderer
         }
         if (!$this->state->budgetReported) {
             $this->state->budgetReported = true;
-            $this->log->loss('derived-text-budget', 'warning');
+            $this->log->loss('derived-text-budget', 'warning', ['budget' => $this->state->derivedBudget]);
         }
 
         return false;

@@ -21,6 +21,8 @@ final class RenderState
 {
     public int $derivedRemaining;
 
+    public int $derivedBudget;
+
     public bool $budgetReported = false;
 
     /**
@@ -191,7 +193,8 @@ final class RenderState
         if (is_int($jsonLength)) {
             $length = min($length, $jsonLength);
         }
-        $this->derivedRemaining = max(1000000, min($length, intdiv(PHP_INT_MAX, 8)) * 8);
+        $this->derivedBudget = max(1000000, min($length, intdiv(PHP_INT_MAX, 8)) * 8);
+        $this->derivedRemaining = $this->derivedBudget;
         $this->definitions();
         if ($facts !== null && $facts->doc === $doc) {
             $this->fromFacts($facts);

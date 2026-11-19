@@ -187,7 +187,7 @@ final class TreeReader
             throw new TreeError('envelope-version', '/document/astVersion');
         }
         $declared = self::declarations($root, $envelope ? $decoded : null, $options);
-        $standardTabs = false;
+        $standardTabs = isset($declared['carve.tabs']);
         $extensions = $options['extensions'] ?? [];
         foreach (is_array($extensions) ? $extensions : [] as $extension) {
             if ($extension === 'carve.tabs' || ($extension instanceof ExtensionDefinition && $extension->name === 'carve.tabs')) {
