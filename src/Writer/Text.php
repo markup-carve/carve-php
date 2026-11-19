@@ -52,6 +52,26 @@ final class Text
     ];
 
     /**
+     * The inline nodes whose spelling holds no delimiter that pairs with text around them.
+     *
+     * @var array<string, true>
+     */
+    private const WHOLE = [
+        'code' => true,
+        'raw_inline' => true,
+        'math' => true,
+        'literal_inline' => true,
+        'comment' => true,
+        'symbol' => true,
+        'tag' => true,
+        'mention' => true,
+        'non_breaking_space' => true,
+        'smart_punctuation' => true,
+        'footnote_ref' => true,
+        'autolink' => true,
+    ];
+
+    /**
      * C2-W-092: the punctuation a block opener of a first paragraph line starts with.
      *
      * @var string
@@ -554,8 +574,50 @@ final class Text
         }
         $open = !Chars::isWord($prev) && !Chars::isSpace($after);
         $close = !Chars::isSpace($prev) && !Chars::isWord($after);
+        if ($c->here < 0) {
+            return $open || $close;
+        }
+        $at = $c->here + $i;
 
-        return $open || $close;
+        return ($open && self::partner($c, $at, $ch, 1)) || ($close && self::partner($c, $at, $ch, -1));
+    }
+
+    /**
+     * C2-I-047: an opener pairs only with a mark after it that can close, and a closer only with one before it that
+     * can open. A node that is not read whole may hold one. The first opener and the last closer of each mark in the
+     * leaf are found once.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $at
+     * @param string $ch
+     * @param int $step 1 to look for a closer after `$at`, -1 for an opener before it.
+     *
+     * @return bool
+     */
+    private static function partner(Context $c, int $at, string $ch, int $step): bool
+    {
+        if ($c->partners === null) {
+            $flat = (string)$c->flat;
+            $n = strlen($flat);
+            $c->partners = ['*' => [PHP_INT_MAX, -1], '/' => [PHP_INT_MAX, -1]];
+            for ($k = 0; $k < $n; $k++) {
+                $here = $flat[$k];
+                $node = $here === "\0" && !isset(self::WHOLE[$c->flatTypes[$k] ?? '']);
+                foreach (['*', '/'] as $mark) {
+                    $opens = $node || ($here === $mark && !str_contains(" \t\n", $flat[$k + 1] ?? ' '));
+                    $closes = $node || ($here === $mark && !str_contains(" \t\n", $k > 0 ? $flat[$k - 1] : ' '));
+                    if ($opens && $c->partners[$mark][0] === PHP_INT_MAX) {
+                        $c->partners[$mark][0] = $k;
+                    }
+                    if ($closes) {
+                        $c->partners[$mark][1] = $k;
+                    }
+                }
+            }
+        }
+        [$firstOpen, $lastClose] = $c->partners[$ch] ?? [PHP_INT_MAX, -1];
+
+        return $step > 0 ? $lastClose > $at : $firstOpen < $at;
     }
 
     /**
