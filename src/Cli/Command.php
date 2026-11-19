@@ -573,14 +573,9 @@ final class Command
                     self::product($result->html . "\n", $out);
                 }
                 self::report([$display, $source, self::root($parsed, $file)], $losses, false, $err);
-                $record = [
-
-                    'file' => $display,
-                    'diagnostics' => array_map(
-                        static fn (Diagnostic $d): array => $d->toArray(),
-                        $losses,
-                    ), 'suppressed' => $result->suppressedDiagnostics,
-                ];
+                $record = self::report([$display, $source, self::root($parsed, $file)], $losses, true, $err)
+                    ?? ['file' => $display, 'diagnostics' => [], 'suppressed' => 0];
+                $record['suppressed'] = $result->suppressedDiagnostics;
 
                 return [
                     $strictLoss || (($parsed['values']['strict'] ?? false) && $result->diagnostics !== []) ? 1 : 0, $record,
