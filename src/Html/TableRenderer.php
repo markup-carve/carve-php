@@ -300,7 +300,7 @@ final class TableRenderer
         if (count($kids) === 1 && $kids[0]->type === 'cell_paragraph') {
             return $this->r->inline->leaf($kids[0]->children ?? [], $depth + 2);
         }
-        $visible = HtmlRenderer::visibleOf($kids);
+        $visible = $this->r->visibleOf($kids);
         $first = '';
         if ($visible !== [] && HtmlRenderer::paragraphLike($visible[0]) && !isset($visible[0]->f['caption'])) {
             $first = (string)$this->r->paragraph(array_shift($visible), 0, false);

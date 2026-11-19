@@ -200,6 +200,34 @@ final class InlineRenderer
     }
 
     /**
+     * C2-H-160, C2-H-165: whether a node outside any link writes no text under the profile. Nothing is reported.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return bool
+     */
+    public function writesNothing(Node $node): bool
+    {
+        $profile = $this->profile;
+        if ($profile === null) {
+            return false;
+        }
+        if (!$profile->allowsInline($node)) {
+            return $node->type !== 'comment' && $profile->plainInline($node) === '';
+        }
+        if ($node->type !== 'link' || $this->o->profile !== 'comment') {
+            return false;
+        }
+        $key = $node->f['key'] ?? null;
+        $href = $node->f['href'] ?? null;
+        if (!is_string($href) || (is_string($key) && !isset($this->state->linkDefs[$key]) && !$profile->allowsBlockType('heading'))) {
+            return false;
+        }
+
+        return !UrlPolicy::passes($href, $this->o) && $profile->plainInline($node) === '';
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Node> $nodes
      * @param bool $nested
      * @param \MarkupCarve\Carve\Html\Profile|null $profile
