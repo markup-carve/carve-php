@@ -240,8 +240,9 @@ assert(Carve::format($source, ['extensions' => [$embed]]) === $source);
 A renderer receives a `RenderHost`: child lists, plain text, escaping, `attributes()` for the authored attributes
 of a node, collision-free generated ids, the `labels`, the `profile` and the render `mode` (C2-X-033). In
 `mode: static` the engine uses the definition's `buildTimeRenderer`, and writes the fallback when there is none
-(C2-X-052). Document transforms (C2-X-053) are `DocumentTransform` objects passed to
-`Carve::renderWithDocumentTransforms()`; they run in order on a copy of the resolved tree.
+(C2-X-052). Document transforms (C2-X-053) run in order on a copy of the resolved tree: those of the registered
+definitions (`documentTransform`) in every render, then the `DocumentTransform` objects passed to
+`Carve::renderWithDocumentTransforms()`.
 
 ### Standard extensions
 

@@ -167,3 +167,43 @@ ordered list) or `author-date` (`(Doe 2020)`, a list sorted by author, which rea
 around the key: `:: [doe]{author="Doe" year="2020"}`). The citation attributes `locator`, `prefix`, `suffix` and
 `mode` (`suppress-author`, `author-in-text`) shape the text. With a `bibliography`, each use gets an id and each
 entry back-links to its uses. A key without an entry keeps its text; without a directive the list goes at the end.
+
+## Navigation
+
+`Navigation` holds nine factories. Each returns one `ExtensionDefinition` with a `documentTransform`, which
+`render()`, `renderWithDiagnostics()` and `renderWithDocumentTransforms()` run in registration order on a copy of the
+resolved view (C2-X-053). Pass the definitions straight in `extensions`; no transform list is needed.
+
+```php
+use MarkupCarve\Carve\Extension\Navigation;
+
+Carve::render($source, ['extensions' => [
+    Navigation::headingNumbers(),
+    Navigation::headingPermalinks(),
+    Navigation::tableOfContents(),
+]]);
+```
+
+- `tableOfContents(minLevel, maxLevel, listType, cssClass, position, collapsible, summary, open)`: a `carve.toc`
+  node of nested links to the top-level headings, at the top or the bottom, written in a `<nav>` named by the
+  `tocNav` label, or in a `<details>` when `collapsible`. A table placed at the bottom lands inside the last section,
+  since a 0.2 section holds every block after its heading.
+- `tocPlacement()`: claims each `::: toc` directive (`carve.tocPlacement`), with the headings window from
+  `{depth=N}` or `{from=X to=Y}`; a quoted title names the nav.
+- `headingPermalinks(symbol, cssClass, ariaLabel, levels, prepend, showOnHover, copyToClipboard)`: an anchor to its
+  own id in each heading.
+- `headingNumbers(minLevel, label, crossref)`: section numbers in `<span class="section-number">`, and cross-references
+  `</#id>` written as `Section 1.2 - Title` (`crossref`: `number`, `number-title` or `title`). Headings in a quote or a
+  note, with the class `unnumbered`, or above `minLevel` take no number.
+- `headingLevelShift(shift)`: every heading down by `shift` levels, to at most 6.
+- `headingReference(cssClass)`: a class on each reference link a heading resolves (`[Heading][]`). The 0.1
+  `[[Heading]]` spelling is gone (C2-X-013).
+- `externalLinks(target, rel, nofollow)`: `target` and `rel` on links and autolinks to `http` and `https` URLs.
+- `linkPolicy(allowedSchemes, deniedSchemes, allowedDomains, deniedDomains, allowExternal, allowInternal, rel,
+  baseHost)`: a link, autolink or image the policy refuses is written as its text; links that stay get the `rel`
+  values. Hosts are read as a browser reads them (IPv4 number forms, IDNA), and a bare relative path is internal.
+  It narrows the core URL policy, never widens it.
+- `autolink(allowedSchemes)`: bare URLs and email addresses in text become links; trailing punctuation stays outside.
+
+A transform that edits heading text keeps the heading's id and turns the references the heading resolved into
+direct links, since ids and references are resolved again over the edited view (C2-X-055).

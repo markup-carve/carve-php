@@ -27,6 +27,8 @@ final class ExtensionDefinition
      *   (C2-H-075).
      * @param array{0: string, 1: string, 2: string, 3: string}|null $quotes Provisional: the opening and closing double, then
      *   single, quote glyphs that smart typography writes.
+     * @param (\Closure(\MarkupCarve\Carve\Node): \MarkupCarve\Carve\Node)|null $documentTransform C2-X-053: a document
+     *   transform the extension registers; `render()` runs it, in registration order, on the render view.
      */
     public function __construct(
         public readonly string $name,
@@ -39,6 +41,7 @@ final class ExtensionDefinition
         public readonly ?Closure $buildTimeRenderer = null,
         public readonly ?array $semanticKeys = null,
         public readonly ?array $quotes = null,
+        public readonly ?Closure $documentTransform = null,
     ) {
     }
 
@@ -62,6 +65,7 @@ final class ExtensionDefinition
             $this->buildTimeRenderer,
             $this->semanticKeys,
             $this->quotes,
+            $this->documentTransform,
         );
     }
 
@@ -79,6 +83,7 @@ final class ExtensionDefinition
             $this->transform,
             semanticKeys: $this->semanticKeys,
             quotes: $this->quotes,
+            documentTransform: $this->documentTransform,
         );
     }
 
@@ -100,6 +105,7 @@ final class ExtensionDefinition
             $renderer,
             $this->semanticKeys,
             $this->quotes,
+            $this->documentTransform,
         );
     }
 }
