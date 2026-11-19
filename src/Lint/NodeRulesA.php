@@ -877,8 +877,11 @@ final class NodeRulesA
         if ($first === null || $second === null) {
             return;
         }
-        $width = strspn(self::jsTrimStart($first->text), '#=');
-        $indent = strspn($second->text, ' ');
+        $width = strspn(ltrim($first->text, " \t>"), '#=');
+        $indentOffset = strspn($second->text, " \t>");
+        $quotes = $c->layout->quoteDepth($path);
+        $indent = $quotes === 0 && !str_contains(substr($second->text, 0, $indentOffset), "\t")
+            ? $indentOffset : $c->layout->columnOf($second->start + $indentOffset, $quotes);
         if ($indent >= $width && $indent > 0) {
             $c->report('deprecated-indented-line-under-heading', $second->start, $second->end, $path);
         }
