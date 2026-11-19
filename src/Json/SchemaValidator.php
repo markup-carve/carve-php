@@ -10,6 +10,7 @@ use WeakMap;
 /**
  * A JSON Schema validator for the keywords ast-schema.json uses (draft 2020-12 subset).
  * Values are decoded with objects as stdClass, so an empty object and an empty array differ.
+ * A schema object is read once and must not change afterwards.
  */
 final class SchemaValidator
 {

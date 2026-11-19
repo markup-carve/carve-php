@@ -117,7 +117,8 @@ final class TreeReader
             throw new TreeError('schema', '');
         }
 
-        $node = self::readValue($value, $options);
+        // Decoded JSON holds no invalid UTF-8 or non-finite number, so the tree is built from it directly.
+        $node = TreeDecoder::object(self::checked($value, $options));
         $node->layout['jsonByteLength'] = strlen($json);
 
         return $node;
@@ -126,10 +127,19 @@ final class TreeReader
     /**
      * @param mixed $decoded
      * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
      */
     public static function readValue(mixed $decoded, array $options = []): Node
     {
-        return TreeDecoder::object(self::checked($decoded, $options));
+        $root = self::checked($decoded, $options);
+        $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
+        $node = TreeDecoder::json($json, self::JSON_DEPTH);
+        if ($node === null) {
+            throw new TreeError('schema', '');
+        }
+
+        return $node;
     }
 
     /**
