@@ -1050,15 +1050,7 @@
      "table-row-without-closing-pipe": "on"
     }
    },
-   "findings": [
-    [
-     "table-row-without-closing-pipe",
-     "/children/0",
-     0,
-     7,
-     "This row has no closing pipe. carve fmt adds it; escape the first pipe if the line is text."
-    ]
-   ]
+   "findings": []
   },
   "table-width-total": {
    "trigger": "{widths=60,60}\n| a | b |",
@@ -1950,15 +1942,7 @@
    "trigger": "See [@x].\n\n> ::: references\n> :::\n\n[@x]: Source\n",
    "near": "See [@x].\n\n> \n\n[@x]: Source\n",
    "options": {},
-   "findings": [
-    [
-     "references-placement-in-container",
-     "/children/1/children/0",
-     13,
-     33,
-     "This \"::: references\" marker is inside a container and does not place the reference list. Move it to document level, or remove it if no placement is needed."
-    ]
-   ]
+   "findings": []
   },
   "setext-heading-underline#2": {
    "trigger": "x\n\n---\n---\n",

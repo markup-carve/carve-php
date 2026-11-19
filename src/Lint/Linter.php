@@ -42,7 +42,7 @@ final class Linter
     private const CONTROLS = ['disable-next-line', 'disable-line', 'disable', 'enable'];
 
     /**
-     * @var array<string, array{severity: string, default: string|null}>|null
+     * @var array<string, array{severity: string, default: string|null, status: string|null}>|null
      */
     private static ?array $catalog = null;
 
@@ -499,7 +499,7 @@ final class Linter
     }
 
     /**
-     * @return array<string, array{severity: string, default: string|null}>
+     * @return array<string, array{severity: string, default: string|null, status: string|null}>
      */
     public static function catalog(): array
     {
@@ -511,6 +511,7 @@ final class Linter
                     self::$catalog[$rule['id']] = [
                         'severity' => is_string($rule['severity'] ?? null) ? $rule['severity'] : 'warning',
                         'default' => is_string($rule['default'] ?? null) ? $rule['default'] : null,
+                        'status' => is_string($rule['status'] ?? null) ? $rule['status'] : null,
                     ];
                 }
             }

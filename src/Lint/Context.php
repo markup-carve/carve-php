@@ -132,7 +132,7 @@ final class Context
     /**
      * @param string $source
      * @param array<string, mixed> $options
-     * @param array<string, array{severity: string, default: string|null}> $catalog
+     * @param array<string, array{severity: string, default: string|null, status: string|null}> $catalog
      */
     public function __construct(public string $source, public array $options, private array $catalog)
     {
@@ -199,6 +199,9 @@ final class Context
      */
     public function active(string $id): bool
     {
+        if (($this->catalog[$id]['status'] ?? null) === 'void') {
+            return false;
+        }
         $rules = is_array($this->options['rules'] ?? null) ? $this->options['rules'] : [];
         if (str_starts_with($id, 'platform-')) {
             $platforms = is_array($this->options['platforms'] ?? null) ? $this->options['platforms'] : [];
