@@ -9,6 +9,15 @@ use PHPUnit\Framework\TestCase;
 
 final class Next2DiagnosticCasesTest extends TestCase
 {
+    public function testRawTextTagSpellingDoesNotStealLaterLocation(): void
+    {
+        $html = '<script>"<p>"</script><p onclick="go()">x</p>';
+        $result = Carve::importHtml($html);
+        $losses = array_values(array_filter($result->diagnostics, static fn ($entry): bool => $entry->code === 'import-attribute-dropped'));
+        self::assertCount(1, $losses);
+        self::assertSame(strpos($html, '<p onclick'), $losses[0]->startOffset);
+    }
+
     public function testPinnedImporterDiagnosticsAndBodyPartitions(): void
     {
         $spec = json_decode(

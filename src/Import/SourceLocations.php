@@ -14,9 +14,20 @@ final class SourceLocations
     {
         $tokens = [];
         preg_match_all('/<!--.*?-->|<!doctype[^>]*>|<\/?[A-Za-z][^>]*>/is', $html, $matches, PREG_OFFSET_CAPTURE);
+        $raw = null;
         foreach ($matches[0] as [$source, $offset]) {
+            if ($raw !== null) {
+                if (preg_match('/^<\/\s*' . preg_quote($raw, '/') . '\s*>$/i', $source) === 1) {
+                    $raw = null;
+                }
+
+                continue;
+            }
             if (preg_match('/^<([A-Za-z][A-Za-z0-9:-]*)\b/', $source, $name) === 1) {
                 $tag = strtolower($name[1]);
+                if (in_array($tag, ['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'], true)) {
+                    $raw = $tag;
+                }
             } elseif (stripos($source, '<!doctype') === 0) {
                 $tag = '#doctype';
             } elseif (str_starts_with($source, '<!--')) {
