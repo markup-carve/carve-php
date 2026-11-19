@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Support;
 
 use Closure;
-use MarkupCarve\Carve\Extension\Tabs;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Node;
 use RuntimeException;
@@ -96,10 +95,6 @@ final class Corpus
         }
         if (is_array($options['codeBlockRenderer'] ?? null)) {
             $options['codeBlockRenderer'] = self::codeBlockRenderer($options['codeBlockRenderer']);
-        }
-        if (isset($options['extensions']) && in_array('carve.tabs', $options['extensions'], true)) {
-            $options['extensions'] = Tabs::extensions(($options['renderers']['carve.tabs'] ?? null) === 'standard');
-            unset($options['renderers']);
         }
 
         return $options;

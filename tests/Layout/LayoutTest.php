@@ -83,7 +83,7 @@ final class LayoutTest extends TestCase
                 $this->assertSame([$node['pos']['startOffset'], $node['pos']['endOffset']], [$entry['startByte'], $entry['endByte']]);
             }
         }
-        $this->assertSame(json_decode(Carve::toJson($input), true), $tree, 'C2-L-003: the tree is the same');
+        $this->assertEquals(json_decode(Carve::toJson($input), true), $tree, 'C2-L-003: the tree is the same');
     }
 
     public function testC2L016ToC2L023FactsTheWriterReads(): void

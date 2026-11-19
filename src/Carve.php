@@ -513,7 +513,7 @@ final class Carve
 
     /**
      * C2-W-103, C2-W-109: the lint findings of a source, with the catalog messages, byte ranges and tree paths. Options:
-     * `rules` (rule id to `on` or `off`), `platforms` (`['github']`) and `includes` (as for a parse), which lints the
+     * `rules` (rule id to `on` or `off`), `platforms` (`['github']`), `headingIds` (C2-T-042) and `includes`, which lints the
      * included files too (C2-N-085). Nothing of lint runs unless this is called.
      *
      * @param string $source
@@ -528,7 +528,7 @@ final class Carve
 
     /**
      * The HTML importer (import-html.md): the tree, the canonical source and the diagnostics of an HTML string. Options:
-     * `rawHtml` (C2-M-066) and `strictLosses` (C2-M-082). Needs `ext-dom`.
+     * `rawHtml` (C2-M-066), `labels` (C2-M-101) and `strictLosses` (C2-M-082). Needs `ext-dom`.
      *
      * @param string $html
      * @param array<string, mixed> $options

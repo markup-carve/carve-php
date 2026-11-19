@@ -14,13 +14,14 @@ use MarkupCarve\Carve\Resolve\PlainText;
 final class Tabs
 {
     /**
-     * The two registrations; `$renderer` adds the tabs renderer to `carve.tabs`.
+     * The two registrations; `$renderer` adds the tabs renderer to `carve.tabs` in `css` or `aria` mode.
      *
      * @param bool $renderer
+     * @param string $mode
      *
      * @return array<\MarkupCarve\Carve\Extension\ExtensionDefinition>
      */
-    public static function extensions(bool $renderer = false): array
+    public static function extensions(bool $renderer = false, string $mode = 'css'): array
     {
         $tab = new ExtensionDefinition('carve.tab', '1', ['title', 'body'], parent: ['name' => 'carve.tabs', 'slot' => 'tabs']);
         $tabs = new ExtensionDefinition(
@@ -29,7 +30,7 @@ final class Tabs
             ['tabs'],
             matcher: ['form' => 'div', 'name' => 'tabs'],
             transform: self::transform(...),
-            renderer: $renderer ? self::render(...) : null,
+            renderer: $renderer ? ($mode === 'aria' ? self::renderAria(...) : self::render(...)) : null,
             buildTimeRenderer: $renderer ? self::renderStatic(...) : null,
         );
 
@@ -147,8 +148,82 @@ final class Tabs
                 . ($host->blocks)(PlainText::nodes($tabSlots['body'] ?? [])) . '</div>';
         }
 
-        return '<div class="tabs" role="group" aria-label="' . RenderHost::escapeAttribute($host->groupLabel) . '">'
+        return self::wrapper($node, $host, 'group')
             . $controls . $panels . '</div>';
+    }
+
+    /**
+     * C2-X-043: WAI-ARIA tablist controls and named panels, with no script.
+     */
+    public static function renderAria(Node $node, RenderHost $host): string
+    {
+        $slots = $node->f['slots'] ?? [];
+        $tabs = array_values(PlainText::nodes(is_array($slots) ? $slots['tabs'] ?? [] : []));
+        $selected = self::selected($tabs);
+        $group = self::group($tabs, $host, true);
+        $controls = '';
+        $panels = '';
+        foreach ($tabs as $at => $tab) {
+            $tabSlots = is_array($tab->f['slots'] ?? null) ? $tab->f['slots'] : [];
+            $title = PlainText::nodes($tabSlots['title'] ?? []);
+            $label = $title === [] ? 'Tab ' . ($at + 1) : ($host->plainText)($title);
+            $id = $group . '-' . $at;
+            $panel = $id . '-panel';
+            $active = $at === $selected;
+            $controls .= '<button type="button" role="tab" id="' . $id . '" aria-selected="' . ($active ? 'true' : 'false')
+                . '" aria-controls="' . $panel . '"' . ($active ? '' : ' tabindex="-1"') . '>'
+                . ($title === [] ? RenderHost::escapeText($label) : ($host->inlines)($title)) . '</button>';
+            $panels .= '<div class="tab-panel" role="tabpanel" id="' . $panel . '" aria-labelledby="' . $id . '"'
+                . ($active ? '' : ' hidden') . '>' . ($host->blocks)(PlainText::nodes($tabSlots['body'] ?? [])) . '</div>';
+        }
+
+        return self::wrapper($node, $host, 'tablist') . $controls . $panels . '</div>';
+    }
+
+    private static function wrapper(Node $node, RenderHost $host, string $role): string
+    {
+        $attrs = $node->f['attrs'] ?? null;
+        $pairs = [];
+        if ($attrs instanceof Attrs) {
+            foreach ($attrs->pairs as [$name, $value]) {
+                if (in_array(strtolower($name), ['role', 'aria-label', 'aria-labelledby'], true)) {
+                    $pairs[] = ' ' . $name . '="' . RenderHost::escapeAttribute($value) . '"';
+                }
+            }
+        }
+        if (!$attrs instanceof Attrs || !NodeAttributes::authored($attrs, 'role')) {
+            $pairs[] = ' role="' . $role . '"';
+        }
+        if (
+            !$attrs instanceof Attrs
+            || (!NodeAttributes::authored($attrs, 'aria-label') && !NodeAttributes::authored($attrs, 'aria-labelledby'))
+        ) {
+            $pairs[] = ' aria-label="' . RenderHost::escapeAttribute($host->groupLabel) . '"';
+        }
+
+        return '<div class="tabs"' . implode('', $pairs) . '>';
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node> $tabs
+     * @param \MarkupCarve\Carve\Extension\RenderHost $host
+     * @param bool $aria
+     */
+    private static function group(array $tabs, RenderHost $host, bool $aria): string
+    {
+        do {
+            $group = ($host->nextId)('tabs');
+            $conflict = false;
+            foreach ($tabs as $at => $_tab) {
+                if (($host->idTaken)($group . '-' . $at) || ($aria && ($host->idTaken)($group . '-' . $at . '-panel'))) {
+                    $conflict = true;
+
+                    break;
+                }
+            }
+        } while ($conflict);
+
+        return $group;
     }
 
     /**
@@ -167,7 +242,7 @@ final class Tabs
                 . ($host->blocks)(PlainText::nodes($tabSlots['body'] ?? [])) . '</section>';
         }
 
-        return '<div class="tabs" role="group" aria-label="' . RenderHost::escapeAttribute($host->groupLabel) . '">'
+        return self::wrapper($node, $host, 'group')
             . $sections . '</div>';
     }
 

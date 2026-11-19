@@ -190,7 +190,7 @@ final class TreeReader
         $standardTabs = false;
         $extensions = $options['extensions'] ?? [];
         foreach (is_array($extensions) ? $extensions : [] as $extension) {
-            if ($extension instanceof ExtensionDefinition && $extension->name === 'carve.tabs') {
+            if ($extension === 'carve.tabs' || ($extension instanceof ExtensionDefinition && $extension->name === 'carve.tabs')) {
                 $standardTabs = true;
 
                 break;

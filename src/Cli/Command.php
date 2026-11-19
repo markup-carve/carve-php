@@ -24,7 +24,7 @@ final class Command
     /**
      * @var array<string, true>
      */
-    private const VALUED = ['include-root' => true, 'rules' => true, 'platforms' => true, 'to' => true];
+    private const VALUED = ['include-root' => true, 'rules' => true, 'platforms' => true, 'to' => true, 'heading-ids' => true];
 
     /**
      * The output formats of `render --to`.
@@ -221,6 +221,11 @@ final class Command
         }
         if ($value === null) {
             throw new OptionError('missing value for --' . $name);
+        }
+        if ($name === 'heading-ids') {
+            $parsed['options']['headingIds'] = $value;
+
+            return;
         }
         $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
             : ($name === 'include-root' ? $value : self::json($name, $value));
@@ -424,6 +429,9 @@ final class Command
             if (array_key_exists($name, $parsed['values'])) {
                 $out[$name] = $parsed['values'][$name];
             }
+        }
+        if (isset($parsed['options']['headingIds'])) {
+            $out['headingIds'] = $parsed['options']['headingIds'];
         }
 
         return $out;

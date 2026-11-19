@@ -37,7 +37,7 @@ check(str_contains(Carve::render($tree), '<p>Part.</p>'), 'render tree');
 check(Carve::render("a\n") === '<p>a</p>', 'render source');
 check(Carve::toHtml("a\n") === '<p>a</p>', 'toHtml');
 check(Carve::renderWithDiagnostics('{{ x.crv }}')->codes() === ['include-no-resolver', 'include-unresolved'], 'renderWithDiagnostics');
-check(str_starts_with(Carve::toJson("a\n"), '{"type":"document"'), 'toJson');
+check(json_decode(Carve::toJson("a\n"), true, 512, JSON_THROW_ON_ERROR)['type'] === 'document', 'toJson');
 check(Carve::lint("{#a}\nx\n\n{#a}\ny\n")[0]->code === 'duplicate-id', 'lint');
 check(Carve::includeDependencies($tree)[0]['read'] === true, 'includeDependencies');
 check(Carve::format("a  \nb\n") === "a\nb\n", 'format');

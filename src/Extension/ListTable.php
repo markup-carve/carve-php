@@ -343,10 +343,16 @@ final class ListTable
         $scope = $heading ? ' scope="' . ($row < $table->head || $rowHead ? 'col' : 'row') . '"' : '';
         $spans = ($cell->rowspan > 1 ? ' rowspan="' . $cell->rowspan . '"' : '')
             . ($cell->colspan > 1 ? ' colspan="' . $cell->colspan . '"' : '');
-        $written = AuthorAttrs::write($attrs, $host, ['rowspan', 'colspan', 'scope', 'header', 'header-row', 'align', 'valign']);
         $style = self::style($cell, $col, $table->attrs);
+        if ($style !== '') {
+            $attrs = $attrs instanceof Attrs ? clone $attrs : new Attrs();
+            $authored = AuthorAttrs::value($attrs, 'style');
+            $authored = $authored === null ? '' : trim($authored);
+            $attrs->setKey('style', ($authored === '' ? '' : rtrim($authored, ';') . '; ') . $style);
+        }
+        $written = AuthorAttrs::write($attrs, $host, ['rowspan', 'colspan', 'scope', 'header', 'header-row', 'align', 'valign']);
 
-        return '<' . $tag . $scope . $spans . $written . ($style === '' ? '' : ' style="' . RenderHost::escapeAttribute($style) . '"') . '>'
+        return '<' . $tag . $scope . $spans . $written . '>'
             . self::content($cell->item, $host) . '</' . $tag . '>';
     }
 

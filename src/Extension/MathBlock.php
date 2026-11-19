@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use Closure;
+use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\PlainText;
 
@@ -19,8 +20,12 @@ final class MathBlock
      */
     public static function bundle(string $language = 'math', ?Closure $build = null): Bundle
     {
-        $open = static fn (Node $node, RenderHost $host): string => '<div'
-            . $host->attributes(NodeAttributes::with($node, ['math', 'display'])) . '>';
+        $open = static function (Node $node, RenderHost $host): string {
+            $attrs = $node->f['attrs'] ?? null;
+            $role = $attrs instanceof Attrs && NodeAttributes::authored($attrs, 'role') ? [] : [['role', 'math']];
+
+            return '<div' . $host->attributes(NodeAttributes::with($node, ['math', 'display'], $role)) . '>';
+        };
         $render = static fn (Node $node, RenderHost $host): string => $open($node, $host)
             . '\\[' . RenderHost::escapeText(FencedRender::source($node)) . '\\]</div>';
         $static = $build === null ? null : static fn (Node $node, RenderHost $host): string => $open($node, $host)

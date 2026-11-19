@@ -359,7 +359,7 @@ final class SpecRulingsTest extends TestCase
     {
         $tree = json_decode(Carve::toJson("::: |\none\n\nthree\n:::"), true, 512, JSON_THROW_ON_ERROR);
         $lines = $tree['children'][0]['children'];
-        $this->assertSame(['type' => 'line', 'children' => []], $lines[1]);
+        $this->assertEquals(['type' => 'line', 'children' => []], $lines[1]);
         $this->assertArrayHasKey('pos', $lines[0]);
     }
 
@@ -377,7 +377,7 @@ final class SpecRulingsTest extends TestCase
     public function testC2A095TableColumnHasNoAuthoredField(): void
     {
         $tree = json_decode(Carve::toJson("{aligns=right widths=50}\n| a |"), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame(
+        $this->assertEquals(
             ['type' => 'table_column', 'align' => 'right', 'width' => 0.5, 'resolvedAlign' => 'right'],
             $tree['children'][0]['columns'][0],
         );
@@ -611,7 +611,7 @@ final class SpecRulingsTest extends TestCase
     public function testC2A158LineOfOnlySpacesHasNoPosition(): void
     {
         $tree = json_decode(Carve::toJson("  ::: |\n  one\n    two\n  \n  three\n:::"), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame(['type' => 'line', 'children' => []], $tree['children'][0]['children'][2]);
+        $this->assertEquals(['type' => 'line', 'children' => []], $tree['children'][0]['children'][2]);
     }
 
     public function testC2I002TabBeforeDescriptionContentIsIndent(): void

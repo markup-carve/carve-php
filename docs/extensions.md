@@ -8,6 +8,20 @@ Each factory returns an `Extension\Bundle`. Pass it in the `extensions` option o
 has any. `Bundle::merge(...)` combines bundles, and two claims of one name fail with `OptionError` (C2-X-014).
 `$bundle->withoutRenderers()` keeps the claims and writes every fallback (C2-X-035).
 
+The named standard registrations `carve.codeGroup`, `carve.details`, `carve.fencedRender.mermaid`,
+`carve.mathBlock`, `carve.spoiler` and `carve.spoilerBlock` can also be passed as strings in `extensions`.
+Without a renderer, their fallback is used. Named `carve.tabs` accepts a host renderer option:
+
+```php
+Carve::render($source, [
+    'extensions' => ['carve.tabs'],
+    'renderers' => ['carve.tabs' => ['standard' => ['mode' => 'aria']]],
+]);
+```
+
+`mode` defaults to `css`; `aria` writes a tablist with buttons and named panels. Both modes keep authored
+`role`, `aria-label` and `aria-labelledby` on the wrapper before generated defaults.
+
 ```php
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\Bundle;
@@ -45,7 +59,8 @@ Carve::render($source, ['extensions' => [$bundle], 'mode' => 'static']);
 ## Math block
 
 `MathBlock::bundle(language: 'math', build: null)` renders the fence as `<div class="math display">\[…\]</div>`,
-the delimiters KaTeX and MathJax read. `build(string $tex, bool $display)` registers the static channel.
+the delimiters KaTeX and MathJax read. The element has `role="math"`. `build(string $tex, bool $display)`
+registers the static channel.
 
 ## Code group
 
@@ -158,7 +173,7 @@ description list (`carve.glossary`), matched exactly after whitespace collapse a
 `IndexTerms::bundle(backrefLabel)`: `:index[term]` (`carve.indexTerm`) is an invisible marker with an
 `idx-<slug>-<n>` id; a `::: index` directive (`carve.index`) lists every term in code point order, with one back-link
 per use named `Back to <term>` (or `backrefLabel`). Markers in notes are not counted, and the output of repeated
-index directives is capped as in 0.1.
+index directives is capped as in 0.1. `backrefLabel` defaults to `Back to`, independently of render `labels`.
 
 `Citations::bundle(mode, bibliography)`: `:cite[key; key]` (`carve.cite`, the one implementation of C2-X-058; its
 fallback is the key text) resolves against the description list of a `::: references` or `::: bibliography`

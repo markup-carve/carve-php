@@ -19,8 +19,8 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static renderWithDocumentTransforms(Node|array|string $input, array $transforms, array $options = []): RenderResult`: C2-X-053 to C2-X-055: run named host passes on a copied resolved view before HTML rendering.
 - `static toHtml(string $source, array $options = []): string`: Carve source to HTML; `render()` takes a tree as well.
 - `static toJson(string $source, array $options = []): string`: Carve source to the bare tree as JSON (C2-A-012), with positions.
-- `static lint(string $source, array $options = []): array`: C2-W-103, C2-W-109: the lint findings of a source, with the catalog messages, byte ranges and tree paths. Options: `rules` (rule id to `on` or `off`), `platforms` (`['github']`) and `includes` (as for a parse), which lints the included files too (C2-N-085). Nothing of lint runs unless this is called.
-- `static importHtml(string $html, array $options = []): ImportResult`: The HTML importer (import-html.md): the tree, the canonical source and the diagnostics of an HTML string. Options: `rawHtml` (C2-M-066) and `strictLosses` (C2-M-082). Needs `ext-dom`.
+- `static lint(string $source, array $options = []): array`: C2-W-103, C2-W-109: the lint findings of a source, with the catalog messages, byte ranges and tree paths. Options: `rules` (rule id to `on` or `off`), `platforms` (`['github']`), `headingIds` (C2-T-042) and `includes`, which lints the included files too (C2-N-085). Nothing of lint runs unless this is called.
+- `static importHtml(string $html, array $options = []): ImportResult`: The HTML importer (import-html.md): the tree, the canonical source and the diagnostics of an HTML string. Options: `rawHtml` (C2-M-066), `labels` (C2-M-101) and `strictLosses` (C2-M-082). Needs `ext-dom`.
 - `static includeDependencies(Node|string $input, array $options = []): array`: C2-N-083: the includes of a tree in tree order. Source is parsed first with `$options`, which then needs `includes` for any include to be read.
 - `static write(Node|array $tree, ?array $layout = null, array $options = []): string`: C2-W-001: the canonical source of a tree; throws `CarveWriteError` when the tree holds what no source spells.
 - `static writeWithDiagnostics(Node|array $tree, ?array $layout = null, array $options = []): WriteResult`: `write()` with the writer losses as diagnostics instead of a `CarveWriteError` (C2-W-134).
@@ -98,7 +98,7 @@ Fields: `Node $tree`, `array $document`, `array $diagnostics`, `string $source`,
 
 Class. One entry of the parse or render-loss channel (C2-A-173). The range is in UTF-8 bytes of the file `file` names, or of the top-level document when `file` is null (C2-N-063).
 
-Fields: `string $code`, `string $severity`, `string $channel`, `string $message`, `?string $path`, `int $startOffset`, `int $endOffset`, `?string $file`, `?string $foreignType`.
+Fields: `string $code`, `string $severity`, `string $channel`, `string $message`, `?string $path`, `int $startOffset`, `int $endOffset`, `?string $file`, `?string $foreignType`, `?array $includedBy`.
 
 - `toArray(): array`
 
@@ -156,8 +156,8 @@ Interface. A host include resolver (C2-N-003, C2-N-012). Pass an instance as the
 
 Class.
 
-- `static forRoot(string $root): IncludeResolver`: The file resolver of C2-N-012 for an absolute root, as an `IncludeResolver`.
-- `static closure(string $root): Closure`
+- `static forRoot(string $root, bool $allowAbsolute = true): IncludeResolver`: The file resolver of C2-N-012 for an absolute root, as an `IncludeResolver`. `allowAbsolute` defaults to true; false rejects an absolute include path before reading it.
+- `static closure(string $root, bool $allowAbsolute = true): Closure`
 
 ## Output writers
 
@@ -268,9 +268,10 @@ Class. The host helpers an extension renderer receives (C2-X-033): child lists, 
 
 Class. The standard extensions `carve.tabs` and `carve.tab` (C2-X-039 to C2-X-048).
 
-- `static extensions(bool $renderer = false): array`: The two registrations; `$renderer` adds the tabs renderer to `carve.tabs`.
+- `static extensions(bool $renderer = false, string $mode = 'css'): array`: The two registrations; `$renderer` adds the tabs renderer to `carve.tabs` in `css` or `aria` mode.
 - `static transform(Claim $claim): ?Node`: C2-X-040 to C2-X-042: a `tabs` div whose body is one or more `tab` divs with a nonempty quoted title.
 - `static render(Node $node, RenderHost $host): string`: C2-X-043 to C2-X-048: one radio input, one linked label and one panel per tab; every panel stays in the HTML.
+- `static renderAria(Node $node, RenderHost $host): string`: C2-X-043: WAI-ARIA tablist controls and named panels, with no script.
 - `static renderStatic(Node $node, RenderHost $host): string`: C2-X-043: the build-time channel has content sections and no controls.
 
 ### `MarkupCarve\Carve\Extension\DocumentTransform`

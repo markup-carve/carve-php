@@ -28,7 +28,10 @@ final class Wikilinks
         $classes = array_values(array_filter(explode(' ', $cssClass), static fn (string $c): bool => $c !== ''));
         $link = static function (Node $node, RenderHost $host) use ($generate, $classes, $newWindow): string {
             $fallback = PlainText::nodes($node->f['fallback'] ?? []);
-            [$page, $anchor, $display] = self::target(($host->plainText)($fallback));
+            $source = $node->f['source'] ?? [];
+            $body = is_array($source) && is_string($source['body'] ?? null)
+                ? $source['body'] : ($host->plainText)($fallback);
+            [$page, $anchor, $display] = self::target($body);
             $href = $generate($page) . $anchor;
             // C2-X-057: the target becomes a link only through the URL policy (C2-H-159).
             if ($page === '' && $anchor === '' || !$host->isUrlAllowed($href)) {

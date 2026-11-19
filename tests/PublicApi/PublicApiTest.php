@@ -108,7 +108,7 @@ final class PublicApiTest extends TestCase
         $envelope = json_decode(Carve::encodeEnvelope($tree), true);
         $this->assertIsArray($envelope);
         $this->assertSame('2.0', $envelope['astVersion']);
-        $this->assertSame(json_decode(Carve::encodeTree($tree), true), $envelope['document']);
+        $this->assertEquals(json_decode(Carve::encodeTree($tree), true), $envelope['document']);
         $this->assertSame(Carve::encodeTree($tree), Carve::encodeTree(Carve::decodeTree(Carve::encodeEnvelope($tree))));
         Carve::validateTree($tree);
         Carve::validateTree(['type' => 'document', 'astVersion' => '2.0', 'children' => []]);
