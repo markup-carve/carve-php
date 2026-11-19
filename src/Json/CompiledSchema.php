@@ -45,6 +45,18 @@ final class CompiledSchema
      */
     public ?array $oneOf;
 
+    /**
+     * The dispatch of `anyOf` and `oneOf` by node type, set on first use; false before.
+     *
+     * @var array<string, \stdClass>|false|null
+     */
+    public array|false|null $anyOfByType = false;
+
+    /**
+     * @var array<string, \stdClass>|false|null
+     */
+    public array|false|null $oneOfByType = false;
+
     public stdClass|bool|null $not;
 
     public bool $hasIf;
@@ -123,7 +135,7 @@ final class CompiledSchema
     /**
      * @param \stdClass $schema
      */
-    public function __construct(public stdClass $schema)
+    public function __construct(stdClass $schema)
     {
         $this->ref = isset($schema->{'$ref'}) ? (string)$schema->{'$ref'} : null;
         $this->type = $schema->type ?? null;

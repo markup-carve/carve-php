@@ -20,14 +20,6 @@ final class SchemaValidator
     public array $errors = [];
 
     /**
-     * Per schema object, the `anyOf`/`oneOf` branch by node type, or null when its branches are not all
-     * type-discriminated node refs.
-     *
-     * @var \WeakMap<\stdClass, array<string, array<string, \stdClass>|null>>|null
-     */
-    private static ?WeakMap $dispatch = null;
-
-    /**
      * @var \WeakMap<\stdClass, \MarkupCarve\Carve\Json\CompiledSchema>|null
      */
     private static ?WeakMap $compiled = null;
@@ -124,10 +116,16 @@ final class SchemaValidator
                 return false;
             }
         }
-        if ($c->anyOf !== null && !$this->count($value, $c->anyOf, $path, true, $c->schema, 'anyOf')) {
+        if ($c->anyOf !== null && $c->anyOfByType === false) {
+            $c->anyOfByType = $this->dispatch($c->anyOf);
+        }
+        if ($c->oneOf !== null && $c->oneOfByType === false) {
+            $c->oneOfByType = $this->dispatch($c->oneOf);
+        }
+        if ($c->anyOf !== null && !$this->count($value, $c->anyOf, $path, true, $c->anyOfByType ?: null)) {
             return $this->fail($path, 'anyOf');
         }
-        if ($c->oneOf !== null && $this->count($value, $c->oneOf, $path, false, $c->schema, 'oneOf') !== 1) {
+        if ($c->oneOf !== null && $this->count($value, $c->oneOf, $path, false, $c->oneOfByType ?: null) !== 1) {
             return $this->fail($path, 'oneOf');
         }
         if ($c->not !== null && $this->quiet($value, $c->not, $path)) {
@@ -339,14 +337,12 @@ final class SchemaValidator
      * @param array<\stdClass|bool> $schemas
      * @param string $path
      * @param bool $any
-     * @param \stdClass $owner
-     * @param string $keyword
+     * @param array<string, \stdClass>|null $byType The branch by node type, when every branch is a type-discriminated node ref.
      *
      * @return int
      */
-    private function count(mixed $value, array $schemas, string $path, bool $any, stdClass $owner, string $keyword): int
+    private function count(mixed $value, array $schemas, string $path, bool $any, ?array $byType): int
     {
-        $byType = $this->dispatch($owner, $keyword, $schemas);
         if ($byType !== null) {
             // Every other branch fails on its `type` const, so only the branch of the node's own type can match.
             $sub = $value instanceof stdClass && isset($value->type) && is_string($value->type) ? ($byType[$value->type] ?? null) : null;
@@ -386,19 +382,15 @@ final class SchemaValidator
     }
 
     /**
-     * @param \stdClass $owner
-     * @param string $keyword
+     * The branch of each node type, or null when the branches are not all bare refs to object schemas that require
+     * `type` and fix it with a distinct string const.
+     *
      * @param array<\stdClass|bool> $schemas
      *
      * @return array<string, \stdClass>|null
      */
-    private function dispatch(stdClass $owner, string $keyword, array $schemas): ?array
+    private function dispatch(array $schemas): ?array
     {
-        self::$dispatch ??= new WeakMap();
-        $cached = self::$dispatch[$owner] ?? [];
-        if (array_key_exists($keyword, $cached)) {
-            return $cached[$keyword];
-        }
         $byType = [];
         foreach ($schemas as $sub) {
             $target = $sub instanceof stdClass && array_keys(get_object_vars($sub)) === ['$ref']
@@ -412,8 +404,6 @@ final class SchemaValidator
             }
             $byType[$const] = $sub;
         }
-        $cached[$keyword] = $byType;
-        self::$dispatch[$owner] = $cached;
 
         return $byType;
     }
