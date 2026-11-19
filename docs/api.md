@@ -27,7 +27,7 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static format(string $source, array $options = [], ?array $layout = null): string`: C2-W-100: parse and write again.
 - `static formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult`: `format()` with the writer losses as diagnostics (C2-W-134).
 - `static render(Node|array|string $input, array $options = []): string`: C2-T-005 `render`: the HTML of Carve source or of a tree. A tree is a `Node` of `parse()` or `decodeTree()`, or the decoded AST JSON as an array; it is validated (C2-A-188) and resolved again with the render options on a copy, so the caller's tree is not changed.
-- `static importDocument(string $input, array $options = []): ImportResult`: C2-T-005 `importDocument`: the importer for `from` (only `html`, the default).
+- `static importDocument(string $input, array $options = []): ImportResult`: C2-T-005 `importDocument`: the importer for `from`: `html` (the default), or `markdown`, `gfm` and `djot` through the HTML hub. `rawHtml` applies to HTML only; a hub import always keeps the raw content of its input.
 - `static positionOf(string $source, mixed $offset): array`: C2-T-041: the line and column of C2-T-019 for a range that starts at the UTF-8 byte offset `$offset` of `$source`.
 - `static encodeTree(Node $tree): string`: C2-A-012: the bare tree as JSON, without positions where the tree came from JSON without them.
 - `static encodeEnvelope(Node $tree): string`: C2-A-012, C2-A-013: the tree in its envelope, for a storage or process boundary.

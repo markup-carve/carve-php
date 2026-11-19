@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Cli;
 
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Import\HtmlImporter;
+use MarkupCarve\Carve\Import\HubImporter;
 use MarkupCarve\Carve\Import\ImportInputError;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\OptionError;
@@ -13,8 +14,8 @@ use MarkupCarve\Carve\OptionError;
 /**
  * `carve import --from=html [--raw-html] [FILE]`, as the `import` command of the carve-js 0.2 command line: the canonical
  * source on standard output, each diagnostic as `carve[CODE]: MESSAGE` on standard error. Exit 0, 1 when the importer
- * built a tree the reader refuses or the writer reports a loss, 2 on usage or input errors (C2-M-006, C2-W-101). This
- * engine imports HTML only. Until a writer is wired the tree is written as JSON in place of the source.
+ * built a tree the reader refuses or the writer reports a loss, 2 on usage or input errors (C2-M-006, C2-W-101).
+ * Markdown, GFM and Djot go through the HTML hub; `--raw-html` applies to HTML only.
  */
 final class ImportCommand
 {
@@ -43,8 +44,8 @@ final class ImportCommand
         if ($from === null || count($files) > 1) {
             return self::fail($err, 'usage', 'import requires --from=markdown|gfm|djot|html and at most one file', 2);
         }
-        if ($from !== 'html') {
-            return self::fail($err, 'usage', 'this engine imports --from=html only', 2);
+        if ($from !== 'html' && !in_array($from, HubImporter::FORMATS, true)) {
+            return self::fail($err, 'usage', 'import requires --from=markdown|gfm|djot|html and at most one file', 2);
         }
         $file = $files[0] ?? '-';
         $html = $file === '-' ? stream_get_contents($in) : @file_get_contents($file);
@@ -53,7 +54,7 @@ final class ImportCommand
             return self::fail($err, 'input-unreadable', $display . ': cannot be read', 2);
         }
         try {
-            $result = HtmlImporter::import($html, $options);
+            $result = $from === 'html' ? HtmlImporter::import($html, $options) : HubImporter::import($html, $from, $options);
         } catch (OptionError $e) {
             return self::fail($err, 'usage', $e->getMessage(), 2);
         } catch (ImportInputError $e) {

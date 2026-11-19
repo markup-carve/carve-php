@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Html\Profile;
 use MarkupCarve\Carve\Import\HtmlImporter;
+use MarkupCarve\Carve\Import\HubImporter;
 use MarkupCarve\Carve\Import\ImportResult;
 use MarkupCarve\Carve\Include\Expander;
 use MarkupCarve\Carve\Include\IncludeResolver;
@@ -596,12 +597,14 @@ final class Carve
     }
 
     /**
-     * C2-T-005 `importDocument`: the importer for `from` (only `html`, the default).
+     * C2-T-005 `importDocument`: the importer for `from`: `html` (the default), or `markdown`, `gfm` and `djot` through the
+     * HTML hub. `rawHtml` applies to HTML only; a hub import always keeps the raw content of its input.
      *
      * @param string $input
      * @param array<string, mixed> $options `from`, `rawHtml`, `strictLosses`.
      *
      * @throws \MarkupCarve\Carve\OptionError
+     * @throws \MarkupCarve\Carve\Import\ImportInputError ! An input the library or the HTML importer refuses.
      *
      * @return \MarkupCarve\Carve\Import\ImportResult
      */
@@ -609,11 +612,16 @@ final class Carve
     {
         $from = $options['from'] ?? 'html';
         unset($options['from']);
-        if ($from !== 'html') {
+        if ($from === 'html') {
+            return self::importHtml($input, $options);
+        }
+        if (!is_string($from) || !in_array($from, HubImporter::FORMATS, true)) {
             throw new OptionError('option from: unknown input format ' . (is_string($from) ? $from : get_debug_type($from)));
         }
+        $options = self::normalize($options);
+        Options::from($options);
 
-        return self::importHtml($input, $options);
+        return HubImporter::import($input, $from, $options);
     }
 
     /**

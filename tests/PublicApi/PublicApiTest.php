@@ -236,7 +236,7 @@ final class PublicApiTest extends TestCase
             'bad includes' => [static fn () => Carve::render('a', ['includes' => 'dir']), OptionError::class],
             'relative root' => [static fn () => FileResolver::forRoot('rel'), OptionError::class],
             'lint rule' => [static fn () => Carve::lint('a', ['rules' => ['nope' => 'on']]), OptionError::class],
-            'import format' => [static fn () => Carve::importDocument('<p>a</p>', ['from' => 'markdown']), OptionError::class],
+            'import format' => [static fn () => Carve::importDocument('<p>a</p>', ['from' => 'rst']), OptionError::class],
             'decode option' => [static fn () => Carve::decodeTree('{}', ['sections' => true]), OptionError::class],
             'profile length' => [static fn () => Carve::render(str_repeat('a', 100001), ['profile' => 'comment']), InputError::class],
             'strict losses' => [static fn () => Carve::toHtml('{{ a.crv }}', ['strictLosses' => true]), RenderError::class],

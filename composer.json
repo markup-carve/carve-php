@@ -22,16 +22,16 @@
     ],
     "require": {
         "php": "^8.2",
-        "symfony/polyfill-intl-normalizer": "^1.27"
+        "symfony/polyfill-intl-normalizer": "^1.27",
+        "league/commonmark": "^2.7",
+        "php-collective/djot": "^0.1.35"
     },
     "suggest": {
         "ext-dom": "Required for HTML import and HTML heading-ID conversion.",
         "ext-intl": "Recommended for heading-ID transliteration: enables ICU romanization of non-Latin scripts (e.g. CJK, Arabic). Without it, a baked map covers Latin/Cyrillic/punctuation identically and other scripts fall back to the generated `section` id."
     },
     "require-dev": {
-        "league/commonmark": "^2.7",
         "php-collective/code-sniffer": "^0.6.8",
-        "php-collective/djot": "^0.1.35",
         "phpstan/phpstan": "^2.1.32",
         "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0"
     },
@@ -56,12 +56,6 @@
         "stan": "phpstan analyze --memory-limit=1G",
         "tables-check": "@php scripts/generate-tables.php --check",
         "test": "@php -d pcov.enabled=0 vendor/bin/phpunit"
-    },
-    "extra": {
-        "require-dev-notes": {
-            "league/commonmark": "Benchmark only (bench/bench-engines.php).",
-            "php-collective/djot": "Benchmark only (bench/bench-engines.php)."
-        }
     },
     "config": {
         "allow-plugins": {
