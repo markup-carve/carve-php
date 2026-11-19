@@ -516,12 +516,25 @@ final class LineRules
             str_starts_with($text, ': ') => 'a description',
             default => 'a definition',
         };
-        $markerLength = str_starts_with($text, '{') ? strlen($text) : (str_starts_with($text, ':: ') ? 2 : 1);
+        $width = self::openerWidth($text, $opener);
+        $c->report('block-opener-without-blank-line', $start, $start + $width, $line->path, ['opener' => $opener]);
+    }
+
+    /**
+     * The catalog's range: the marker, the whole attribute block, or the bracketed label and colon.
+     */
+    private static function openerWidth(string $text, string $opener): int
+    {
+        if ($opener === 'a heading') {
+            return strspn($text, $text[0]);
+        }
         if ($opener === 'a definition') {
             $close = strpos($text, ']:');
-            $markerLength = $close === false ? 1 : $close + 2;
+
+            return $close === false ? 1 : $close + 2;
         }
-        $c->report('block-opener-without-blank-line', $start, $start + $markerLength, $line->path, ['opener' => $opener]);
+
+        return str_starts_with($text, '{') ? strlen($text) : (str_starts_with($text, ':: ') ? 2 : 1);
     }
 
     private static function listWithoutBlank(Line $line, Context $c): void
