@@ -48,6 +48,9 @@ final class Standard
             'carve.tabs' => $mode === 'static' ? Tabs::renderStatic(...)
                 : ($tabsMode === 'aria' ? Tabs::renderAria(...) : Tabs::render(...)),
             'carve.imgFence.img', 'carve.imgFence.image' => ImgFence::render(...),
+            'carve.codeGroup' => $mode === 'static'
+                ? CodeGroup::bundle()->definitions()[0]->buildTimeRenderer
+                : CodeGroup::bundle()->definitions()[0]->renderer,
             default => null,
         };
     }

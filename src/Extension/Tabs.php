@@ -73,6 +73,10 @@ final class Tabs
         $node->f['version'] = '1';
         $node->f['slots'] = ['tabs' => $tabs];
         $node->f['fallback'] = $fallback;
+        $attrs = Extensions::remainingAttrs($claim->node);
+        if ($attrs !== null) {
+            $node->f['attrs'] = $attrs;
+        }
 
         return $node;
     }
@@ -174,24 +178,17 @@ final class Tabs
     {
         $attrs = $node->f['attrs'] ?? null;
         $pairs = [];
-        if ($attrs instanceof Attrs) {
-            foreach ($attrs->pairs as [$name, $value]) {
-                if (in_array(strtolower($name), ['role', 'aria-label', 'aria-labelledby'], true)) {
-                    $pairs[] = ' ' . $name . '="' . RenderHost::escapeAttribute($value) . '"';
-                }
-            }
-        }
         if (!$attrs instanceof Attrs || !NodeAttributes::authored($attrs, 'role')) {
-            $pairs[] = ' role="' . $role . '"';
+            $pairs[] = ['role', $role];
         }
         if (
             !$attrs instanceof Attrs
             || (!NodeAttributes::authored($attrs, 'aria-label') && !NodeAttributes::authored($attrs, 'aria-labelledby'))
         ) {
-            $pairs[] = ' aria-label="' . RenderHost::escapeAttribute($host->groupLabel) . '"';
+            $pairs[] = ['aria-label', $host->groupLabel];
         }
 
-        return '<div class="tabs"' . implode('', $pairs) . '>';
+        return '<div' . $host->attributes(NodeAttributes::with($node, ['tabs'], $pairs, true)) . '>';
     }
 
     /**

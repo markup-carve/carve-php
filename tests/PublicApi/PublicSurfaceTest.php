@@ -21,7 +21,7 @@ final class PublicSurfaceTest extends TestCase
         sort($names);
         $this->assertSame([
             'applyPatch', 'decodeTree', 'diffTree', 'encodeEnvelope', 'encodeTree', 'format', 'formatWithDiagnostics',
-            'headingId', 'importDocument', 'importHtml', 'includeDependencies', 'lint', 'parse', 'parseWithDiagnostics',
+            'headingId', 'importDocument', 'importHtml', 'includeDependencies', 'lint', 'migrateTree', 'parse', 'parseWithDiagnostics',
             'parseWithLayout', 'plainText', 'positionOf', 'render', 'renderWithDiagnostics', 'renderWithDocumentTransforms',
             'safeCodeFence', 'sourceFingerprint', 'tableGrid', 'toHtml', 'toJson', 'treeFingerprint', 'validateLayout',
             'validateTree', 'version', 'write', 'writeTo', 'writeWithDiagnostics', 'writers',
@@ -39,8 +39,7 @@ final class PublicSurfaceTest extends TestCase
                 $missing[] = $name;
             }
         }
-        // migrateTree (C2-A-178) has no PHP implementation yet.
-        $this->assertSame(['migrateTree'], $missing);
+        $this->assertSame([], $missing);
     }
 
     public function testPublicSignaturesNameOnlyPublicClasses(): void
