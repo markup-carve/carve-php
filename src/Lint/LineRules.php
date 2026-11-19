@@ -645,23 +645,12 @@ final class LineRules
         if (!$line->paragraph || !str_contains($line->text, '{')) {
             return;
         }
-        if (
-            ($c->nodeTypes[$line->path] ?? null) === 'definition_term'
-            && ($c->firstLines[$line->path] ?? $line->number) < $line->number
-        ) {
+        $first = ($c->firstLines[$line->path] ?? null) === $line->number;
+        if (!$first && ($c->nodeTypes[$line->path] ?? null) === 'definition_term') {
             return;
         }
-        $text = $line->text;
-        $at = 0;
-        while (preg_match('/\G[ \t]*> /A', $text, $match, 0, $at) === 1) {
-            $at += strlen($match[0]);
-        }
-        if (preg_match('/\G[ \t]*(?:[-*]|[0-9]+[.)]|:)[ \t]+/A', $text, $match, 0, $at) === 1) {
-            $at += strlen($match[0]);
-        }
-        $at += strspn($text, " \t", $at);
-        $text = Support::trimEnd(substr($text, $at));
-        $start = $line->start + $at;
+        // Only a block's first line starts behind container prefixes; on a later line a `> ` or marker is text.
+        [$text, $start] = $first ? self::paragraphContent($line, $c) : self::trimmed($line);
         if (
             !str_starts_with($text, '{') || !str_ends_with($text, '}') || strlen($text) < 3
             || !self::isAttributeLine($text)
@@ -889,7 +878,7 @@ final class LineRules
 
     private static function captionLooking(Line $line, Context $c): void
     {
-        if (!$line->paragraph || ($c->nodeTypes[$line->path] ?? null) !== 'paragraph' || str_contains($line->path, '/caption/')) {
+        if (!$line->paragraph || str_contains($line->path, '/caption/')) {
             return;
         }
         [$text, $start] = self::paragraphContent($line, $c);

@@ -196,7 +196,7 @@ final class Linter
                 $c->blockCommentStartLines[$line] = $pos['startLine'];
             }
         }
-        if ($type === 'paragraph') {
+        if ($type === 'paragraph' || $type === 'definition_term') {
             $c->paragraphStarts[$path] = $pos['startOffset'];
         }
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
