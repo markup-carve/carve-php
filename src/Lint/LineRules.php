@@ -101,6 +101,26 @@ final class LineRules
     }
 
     /**
+     * The text behind the line's own quote marks: C2-B-031 makes a mark `>` followed by a space or the line's end.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function afterQuotes(Line $line, int $depth): array
+    {
+        $at = 0;
+        for ($i = 0; $i < $depth; $i++) {
+            $mark = $at + strspn($line->text, " \t", $at);
+            if (($line->text[$mark] ?? '') !== '>' || !in_array($line->text[$mark + 1] ?? '', ['', ' '], true)) {
+                break;
+            }
+            $at = $mark + (($line->text[$mark + 1] ?? '') === ' ' ? 2 : 1);
+        }
+        $at += strspn($line->text, " \t", $at);
+
+        return [Support::trimEnd(substr($line->text, $at)), $line->start + $at];
+    }
+
+    /**
      * @return array{0: string, 1: int, 2: \MarkupCarve\Carve\Lint\Line}|null
      */
     private static function openerContent(Line $line, Context $c): ?array
@@ -109,15 +129,11 @@ final class LineRules
         if ($previous === null || !$line->paragraph || $previous->path !== $line->path || self::blank($previous)) {
             return null;
         }
-        $previousDepth = self::quoteDepth($previous);
-        $depth = self::quoteDepth($line);
-        if ($depth > $previousDepth && $previousDepth > 0) {
+        // C2-B-019, C2-B-200: a candidate is a line of a paragraph or caption, not a later line of a term.
+        if (!in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'caption', 'cell_paragraph'], true)) {
             return null;
         }
-
-        // A mark belonging to an open quote is a container prefix, even after a lazy paragraph line.
-        [$text, $start] = $depth > $previousDepth && !self::hasAncestor($line->path, $c, 'block_quote')
-            ? self::trimmed($line) : self::afterQuote($line);
+        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
 
         return [$text, $start, $previous];
     }
@@ -388,13 +404,18 @@ final class LineRules
         }
     }
 
+    /**
+     * C2-I-079: a footnote label, a full reference's label or a definition label of only spaces and tabs; a task box
+     * and a bracket pair with no reference glued to it are no label.
+     */
     private static function blankReference(Line $line, Context $c): void
     {
-        if (preg_match_all('/\[\^?[ \t]+\]/', $line->text, $matches, PREG_OFFSET_CAPTURE) < 1) {
+        [$leaf, $from] = self::paragraphContent($line, $c);
+        if (preg_match_all('/\[\^[ \t]+\]|(?<=\])\[[ \t]+\]|^\[[ \t]+\]:/', $leaf, $matches, PREG_OFFSET_CAPTURE) < 1) {
             return;
         }
         foreach ($matches[0] as [$text, $at]) {
-            $c->report('blank-reference-label', $line->start + $at, $line->start + $at + strlen($text), $line->path, [
+            $c->report('blank-reference-label', $from + $at, $from + $at + strlen($text), $line->path, [
                 'text' => $text,
             ]);
         }
@@ -449,13 +470,23 @@ final class LineRules
 
     private static function startsBlock(string $text): bool
     {
-        foreach (['# ', '= ', '> ', ':: ', ': ', '{.'] as $opener) {
+        foreach (['> ', ':: ', ': ', '{.'] as $opener) {
             if (str_starts_with($text, $opener)) {
                 return true;
             }
         }
 
-        return str_starts_with($text, '[') && str_contains($text, ']:');
+        return self::isHeading($text) || (str_starts_with($text, '[') && str_contains($text, ']:'));
+    }
+
+    /**
+     * C2-B-151, C2-B-152: one to six `=` or `#` and a space.
+     */
+    private static function isHeading(string $text): bool
+    {
+        $run = strspn($text, ($text[0] ?? '') === '#' ? '#' : '=');
+
+        return $run >= 1 && $run <= 6 && ($text[$run] ?? '') === ' ';
     }
 
     private static function openerWithoutBlank(Line $line, Context $c): void
@@ -471,11 +502,14 @@ final class LineRules
         if (str_starts_with($text, '[') && self::hasAncestor($line->path, $c, 'footnote')) {
             return;
         }
-        if (str_starts_with($text, '> ') && str_starts_with(Support::trimStart($previous->text), '> ')) {
+        if (
+            str_starts_with($text, '> ') && str_starts_with(Support::trimStart($previous->text), '> ')
+            && self::hasAncestor($line->path, $c, 'block_quote')
+        ) {
             return;
         }
         $opener = match (true) {
-            str_starts_with($text, '# '), str_starts_with($text, '= ') => 'a heading',
+            self::isHeading($text) => 'a heading',
             str_starts_with($text, '> ') => 'a quote',
             str_starts_with($text, '{') => 'an attribute line',
             str_starts_with($text, ':: ') => 'a term',
@@ -518,7 +552,7 @@ final class LineRules
 
     private static function unattachedCaption(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
+        [$text, $start] = self::paragraphContent($line, $c);
         if (!str_starts_with($text, '^ ') || !$line->paragraph || self::hasAncestor($line->path, $c, 'caption')) {
             return;
         }
@@ -555,12 +589,15 @@ final class LineRules
 
     private static function markdownDefinition(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
+        [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
         $previous = self::prior($line, $c);
+        // C2-B-074: a later paragraph line below a line that is no `::` term.
         if (
-            $line->paragraph && !self::hasAncestor($line->path, $c, 'definition_description') && str_starts_with($text, ': ')
+            ($c->nodeTypes[$line->path] ?? null) === 'paragraph' && str_starts_with($text, ': ')
             && $previous !== null && $previous->path === $line->path && !self::blank($previous)
             && ($c->firstLines[$line->path] ?? $line->number) < $line->number
+            && !str_starts_with(self::paragraphContent($previous, $c)[0], ':: ')
+            && !str_starts_with(self::afterQuotes($previous, $c->layout->quoteDepth($line->path))[0], ':: ')
         ) {
             $c->report('markdown-definition-paragraph', $start, $start + strlen($text), $line->path);
         }
