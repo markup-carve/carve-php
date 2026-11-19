@@ -115,7 +115,9 @@ final class LineRules
             return null;
         }
 
-        [$text, $start] = $depth > $previousDepth ? self::trimmed($line) : self::afterQuote($line);
+        // A mark belonging to an open quote is a container prefix, even after a lazy paragraph line.
+        [$text, $start] = $depth > $previousDepth && !self::hasAncestor($line->path, $c, 'block_quote')
+            ? self::trimmed($line) : self::afterQuote($line);
 
         return [$text, $start, $previous];
     }
@@ -676,6 +678,15 @@ final class LineRules
             || ($c->nodeTypes[$previous->path] ?? null) !== 'heading'
             || self::quoteDepth($previous) !== self::quoteDepth($line)
         ) {
+            return;
+        }
+        $marker = $c->layout->startOffset($previous->path);
+        if ($marker === null) {
+            return;
+        }
+        $quotes = $c->layout->quoteDepth($previous->path);
+        $indent = strspn($line->text, " \t>");
+        if ($c->layout->columnOf($line->start + $indent, $quotes) <= $c->layout->columnOf($marker, $quotes)) {
             return;
         }
         $c->report('deprecated-indented-line-under-heading', $line->start, $line->end, $line->path);
