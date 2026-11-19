@@ -137,14 +137,21 @@ final class HardeningTest extends TestCase
 
     public function testC2B024LazyLineBlockCommentsStayLinear(): void
     {
+        // CPU time excludes unrelated processes' scheduling delays on shared CI workers.
+        $cpuMillis = static function (): float {
+            $usage = getrusage();
+
+            return ($usage['ru_utime.tv_sec'] + $usage['ru_stime.tv_sec']) * 1000
+                + ($usage['ru_utime.tv_usec'] + $usage['ru_stime.tv_usec']) / 1000;
+        };
         $times = [];
         foreach ([1000, 2000, 4000, 8000] as $count) {
             $source = "- ::: |\n  a\n" . str_repeat("%% c\nb\n", $count);
             $samples = [];
             for ($run = 0; $run < 3; $run++) {
-                $start = hrtime(true);
+                $start = $cpuMillis();
                 Carve2::parse($source);
-                $samples[] = (hrtime(true) - $start) / 1e6;
+                $samples[] = $cpuMillis() - $start;
             }
             sort($samples);
             $times[] = $samples[1];

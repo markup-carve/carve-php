@@ -89,6 +89,8 @@ final class HtmlRenderer
      */
     private ?array $lineStarts = null;
 
+    private bool $positionsFromTree = false;
+
     /**
      * @var array<string, array<int>>
      */
@@ -106,16 +108,19 @@ final class HtmlRenderer
             $this->profile->renderState = $this->state;
         }
         $this->aw = new AttrWriter($o, $this->log);
-        $this->inline = new InlineRenderer($o, $this->state, $this->aw, $this->log);
+        $this->inline = new InlineRenderer($o, $this->state, $this->aw, $this->log, $this->host(...));
         $this->inline->profile = $this->profile;
         $this->tables = new TableRenderer($this);
         $this->notes = new NoteRenderer($this);
-        if ($o->sourceLines && $source !== null) {
+        if ($o->sourceLines) {
+            $this->positionsFromTree = $source === null;
             $this->lineStarts = [0];
-            $pos = 0;
-            while (($nl = strpos($source, "\n", $pos)) !== false) {
-                $this->lineStarts[] = $nl + 1;
-                $pos = $nl + 1;
+            if ($source !== null) {
+                $pos = 0;
+                while (($nl = strpos($source, "\n", $pos)) !== false) {
+                    $this->lineStarts[] = $nl + 1;
+                    $pos = $nl + 1;
+                }
             }
         }
     }
@@ -426,7 +431,14 @@ final class HtmlRenderer
      */
     public function line(Node $node): ?int
     {
-        if ($this->lineStarts === null || $node->start < 0) {
+        if ($this->lineStarts === null) {
+            return null;
+        }
+        $position = $node->layout['pos'] ?? null;
+        if ($this->positionsFromTree && is_array($position) && is_int($position['startLine'] ?? null)) {
+            return $position['startLine'];
+        }
+        if ($node->start < 0) {
             return null;
         }
         $starts = $this->lineStarts;

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve2\Json;
 
 use MarkupCarve\Carve2\Attrs;
 use MarkupCarve\Carve2\Node;
+use stdClass;
 
 /**
  * Encodes a tree to the JSON of ast-schema.json. Positions are derived here from the byte
@@ -13,6 +14,13 @@ use MarkupCarve\Carve2\Node;
  */
 final class TreeEncoder
 {
+    /**
+     * C2-A-058: these optional extension fields have no empty encoding.
+     *
+     * @var array<string, true>
+     */
+    private const OMIT_EMPTY = ['props' => true, 'slots' => true, 'payload' => true, 'resourceIds' => true];
+
     /**
      * @var array<int>
      */
@@ -79,6 +87,12 @@ final class TreeEncoder
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
             if ($value === null || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []) {
+                continue;
+            }
+            if (
+                isset(self::OMIT_EMPTY[$key])
+                && ($value === [] || $value instanceof stdClass && get_object_vars($value) === [])
+            ) {
                 continue;
             }
             $out[$key] = $this->value($value, $positions);
