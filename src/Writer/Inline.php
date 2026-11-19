@@ -1481,7 +1481,7 @@ final class Inline
         if (($source['form'] ?? '') === 'inline' && is_string($source['name'] ?? null) && is_string($source['body'] ?? null)) {
             $text = ':' . $source['name'] . '[' . $source['body'] . ']';
             // C2-X-023, C2-X-049
-            if (ExtensionSource::readsBack($node, $text, $this->w->extensions)) {
+            if (ExtensionSource::readsBack($node, $text, $this->w->extensions, $this->w, $path)) {
                 return $text;
             }
         }

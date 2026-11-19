@@ -89,16 +89,46 @@ final class Blocks
             if (!is_array($node)) {
                 continue;
             }
+            $rootGroup = $path === '/children';
+            if ($rootGroup) {
+                $this->w->beginRepairGroup($node);
+            }
             $start = count($this->w->lines);
-            $this->beforeSibling($nodes, $at, $before, $list, $path, $prefix, $layout);
-            $next = $nodes[$at + 1] ?? null;
-            $this->markFenceBeforeComment($node, $path . '/' . $at, is_array($next) ? $next : null);
-            $written = count($this->w->lines);
-            $this->w->afterDescriptions = is_array($before) && ($before['type'] ?? '') === 'definition_list';
-            if (($node['type'] ?? '') === 'code_block' && isset($node['caption'])) {
-                $at = $this->captionedCode($nodes, $at, $path, $prefix);
-            } else {
-                $this->block($node, $path . '/' . $at, $prefix);
+            $lead = $this->w->lead;
+            $bareDotLead = $this->w->bareDotLead;
+            $afterDescriptions = $this->w->afterDescriptions;
+            $prewritten = $this->w->prewritten;
+            $starts = count($this->w->starts);
+            $losses = count($this->w->losses);
+            try {
+                $this->beforeSibling($nodes, $at, $before, $list, $path, $prefix, $layout);
+                $next = $nodes[$at + 1] ?? null;
+                $this->markFenceBeforeComment($node, $path . '/' . $at, is_array($next) ? $next : null);
+                $written = count($this->w->lines);
+                $this->w->afterDescriptions = is_array($before) && ($before['type'] ?? '') === 'definition_list';
+                if (($node['type'] ?? '') === 'code_block' && isset($node['caption'])) {
+                    $at = $this->captionedCode($nodes, $at, $path, $prefix);
+                } else {
+                    $this->block($node, $path . '/' . $at, $prefix);
+                }
+            } catch (RepairRefused $e) {
+                if (!$rootGroup) {
+                    throw $e;
+                }
+                array_splice($this->w->lines, $start);
+                array_splice($this->w->starts, $starts);
+                array_splice($this->w->losses, $losses);
+                $this->w->lead = $lead;
+                $this->w->bareDotLead = $bareDotLead;
+                $this->w->afterDescriptions = $afterDescriptions;
+                $this->w->prewritten = $prewritten;
+                $this->w->refuseRepair($path . '/' . $at);
+                $this->w->endRepairGroup();
+
+                continue;
+            }
+            if ($rootGroup) {
+                $this->w->endRepairGroup();
             }
             if (count($this->w->lines) === $written) {
                 // C2-W-029: a block that writes nothing leaves no blank line behind.
@@ -544,6 +574,7 @@ final class Blocks
         $c->lineStart = $lineStart;
         $c->afterDescriptions = $this->w->afterDescriptions;
         $c->owner = $prefix === '' ? 'top' : (str_ends_with($prefix, '> ') || str_ends_with($prefix, '>') ? 'quote' : 'body');
+        $c->writerState = $this->w;
 
         return $c;
     }
@@ -1449,7 +1480,7 @@ final class Blocks
         $opener = $run . ($mark === ':' ? ' ' : '') . $name . $title . $label;
         $text = implode("\n", array_merge([$opener], $lines, [$run])) . "\n";
         // C2-X-023, C2-X-049
-        if (!ExtensionSource::readsBack($node, $text, $this->w->extensions)) {
+        if (!ExtensionSource::readsBack($node, $text, $this->w->extensions, $this->w, $path)) {
             $this->childrenOnly($node, $path, $prefix);
 
             return;
