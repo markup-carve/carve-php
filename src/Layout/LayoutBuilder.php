@@ -43,7 +43,6 @@ final class LayoutBuilder
         'figure_group' => true,
         'section' => true,
         'block_extension' => true,
-        'table_cell' => true,
     ];
 
     /**

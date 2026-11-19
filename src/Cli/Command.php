@@ -6,9 +6,15 @@ namespace MarkupCarve\Carve\Cli;
 
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\Export\AnsiExporter;
+use MarkupCarve\Carve\Export\MarkdownExporter;
+use MarkupCarve\Carve\Export\PlainTextExporter;
 use MarkupCarve\Carve\Include\FileResolver;
+use MarkupCarve\Carve\InputError as CoreInputError;
+use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
+use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Writer\CarveWriteError;
 
 /**
@@ -42,6 +48,10 @@ final class Command
         'heading-ids' => true,
         'ignore' => true,
         'output' => true,
+        'profile' => true,
+        'url-policy' => true,
+        'report-losses' => true,
+        'report-includes' => true,
     ];
 
     /**
@@ -62,7 +72,18 @@ final class Command
     /**
      * @var array<string, bool>
      */
-    private const FLAGS = ['json' => true, 'tree' => true, 'includes' => true, 'no-includes' => false, 'strict' => true, 'fix' => true];
+    private const FLAGS = [
+        'json' => true,
+        'no-json' => false,
+        'tree' => true,
+        'includes' => true,
+        'no-includes' => false,
+        'strict' => true,
+        'strict-losses' => true,
+        'fix' => true,
+        'from-ast' => true,
+        'no-positions' => false,
+    ];
 
     /**
      * @var array<string, true>
@@ -86,6 +107,16 @@ final class Command
      */
     public static function main(array $args, $in, $out, $err): int
     {
+        if (in_array('--version', $args, true)) {
+            fwrite($out, 'carve-php ' . Carve::SPEC_VERSION['version'] . "\n");
+
+            return 0;
+        }
+        if (in_array('--help', $args, true)) {
+            fwrite($out, "Usage: carve [command] [flags] [file ...]\n");
+
+            return 0;
+        }
         if (($args[0] ?? null) === 'import') {
             return ImportCommand::main(array_slice($args, 1), $in, $out, $err);
         }
@@ -96,13 +127,14 @@ final class Command
             if (($parsed['values']['write'] ?? false) && in_array('-', $files, true)) {
                 throw new OptionError('cannot write standard input in place');
             }
-            [$status, $records] = self::runFiles($parsed, $files, $in, $out, $err);
+            [$status, $records, $includeRecords] = self::runFiles($parsed, $files, $in, $out, $err);
             if ($parsed['values']['json'] ?? false) {
                 $json = (string)json_encode(['files' => $records], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 // The carve-js command line indents by two spaces.
                 $halve = static fn (array $m): string => substr($m[0], 0, intdiv(strlen($m[0]), 2));
                 fwrite($out, (string)preg_replace_callback('/^ +/m', $halve, $json) . "\n");
             }
+            self::writeReports($parsed, $records, $includeRecords, $err);
 
             return $status;
         } catch (OptionError $e) {
@@ -111,6 +143,10 @@ final class Command
             return 2;
         } catch (InputError $e) {
             fwrite($err, 'carve[' . $e->category . ']: ' . $e->getMessage() . "\n");
+
+            return 2;
+        } catch (CoreInputError $e) {
+            fwrite($err, 'carve[input-invalid]: ' . $e->getMessage() . "\n");
 
             return 2;
         } catch (CarveWriteError $e) {
@@ -123,6 +159,31 @@ final class Command
 
     /**
      * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     * @param array<array<string, mixed>> $records
+     * @param array<array<string, mixed>> $includeRecords
+     * @param resource $err
+     *
+     * @throws \MarkupCarve\Carve\Cli\InputError
+     */
+    private static function writeReports(array $parsed, array $records, array $includeRecords, $err): void
+    {
+        foreach (['report-losses', 'report-includes'] as $flag) {
+            $path = $parsed['values'][$flag] ?? null;
+            if (!is_string($path)) {
+                continue;
+            }
+            $entries = $flag === 'report-includes' ? $includeRecords : $records;
+            $report = json_encode(['files' => $entries], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+            if ($path === '-') {
+                fwrite($err, $report);
+            } elseif (@file_put_contents($path, $report) === false) {
+                throw new InputError($path . ': cannot be written', 'output-unwritable');
+            }
+        }
+    }
+
+    /**
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
      * @param array<string> $files
      * @param resource $in
      * @param resource $out
@@ -130,7 +191,7 @@ final class Command
      *
      * @throws \MarkupCarve\Carve\Cli\InputError
      *
-     * @return array{int, array<array<string, mixed>>}
+     * @return array{int, array<array<string, mixed>>, array<array<string, mixed>>}
      */
     private static function runFiles(array $parsed, array $files, $in, $out, $err): array
     {
@@ -141,12 +202,16 @@ final class Command
         }
         $status = 0;
         $records = [];
+        $includeRecords = [];
         try {
             foreach ($files as $file) {
-                [$code, $record] = self::one($parsed, $file, $in, $target ?? $out, $err);
+                [$code, $record, $includeRecord] = self::one($parsed, $file, $in, $target ?? $out, $err);
                 $status = max($status, $code);
                 if ($record !== null) {
                     $records[] = $record;
+                }
+                if ($includeRecord !== null) {
+                    $includeRecords[] = $includeRecord;
                 }
             }
         } finally {
@@ -155,7 +220,7 @@ final class Command
             }
         }
 
-        return [$status, $records];
+        return [$status, $records, $includeRecords];
     }
 
     /**
@@ -194,8 +259,6 @@ final class Command
      * @param int $i
      * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
      *
-     * @throws \MarkupCarve\Carve\OptionError
-     *
      * @return int The index of the last argument read.
      */
     private static function option(array $args, int $i, array &$parsed): int
@@ -214,6 +277,22 @@ final class Command
 
             return $equals !== false ? $i : $i + 1;
         }
+
+        return self::switchOption($args, $i, $arg, $name, $equals, $parsed);
+    }
+
+    /**
+     * @param array<string> $args
+     * @param int|false $equals
+     * @param string $name
+     * @param string $arg
+     * @param int $i
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    private static function switchOption(array $args, int $i, string $arg, string $name, int|false $equals, array &$parsed): int
+    {
         $fmt = $parsed['command'] === 'fmt';
         if ($arg === '-o') {
             self::valued('output', $args[$i + 1] ?? null, $parsed);
@@ -230,7 +309,16 @@ final class Command
         if (!str_starts_with($arg, '--') || !array_key_exists($name, $flags) || $equals !== false) {
             throw new OptionError('unknown option ' . $arg);
         }
-        $parsed['values'][$name === 'no-includes' ? 'includes' : $name] = $flags[$name];
+        if ($name === 'strict-losses') {
+            $parsed['options']['strictLosses'] = true;
+        } elseif ($name === 'no-positions') {
+            $parsed['values']['positions'] = false;
+        } else {
+            $key = match ($name) {
+                'no-includes' => 'includes', 'no-json' => 'json', default => $name,
+            };
+            $parsed['values'][$key] = $flags[$name];
+        }
 
         return $i;
     }
@@ -292,6 +380,21 @@ final class Command
 
             return;
         }
+        if ($name === 'profile') {
+            $parsed['options']['profile'] = $value;
+
+            return;
+        }
+        if ($name === 'url-policy') {
+            $parsed['options']['urlPolicy'] = self::json($name, $value);
+
+            return;
+        }
+        if (in_array($name, ['report-losses', 'report-includes'], true)) {
+            $parsed['values'][$name] = $value;
+
+            return;
+        }
         $parsed['values'][$name] = $name === 'to' ? self::renderTarget($parsed['command'], $value)
             : ($name === 'include-root' ? $value : self::json($name, $value));
     }
@@ -348,8 +451,9 @@ final class Command
      * @param resource $err
      *
      * @throws \MarkupCarve\Carve\Cli\InputError
+     * @throws \MarkupCarve\Carve\OptionError
      *
-     * @return array{0: int, 1: array<string, mixed>|null}
+     * @return array{0: int, 1: array<string, mixed>|null, 2: array<string, mixed>|null}
      */
     private static function one(array $parsed, string $file, $in, $out, $err): array
     {
@@ -358,39 +462,127 @@ final class Command
         if ($source === false) {
             throw new InputError($display . ': cannot be read');
         }
+        if (($parsed['values']['from-ast'] ?? false) && !mb_check_encoding($source, 'UTF-8')) {
+            throw new InputError($display . ': not UTF-8', 'input-unreadable');
+        }
         $options = $parsed['options'] + self::includes($parsed, $file);
+        $dependencies = [];
+        $includeOptions = $options['includes'] ?? null;
+        if (
+            isset($parsed['values']['report-includes']) && is_array($includeOptions)
+            && is_callable($includeOptions['resolver'] ?? null)
+        ) {
+            $resolver = $includeOptions['resolver'];
+            $topFile = $includeOptions['file'] ?? null;
+            $includeOptions['resolver'] = static function (array $request) use ($resolver, $topFile, &$dependencies): array {
+                $result = $resolver($request);
+                $entry = ['path' => $request['path']];
+                if (isset($request['from']) && $request['from'] !== $topFile) {
+                    $entry['from'] = $request['from'];
+                }
+                if (isset($result['text'])) {
+                    $entry['file'] = $result['id'] ?? $request['path'];
+                }
+                $entry['read'] = isset($result['text']);
+                $dependencies[] = $entry;
+
+                return $result;
+            };
+            $options['includes'] = $includeOptions;
+        }
         $json = (bool)($parsed['values']['json'] ?? false);
         switch ($parsed['command']) {
             case 'ast':
-                fwrite($out, Carve::toJson($source, $options) . "\n");
+                $tree = json_decode(Carve::toJson($source, $options), true, 4096, JSON_THROW_ON_ERROR);
+                if (!is_array($tree)) {
+                    throw new InputError('the AST is not a document', 'ast-json-invalid');
+                }
+                if (($parsed['values']['positions'] ?? true) === false) {
+                    self::removePositions($tree);
+                }
+                fwrite($out, json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
 
-                return [0, null];
+                return [
+                    0, null, isset($parsed['values']['report-includes'])
+                    ? ['file' => $display, 'dependencies' => $dependencies] : null,
+                ];
             case 'diagnostics':
                 $entries = array_values(array_filter(
                     Carve::parseWithDiagnostics($source, $options)->diagnostics,
                     static fn (Diagnostic $d): bool => $d->channel === 'parse',
                 ));
 
-                return [0, self::report([$display, $source, self::root($parsed, $file)], $entries, $json, $out)];
+                return [
+                    0, self::report([$display, $source, self::root($parsed, $file)], $entries, $json, $out),
+                    isset($parsed['values']['report-includes']) ? ['file' => $display, 'dependencies' => $dependencies] : null,
+                ];
             case 'fmt':
-                return [self::format($parsed, $file, $display, $source, $out), null];
+                return [self::format($parsed, $file, $display, $source, $out), null, null];
             case 'flatten':
-                return [self::flatten($source, $options, $display, $parsed, $out, $err), null];
+                return [self::flatten($source, $options, $display, $parsed, $out, $err), null, null];
             case 'fix':
             case 'lint':
-                return self::lintFile($parsed, $file, $display, $source, $options, $out, $err);
+                return [...self::lintFile($parsed, $file, $display, $source, $options, $out, $err), null];
             default:
                 $to = $parsed['values']['to'] ?? 'html';
+                $input = ($parsed['values']['from-ast'] ?? false) ? self::decodedTree($source) : $source;
                 if ($to !== 'html') {
-                    self::product(Carve::writeTo(is_string($to) ? $to : 'html', Carve::parse($source, $options)), $out);
+                    Options::from($options);
+                    $parseOptions = array_intersect_key($options, ['includes' => true]);
+                    $tree = is_string($input) ? Carve::parse($input, $parseOptions) : $input;
+                    $exporter = match ($to) {
+                        'markdown' => new MarkdownExporter(),
+                        'plain' => new PlainTextExporter(),
+                        'ansi' => new AnsiExporter(),
+                        default => throw new OptionError('bad value for --to'),
+                    };
+                    $exportOptions = array_intersect_key($options, array_flip(['smartTypography', 'urlPolicy']));
+                    $export = $exporter->export($tree, $exportOptions);
+                    $allowed = $options['allowLosses'] ?? [];
+                    $losses = array_values(array_filter(
+                        $export->diagnostics,
+                        static fn (Diagnostic $d): bool => !in_array($d->code, is_array($allowed) ? $allowed : [], true),
+                    ));
+                    $strictLoss = ($options['strictLosses'] ?? false) && $losses !== [];
+                    $limit = $options['maxLosses'] ?? 100;
+                    $suppressed = max(0, count($losses) - (is_int($limit) ? $limit : 100));
+                    $retained = array_slice($losses, 0, is_int($limit) ? $limit : 100);
+                    if ($strictLoss) {
+                        fwrite($err, "carve[render-loss]: rendering lost content\n");
+                    } else {
+                        self::product($export->output, $out);
+                    }
+                    self::report([$display, $source, self::root($parsed, $file)], $retained, false, $err);
+                    $record = self::report([$display, $source, self::root($parsed, $file)], $retained, true, $err)
+                        ?? ['file' => $display, 'diagnostics' => [], 'suppressed' => 0];
+                    $record['suppressed'] = $suppressed;
 
-                    return [0, null];
+                    return [
+                        $strictLoss || (($parsed['values']['strict'] ?? false) && $losses !== []) ? 1 : 0, $record,
+                        isset($parsed['values']['report-includes']) ? ['file' => $display, 'dependencies' => $dependencies] : null,
+                    ];
                 }
-                $result = Carve::renderWithDiagnostics($source, $options);
-                self::product($result->html . "\n", $out);
-                self::report([$display, $source, self::root($parsed, $file)], $result->diagnostics, false, $err);
+                $result = Carve::renderWithDiagnostics($input, $options);
+                $losses = array_values(array_filter(
+                    $result->diagnostics,
+                    static fn (Diagnostic $d): bool => $d->channel === 'render-loss',
+                ));
+                $strictLoss = ($options['strictLosses'] ?? false)
+                    && ($losses !== [] || ($result->suppressedDiagnostics > 0 && $result->html === ''));
+                if ($strictLoss) {
+                    fwrite($err, "carve[render-loss]: rendering lost content\n");
+                } else {
+                    self::product($result->html . "\n", $out);
+                }
+                self::report([$display, $source, self::root($parsed, $file)], $losses, false, $err);
+                $record = self::report([$display, $source, self::root($parsed, $file)], $losses, true, $err)
+                    ?? ['file' => $display, 'diagnostics' => [], 'suppressed' => 0];
+                $record['suppressed'] = $result->suppressedDiagnostics;
 
-                return [($parsed['values']['strict'] ?? false) && $result->diagnostics !== [] ? 1 : 0, null];
+                return [
+                    $strictLoss || (($parsed['values']['strict'] ?? false) && $result->diagnostics !== []) ? 1 : 0, $record,
+                    isset($parsed['values']['report-includes']) ? ['file' => $display, 'dependencies' => $dependencies] : null,
+                ];
         }
     }
 
@@ -512,7 +704,33 @@ final class Command
         if (isset($v['ignore']) && !in_array($parsed['command'], ['lint', 'fix'], true)) {
             throw new OptionError('--ignore is for lint');
         }
+        self::validateReportFormat($parsed);
         self::validateOutputCombination($parsed);
+    }
+
+    /**
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    private static function validateReportFormat(array $parsed): void
+    {
+        $v = $parsed['values'];
+        if (isset($v['report-losses']) && $parsed['command'] !== 'render') {
+            throw new OptionError('--report-losses is for render');
+        }
+        if (isset($v['report-includes']) && !in_array($parsed['command'], ['ast', 'diagnostics', 'render'], true)) {
+            throw new OptionError('--report-includes is for ast, diagnostics or render');
+        }
+        if (
+            $parsed['command'] === 'fmt' && (
+            (($v['write'] ?? false) && (($v['check'] ?? false) || ($v['diff'] ?? false)))
+            || (($v['check'] ?? false) && ($v['diff'] ?? false))
+            || (($v['normalize'] ?? false) && ($v['from-ast'] ?? false))
+            )
+        ) {
+            throw new OptionError('conflicting fmt flags');
+        }
     }
 
     /**
@@ -613,6 +831,28 @@ final class Command
 
         /** @var array<string, mixed> $tree */
         return $tree;
+    }
+
+    private static function decodedTree(string $json): Node
+    {
+        try {
+            return Carve::decodeTree($json);
+        } catch (TreeError $error) {
+            throw new InputError($error->getMessage(), 'ast-json-invalid');
+        }
+    }
+
+    /**
+     * @param array<string|int, mixed> $node
+     */
+    private static function removePositions(array &$node): void
+    {
+        unset($node['pos']);
+        foreach ($node as &$value) {
+            if (is_array($value)) {
+                self::removePositions($value);
+            }
+        }
     }
 
     private static function firstChange(string $display, string $before, string $after): string
@@ -747,7 +987,7 @@ final class Command
             fwrite($out, $where . $finding->severity . ' ' . $finding->code . ' ' . $finding->message . "\n");
         }
 
-        return $json ? ['file' => $display, 'diagnostics' => $rows] : null;
+        return $json ? ['file' => $display, 'diagnostics' => $rows, 'suppressed' => 0] : null;
     }
 
     /**
