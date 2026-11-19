@@ -182,7 +182,7 @@ final class Extensions
         $source = match ($matcher['form']) {
             'div' => $this->divSource($node, $name),
             'fence' => self::titled(['form' => 'fence', 'name' => $name, 'body' => PlainText::str($node->f['value'] ?? '')], $node),
-            default => ['form' => 'inline', 'name' => $name, 'body' => ''],
+            default => ['form' => 'inline', 'name' => $name, 'body' => $this->inlineBody($node, $name)],
         };
 
         return new Claim(
@@ -193,6 +193,23 @@ final class Extensions
             static fn (Node $div): ?string => $div->sourceName,
             $this->divSource(...),
         );
+    }
+
+    /**
+     * C2-X-026: the canonical spelling of an inline extension's content, from the core node written without attributes.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     * @param string $name
+     *
+     * @return string
+     */
+    private function inlineBody(Node $node, string $name): string
+    {
+        $core = new Node('inline_extension', $node->children ?? []);
+        $core->f['name'] = $name;
+        $written = ($this->body)(new Node('div', [new Node('paragraph', [$core])]));
+
+        return substr(rtrim($written, "\n"), strlen($name) + 2, -1);
     }
 
     /**
