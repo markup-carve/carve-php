@@ -1246,7 +1246,7 @@ final class NodeRulesA
             return;
         }
         $parent = substr($path, 0, (int)strrpos($path, '/children/'));
-        if (in_array($c->nodeTypes[$parent] ?? '', ['cell_paragraph', 'definition_description'], true)) {
+        if (in_array($c->nodeTypes[$parent] ?? '', ['cell_paragraph', 'definition_description', 'definition_term'], true)) {
             return;
         }
         $source = Support::raw($node, $c);

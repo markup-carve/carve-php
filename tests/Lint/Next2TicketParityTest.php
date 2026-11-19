@@ -403,6 +403,18 @@ i) y',
                 'list-item-block-overindented',
                 [],
             ],
+            '#5365 duplicate variant' => [
+                "a. :: term [ref][]\n\n  : word <b>\n\n{{x.crv}}",
+                'list-item-body-below-content-column',
+                [
+                    ['list-item-body-below-content-column', 22, 32],
+                ],
+            ],
+            '#5359 term variant' => [
+                ":: term\n   : { #id }",
+                'unattached-inline-attribute',
+                [],
+            ],
         ];
     }
 

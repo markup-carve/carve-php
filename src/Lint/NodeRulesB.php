@@ -616,7 +616,21 @@ final class NodeRulesB
             }
             $column = $c->layout->columnOf($line->start + $offset, $quotes);
             if ($column > $marker && $column < $content) {
-                $c->report('list-item-body-below-content-column', $line->start + $offset, $line->end, $path);
+                $start = $line->start + $offset;
+                $duplicate = false;
+                foreach ($c->diagnostics as $finding) {
+                    if (
+                        $finding->code === 'list-item-body-below-content-column'
+                        && $finding->startOffset === $start && $finding->endOffset === $line->end
+                    ) {
+                        $duplicate = true;
+
+                        break;
+                    }
+                }
+                if (!$duplicate) {
+                    $c->report('list-item-body-below-content-column', $start, $line->end, $path);
+                }
             }
         }
     }
