@@ -116,7 +116,7 @@ final class NodeRules
             ['list-marker-below-content-column', ['list'], NodeRulesB::listMarkerBelowColumn(...)],
             [
                 'block-opener-overindented', [
-                    'block_quote', 'div', 'directive', 'admonition', 'figure_group', 'code_block', 'line_block',
+                    'block_quote', 'div', 'directive', 'admonition', 'figure_group', 'code_block', 'raw_block', 'line_block',
                     'definition_term', 'heading', 'thematic_break', 'table',
                 ], NodeRulesB::blockOverindent(...),
             ],

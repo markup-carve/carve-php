@@ -21,6 +21,7 @@ final class Next2OwnerAndVoidRulesTest extends TestCase
             'div opener inside an admonition' => ["::: note\n  ::: references\n  x\n  :::\n:::\n", ['block-opener-overindented']],
             'heading inside a div' => ["::: box\n # h\n:::\n", ['block-opener-overindented']],
             'heading inside a quote' => [">  # h\n", ['block-opener-overindented']],
+            'raw fence inside a document' => ["  ```=html\n<b>\n  ```\n", ['block-opener-overindented']],
             'term at quoted content column' => ["> :: a\n", []],
             'heading at quoted content column' => ["> # h\n", []],
             'item owns its opener' => ["- x\n\n    # h\n", ['list-item-block-overindented']],
