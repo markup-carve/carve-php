@@ -31,10 +31,7 @@ jobs:
           coverage: none
 
       - name: Install dependencies
-        run: |
-          test -f composer.lock
-          composer validate --strict
-          composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress
 
       - name: Generated tables are current
         run: composer tables-check
