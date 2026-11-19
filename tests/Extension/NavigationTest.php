@@ -47,6 +47,8 @@ final class NavigationTest extends TestCase
     {
         $options = ['extensions' => [self::suffix('host.first', '1'), self::suffix('host.second', '2')]];
         $this->assertSame('<p>a12</p>', Carve::render('a', $options));
+        $this->assertSame('<p>a12</p>', Carve::toHtml('a', $options));
+        $this->assertSame('<p>a12</p>', Carve::render(Carve::parse('a'), $options));
         $this->assertSame('<p>a12</p>', Carve::renderWithDiagnostics('a', $options)->html);
         $noop = new DocumentTransform('third', static fn (Node $view): Node => $view);
         $this->assertSame('<p>a12</p>', Carve::renderWithDocumentTransforms('a', [$noop], $options)->html);

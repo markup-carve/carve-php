@@ -218,6 +218,29 @@ final class Carve
     }
 
     /**
+     * The HTML of a render that runs the registered document transforms; under `strictLosses` a loss, a failed
+     * transform included, throws.
+     *
+     * @param \MarkupCarve\Carve\Node|array<string, mixed>|string $input
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Options $opts
+     *
+     * @throws \MarkupCarve\Carve\RenderError
+     *
+     * @return string
+     */
+    private static function transformedHtml(Node|array|string $input, array $options, Options $opts): string
+    {
+        $result = self::renderDetailed($input, [], $options);
+        $lost = array_values(array_filter($result->diagnostics, static fn (Diagnostic $d): bool => $d->channel === 'render-loss'));
+        if ($lost !== [] && $opts->strictLosses) {
+            throw new RenderError($lost);
+        }
+
+        return $result->html;
+    }
+
+    /**
      * C2-X-053: the document transforms of the registered extensions, in registration order.
      *
      * @param array<mixed> $extensions
@@ -449,6 +472,9 @@ final class Carve
     public static function toHtml(string $source, array $options = []): string
     {
         $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
+        if (self::registeredTransforms($opts->extensions) !== []) {
+            return self::transformedHtml($source, $options, $opts);
+        }
         self::checkRenderInput($source, $opts);
         $gc = self::collectorOff();
         try {
@@ -622,20 +648,13 @@ final class Carve
      */
     public static function render(Node|array|string $input, array $options = []): string
     {
-        $normalized = self::normalize($options);
-        if (self::registeredTransforms(is_array($normalized['extensions'] ?? null) ? $normalized['extensions'] : []) !== []) {
-            $result = self::renderDetailed($input, [], $options);
-            $lost = array_values(array_filter($result->diagnostics, static fn (Diagnostic $d): bool => $d->channel === 'render-loss'));
-            if ($lost !== [] && ($options['strictLosses'] ?? false) === true) {
-                throw new RenderError($lost);
-            }
-
-            return $result->html;
-        }
         if (is_string($input)) {
             return self::toHtml($input, $options);
         }
         $opts = Options::from(self::normalize($options), ['parse', 'resolve', 'render']);
+        if (self::registeredTransforms($opts->extensions) !== []) {
+            return self::transformedHtml($input, $options, $opts);
+        }
         [$doc, $source, $facts] = self::resolvedTree($input, $opts);
         [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
         if ($opts->strictLosses && $log->entries !== []) {
