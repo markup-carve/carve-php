@@ -117,7 +117,8 @@ final class TreeReader
             throw new TreeError('schema', '');
         }
 
-        $node = self::readValue($value, $options);
+        // Decoded JSON holds no invalid UTF-8 or non-finite number, so the tree is built from it directly.
+        $node = TreeDecoder::object(self::checked($value, $options));
         $node->layout['jsonByteLength'] = strlen($json);
 
         return $node;

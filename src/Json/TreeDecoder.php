@@ -31,6 +31,11 @@ final class TreeDecoder
     ];
 
     /**
+     * Whether a float is read as its JSON text would decode, as `object()` needs.
+     */
+    private static bool $jsonNumbers = false;
+
+    /**
      * @param string $json
      * @param int $depth
      *
@@ -44,6 +49,24 @@ final class TreeDecoder
         }
 
         return self::node($value);
+    }
+
+    /**
+     * A node from its decoded JSON object, as `json()` reads its encoding: an integral float such as `1.0` is an
+     * integer. The object is not changed or kept.
+     *
+     * @param \stdClass $node
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    public static function object(stdClass $node): Node
+    {
+        self::$jsonNumbers = true;
+        try {
+            return self::node($node);
+        } finally {
+            self::$jsonNumbers = false;
+        }
     }
 
     /**
@@ -76,10 +99,11 @@ final class TreeDecoder
                 continue;
             }
             if ($key === 'pos') {
-                if ($value instanceof stdClass && is_int($value->startOffset ?? null) && is_int($value->endOffset ?? null)) {
-                    $node->start = $value->startOffset;
-                    $node->end = $value->endOffset;
-                    $node->layout['pos'] = get_object_vars($value);
+                $pos = $value instanceof stdClass ? array_map([self::class, 'number'], get_object_vars($value)) : [];
+                if (is_int($pos['startOffset'] ?? null) && is_int($pos['endOffset'] ?? null)) {
+                    $node->start = $pos['startOffset'];
+                    $node->end = $pos['endOffset'];
+                    $node->layout['pos'] = $pos;
                 }
 
                 continue;
@@ -170,7 +194,7 @@ final class TreeDecoder
             return $out;
         }
 
-        return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : $value;
+        return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : self::number($value);
     }
 
     /**
@@ -198,6 +222,16 @@ final class TreeDecoder
             return array_map([self::class, 'opaque'], $value);
         }
 
-        return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : $value;
+        return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : self::number($value);
+    }
+
+    /**
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    private static function number(mixed $value): mixed
+    {
+        return self::$jsonNumbers && is_float($value) ? json_decode((string)json_encode($value)) : $value;
     }
 }

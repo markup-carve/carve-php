@@ -230,6 +230,42 @@ final class TreeReaderTest extends TestCase
         }
     }
 
+    /**
+     * An invalid node under a deep run of inline containers is refused at its own pointer; checking each level's
+     * branch once keeps this linear (it took about twice as long per level before).
+     */
+    public function testInvalidNodeUnderDeepInlineNestingIsRefusedAtItsPointer(): void
+    {
+        $node = ['type' => 'nope'];
+        for ($i = 0; $i < 40; $i++) {
+            $node = ['type' => 'superscript', 'children' => [$node]];
+        }
+        $json = json_encode(['type' => 'document', 'astVersion' => '2.0', 'children' => [['type' => 'paragraph', 'children' => [$node]]]]);
+        try {
+            TreeReader::read((string)$json);
+            self::fail('Expected TreeError');
+        } catch (TreeError $error) {
+            self::assertSame(['schema', '/children/0' . str_repeat('/children/0', 41)], [$error->reason, $error->pointer]);
+        }
+    }
+
+    /**
+     * An integral float reads as the integer its JSON encoding gives, so `1.0` offsets still place the node.
+     */
+    public function testIntegralFloatPositionsReadAsIntegers(): void
+    {
+        $json = '{"type":"document","astVersion":"2.0","children":[{"type":"paragraph","children":[{"type":"text",'
+            . '"value":"a","pos":{"startLine":1,"endLine":1.0,"startColumn":1,"endColumn":2,"startOffset":0.0,"endOffset":1.0}}]}]}';
+        $text = TreeReader::read($json)->children[0]->children[0] ?? null;
+
+        self::assertNotNull($text);
+        self::assertSame([0, 1], [$text->start, $text->end]);
+        self::assertSame(
+            ['startLine' => 1, 'endLine' => 1, 'startColumn' => 1, 'endColumn' => 2, 'startOffset' => 0, 'endOffset' => 1],
+            $text->layout['pos'],
+        );
+    }
+
     private function assertReason(string $reason, string $json): void
     {
         try {
