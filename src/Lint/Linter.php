@@ -24,6 +24,7 @@ final class Linter
         'raw_inline' => true,
         'literal_inline' => true,
         'math' => true,
+        'autolink' => true,
         'comment' => true,
         'code_block' => true,
         'raw_block' => true,
