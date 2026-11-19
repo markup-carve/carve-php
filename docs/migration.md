@@ -54,7 +54,9 @@ converter.
 | `CarveConverter::plainText()`, `PlainTextRenderer` | coming: `Carve::writeTo('text', $tree)` |
 | `CarveConverter::ansi()`, `AnsiRenderer` | coming: `Carve::writeTo('ansi', $tree)` |
 | `RendererInterface`, `RenderTarget`, `RenderTargetInterface` | `Output\OutputWriter`, registered on `Carve::writers()` |
-| `SoftBreakMode`, `TableLayout` | gone |
+| `TableLayout::expand()` | `Carve::tableGrid($table)` |
+| `StringUtil::findSafeCodeFence()` | `Carve::safeCodeFence($content)` |
+| `SoftBreakMode` | gone |
 
 Until the three writers arrive, keep carve-php 0.1 for those targets.
 

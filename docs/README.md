@@ -127,6 +127,24 @@ assert(Carve::writeTo('html', $tree, [], $registry) === "<p>a</p>\n<p>b</p>");
 assert(Carve::writeTo('count', $tree, [], $registry) === '2');
 ```
 
+## Host helpers
+
+`Carve::plainText()` gives the plain text of a node or a node list of a tree (C2-H-143), the same text an extension
+renderer gets from `RenderHost::$plainText`, so a host can read element text before rendering. `Carve::tableGrid()`
+expands a `table` node for an output without rowspan and colspan: per row its group and, per column, the cell that
+occupies the slot (null where no cell reaches). `Carve::safeCodeFence()` gives the shortest fence, three at least,
+that no line of the content can close.
+
+```php
+use MarkupCarve\Carve\Carve;
+
+$tree = Carve::parse("Ask :product[#SKU-1] now.\n\n| a | < | b |\n| c | d | ^ |\n");
+assert(Carve::plainText($tree->children[0]) === 'Ask #SKU-1 now.');
+$grid = Carve::tableGrid($tree->children[1]);
+assert($grid[0]['cells'][0] === $grid[0]['cells'][1] && $grid[1]['cells'][2] === $grid[0]['cells'][2]);
+assert(Carve::safeCodeFence("```\ncode\n```\n") === '````');
+```
+
 ## Extensions (provisional)
 
 The extension host follows `extensions.md` of the specification and may change in 0.2.x. An extension is an
