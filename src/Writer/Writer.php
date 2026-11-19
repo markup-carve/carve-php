@@ -199,9 +199,14 @@ final class Writer
                 $w->lose('', 'document', 'metadata/' . $field);
             }
         }
-        foreach (['attrs', 'lang', 'dir', 'data'] as $field) {
+        foreach (['attrs', 'lang', 'dir'] as $field) {
             if (isset($tree[$field])) {
                 $w->lose('', 'document', $field);
+            }
+        }
+        foreach (is_array($tree['data'] ?? null) ? array_keys($tree['data']) : [] as $name) {
+            if (!in_array($name, ['carve.source', 'carve.style', 'carve.annotation'], true)) {
+                $w->lose('', 'document', 'data/' . $name);
             }
         }
     }

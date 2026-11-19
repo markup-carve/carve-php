@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
+use MarkupCarve\Carve\Extension\Standard;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Node;
@@ -343,7 +345,7 @@ final class Blocks
             if ($this->usesHardBreakOpener($node, $path)) {
                 return BraceBlock::of($node, ['skipClasses' => [count($classes) - 1]]);
             }
-            $name = self::divName($node);
+            $name = $this->divName($node);
             $block = BraceBlock::of($node, $name === null ? [] : ['skipClasses' => [0]]);
 
             return $block === '' && $name !== null ? BraceBlock::of($node) : $block;
@@ -1207,14 +1209,26 @@ final class Blocks
      *
      * @return string|null
      */
-    private static function divName(array $node): ?string
+    private function divName(array $node): ?string
     {
         $first = self::classes($node)[0] ?? null;
         if ($first === null || !BraceBlock::isName($first)) {
             return null;
         }
 
-        return isset(Tables::DIV_NAME_KINDS[$first]) ? null : $first;
+        if (isset(Tables::DIV_NAME_KINDS[$first])) {
+            return null;
+        }
+        foreach ($this->w->extensions as $extension) {
+            $definitions = is_string($extension) ? Standard::definitions($extension) ?? [] : [$extension];
+            foreach ($definitions as $definition) {
+                if ($definition instanceof ExtensionDefinition && $definition->matcher === ['form' => 'div', 'name' => $first]) {
+                    return null;
+                }
+            }
+        }
+
+        return $first;
     }
 
     /**
@@ -1274,7 +1288,7 @@ final class Blocks
 
             return;
         }
-        $named = self::divName($node);
+        $named = $this->divName($node);
         $name = $this->w->prewritten === $path && $named !== null && BraceBlock::of($node, ['skipClasses' => [0]]) === ''
             ? null : $named;
         $this->attributeLine($node, $path, $prefix, $name === null ? [] : ['skipClasses' => [0]]);

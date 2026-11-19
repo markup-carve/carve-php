@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Cli;
 
+use JsonException;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Export\AnsiExporter;
@@ -35,6 +36,7 @@ final class Command
         'flatten' => true,
         'fmt' => true,
         'format' => true,
+        'migrate-ast' => true,
     ];
 
     /**
@@ -492,6 +494,21 @@ final class Command
         }
         $json = (bool)($parsed['values']['json'] ?? false);
         switch ($parsed['command']) {
+            case 'migrate-ast':
+                try {
+                    $migrated = Carve::migrateTree($source);
+                } catch (JsonException|TreeError $error) {
+                    throw new InputError($display . ': ' . $error->getMessage(), 'ast-json-invalid');
+                }
+                $written = $migrated['envelope'] ?? $migrated['document'];
+                fwrite($out, json_encode($written, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+                foreach (is_array($migrated['diagnostics'] ?? null) ? $migrated['diagnostics'] : [] as $diagnostic) {
+                    if (is_array($diagnostic) && is_string($diagnostic['code'] ?? null) && is_string($diagnostic['message'] ?? null)) {
+                        fwrite($err, 'carve[' . $diagnostic['code'] . ']: ' . $diagnostic['message'] . "\n");
+                    }
+                }
+
+                return [0, null, null];
             case 'ast':
                 $tree = json_decode(Carve::toJson($source, $options), true, 4096, JSON_THROW_ON_ERROR);
                 if (!is_array($tree)) {
@@ -741,6 +758,19 @@ final class Command
     private static function validateOutputCombination(array $parsed): void
     {
         $v = $parsed['values'];
+        $destinations = [];
+        foreach (['output', 'report-losses', 'report-includes'] as $flag) {
+            $path = $v[$flag] ?? null;
+            if (!is_string($path) || $path === '-') {
+                continue;
+            }
+            $parent = realpath(dirname($path));
+            $destination = ($parent === false ? dirname($path) : $parent) . '/' . basename($path);
+            if (isset($destinations[$destination])) {
+                throw new OptionError('output and report paths must differ');
+            }
+            $destinations[$destination] = true;
+        }
         if (
             isset($v['output']) && $parsed['command'] === 'fmt'
             && (($v['write'] ?? false) || ($v['check'] ?? false) || ($v['diff'] ?? false))
@@ -894,8 +924,12 @@ final class Command
         while ($at < $lines && $old[$at] === ($new[$at] ?? null)) {
             $at++;
         }
+        $shown = $at >= min(count($old), count($new)) ? max(0, min(count($old), count($new)) - 1) : $at;
+        $beforeLine = rtrim($old[$shown] ?? '', "\r");
+        $afterLine = rtrim($new[$shown] ?? '', "\r");
+        $plus = $at >= count($new) ? '+' : '+ ' . $afterLine;
 
-        return $display . ':' . ($at + 1) . "\n- " . ($old[$at] ?? '') . "\n+ " . ($new[$at] ?? '') . "\n";
+        return $display . ':' . ($shown + 1) . "\n- " . $beforeLine . "\n" . $plus . "\n";
     }
 
     private static function unified(string $display, string $before, string $after): string

@@ -1021,13 +1021,11 @@ final class Inline
     {
         if (array_key_exists('decorative', $node)) {
             $this->w->lose($path, 'image', 'decorative');
+
         }
         $alt = self::str($node, 'alt');
-        // C2-I-074: the alt text is the source between the brackets as it stands.
-        if (substr_count($alt, '[') !== substr_count($alt, ']') || str_ends_with($alt, '\\')) {
-            $this->w->lose($path, 'image', 'alt');
-        }
-        $spelled = $c->inCell ? $this->cellPipes($alt, $path) : $alt;
+        $spelled = AltSource::spell($alt);
+        $spelled = $c->inCell ? $this->cellPipes($spelled, $path) : $spelled;
 
         return '![' . $spelled . ']' . $this->target($node, self::str($node, 'src'), $c, $path);
     }
