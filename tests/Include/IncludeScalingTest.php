@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Include;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Test\Support\Linearity;
 use PHPUnit\Framework\TestCase;
 
 final class IncludeScalingTest extends TestCase
@@ -12,19 +13,14 @@ final class IncludeScalingTest extends TestCase
     public function testC2N067RepeatedIncludesStayLinear(): void
     {
         $resolver = static fn (array $request): array => ['text' => 'One.', 'id' => 'one.crv'];
-        $times = [];
-        foreach ([100, 200, 400, 800] as $count) {
-            $source = str_repeat("{{ one.crv }}\n\n", $count);
-            $samples = [];
-            for ($round = 0; $round < 3; $round++) {
-                $start = hrtime(true);
-                Carve::toHtml($source, ['includes' => $resolver]);
-                $samples[] = (hrtime(true) - $start) / 1e6;
-            }
-            sort($samples);
-            $times[] = $samples[1];
-        }
-        $this->assertLessThanOrEqual(max(10.0, $times[0] * 20), $times[3]);
+        $small = str_repeat("{{ one.crv }}\n\n", 100);
+        $large = str_repeat("{{ one.crv }}\n\n", 800);
+        $excess = Linearity::excess(
+            static fn () => Carve::toHtml($small, ['includes' => $resolver]),
+            static fn () => Carve::toHtml($large, ['includes' => $resolver]),
+            8,
+        );
+        $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
     }
 
     public function testC2N064LongChainAndC2N046BigTable(): void

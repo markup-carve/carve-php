@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Html\Escape;
 use MarkupCarve\Carve\InputError;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Test\Support\DocGenerator;
+use MarkupCarve\Carve\Test\Support\Linearity;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\TestCase;
 
@@ -66,19 +67,11 @@ final class HardeningTest extends TestCase
         $units['references'] = str_repeat('[x][k] ', 100) . "\n\n[k]: /u\n";
         $units['long line'] = str_repeat('words and punctuation *x* ', 35);
         foreach ($units as $name => $unit) {
-            $times = [];
-            foreach ([1, 2, 4, 8] as $factor) {
-                $source = str_repeat($unit, $factor * max(1, intdiv(8192, strlen($unit))));
-                $samples = [];
-                for ($round = 0; $round < 3; $round++) {
-                    $start = hrtime(true);
-                    Carve::toHtml($source);
-                    $samples[] = (hrtime(true) - $start) / 1e6;
-                }
-                sort($samples);
-                $times[] = $samples[1];
-            }
-            $this->assertLessThanOrEqual(max(2.0, $times[0] * 24), $times[3], $name);
+            $count = max(1, intdiv(8192, strlen($unit)));
+            $small = str_repeat($unit, $count);
+            $large = str_repeat($unit, 8 * $count);
+            $excess = Linearity::excess(static fn () => Carve::toHtml($small), static fn () => Carve::toHtml($large), 8);
+            $this->assertLessThanOrEqual(Linearity::LIMIT, $excess, $name);
         }
     }
 
@@ -101,63 +94,34 @@ final class HardeningTest extends TestCase
             'openers' => [str_repeat('*[', 500), ''],
         ];
         foreach ($units as $name => [$unit, $tail]) {
-            $times = [];
+            $trees = [];
             foreach ([1, 8] as $factor) {
                 $source = 'a' . str_repeat($unit, $factor) . $tail;
-                $tree = (new TreeEncoder())->encode(Carve::parse($source), $source);
-                $samples = [];
-                for ($round = 0; $round < 3; $round++) {
-                    $start = hrtime(true);
-                    Writer::writeWithDiagnostics($tree);
-                    $samples[] = (hrtime(true) - $start) / 1e6;
-                }
-                sort($samples);
-                $times[] = $samples[1];
+                $trees[$factor] = (new TreeEncoder())->encode(Carve::parse($source), $source);
             }
-            $this->assertLessThanOrEqual(max(2.0, $times[0] * 24), $times[1], $name);
+            $excess = Linearity::excess(
+                static fn () => Writer::writeWithDiagnostics($trees[1]),
+                static fn () => Writer::writeWithDiagnostics($trees[8]),
+                8,
+            );
+            $this->assertLessThanOrEqual(Linearity::LIMIT, $excess, $name);
         }
     }
 
     public function testC2A158LongContinuationCellStaysLinear(): void
     {
-        $times = [];
-        foreach ([250, 500, 1000, 2000] as $count) {
-            $source = "| a |\n" . str_repeat("+ | *x* y |\n", $count);
-            $samples = [];
-            for ($round = 0; $round < 3; $round++) {
-                $start = hrtime(true);
-                Carve::toHtml($source);
-                $samples[] = (hrtime(true) - $start) / 1e6;
-            }
-            sort($samples);
-            $times[] = $samples[1];
-        }
-        $this->assertLessThanOrEqual(max(5.0, $times[0] * 18), $times[3]);
+        $small = "| a |\n" . str_repeat("+ | *x* y |\n", 250);
+        $large = "| a |\n" . str_repeat("+ | *x* y |\n", 2000);
+        $excess = Linearity::excess(static fn () => Carve::toHtml($small), static fn () => Carve::toHtml($large), 8);
+        $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
     }
 
     public function testC2B024LazyLineBlockCommentsStayLinear(): void
     {
-        // CPU time excludes unrelated processes' scheduling delays on shared CI workers.
-        $cpuMillis = static function (): float {
-            $usage = getrusage();
-
-            return ($usage['ru_utime.tv_sec'] + $usage['ru_stime.tv_sec']) * 1000
-                + ($usage['ru_utime.tv_usec'] + $usage['ru_stime.tv_usec']) / 1000;
-        };
-        $times = [];
-        foreach ([1000, 2000, 4000, 8000] as $count) {
-            $source = "- ::: |\n  a\n" . str_repeat("%% c\nb\n", $count);
-            $samples = [];
-            for ($run = 0; $run < 3; $run++) {
-                $start = $cpuMillis();
-                Carve::parse($source);
-                $samples[] = $cpuMillis() - $start;
-            }
-            sort($samples);
-            $times[] = $samples[1];
-        }
-
-        $this->assertLessThanOrEqual(max(20.0, $times[0] * 16), $times[3]);
+        $small = "- ::: |\n  a\n" . str_repeat("%% c\nb\n", 1000);
+        $large = "- ::: |\n  a\n" . str_repeat("%% c\nb\n", 8000);
+        $excess = Linearity::excess(static fn () => Carve::parse($small), static fn () => Carve::parse($large), 8);
+        $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
     }
 
     public function testC2H163ProfileByteLengthLimits(): void
