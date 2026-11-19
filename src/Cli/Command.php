@@ -525,7 +525,8 @@ final class Command
                     $result->diagnostics,
                     static fn (Diagnostic $d): bool => $d->channel === 'render-loss',
                 ));
-                $strictLoss = ($options['strictLosses'] ?? false) && $losses !== [];
+                $strictLoss = ($options['strictLosses'] ?? false)
+                    && ($losses !== [] || ($result->suppressedDiagnostics > 0 && $result->html === ''));
                 if ($strictLoss) {
                     fwrite($err, "carve[render-loss]: rendering lost content\n");
                 } else {

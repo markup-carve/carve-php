@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Cli;
 
+use MarkupCarve\Carve\Cli\Command;
 use MarkupCarve\Carve\Test\Support\Corpus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -110,5 +111,23 @@ final class Next2FlagsTest extends TestCase
                 self::assertEquals($wanted['json'], json_decode((string)file_get_contents($path), true, 4096, JSON_THROW_ON_ERROR));
             }
         }
+    }
+
+    public function testSuppressedLossStillFailsStrictRun(): void
+    {
+        $in = fopen('php://memory', 'r+');
+        $out = fopen('php://memory', 'r+');
+        $err = fopen('php://memory', 'r+');
+        self::assertIsResource($in);
+        self::assertIsResource($out);
+        self::assertIsResource($err);
+        fwrite($in, "[a](javascript:x)\n");
+        rewind($in);
+        $status = Command::main(['render', '--strict-losses', '--max-render-losses', '0', '-'], $in, $out, $err);
+        rewind($out);
+        rewind($err);
+        self::assertSame(1, $status);
+        self::assertSame('', stream_get_contents($out));
+        self::assertStringStartsWith('carve[render-loss]:', (string)stream_get_contents($err));
     }
 }
