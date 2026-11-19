@@ -178,8 +178,9 @@ final class HtmlRenderer
             $html = $r->document();
         } finally {
             if ($r !== null) {
-                // The table and note writers point back at the renderer; left in place, the cycle keeps the tree alive.
-                unset($r->tables, $r->notes);
+                // The table and note writers and the inline writer's host callback point back at the renderer; left in
+                // place, the cycle keeps the tree alive.
+                unset($r->tables, $r->notes, $r->inline);
             }
             if ($gc) {
                 gc_enable();
