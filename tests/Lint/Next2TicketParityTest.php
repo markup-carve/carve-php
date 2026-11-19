@@ -424,4 +424,13 @@ i) y',
         }
         self::assertSame($expected, $actual);
     }
+
+    public function testEscapedCommentRecoveryStopsAtNewComment(): void
+    {
+        foreach (['<b>' => 'bare-html-tag', '>x' => 'blockquote-marker-without-space'] as $line => $rule) {
+            $source = "> %%%\n> %%%\n\n%%%\n" . $line . "\n%%%";
+            $codes = array_map(static fn ($diagnostic): string => $diagnostic->code, Carve::lint($source));
+            self::assertNotContains($rule, $codes);
+        }
+    }
 }

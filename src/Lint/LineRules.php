@@ -503,7 +503,14 @@ final class LineRules
             $quoted = preg_match('/^(?:[ \t]*> )+/', $before) === 1;
             $listed = preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+/', $before) === 1;
             if (!$quoted && !$listed) {
-                continue;
+                $owner = $c->lines[$i - 1] ?? null;
+                $nestedCloser = strspn($prior->text, " \t") > 0 && $owner !== null
+                    && preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+.*%{3,}/', $owner->text) === 1;
+                if ($nestedCloser) {
+                    continue;
+                }
+
+                return;
             }
             if (
                 ($quoted && str_starts_with($line->text, '> '))
