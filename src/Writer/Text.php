@@ -418,7 +418,8 @@ final class Text
     private static function markEscaped(string $value, int $i, Context $c, int $next): bool
     {
         $j = $i + 1;
-        if ($j >= strlen($value) || !str_contains(self::MARKS, $value[$j])) {
+        // A mark at the end of the text is escaped for what follows it, which a later parse may read differently.
+        if ($j >= strlen($value) - 1 || !str_contains(self::MARKS, $value[$j])) {
             return false;
         }
         $after = $j + 1 < strlen($value) ? Chars::at($value, $j + 1) : $next;
