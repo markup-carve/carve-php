@@ -24,30 +24,32 @@ final class Alignments
             }
         }
         $cells = self::placed($table, $groups);
-        $marks = [];
-        $hasHead = false;
-        foreach ($cells as [$g, $r, $c, $column, $head]) {
-            $hasHead = $hasHead || $head;
-            $align = $groups[$g][$r][$c]['align'] ?? null;
-            if ($head && is_string($align)) {
-                $marks[$column] = $align;
+        foreach (['align', 'valign'] as $axis) {
+            $marks = [];
+            $hasHead = false;
+            foreach ($cells as [$g, $r, $c, $column, $head]) {
+                $hasHead = $hasHead || $head;
+                $alignment = $groups[$g][$r][$c][$axis] ?? null;
+                if ($head && is_string($alignment)) {
+                    $marks[$column] = $alignment;
+                }
             }
-        }
-        $byColumn = [];
-        foreach ($cells as [$g, $r, $c, $column, $head]) {
-            $align = $groups[$g][$r][$c]['align'] ?? null;
-            $mark = $marks[$column] ?? null;
-            if ($head) {
-                continue;
+            $byColumn = [];
+            foreach ($cells as [$g, $r, $c, $column, $head]) {
+                $alignment = $groups[$g][$r][$c][$axis] ?? null;
+                $mark = $marks[$column] ?? null;
+                if ($head) {
+                    continue;
+                }
+                if ($mark !== null && $alignment === $mark) {
+                    unset($groups[$g][$r][$c][$axis]);
+                } elseif ($mark === null) {
+                    $byColumn[$column][] = [$g, $r, $c, is_string($alignment) ? $alignment : null];
+                }
             }
-            if ($mark !== null && $align === $mark) {
-                unset($groups[$g][$r][$c]['align']);
-            } elseif ($mark === null) {
-                $byColumn[$column][] = [$g, $r, $c, is_string($align) ? $align : null];
+            if (!$hasHead) {
+                $table['columns'] = self::columns(J::nodes($table, 'columns'), $byColumn, $groups, $axis);
             }
-        }
-        if (!$hasHead) {
-            $table['columns'] = self::columns(J::nodes($table, 'columns'), $byColumn, $groups);
         }
 
         return self::store($table, $groups);
@@ -59,19 +61,20 @@ final class Alignments
      * @param array<array<string, mixed>> $columns
      * @param array<int, array<array{0: int, 1: int, 2: int, 3: string|null}>> $byColumn
      * @param array<int, array<int, array<array<string, mixed>>>> $groups
+     * @param string $axis
      *
      * @return array<array<string, mixed>>
      */
-    private static function columns(array $columns, array $byColumn, array &$groups): array
+    private static function columns(array $columns, array $byColumn, array &$groups, string $axis): array
     {
         foreach ($byColumn as $column => $entries) {
             $aligns = array_unique(array_map(static fn (array $e): string => $e[3] ?? '', $entries));
             if (!isset($columns[$column]) || count($aligns) !== 1 || $entries[0][3] === null) {
                 continue;
             }
-            $columns[$column]['align'] = $entries[0][3];
+            $columns[$column][$axis] = $entries[0][3];
             foreach ($entries as [$g, $r, $c]) {
-                unset($groups[$g][$r][$c]['align']);
+                unset($groups[$g][$r][$c][$axis]);
             }
         }
 

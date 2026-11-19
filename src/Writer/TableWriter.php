@@ -20,6 +20,11 @@ final class TableWriter
     private const ALIGN_MARKS = ['left' => '<', 'right' => '>', 'center' => '~'];
 
     /**
+     * @var array<string, string>
+     */
+    private const VALIGN_MARKS = ['top' => '^', 'middle' => '~', 'bottom' => 'v'];
+
+    /**
      * @var array<string>
      */
     private const GROUPS = ['table_head', 'table_body', 'table_foot'];
@@ -404,8 +409,7 @@ final class TableWriter
         if (isset($cell['span'])) {
             return [$header . BraceBlock::of($cell, ['pipes' => true]), [$cell['span'] === 'colspan' ? '<' : '^']];
         }
-        $align = is_string($cell['align'] ?? null) ? (self::ALIGN_MARKS[$cell['align']] ?? '') : '';
-        $prefix = $header . BraceBlock::of($cell, ['mark' => $align, 'pipes' => true]);
+        $prefix = $header . BraceBlock::of($cell, ['mark' => self::alignmentMark($cell), 'pipes' => true]);
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
         $lines = $this->registerWraps($path);
         $content = $this->content($blocks, $path);
@@ -418,6 +422,17 @@ final class TableWriter
     }
 
     /**
+     * @param array<mixed> $cell
+     */
+    private static function alignmentMark(array $cell): string
+    {
+        $align = is_string($cell['align'] ?? null) ? (self::ALIGN_MARKS[$cell['align']] ?? '') : '';
+        $valign = is_string($cell['valign'] ?? null) ? (self::VALIGN_MARKS[$cell['valign']] ?? '') : '';
+
+        return $valign === '' ? $align : ($align === '' ? '?' : $align) . $valign;
+    }
+
+    /**
      * C2-W-011: the cell fields no source spells.
      *
      * @param array<mixed> $cell
@@ -427,10 +442,13 @@ final class TableWriter
      */
     private function unspellable(array $cell, string $path): void
     {
-        foreach (['valign', 'scope', 'headerIds'] as $field) {
+        foreach (['scope', 'headerIds'] as $field) {
             if (isset($cell[$field])) {
                 $this->w->lose($path, 'table_cell', $field);
             }
+        }
+        if (($cell['valign'] ?? null) === 'baseline') {
+            $this->w->lose($path, 'table_cell', 'valign');
         }
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
         if (count($blocks) > 1 || (is_array($blocks[0] ?? null) && ($blocks[0]['type'] ?? '') !== 'cell_paragraph')) {

@@ -66,14 +66,21 @@ final class Attrs
      * @param \MarkupCarve\Carve\Import\HtmlNode $node
      * @param array<string> $omit
      * @param bool $alignStyle
+     * @param \MarkupCarve\Carve\Import\ImportContext|null $context
      *
      * @return array<string, mixed> The fields `attrs`, `lang` and `dir` of the node.
      */
-    public static function of(HtmlNode $node, array $omit = [], bool $alignStyle = false): array
+    public static function of(HtmlNode $node, array $omit = [], bool $alignStyle = false, ?ImportContext $context = null): array
     {
         $entries = [];
+        $styleAlign = $alignStyle ? self::alignOf($node->attr('style')) : null;
         foreach ($node->attrs as $name => $value) {
             $name = (string)$name;
+            if ($name === 'align' && $styleAlign !== null) {
+                $context?->report($node, 'import-attribute-dropped', 'Align attribute dropped: style takes precedence');
+
+                continue;
+            }
             if (in_array($name, $omit, true) || $name === 'lang' || $name === 'dir' || self::isCarrier($name)) {
                 continue;
             }
