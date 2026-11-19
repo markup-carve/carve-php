@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Json;
 
 use stdClass;
+use WeakMap;
 
 /**
  * A JSON Schema validator for the keywords ast-schema.json uses (draft 2020-12 subset).
@@ -16,6 +17,24 @@ final class SchemaValidator
      * @var array<string>
      */
     public array $errors = [];
+
+    /**
+     * Per schema object, the `anyOf`/`oneOf` branch by node type, or null when its branches are not all
+     * type-discriminated node refs.
+     *
+     * @var \WeakMap<\stdClass, array<string, array<string, \stdClass>|null>>|null
+     */
+    private static ?WeakMap $dispatch = null;
+
+    /**
+     * @var array<string, \stdClass|bool>
+     */
+    private array $refs = [];
+
+    /**
+     * @var array<string, string>
+     */
+    private static array $regexes = [];
 
     /**
      * @param \stdClass $root
@@ -67,6 +86,10 @@ final class SchemaValidator
      */
     private static function same(mixed $a, mixed $b): bool
     {
+        if ((is_string($a) || is_int($a) || is_bool($a) || $a === null) && (is_string($b) || is_int($b) || is_bool($b) || $b === null)) {
+            return $a === $b;
+        }
+
         return json_encode($a) === json_encode($b);
     }
 
@@ -94,12 +117,15 @@ final class SchemaValidator
      */
     private function resolve(string $ref): stdClass|bool
     {
+        if (isset($this->refs[$ref])) {
+            return $this->refs[$ref];
+        }
         $node = $this->root;
         foreach (explode('/', substr($ref, 2)) as $part) {
             $node = $node->{str_replace(['~1', '~0'], ['/', '~'], $part)};
         }
 
-        return $node;
+        return $this->refs[$ref] = $node;
     }
 
     /**
@@ -143,10 +169,10 @@ final class SchemaValidator
                 return false;
             }
         }
-        if (isset($schema->anyOf) && !$this->count($value, $schema->anyOf, $path, true)) {
+        if (isset($schema->anyOf) && !$this->count($value, $schema->anyOf, $path, true, $schema, 'anyOf')) {
             return $this->fail($path, 'anyOf');
         }
-        if (isset($schema->oneOf) && $this->count($value, $schema->oneOf, $path, false) !== 1) {
+        if (isset($schema->oneOf) && $this->count($value, $schema->oneOf, $path, false, $schema, 'oneOf') !== 1) {
             return $this->fail($path, 'oneOf');
         }
         if (isset($schema->not) && $this->quiet($value, $schema->not, $path)) {
@@ -166,11 +192,26 @@ final class SchemaValidator
      * @param array<\stdClass|bool> $schemas
      * @param string $path
      * @param bool $any
+     * @param \stdClass $owner
+     * @param string $keyword
      *
      * @return int
      */
-    private function count(mixed $value, array $schemas, string $path, bool $any): int
+    private function count(mixed $value, array $schemas, string $path, bool $any, stdClass $owner, string $keyword): int
     {
+        $byType = $this->dispatch($owner, $keyword, $schemas);
+        if ($byType !== null) {
+            // Every other branch fails on its `type` const, so only the branch of the node's own type can match.
+            $sub = $value instanceof stdClass && isset($value->type) && is_string($value->type) ? ($byType[$value->type] ?? null) : null;
+            if ($sub === null) {
+                return 0;
+            }
+            if (str_ends_with((string)$sub->{'$ref'}, '/' . $value->type)) {
+                return $this->valid($value, $sub, $path) ? 1 : 0;
+            }
+
+            return $this->quiet($value, $sub, $path) ? 1 : 0;
+        }
         $n = 0;
         foreach ($schemas as $sub) {
             if ($this->quiet($value, $sub, $path)) {
@@ -190,6 +231,44 @@ final class SchemaValidator
         }
 
         return $n;
+    }
+
+    private static function regex(string $pattern): string
+    {
+        return self::$regexes[$pattern] ??= '/' . str_replace('/', '\/', $pattern) . '/u';
+    }
+
+    /**
+     * @param \stdClass $owner
+     * @param string $keyword
+     * @param array<\stdClass|bool> $schemas
+     *
+     * @return array<string, \stdClass>|null
+     */
+    private function dispatch(stdClass $owner, string $keyword, array $schemas): ?array
+    {
+        self::$dispatch ??= new WeakMap();
+        $cached = self::$dispatch[$owner] ?? [];
+        if (array_key_exists($keyword, $cached)) {
+            return $cached[$keyword];
+        }
+        $byType = [];
+        foreach ($schemas as $sub) {
+            $target = $sub instanceof stdClass && array_keys(get_object_vars($sub)) === ['$ref']
+                ? $this->resolve((string)$sub->{'$ref'}) : null;
+            $const = $target instanceof stdClass && ($target->type ?? null) === 'object'
+                && in_array('type', (array)($target->required ?? []), true) ? ($target->properties->type->const ?? null) : null;
+            if (!is_string($const) || isset($byType[$const])) {
+                $byType = null;
+
+                break;
+            }
+            $byType[$const] = $sub;
+        }
+        $cached[$keyword] = $byType;
+        self::$dispatch[$owner] = $cached;
+
+        return $byType;
     }
 
     /**
@@ -221,7 +300,7 @@ final class SchemaValidator
             if (isset($schema->minLength) && mb_strlen($value) < $schema->minLength) {
                 return $this->fail($path, 'minLength');
             }
-            if (isset($schema->pattern) && !preg_match('/' . str_replace('/', '\/', (string)$schema->pattern) . '/u', $value)) {
+            if (isset($schema->pattern) && !preg_match(self::regex((string)$schema->pattern), $value)) {
                 return $this->fail($path, 'pattern ' . $schema->pattern);
             }
         }
@@ -300,7 +379,7 @@ final class SchemaValidator
             }
         }
         foreach ((array)($schema->patternProperties ?? []) as $pattern => $sub) {
-            if (preg_match('/' . str_replace('/', '\/', (string)$pattern) . '/u', $key)) {
+            if (preg_match(self::regex((string)$pattern), $key)) {
                 $seen = true;
                 if (!$this->valid($v, $sub, "$path.$key")) {
                     return false;

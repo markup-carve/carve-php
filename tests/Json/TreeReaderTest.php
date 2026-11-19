@@ -172,6 +172,64 @@ final class TreeReaderTest extends TestCase
         $this->assertReason('data-holds-node', $json);
     }
 
+    #[DataProvider('refused')]
+    public function testCheckRefusesWhatReadRefuses(string $json): void
+    {
+        try {
+            TreeReader::read($json);
+            self::fail('Expected TreeError');
+        } catch (TreeError $expected) {
+        }
+        try {
+            TreeReader::check($json);
+            self::fail('Expected TreeError');
+        } catch (TreeError $error) {
+            self::assertSame([$expected->reason, $expected->pointer], [$error->reason, $error->pointer]);
+        }
+    }
+
+    #[DataProvider('accepted')]
+    public function testCheckAcceptsWhatReadAccepts(string $json): void
+    {
+        TreeReader::check($json);
+        $this->addToAssertionCount(1);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function nestedSchemaErrors(): array
+    {
+        $paragraph = static fn (string $children): string => '{"type":"document","astVersion":"2.0","children":'
+            . '[{"type":"paragraph","children":' . $children . '}]}';
+
+        return [
+            'unknown property' => [$paragraph('[{"type":"text","value":"a","bogus":1}]'), '/children/0/children/0/bogus'],
+            'unknown type' => [$paragraph('[{"type":"nope","value":"a"}]'), '/children/0/children/0'],
+            'no type' => [$paragraph('[{"value":"a"}]'), '/children/0/children/0'],
+            'type not a string' => [$paragraph('[{"type":5}]'), '/children/0/children/0'],
+            'not an object' => [$paragraph('["a"]'), '/children/0/children/0'],
+            'block in inline' => [$paragraph('[{"type":"paragraph","children":[]}]'), '/children/0/children/0'],
+            'second child' => [$paragraph('[{"type":"text","value":"a"},{"type":"text","value":3}]'), '/children/0/children/1/value'],
+        ];
+    }
+
+    /**
+     * The schema pointer names the field of the node whose type selects its branch, as before the type dispatch.
+     */
+    #[DataProvider('nestedSchemaErrors')]
+    public function testNestedSchemaErrorPointer(string $json, string $pointer): void
+    {
+        foreach (['read', 'check'] as $method) {
+            try {
+                TreeReader::$method($json);
+                self::fail('Expected TreeError');
+            } catch (TreeError $error) {
+                self::assertSame(['schema', $pointer], [$error->reason, $error->pointer]);
+            }
+        }
+    }
+
     private function assertReason(string $reason, string $json): void
     {
         try {

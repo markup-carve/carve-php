@@ -271,6 +271,7 @@ final class Carve
     {
         $view = Extensions::copy($doc);
         $entries = [];
+        $beforeIds = self::authoredIdCounts($view, $opts);
         foreach ($transforms as $transform) {
             if (!$transform instanceof DocumentTransform) {
                 throw new OptionError('document transform: invalid registration');
@@ -281,15 +282,15 @@ final class Carve
                 if ($changed->type !== 'document') {
                     throw new UnexpectedValueException('document transform did not return a document');
                 }
-                $beforeIds = self::authoredIdCounts($view, $opts);
                 $afterIds = self::authoredIdCounts($changed, $opts);
                 foreach ($afterIds as $id => $count) {
                     if ($count > 1 && $count > ($beforeIds[$id] ?? 0)) {
                         throw new UnexpectedValueException('document transform duplicated an authored id');
                     }
                 }
-                TreeReader::read(TreeEncoder::json($changed, null), self::readerExtensions($opts->extensions));
+                TreeReader::check(TreeEncoder::json($changed, null), self::readerExtensions($opts->extensions));
                 $view = $changed;
+                $beforeIds = $afterIds;
             } catch (Throwable) {
                 $entries[] = new Diagnostic(
                     'extension-transform-failed',
