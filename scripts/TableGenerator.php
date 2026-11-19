@@ -27,6 +27,7 @@ final class TableGenerator
         self::unicodeTables($load, $consts);
         self::lineShapeTables($load, $consts);
         self::limitTables($load, $consts);
+        self::packageTables($dir, $load, $consts);
         self::taskTables($load, $consts);
         self::orderedTables($load, $consts);
         self::divTables($load, $consts);
@@ -102,6 +103,33 @@ final class TableGenerator
                 $consts['DIV_SIGILS'] = ['C2-B-196 div sigils', implode('', $ref['values'])];
             }
         }
+    }
+
+    /**
+     * The pinned spec and the node types of its tree schema.
+     *
+     * @param string $dir
+     * @param \Closure(string): array<string, mixed> $load
+     * @param array<string, array{0: string, 1: mixed}> $consts
+     *
+     * @return void
+     */
+    private static function packageTables(string $dir, Closure $load, array &$consts): void
+    {
+        $pinned = explode(' ', trim((string)file_get_contents(dirname($dir) . '/PINNED')));
+        $consts['SPEC_VERSION'] = ['the specification and the carve commit spec/PINNED names', [
+            'version' => '0.2',
+            'commit' => $pinned[1],
+        ]];
+        $defs = $load('ast-schema')['$defs'];
+        $types = static fn (string $node): array => array_map(
+            static fn (array $entry): string => substr((string)strrchr($entry['$ref'], '/'), 1),
+            $defs[$node]['properties']['children']['items']['oneOf'],
+        );
+        $consts['NODE_TYPES'] = ['ast-schema.json: the children of document (block) and of paragraph (inline)', [
+            'block' => $types('document'),
+            'inline' => $types('paragraph'),
+        ]];
     }
 
     /**

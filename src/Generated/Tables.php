@@ -5723,6 +5723,79 @@ final class Tables
     /** C2-B-004 limits.json */
     public const TAB_STOP = 4;
 
+    /** the specification and the carve commit spec/PINNED names */
+    public const SPEC_VERSION = [
+        'version' => '0.2',
+        'commit' => '88eca15807b0e01a5468b5161de4818dd882a2cb',
+    ];
+
+    /** ast-schema.json: the children of document (block) and of paragraph (inline) */
+    public const NODE_TYPES = [
+        'block' => [
+            'frontmatter',
+            'admonition',
+            'block_extension',
+            'block_quote',
+            'code_block',
+            'comment',
+            'definition_list',
+            'directive',
+            'div',
+            'figure_group',
+            'heading',
+            'include',
+            'line_block',
+            'list',
+            'paragraph',
+            'raw_block',
+            'section',
+            'table',
+            'thematic_break',
+            'footnote',
+            'link_reference_definition',
+            'abbreviation_def',
+            'citation_definition',
+        ],
+        'inline' => [
+            'abbreviation',
+            'autolink',
+            'caption_number',
+            'citation_group',
+            'code',
+            'comment',
+            'critic_comment',
+            'delete',
+            'emphasis',
+            'footnote_ref',
+            'hard_break',
+            'highlight',
+            'image',
+            'inline_extension',
+            'inline_footnote',
+            'insert',
+            'link',
+            'literal_inline',
+            'math',
+            'mention',
+            'non_breaking_space',
+            'raw_inline',
+            'ruby',
+            'small_caps',
+            'smart_punctuation',
+            'soft_break',
+            'span',
+            'strike',
+            'strong',
+            'subscript',
+            'superscript',
+            'symbol',
+            'tag',
+            'text',
+            'underline',
+            'xref',
+        ],
+    ];
+
     /** C2-B-046 C2-B-048 task-states.json: box character to mark */
     public const TASK_MARKS = [
         ' ' => ' ',

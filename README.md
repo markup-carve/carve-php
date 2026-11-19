@@ -48,6 +48,10 @@ Every error a call throws implements `CarveException`.
 | `lint($source, $options)` | lint diagnostics |
 | `includeDependencies($sourceOrTree, $options)` | the files the includes of a document read |
 | `positionOf($source, $offset)` | `['line' => ..., 'column' => ...]` of a UTF-8 byte offset, as the command line counts them |
+| `diffTree($a, $b)`, `applyPatch($tree, $patch, $options)` | a JSON Patch (RFC 6902) between two trees, and the tree it gives; `applyPatch` takes `fingerprint` and throws `Json\PatchError` |
+| `sourceFingerprint($source)`, `treeFingerprint($tree)` | `sha256:` and the hash of the source bytes or of `encodeTree($tree)` |
+| `headingId($text, $options)` | the id `headingIds` generates for a heading with that text, or `null` under `off` |
+| `version()`, `SPEC_VERSION`, `NODE_TYPES` | the installed package version, the pinned spec, and the block and inline node types of its schema |
 | `importDocument($html, $options)`, `importHtml($html, $options)` | `ImportResult`: tree, AST array, diagnostics and the Carve source |
 | `write($tree, $layout = null, $options)` | Carve source of a tree; throws `CarveWriteError` on a loss |
 | `writeWithDiagnostics($tree, $layout = null, $options)` | `WriteResult`: source and the loss diagnostics |
