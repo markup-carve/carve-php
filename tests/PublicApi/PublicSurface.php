@@ -43,6 +43,11 @@ final class PublicSurface
         'MarkupCarve\Carve\Output\WriterRegistry' => 'output',
         'MarkupCarve\Carve\Output\HtmlWriter' => 'output',
         'MarkupCarve\Carve\Output\CarveWriter' => 'output',
+        'MarkupCarve\Carve\Export\MarkdownExporter' => 'export',
+        'MarkupCarve\Carve\Export\PlainTextExporter' => 'export',
+        'MarkupCarve\Carve\Export\AnsiExporter' => 'export',
+        'MarkupCarve\Carve\Export\ExportResult' => 'export',
+        'MarkupCarve\Carve\Export\CarveExportError' => 'export',
         'MarkupCarve\Carve\Extension\ExtensionProvider' => 'provisional',
         'MarkupCarve\Carve\Extension\ExtensionDefinition' => 'provisional',
         'MarkupCarve\Carve\Extension\Claim' => 'provisional',
@@ -66,6 +71,7 @@ final class PublicSurface
         'error' => 'Errors',
         'includes' => 'Includes',
         'output' => 'Output writers',
+        'export' => 'Exports',
         'provisional' => 'Extensions (provisional)',
     ];
 

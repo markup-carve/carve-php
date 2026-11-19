@@ -52,7 +52,11 @@ Every error a call throws implements `CarveException`.
 | `writeWithDiagnostics($tree, $layout = null, $options)` | `WriteResult`: source and the loss diagnostics |
 | `format($source, $options, $layout = null)` | the canonical form of a document |
 | `formatWithDiagnostics($source, $options, $layout = null)` | `WriteResult` of the canonical form |
-| `writers()`, `writeTo($target, $tree, $options, $registry = null)` | the output writer registry (`html`, `carve`), and a write through it |
+| `writers()`, `writeTo($target, $tree, $options, $registry = null)` | the output writer registry (`html`, `carve`, `markdown`, `plain`, `ansi`), and a write through it |
+| `plainText($nodes)`, `tableGrid($table)`, `safeCodeFence($content)` | host helpers: plain text of nodes, the table grid with spans filled, a fence the content cannot close |
+
+The Markdown, plain-text and ANSI exports are `Export\MarkdownExporter`, `Export\PlainTextExporter` and
+`Export\AnsiExporter`; each `export($tree, $options)` returns an `Export\ExportResult` with the text and the losses.
 
 Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
 (`html`), `rawHtml` (keep raw HTML nodes) and `strictLosses`. Includes: an `Include\IncludeResolver` such as
@@ -65,6 +69,7 @@ Extensions (provisional) are passed as `ExtensionDefinition` or `ExtensionProvid
 
 ```
 vendor/bin/carve [render] FILE...           HTML
+    --to=html|markdown|plain|ansi             output format
 vendor/bin/carve ast FILE...                AST JSON (also --tree)
 vendor/bin/carve diagnostics FILE...        diagnostics
 vendor/bin/carve lint FILE...               lint findings

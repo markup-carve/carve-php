@@ -13,7 +13,7 @@ use MarkupCarve\Carve\Node;
 interface OutputWriter
 {
     /**
-     * The target name, unique in a registry: `html`, `carve`, and later `markdown`, `text`, `ansi`.
+     * The target name, unique in a registry: `html`, `carve`, `markdown`, `plain`, `ansi` or a host's own.
      *
      * @return string
      */

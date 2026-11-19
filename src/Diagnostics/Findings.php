@@ -77,7 +77,7 @@ final class Findings
      *
      * @return \SplObjectStorage<\MarkupCarve\Carve\Node, string>
      */
-    private static function paths(Node $doc): SplObjectStorage
+    public static function paths(Node $doc): SplObjectStorage
     {
         /** @var \SplObjectStorage<\MarkupCarve\Carve\Node, string> $paths */
         $paths = new SplObjectStorage();
