@@ -21,6 +21,7 @@ final class ExtensionDefinition
      * @param array{name: string, slot: string}|null $parent
      * @param (\Closure(\MarkupCarve\Carve2\Extension\Claim): (\MarkupCarve\Carve2\Node|null))|null $transform
      * @param (\Closure(\MarkupCarve\Carve2\Node, \MarkupCarve\Carve2\Extension\RenderHost): string)|null $renderer
+     * @param (\Closure(\MarkupCarve\Carve2\Node, \MarkupCarve\Carve2\Extension\RenderHost): string)|null $buildTimeRenderer
      */
     public function __construct(
         public readonly string $name,
@@ -30,6 +31,7 @@ final class ExtensionDefinition
         public readonly ?array $parent = null,
         public readonly ?Closure $transform = null,
         public readonly ?Closure $renderer = null,
+        public readonly ?Closure $buildTimeRenderer = null,
     ) {
     }
 
@@ -42,6 +44,34 @@ final class ExtensionDefinition
      */
     public function withRenderer(Closure $renderer): self
     {
-        return new self($this->name, $this->version, $this->slots, $this->matcher, $this->parent, $this->transform, $renderer);
+        return new self(
+            $this->name,
+            $this->version,
+            $this->slots,
+            $this->matcher,
+            $this->parent,
+            $this->transform,
+            $renderer,
+            $this->buildTimeRenderer,
+        );
+    }
+
+    /**
+     * Register the renderer used only in static mode (C2-X-052).
+     *
+     * @param \Closure(\MarkupCarve\Carve2\Node, \MarkupCarve\Carve2\Extension\RenderHost): string $renderer
+     */
+    public function withBuildTimeRenderer(Closure $renderer): self
+    {
+        return new self(
+            $this->name,
+            $this->version,
+            $this->slots,
+            $this->matcher,
+            $this->parent,
+            $this->transform,
+            $this->renderer,
+            $renderer,
+        );
     }
 }

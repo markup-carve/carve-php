@@ -16,6 +16,7 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static parseWithLayout(string $source, array $options = []): LayoutResult`: Parse and resolve, with the source-layout record of the input (C2-L-001, C2-L-003: the tree is the same).
 - `static validateLayout(string $json, ?array $tree = null): array`: Reads a source-layout record as JSON, refusing what C2-L-008 and C2-L-058 refuse.
 - `static renderWithDiagnostics(Node|array|string $input, array $options = []): RenderResult`: Render, with the entries of the parse and the render-loss channels (C2-A-173). A tree has no parse entries.
+- `static renderWithDocumentTransforms(Node|array|string $input, array $transforms, array $options = []): RenderResult`: C2-X-053 to C2-X-055: run named host passes on a copied resolved view before HTML rendering.
 - `static toHtml(string $source, array $options = []): string`: Carve source to HTML; `render()` takes a tree as well.
 - `static toJson(string $source, array $options = []): string`: Carve source to the bare tree as JSON (C2-A-012), with positions.
 - `static lint(string $source, array $options = []): array`: C2-W-103, C2-W-109: the lint findings of a source, with the catalog messages, byte ranges and tree paths. Options: `rules` (rule id to `on` or `off`), `platforms` (`['github']`) and `includes` (as for a parse), which lints the included files too (C2-N-085). Nothing of lint runs unless this is called.
@@ -194,6 +195,7 @@ Interface. Provisional (extensions.md: the extension host may change in 0.2.x). 
 Class. The registration of an extension (C2-X-001, C2-X-002, C2-X-033): its qualified name and version, the slots in the order of its declaration, an optional matcher with its transform (C2-X-005 to C2-X-015), the slot of the extension that alone may hold it, and an optional renderer, which is trusted host code (C2-X-034).
 
 - `withRenderer(Closure $renderer): ExtensionDefinition`: The same registration with a renderer.
+- `withBuildTimeRenderer(Closure $renderer): ExtensionDefinition`: Register the renderer used only in static mode (C2-X-052).
 
 ### `MarkupCarve\Carve2\Extension\Claim`
 
@@ -215,3 +217,4 @@ Class. The standard extensions `carve.tabs` and `carve.tab` (C2-X-039 to C2-X-04
 - `static extensions(bool $renderer = false): array`: The two registrations; `$renderer` adds the tabs renderer to `carve.tabs`.
 - `static transform(Claim $claim): ?Node`: C2-X-040 to C2-X-042: a `tabs` div whose body is one or more `tab` divs with a nonempty quoted title.
 - `static render(Node $node, RenderHost $host): string`: C2-X-043 to C2-X-048: one radio input, one linked label and one panel per tab; every panel stays in the HTML.
+- `static renderStatic(Node $node, RenderHost $host): string`: C2-X-043: the build-time channel has content sections and no controls.
