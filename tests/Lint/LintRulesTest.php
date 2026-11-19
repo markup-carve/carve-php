@@ -37,6 +37,10 @@ final class LintRulesTest extends TestCase
             if ($name === 'markdown-definition-paragraph') {
                 continue;
             }
+            // The shared fixture's ` : b` stands right of the list's term mark, not below it (C2-B-067).
+            if ($name === 'description-separator-below-content-column') {
+                continue;
+            }
             $id = explode('#', (string)$name)[0];
             /** @var array<string, mixed> $options */
             $options = is_array($case['options'] ?? null) ? $case['options'] : [];
