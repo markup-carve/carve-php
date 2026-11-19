@@ -4,29 +4,26 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve;
 
-final readonly class RenderResult
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
+
+/**
+ * The HTML of a render and the entries of its parse and render-loss channels.
+ */
+final class RenderResult
 {
     /**
-     * @param string $value
-     * @param list<array<string, mixed>> $losses
-     * @param bool $truncated
-     * @param array<string, int> $lossCounts
-     * @param int $totalLosses
+     * @param string $html
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics
      */
-    public function __construct(
-        public string $value,
-        public array $losses,
-        public int $totalLosses,
-        public bool $truncated,
-        public array $lossCounts = [],
-    ) {
+    public function __construct(public readonly string $html, public readonly array $diagnostics)
+    {
     }
 
     /**
-     * @return array{value: string, losses: list<array<string, mixed>>, totalLosses: int, truncated: bool}
+     * @return array<string>
      */
-    public function toArray(): array
+    public function codes(): array
     {
-        return ['value' => $this->value, 'losses' => $this->losses, 'totalLosses' => $this->totalLosses, 'truncated' => $this->truncated];
+        return array_map(static fn (Diagnostic $d): string => $d->code, $this->diagnostics);
     }
 }

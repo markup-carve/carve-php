@@ -1,0 +1,218 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Lint;
+
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\Diagnostics\Message;
+
+/**
+ * The state of one lint run over one source. Offsets are bytes of the source.
+ */
+final class Context
+{
+    /**
+     * @var array<\MarkupCarve\Carve\Lint\Line>
+     */
+    public array $lines = [];
+
+    /**
+     * @var array<int> The start offset of each line, by line index.
+     */
+    public array $lineStarts = [];
+
+    /**
+     * @var array<string, string> The node type at each path.
+     */
+    public array $nodeTypes = [];
+
+    /**
+     * @var array<string, int> The first line of the node at each path.
+     */
+    public array $firstLines = [];
+
+    /**
+     * First source byte of each paragraph's content.
+     *
+     * @var array<string, int>
+     */
+    public array $paragraphStarts = [];
+
+    /**
+     * Frontmatter lines whose text is opaque to all other line rules.
+     *
+     * @var array<int, true>
+     */
+    public array $frontmatterLines = [];
+
+    /**
+     * @var array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
+     */
+    public array $diagnostics = [];
+
+    /**
+     * @var array<int> The line each finding counts at, by finding index.
+     */
+    public array $findingLines = [];
+
+    /**
+     * @var array<array{0: int, 1: int}> Byte ranges of the opaque leaves.
+     */
+    public array $leafMask = [];
+
+    public int $headingLevel = 0;
+
+    /**
+     * @var array<string, true>
+     */
+    public array $headingKinds = [];
+
+    /**
+     * @var array{0: int, 1: int, 2: string}|null
+     */
+    public ?array $firstHeading = null;
+
+    public bool $mixedReported = false;
+
+    /**
+     * @var array<string, true>
+     */
+    public array $referenceUrls = [];
+
+    /**
+     * @var array<string, true>
+     */
+    public array $ids = [];
+
+    /**
+     * @var array<array{0: array<string, mixed>, 1: string}>
+     */
+    public array $fragmentLinks = [];
+
+    /**
+     * @var array<string, string>
+     */
+    public array $footnoteLabels = [];
+
+    /**
+     * @var array<int, true>
+     */
+    public array $attachedLines = [];
+
+    /**
+     * @var array<string, true>
+     */
+    public array $usedReferences = [];
+
+    /**
+     * @var array<string, true>
+     */
+    public array $usedFootnotes = [];
+
+    /**
+     * @var array<array{0: array<string, mixed>, 1: string}>
+     */
+    public array $referenceDefinitions = [];
+
+    /**
+     * @var array<array{0: array<string, mixed>, 1: string}>
+     */
+    public array $unresolvedReferences = [];
+
+    /**
+     * @var array<array{0: array<string, mixed>, 1: string}>
+     */
+    public array $footnoteDefinitions = [];
+
+    public Layout $layout;
+
+    /**
+     * @param string $source
+     * @param array<string, mixed> $options
+     * @param array<string, array{severity: string, default: string|null}> $catalog
+     */
+    public function __construct(public string $source, public array $options, private array $catalog)
+    {
+        $start = 0;
+        $number = 1;
+        while (($feed = strpos($source, "\n", $start)) !== false) {
+            $end = $feed > $start && $source[$feed - 1] === "\r" ? $feed - 1 : $feed;
+            $this->lines[] = new Line(substr($source, $start, $end - $start), $start, $end, $number++);
+            $this->lineStarts[] = $start;
+            $start = $feed + 1;
+        }
+        $this->lines[] = new Line(substr($source, $start), $start, strlen($source), $number);
+        $this->lineStarts[] = $start;
+        $this->layout = new Layout($source);
+    }
+
+    /**
+     * The 1-based line of a byte offset.
+     *
+     * @param int $offset
+     *
+     * @return int
+     */
+    public function lineOf(int $offset): int
+    {
+        $low = 0;
+        $high = count($this->lineStarts) - 1;
+        while ($low < $high) {
+            $mid = ($low + $high + 1) >> 1;
+            if ($this->lineStarts[$mid] <= $offset) {
+                $low = $mid;
+            } else {
+                $high = $mid - 1;
+            }
+        }
+
+        return $low + 1;
+    }
+
+    /**
+     * C2-W-109: whether a rule runs, by the `rules` and `platforms` options and the catalog default.
+     *
+     * @param string $id
+     *
+     * @return bool
+     */
+    public function active(string $id): bool
+    {
+        $rules = is_array($this->options['rules'] ?? null) ? $this->options['rules'] : [];
+        if (str_starts_with($id, 'platform-')) {
+            $platforms = is_array($this->options['platforms'] ?? null) ? $this->options['platforms'] : [];
+
+            return in_array('github', $platforms, true) && ($rules[$id] ?? null) !== 'off';
+        }
+
+        return ($rules[$id] ?? $this->catalog[$id]['default'] ?? null) === 'on';
+    }
+
+    public function off(string $id): bool
+    {
+        $rules = is_array($this->options['rules'] ?? null) ? $this->options['rules'] : [];
+
+        return ($rules[$id] ?? null) === 'off';
+    }
+
+    /**
+     * @param string $id
+     * @param int $start
+     * @param int $end
+     * @param string $path
+     * @param array<string, string|int> $values
+     * @param int $index The message of the rule.
+     *
+     * @return void
+     */
+    public function report(string $id, int $start, int $end, string $path, array $values = [], int $index = 0): void
+    {
+        $length = strlen($this->source);
+        $start = max(0, min($start, $length));
+        $end = max($start, min($end, $length));
+        $severity = $this->catalog[$id]['severity'] ?? 'warning';
+        $this->diagnostics[] = new Diagnostic($id, $severity, 'lint', Message::fill($id, $values, $index), $path, $start, $end);
+        $this->findingLines[] = $this->lineOf($start);
+    }
+}
