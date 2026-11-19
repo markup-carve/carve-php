@@ -42,6 +42,19 @@ final class Linter
     private const CONTROLS = ['disable-next-line', 'disable-line', 'disable', 'enable'];
 
     /**
+     * @var array<string, bool>
+     */
+    private const CONTENT_TYPES = [
+        'paragraph' => true,
+        'caption' => true,
+        'line' => true,
+        'heading' => true,
+        'definition_term' => true,
+        'thematic_break' => true,
+        'table_row' => true,
+    ];
+
+    /**
      * @var array<string, array{severity: string, default: string|null, status: string|null}>|null
      */
     private static ?array $catalog = null;
@@ -199,6 +212,7 @@ final class Linter
         if ($type === 'paragraph' || $type === 'definition_term') {
             $c->paragraphStarts[$path] = $pos['startOffset'];
         }
+        self::markContent($type, $pos, $c);
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
         if (isset(self::OPAQUE_LEAVES[$type])) {
             $c->leafMask[] = [$pos['startOffset'], $pos['endOffset']];
@@ -369,6 +383,29 @@ final class Linter
         return null;
     }
 
+    /**
+     * A leaf block starts its first line's text, and each break ends where the next line's text starts.
+     *
+     * @param string $type
+     * @param array{startLine: int, endLine: int, startColumn: int, endColumn: int, startOffset: int, endOffset: int} $pos
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return void
+     */
+    private static function markContent(string $type, array $pos, Context $c): void
+    {
+        $break = $type === 'soft_break' || $type === 'hard_break';
+        if (!$break && !isset(self::CONTENT_TYPES[$type])) {
+            return;
+        }
+        $line = $c->lines[($break ? $pos['endLine'] : $pos['startLine']) - 1] ?? null;
+        $at = $break ? $pos['endOffset'] : $pos['startOffset'];
+        // A caption's paragraph starts behind the caption's own marker, which stays part of the line's text.
+        if ($line !== null && ($line->content === null || $at < $line->content)) {
+            $line->content = $at;
+        }
+    }
+
     private static function masked(Line $line, Context $c): Line
     {
         $text = $line->text;
@@ -382,7 +419,11 @@ final class Linter
             }
         }
 
-        return $changed ? new Line($text, $line->start, $line->end, $line->number, $line->path, $line->opaque, $line->paragraph) : $line;
+        if (!$changed) {
+            return $line;
+        }
+
+        return new Line($text, $line->start, $line->end, $line->number, $line->path, $line->opaque, $line->paragraph, $line->content);
     }
 
     /**

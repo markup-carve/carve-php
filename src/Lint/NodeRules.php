@@ -121,7 +121,7 @@ final class NodeRules
                 ], NodeRulesB::blockOverindent(...),
             ],
             ['braced-span-opener-as-text', ['text'], NodeRulesB::bracedSpanAsText(...)],
-            ['colon-fence-length-mismatch', ['div', 'admonition', 'figure_group'], NodeRulesB::colonFenceMismatch(...)],
+            ['colon-fence-length-mismatch', ['div', 'directive', 'admonition', 'figure_group'], NodeRulesB::colonFenceMismatch(...)],
             ['consumed-key-near-miss', ['code_block'], NodeRulesB::consumedNearMiss(...)],
             ['ordered-marker-right-aligned', ['list'], NodeRulesB::orderedRightAligned(...)],
             ['table-span-marker-blocked', ['table_cell'], NodeRulesB::spanMarkerBlocked(...)],

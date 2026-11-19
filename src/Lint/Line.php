@@ -17,6 +17,7 @@ final class Line
         public string $path = '',
         public bool $opaque = false,
         public bool $paragraph = false,
+        public ?int $content = null,
     ) {
     }
 }

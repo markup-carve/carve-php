@@ -410,10 +410,13 @@ i) y',
                     ['list-item-body-below-content-column', 22, 32],
                 ],
             ],
+            // carve#6176: a term is inline content, so the block on its lazy line is read too.
             '#5359 term variant' => [
                 ":: term\n   : { #id }",
                 'unattached-inline-attribute',
-                [],
+                [
+                    ['unattached-inline-attribute', 13, 20],
+                ],
             ],
             '#5362 indented term variant' => [
                 "   :: term\n: #H\n  [a]: u\n::::\n",
