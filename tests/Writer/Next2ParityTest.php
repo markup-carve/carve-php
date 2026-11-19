@@ -35,6 +35,20 @@ final class Next2ParityTest extends TestCase
                 [['type' => 'inline_extension', 'name' => 'cite', 'children' => [$t('a [b] c')]]],
                 ":cite[a [b] c]\n",
             ],
+            'balanced brackets across emphasis in citation' => [
+                [
+                    [
+                        'type' => 'inline_extension',
+                        'name' => 'cite',
+                        'children' => [
+                            $t('a ['),
+                            ['type' => 'emphasis', 'children' => [$t('b')]],
+                            $t('] c'),
+                        ],
+                    ],
+                ],
+                ":cite[a [/b/] c]\n",
+            ],
         ];
     }
 

@@ -110,6 +110,13 @@ final class Context
     public ?array $localPartners = null;
 
     /**
+     * @var array<string, array<int, true>>|null Brackets paired across the text of the current bracketed content.
+     */
+    public ?array $bracketPairs = null;
+
+    public string $textPath = '';
+
+    /**
      * The offset in `$flat` of the text being escaped, -1 for a text inside another node.
      */
     public int $here = -1;

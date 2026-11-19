@@ -474,6 +474,7 @@ final class Inline
         if ($type === 'text') {
             $points = $c->inCell ? ($this->w->wrapPoints[$path] ?? null) : null;
             $c->here = $points === null ? $c->flatAt[$path] ?? -1 : -1;
+            $c->textPath = $path;
             $out = $points === null ? $this->text($node, $c, $next, $before) : $this->wrapped($node, $points, $c, $next);
             $c->here = -1;
             // C2-W-016: a CR at the end of a line is part of the line ending.
@@ -884,16 +885,59 @@ final class Inline
     {
         $bracket = $c->inBracket;
         $marks = $c->marks;
+        $pairs = $c->bracketPairs;
         $c->inBracket = true;
+        $c->bracketPairs = self::pairedBrackets($children, $path);
         // A bracket is a barrier of the delimiter stack: no closer inside it reaches a node outside.
         $c->marks = '';
         $c->last = 0x5B;
         $c->lineStart = false;
         $inner = $this->content($children, $path, $c, 0x5D);
         $c->inBracket = $bracket;
+        $c->bracketPairs = $pairs;
         $c->marks = $marks;
 
         return $inner;
+    }
+
+    /**
+     * Pair brackets in text across emphasis and other unbracketed nodes. Nested bracketed constructs own their pairs.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function pairedBrackets(array $nodes, string $path): array
+    {
+        $open = [];
+        $paired = [];
+        $walk = static function (array $list, string $base) use (&$walk, &$open, &$paired): void {
+            foreach ($list as $at => $node) {
+                if (!is_array($node)) {
+                    continue;
+                }
+                $type = $node['type'] ?? '';
+                $key = $base . '/' . $at;
+                if ($type === 'text') {
+                    $value = is_string($node['value'] ?? null) ? $node['value'] : '';
+                    for ($i = 0, $n = strlen($value); $i < $n; $i++) {
+                        if ($value[$i] === '[') {
+                            $open[] = [$key, $i];
+                        } elseif ($value[$i] === ']' && $open !== []) {
+                            [$other, $offset] = array_pop($open);
+                            $paired[$other][$offset] = true;
+                            $paired[$key][$i] = true;
+                        }
+                    }
+                } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
+                    $walk($node['children'], $key . '/children');
+                }
+            }
+        };
+        $walk($nodes, $path);
+
+        return $paired;
     }
 
     /**

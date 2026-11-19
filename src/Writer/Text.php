@@ -125,7 +125,7 @@ final class Text
         $c->escapedAt = [];
         $out = '';
         $prev = $c->last;
-        $balanced = $c->inBracket ? self::balancedBrackets($value) : [];
+        $balanced = $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [];
         $c->localPartners = $c->here < 0 ? self::pairedMarks($value) : null;
         for ($i = 0; $i < $n; $i++) {
             $ch = $value[$i];
@@ -147,29 +147,6 @@ final class Text
         }
 
         return $out;
-    }
-
-    /**
-     * Brackets paired within one text value remain literal inside a bracketed body. An unmatched closing bracket would
-     * end that body, and an unmatched opener could consume its closer.
-     *
-     * @return array<int, true>
-     */
-    private static function balancedBrackets(string $value): array
-    {
-        $open = [];
-        $paired = [];
-        for ($i = 0, $n = strlen($value); $i < $n; $i++) {
-            if ($value[$i] === '[') {
-                $open[] = $i;
-            } elseif ($value[$i] === ']' && $open !== []) {
-                $at = array_pop($open);
-                $paired[$at] = true;
-                $paired[$i] = true;
-            }
-        }
-
-        return $paired;
     }
 
     /**
@@ -651,6 +628,10 @@ final class Text
 
     /**
      * Pair bare marks with the same flanking and nearest-opener rule as the reader. A bracket bounds the delimiter stack.
+     *
+     * @param string $text
+     * @param array<int, string> $types
+     * @param array<int, array<mixed>> $nodes
      *
      * @return array<string, array<int, true>>
      */
