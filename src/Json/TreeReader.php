@@ -89,6 +89,20 @@ final class TreeReader
         'code' => true,
     ];
 
+    /**
+     * Node fields whose values are not walked for child nodes.
+     *
+     * @var array<string, true>
+     */
+    private const OPAQUE_FIELDS = [
+        'data' => true,
+        'props' => true,
+        'payload' => true,
+        'source' => true,
+        'resources' => true,
+        'extensions' => true,
+    ];
+
     private static ?stdClass $schema = null;
 
     /**
@@ -117,6 +131,44 @@ final class TreeReader
      */
     public static function readValue(mixed $decoded, array $options = []): Node
     {
+        $root = self::checked($decoded, $options);
+        $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
+        $node = TreeDecoder::json($json, self::JSON_DEPTH);
+        if ($node === null) {
+            throw new TreeError('schema', '');
+        }
+
+        return $node;
+    }
+
+    /**
+     * Runs every check of `read()` without building the tree.
+     *
+     * @param string $json
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     */
+    public static function check(string $json, array $options = []): void
+    {
+        try {
+            $value = json_decode($json, false, self::JSON_DEPTH, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new TreeError('schema', '');
+        }
+        self::checked($value, $options);
+    }
+
+    /**
+     * @param mixed $decoded
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     *
+     * @return \stdClass The document node.
+     */
+    private static function checked(mixed $decoded, array $options): stdClass
+    {
         $schema = self::schema();
         $validator = new SchemaValidator($schema);
         if (!$validator->valid($decoded, $schema)) {
@@ -144,13 +196,8 @@ final class TreeReader
             }
         }
         self::checkTree($root, $declared, $envelope ? '/document' : '', $standardTabs);
-        $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
-        $node = TreeDecoder::json($json, self::JSON_DEPTH);
-        if ($node === null) {
-            throw new TreeError('schema', '');
-        }
 
-        return $node;
+        return $root;
     }
 
     private static function schema(): stdClass
@@ -591,7 +638,7 @@ final class TreeReader
         array &$stack,
     ): void {
         foreach (get_object_vars($node) as $key => $value) {
-            if (in_array($key, ['data', 'props', 'payload', 'source', 'resources', 'extensions'], true)) {
+            if (isset(self::OPAQUE_FIELDS[$key]) || (!is_array($value) && !$value instanceof stdClass)) {
                 continue;
             }
             $pending = [[$value, $path . '/' . self::escape($key)]];
@@ -602,12 +649,16 @@ final class TreeReader
                         $stack[] = [$current, $currentPath, $blocks, $inlines, $qualified, $unqualified];
                     } else {
                         foreach (get_object_vars($current) as $k => $v) {
-                            $pending[] = [$v, $currentPath . '/' . self::escape((string)$k)];
+                            if (is_array($v) || $v instanceof stdClass) {
+                                $pending[] = [$v, $currentPath . '/' . self::escape((string)$k)];
+                            }
                         }
                     }
                 } elseif (is_array($current)) {
                     foreach ($current as $k => $v) {
-                        $pending[] = [$v, $currentPath . '/' . $k];
+                        if (is_array($v) || $v instanceof stdClass) {
+                            $pending[] = [$v, $currentPath . '/' . $k];
+                        }
                     }
                 }
             }
