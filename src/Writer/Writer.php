@@ -130,9 +130,9 @@ final class Writer
     {
         Options::from($options, ['format']);
         $parsed = Carve::parseWithLayout($source);
-        $tree = json_decode(TreeEncoder::json($parsed->tree, $source), true, 100000, JSON_THROW_ON_ERROR);
+        $tree = TreeEncoder::decoded($parsed->tree);
 
-        return self::writeWithDiagnostics(is_array($tree) ? $tree : [], $layout ?? $parsed->layout, $options);
+        return self::writeWithDiagnostics($tree, $layout ?? $parsed->layout, $options);
     }
 
     /**
