@@ -1328,7 +1328,10 @@ final class NodeRulesB
             if ($line === null) {
                 continue;
             }
-            $indent = self::indentation($line->text);
+            $offset = self::indentation($line->text);
+            $quotes = $c->layout->quoteDepth($path);
+            $indent = $quotes === 0 && !str_contains(substr($line->text, 0, $offset), "\t")
+                ? $offset : $c->layout->columnOf($line->start + $offset, $quotes);
             if ($indent > $content) {
                 $out[] = [$at, $line, $indent, $type, $content];
             }

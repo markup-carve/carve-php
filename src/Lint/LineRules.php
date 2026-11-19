@@ -244,7 +244,10 @@ final class LineRules
             return;
         }
         $previous = self::prior($line, $c);
-        if ($text[0] === '-' && $previous !== null && !self::blank($previous) && $previous->paragraph) {
+        if (
+            $text[0] === '-' && $previous !== null && !self::blank($previous)
+            && ($c->nodeTypes[$previous->path] ?? null) === 'paragraph'
+        ) {
             return;
         }
         [$text, $start] = self::afterQuote($line);
@@ -258,7 +261,7 @@ final class LineRules
         [$text, $start] = self::afterQuote($line);
         if (
             (self::isRun($text, '-', 3) || self::isRun($text, '=', 3))
-            && $previous !== null && $previous->paragraph && !self::blank($previous)
+            && $previous !== null && ($c->nodeTypes[$previous->path] ?? null) === 'paragraph' && !self::blank($previous)
         ) {
             $c->report('setext-heading-underline', $start, $start + strlen($text), $line->path);
         }
@@ -266,7 +269,7 @@ final class LineRules
 
     private static function spacedBreak(Line $line, Context $c): void
     {
-        if (self::isSpacedRun(self::trimmed($line)[0])) {
+        if (self::isSpacedRun(self::afterQuote($line)[0])) {
             self::reportLine('deprecated-spaced-thematic-break', $line, $c);
         }
     }
@@ -554,7 +557,8 @@ final class LineRules
         $previous = self::prior($line, $c);
         if (
             $line->paragraph && !self::hasAncestor($line->path, $c, 'definition_description') && str_starts_with($text, ': ')
-            && ($previous === null || !self::blank($previous))
+            && $previous !== null && $previous->path === $line->path && !self::blank($previous)
+            && ($c->firstLines[$line->path] ?? $line->number) < $line->number
         ) {
             $c->report('markdown-definition-paragraph', $start, $start + strlen($text), $line->path);
         }
@@ -670,6 +674,7 @@ final class LineRules
         if (
             $previous === null || !$line->paragraph || !str_starts_with($line->text, ' ')
             || ($c->nodeTypes[$previous->path] ?? null) !== 'heading'
+            || self::quoteDepth($previous) !== self::quoteDepth($line)
         ) {
             return;
         }
