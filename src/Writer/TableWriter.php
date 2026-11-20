@@ -92,9 +92,23 @@ final class TableWriter
         if ($widths !== '') {
             $keys[] = ['widths', $widths];
         }
-        $bodyRows = self::bodyRows($node);
-        if ($bodyRows !== '') {
-            $keys[] = ['body-rows', $bodyRows];
+        $bodies = self::bodyFacts($node);
+        $partitioned = $bodies !== [] && (
+            count($bodies) > 1 || $bodies[0]['dataRows'] === 0 || $bodies[0]['headerRows'] > 0
+            || $bodies[0]['rowHeadColumns'] !== null
+        );
+        if ($partitioned) {
+            $keys[] = ['body-rows', implode(',', array_column($bodies, 'dataRows'))];
+            if (array_filter($bodies, static fn (array $body): bool => $body['headerRows'] > 0) !== []) {
+                $keys[] = ['body-header-rows', implode(',', array_column($bodies, 'headerRows'))];
+            }
+            if (array_filter($bodies, static fn (array $body): bool => $body['rowHeadColumns'] !== null) !== []) {
+                $columns = array_map(
+                    static fn (array $body): string => $body['rowHeadColumns'] === null ? '' : (string)$body['rowHeadColumns'],
+                    $bodies,
+                );
+                $keys[] = ['body-header-cols', implode(',', $columns)];
+            }
         }
         $groups = $this->groups($node);
         if ($delimited) {
@@ -113,25 +127,53 @@ final class TableWriter
     }
 
     /**
-     * C2-W-136: a partitioned table spells the data-row count of each body.
+     * C2-W-136: record the data rows and leading header rows of each body.
      *
      * @param array<mixed> $node
+     *
+     * @return array<array{dataRows: int, headerRows: int, rowHeadColumns: int|null}>
      */
-    private static function bodyRows(array $node): string
+    private static function bodyFacts(array $node): array
     {
         $bodies = array_values(array_filter(
             is_array($node['children'] ?? null) ? $node['children'] : [],
             static fn (mixed $group): bool => is_array($group) && ($group['type'] ?? '') === 'table_body',
         ));
-        $counts = array_map(static fn (array $body): int => count(array_filter(
-            is_array($body['children'] ?? null) ? $body['children'] : [],
-            static fn (mixed $row): bool => is_array($row) && ($row['type'] ?? '') === 'table_row',
-        )), $bodies);
-        if (count($bodies) < 2 && !in_array(0, $counts, true)) {
-            return '';
+        $facts = [];
+        foreach ($bodies as $body) {
+            $rows = array_values(array_filter(
+                is_array($body['children'] ?? null) ? $body['children'] : [],
+                static fn (mixed $row): bool => is_array($row) && ($row['type'] ?? '') === 'table_row',
+            ));
+            $headers = self::leadingHeaderRows($rows);
+            $facts[] = [
+                'dataRows' => count($rows) - $headers,
+                'headerRows' => $headers,
+                'rowHeadColumns' => is_int($body['rowHeadColumns'] ?? null) ? $body['rowHeadColumns'] : null,
+            ];
         }
 
-        return implode(',', $counts);
+        return $facts;
+    }
+
+    /**
+     * @param array<array<mixed>> $rows
+     */
+    private static function leadingHeaderRows(array $rows): int
+    {
+        $count = 0;
+        foreach ($rows as $row) {
+            $cells = array_values(array_filter(
+                is_array($row['children'] ?? null) ? $row['children'] : [],
+                static fn (mixed $cell): bool => is_array($cell) && ($cell['type'] ?? '') === 'table_cell',
+            ));
+            if ($cells === [] || array_filter($cells, static fn (array $cell): bool => ($cell['header'] ?? false) !== true) !== []) {
+                break;
+            }
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
@@ -369,6 +411,11 @@ final class TableWriter
     private function group(array $group, string $path, bool $last, array &$lines): void
     {
         $items = is_array($group['children'] ?? null) ? $group['children'] : [];
+        $bodyHeaders = ($group['type'] ?? '') === 'table_body' ? self::leadingHeaderRows(array_values(array_filter(
+            $items,
+            static fn (mixed $item): bool => is_array($item) && ($item['type'] ?? '') === 'table_row',
+        ))) : 0;
+        $rowIndex = 0;
         $lastAt = count($items) - 1;
         foreach ($items as $at => $item) {
             if (!is_array($item)) {
@@ -383,9 +430,11 @@ final class TableWriter
 
                 continue;
             }
-            foreach ($this->row($item, $path . '/children/' . $at, ($group['type'] ?? '') === 'table_head') as $line) {
+            $head = ($group['type'] ?? '') === 'table_head';
+            foreach ($this->row($item, $path . '/children/' . $at, $head, $rowIndex < $bodyHeaders) as $line) {
                 $lines[] = $line;
             }
+            $rowIndex++;
         }
     }
 
@@ -409,15 +458,16 @@ final class TableWriter
      * @param array<mixed> $row
      * @param string $path
      * @param bool $head
+     * @param bool $bodyHeader
      *
      * @return array<array{lead: string, segments: array<string>, tail: string}>
      */
-    private function row(array $row, string $path, bool $head): array
+    private function row(array $row, string $path, bool $head, bool $bodyHeader): array
     {
         $cells = [];
         $height = 1;
         foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
-            [$prefix, $fragments] = $this->cell($cell, $at, $head);
+            [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader);
             $cells[] = [$prefix, $fragments];
             $height = max($height, count($fragments) === 0 ? 1 : max(array_keys($fragments)) + 1);
         }
@@ -477,12 +527,13 @@ final class TableWriter
      * @param array<mixed> $cell
      * @param string $path
      * @param bool $head
+     * @param bool $bodyHeader
      *
      * @return array{0: string, 1: array<string>}
      */
-    private function cell(array $cell, string $path, bool $head): array
+    private function cell(array $cell, string $path, bool $head, bool $bodyHeader): array
     {
-        $header = ($cell['header'] ?? false) === true || ($head && isset($cell['span'])) ? '=' : '';
+        $header = !$bodyHeader && (($cell['header'] ?? false) === true || ($head && isset($cell['span']))) ? '=' : '';
         $this->unspellable($cell, $path);
         if (isset($cell['span'])) {
             return [$header . BraceBlock::of($cell, ['pipes' => true]), [$cell['span'] === 'colspan' ? '<' : '^']];
