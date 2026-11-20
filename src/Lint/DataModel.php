@@ -265,7 +265,7 @@ final class DataModel
             if ($parentHolder !== null && $parentHolder['inline']) {
                 $pos = Support::pos($item['node']);
                 if ($pos !== null && $item['path'] !== '') {
-                    ($this->onInline)((object)[
+                    $inline = [
                         'type' => $type,
                         'path' => $item['path'],
                         'parent' => $c->nodeTypes[$item['parent']] ?? 'document',
@@ -273,7 +273,11 @@ final class DataModel
                         'start' => $pos['startOffset'],
                         'end' => $pos['endOffset'],
                         'text' => substr($c->source, $pos['startOffset'], $pos['endOffset'] - $pos['startOffset']),
-                    ]);
+                    ];
+                    if (isset($c->dataNodeTypes[$type]) || isset($c->dataNodeTypes['*'])) {
+                        $inline['node'] = $item['node'];
+                    }
+                    ($this->onInline)((object)$inline);
                 }
             } elseif ($parentHolder === null) {
                 $this->blockWalked[] = $item;
@@ -540,16 +544,19 @@ final class DataModel
             $endLine = strpos($c->source, "\n", $opener);
             $openerText = self::trimEnd(substr($c->source, $opener, ($endLine === false ? strlen($c->source) : $endLine) - $opener));
             $lastLine = $this->lines[$pos['endLine'] - 1] ?? $line;
-            $this->blocks[] = (object)[
+            $bounds = [
                 'type' => $type,
                 'path' => $item['path'],
                 'start' => $start,
                 'end' => $pos['endOffset'],
                 'opener_start' => $opener,
-                'opener_text' => $openerText,
-                'line' => $line,
-                'last_line' => $lastLine,
             ];
+            if (in_array($type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)) {
+                $bounds['opener_text'] = $openerText;
+                $bounds['line'] = $line;
+                $bounds['last_line'] = $lastLine;
+            }
+            $this->blocks[] = (object)$bounds;
             $parentType = $c->nodeTypes[$item['parent']] ?? 'document';
             $itemOwnerType = $c->nodeTypes[$itemPath] ?? 'document';
             if (!(($this->acceptBlock)($type, $parentType, $itemOwnerType))) {
@@ -564,8 +571,7 @@ final class DataModel
                 'path' => $item['path'],
                 'start' => $start,
                 'end' => $pos['endOffset'],
-                'text' => in_array($type, ['list', 'line', 'frontmatter', 'table_row'], true)
-                    ? substr($c->source, $start, $pos['endOffset'] - $start) : '',
+                'text' => null,
                 'line' => $line,
                 'last_line' => $lastLine,
                 'column' => $column,
@@ -582,6 +588,9 @@ final class DataModel
                 'after_quote_mark' => str_ends_with(substr($c->source, $line->start, $start - $line->start), '> '),
                 'prev_type' => $prevPath === null ? null : ($c->nodeTypes[$prevPath] ?? null),
             ];
+            if (isset($c->dataNodeTypes[$type]) || isset($c->dataNodeTypes['*'])) {
+                $record->node = $node;
+            }
             ($this->onBlock)($record);
         }
         $this->blockWalked = [];
@@ -610,10 +619,47 @@ final class DataModel
         return $found;
     }
 
+    private function fillPathsOnly(): void
+    {
+        $previous = null;
+        foreach ($this->blocks as $block) {
+            if (
+                $previous !== null
+                && ($previous->start > $block->start
+                    || ($previous->start === $block->start && strlen($previous->path) > strlen($block->path)))
+            ) {
+                usort($this->blocks, static fn (stdClass $a, stdClass $b): int => ($a->start <=> $b->start)
+                    ?: (strlen($a->path) <=> strlen($b->path)));
+
+                break;
+            }
+            $previous = $block;
+        }
+        $next = 0;
+        $open = [];
+        foreach ($this->lines as $line) {
+            while (isset($this->blocks[$next]) && $this->blocks[$next]->start <= $line->body_start) {
+                $open[] = $this->blocks[$next++];
+            }
+            foreach ($open as $i => $block) {
+                if ($block->end < $line->start) {
+                    unset($open[$i]);
+                } elseif ($line->path === '' && strlen($block->path) > strlen($line->path)) {
+                    $line->path = $block->path;
+                }
+            }
+        }
+    }
+
     // Track nested colon runs and container boundaries in source order.
     // phpcs:ignore Generic.Metrics.CyclomaticComplexity.MaxExceeded
     private function markColonContainers(): void
     {
+        if (!str_contains($this->context->source, ':::')) {
+            $this->fillPathsOnly();
+
+            return;
+        }
         $bounds = array_values(array_filter($this->blocks, static fn (stdClass $block): bool => in_array(
             $block->type,
             ['block_quote', 'list_item', 'footnote', 'definition_description'],

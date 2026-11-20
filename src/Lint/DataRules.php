@@ -50,6 +50,11 @@ final class DataRules
     private static ?array $rulesCache = null;
 
     /**
+     * @var array{node: array<string, true>, item: array<string, true>}|null
+     */
+    private static ?array $nodeFields = null;
+
+    /**
      * @var array<string, mixed>
      */
     private array $vars = [];
@@ -125,6 +130,134 @@ final class DataRules
         }
 
         return self::$rulesCache = $rules;
+    }
+
+    private static function readsNode(mixed $expression): bool
+    {
+        if (!is_array($expression)) {
+            return false;
+        }
+        foreach ($expression as $key => $value) {
+            if (
+                ($key === 'f' || $key === 'has' || $key === 'in')
+                && is_string($value) && str_starts_with($value, 'node.')
+            ) {
+                return true;
+            }
+            if (self::readsNode($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    public static function nodeTypes(Context $context): array
+    {
+        $types = [];
+        foreach (self::rules() as $rule) {
+            if (
+                !in_array($rule['over'], ['block', 'inline'], true)
+                || !$context->activeRule($rule['id']) || !self::readsNode($rule)
+            ) {
+                continue;
+            }
+            if ($rule['types'] === null) {
+                $types['*'] = true;
+            } else {
+                foreach ($rule['types'] as $nodeType) {
+                    if (is_string($nodeType)) {
+                        $types[$nodeType] = true;
+                    }
+                }
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * @param array<mixed> $expression
+     * @param array{node: array<string, true>, item: array<string, true>} $fields
+     */
+    private static function gatherFields(array $expression, array &$fields): void
+    {
+        foreach ($expression as $key => $value) {
+            if (($key === 'f' || $key === 'has' || $key === 'in') && is_string($value)) {
+                foreach (['node', 'item'] as $owner) {
+                    if (str_starts_with($value, $owner . '.')) {
+                        $fields[$owner][substr($value, strlen($owner) + 1)] = true;
+                    }
+                }
+            }
+            if (is_array($value)) {
+                self::gatherFields($value, $fields);
+            }
+        }
+    }
+
+    /**
+     * @param array<mixed> $source
+     * @param list<string> $parts
+     * @param array<string, mixed> $target
+     */
+    private static function copyField(array $source, array $parts, array &$target): void
+    {
+        $key = array_shift($parts);
+        if ($key === null || !array_key_exists($key, $source)) {
+            return;
+        }
+        if ($parts === []) {
+            $target[$key] = $source[$key];
+
+            return;
+        }
+        if (is_array($source[$key])) {
+            if (!is_array($target[$key] ?? null)) {
+                $target[$key] = [];
+            }
+            self::copyField($source[$key], $parts, $target[$key]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    public static function nodeData(array $node): array
+    {
+        $fields = self::$nodeFields;
+        if ($fields === null) {
+            $fields = ['node' => [], 'item' => []];
+            foreach (self::rules() as $rule) {
+                self::gatherFields($rule, $fields);
+            }
+            self::$nodeFields = $fields;
+        }
+        $out = [];
+        foreach ($fields['node'] as $path => $_) {
+            if ($path === 'children') {
+                $out['children'] = [];
+                foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+                    $item = [];
+                    if (is_array($child)) {
+                        foreach ($fields['item'] as $itemPath => $unused) {
+                            self::copyField($child, explode('.', (string)$itemPath), $item);
+                        }
+                    }
+                    $out['children'][] = $item;
+                }
+
+                continue;
+            }
+            self::copyField($node, explode('.', $path), $out);
+        }
+
+        return $out;
     }
 
     // Read only unconditional literal predicates for safe prefiltering.
@@ -614,6 +747,10 @@ final class DataRules
     private function field(string $path, stdClass $record): mixed
     {
         if (!str_contains($path, '.')) {
+            if ($path === 'text' && property_exists($record, 'text') && $record->text === null) {
+                $record->text = substr($this->context->source, $record->start, $record->end - $record->start);
+            }
+
             return $record->$path ?? null;
         }
         static $parts = [];
@@ -728,6 +865,23 @@ final class DataRules
             }
 
             return false;
+        }
+        if ($op === 'count' && is_array($expr['count'] ?? null) && is_string($expr['count']['in'] ?? null)) {
+            $list = $this->field($expr['count']['in'], $record);
+            if (!is_array($list)) {
+                return 0;
+            }
+            $from = is_int($expr['count']['from'] ?? null) ? $expr['count']['from'] : 0;
+            $found = 0;
+            foreach (array_slice($list, $from) as $item) {
+                $copy = clone $record;
+                $copy->item = $item;
+                if ($this->value($expr['count']['where'], $copy)) {
+                    $found++;
+                }
+            }
+
+            return $found;
         }
         if (
             is_string($op) && isset(self::BINARY_OPS[$op])

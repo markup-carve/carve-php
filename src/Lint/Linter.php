@@ -238,6 +238,11 @@ final class Linter
                 'imageLine' => is_array($children) && count($children) === 1
                     && is_array($children[0] ?? null) && ($children[0]['type'] ?? '') === 'image',
             ];
+            if (isset($c->dataNodeTypes[$type]) || isset($c->dataNodeTypes['*'])) {
+                foreach (DataRules::nodeData($node) as $field => $value) {
+                    $compact[$field] = $value;
+                }
+            }
             $c->walked[] = ['node' => $compact, 'path' => $path, 'parent' => $parent, 'index' => $index];
         }
         $attrs = $node['attrs'] ?? null;

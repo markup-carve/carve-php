@@ -41,6 +41,11 @@ final class Context
     /**
      * @var array<string, true>
      */
+    public array $dataNodeTypes = [];
+
+    /**
+     * @var array<string, true>
+     */
     private array $dataIds = [];
 
     /**
@@ -188,6 +193,7 @@ final class Context
         $this->dataRules = DataRules::enabled();
         if ($this->dataRules) {
             $this->dataIds = DataRules::ids();
+            $this->dataNodeTypes = DataRules::nodeTypes($this);
         }
         $start = 0;
         $number = 1;
