@@ -33,6 +33,11 @@ final class Context
      */
     public bool $afterDescriptions = false;
 
+    /**
+     * C2-B-046: the content starts directly behind the marker of an item without a task.
+     */
+    public bool $boxLead = false;
+
     public bool $inCell = false;
 
     public bool $inBracket = false;
