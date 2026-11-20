@@ -171,7 +171,7 @@ final class LineRules
             return null;
         }
         // C2-B-024, C2-B-025: a lazy line's content starts at its first marker, a quote mark included (carve#6178).
-        [$text, $start] = self::lineText($c->lines[$line->number - 1] ?? $line);
+        [$text, $start] = self::lineText($line);
 
         return [$text, $start, $previous];
     }
@@ -579,6 +579,13 @@ final class LineRules
             return;
         }
         [$text, $start, $previous] = $content;
+        if (!self::startsBlock($text)) {
+            $original = $c->lines[$line->number - 1] ?? $line;
+            [$unmasked, $unmaskedStart] = self::lineText($original);
+            if (str_starts_with($unmasked, '> ')) {
+                [$text, $start] = [$unmasked, $unmaskedStart];
+            }
+        }
         if (!self::startsBlock($text) || (str_starts_with($text, '{') && !str_ends_with($text, '}'))) {
             return;
         }
