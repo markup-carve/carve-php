@@ -104,7 +104,7 @@ final class NodeRulesA
 
         return !self::joined($text, $at + strlen($mark), $id)
             && !self::escapedAt($text, $at)
-            && !(str_starts_with($id, 'deprecated-bare-') && $at > 0 && $text[$at - 1] === $mark[0])
+            && !($at > 0 && $text[$at - 1] === $mark[0])
             && $after !== ''
             && preg_match('/^[\p{Zs}\t\n\r\f\v]/u', $after) !== 1
             && $after[0] !== $mark[0]
