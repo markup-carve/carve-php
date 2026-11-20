@@ -129,6 +129,17 @@ final class MappingTest extends TestCase
         (new ProseMirrorToCarve(['mapping' => ['nodes' => ['note' => ['as' => 'div', 'class' => 'note']]]]))->convert($doc);
     }
 
+    public function testAHostBlockKeepsItsPlaceOnlyWithTheCarveAttribute(): void
+    {
+        $source = "{.poll question=Lunch?}\n:::\n:::\n\nText.\n";
+        foreach ([true => [0, 1], false => [null, 1]] as $carve => $origins) {
+            $mapping = ['nodes' => ['poll' => ['as' => 'div', 'class' => 'poll', 'attributes' => ['question'], 'carve' => (bool)$carve]]];
+            $doc = (new ProseMirrorRenderer(['mapping' => $mapping]))->renderSource($source);
+            $this->assertSame($carve ? ['$index' => 0] : null, $doc['content'][0]['attrs']['carve'] ?? null);
+            $this->assertSame($origins, (new ProseMirrorToCarve(['mapping' => $mapping]))->toTreeWithOrigins($doc)['origins']);
+        }
+    }
+
     public function testAnUndeclaredAttributeIsReported(): void
     {
         $bridge = new ProseMirrorToCarve(['mapping' => self::MAPPING]);

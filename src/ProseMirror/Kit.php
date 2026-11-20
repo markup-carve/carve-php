@@ -139,6 +139,10 @@ final class Kit
     private static function mappingEntry(string $kind, string $name, mixed $entry): MappingEntry
     {
         $entry = is_array($entry) ? $entry : [];
+        $carve = $entry['carve'] ?? false;
+        if (!is_bool($carve)) {
+            throw new InvalidArgumentException(sprintf('mapping: "carve" of "%s" must be a boolean', $name));
+        }
         $toTree = $entry['toTree'] ?? null;
         $fromTree = $entry['fromTree'] ?? null;
         if ($toTree instanceof Closure || $fromTree instanceof Closure) {
@@ -146,8 +150,23 @@ final class Kit
                 null,
                 toTree: $toTree instanceof Closure ? $toTree : null,
                 fromTree: $fromTree instanceof Closure ? $fromTree : null,
+                carve: $carve,
             );
         }
+
+        return self::declaredEntry($kind, $name, $entry, $carve);
+    }
+
+    /**
+     * @param string $kind
+     * @param string $name
+     * @param array<mixed> $entry
+     * @param bool $carve
+     *
+     * @throws \InvalidArgumentException
+     */
+    private static function declaredEntry(string $kind, string $name, array $entry, bool $carve): MappingEntry
+    {
         $allowed = $kind === 'marks' ? ['span'] : ['span', 'div'];
         $as = $entry['as'] ?? null;
         $attributes = $entry['attributes'] ?? [];
@@ -167,7 +186,7 @@ final class Kit
         }
 
         // A declared node is an atom unless it has `content: true`.
-        return new MappingEntry($as, $class, $names, $content);
+        return new MappingEntry($as, $class, $names, $content, carve: $carve);
     }
 
     /**

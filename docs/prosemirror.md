@@ -103,6 +103,11 @@ A declared entry has:
 - `attributes`: the ProseMirror attributes to keep, each as a key/value pair: a string as it is, any other value as
   JSON. On load the value is a string.
 - `content`: `true` for a node with content (inlines in a span, blocks in a div). Without it the node is an atom.
+- `carve`: `true` when the editor's node type has a `carve` attribute (`addAttributes: () => ({ carve: { default:
+  null, rendered: false } })`). The renderer then records a top-level node's place in the loaded document, so
+  `toTreeWithOrigins()` reports its origin and the kit's `serializeToCarve(..., { source })` keeps its text after an
+  edit elsewhere. Without it the node has no `carve` attribute, which ProseMirror's schema check would reject, and
+  a top-level host node counts as new. A callback entry takes `carve` too.
 
 Only a span or div of exactly that shape loads back as the application type: the one class, the listed keys and
 nothing else. Any other span or div stays a kit node, so nothing it carries is lost. `ignoredAttributes()` lists an

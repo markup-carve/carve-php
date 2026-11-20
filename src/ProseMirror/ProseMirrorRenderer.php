@@ -84,8 +84,9 @@ final class ProseMirrorRenderer
         $content = $this->blocks($children);
         if ($children !== []) {
             foreach ($content as $index => $node) {
-                // A host node has no `carve` attribute in its schema.
-                if (isset($this->mapping['nodes'][Kit::str($node['type'] ?? null)])) {
+                // A host node keeps its place only when its schema has the `carve` attribute.
+                $host = $this->mapping['nodes'][Kit::str($node['type'] ?? null)] ?? null;
+                if ($host !== null && !$host->carve) {
                     continue;
                 }
                 $carve = Kit::carveOf($node);

@@ -20,6 +20,7 @@ final class MappingEntry
      * @param bool $content Whether a declared node has content; without it the node is an atom.
      * @param \Closure|null $toTree
      * @param \Closure|null $fromTree
+     * @param bool $carve Whether the host node type has a `carve` attribute, so a top-level node keeps its place.
      */
     public function __construct(
         public readonly ?string $as,
@@ -28,6 +29,7 @@ final class MappingEntry
         public readonly bool $content = false,
         public readonly ?Closure $toTree = null,
         public readonly ?Closure $fromTree = null,
+        public readonly bool $carve = false,
     ) {
     }
 }
