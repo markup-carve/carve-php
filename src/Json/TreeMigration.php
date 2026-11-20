@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Json;
 
+use JsonException;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Inline\Chars;
 
@@ -63,7 +64,11 @@ final class TreeMigration
     private static function input(array|string $input): array
     {
         if (is_string($input)) {
-            $input = json_decode($input, true, 4096, JSON_THROW_ON_ERROR);
+            try {
+                $input = json_decode($input, true, 4096, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                throw new TreeError('schema', '');
+            }
         }
         if (!is_array($input)) {
             throw new TreeError('schema', '');
