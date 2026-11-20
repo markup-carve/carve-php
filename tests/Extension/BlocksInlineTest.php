@@ -116,6 +116,14 @@ final class BlocksInlineTest extends TestCase
                 ['rawHtml' => true],
             ),
         );
+        $this->assertSame(
+            "<details>\n  <summary>Q</summary>\n  <blockquote>\n    <p>before</p>\n<i>x</i>\n    <p>after</p>\n  </blockquote>\n</details>",
+            self::html(
+                "::: details \"Q\"\n> before\n> ```=html\n> <i>x</i>\n> ```\n> after\n:::\n",
+                Details::bundle(),
+                ['rawHtml' => true],
+            ),
+        );
     }
 
     public function testDetailsTreeWriteAndFallback(): void

@@ -95,11 +95,31 @@ final class Details
             if ($html === '') {
                 continue;
             }
-            $preserveBlock = self::hasRawBlock([$block]);
+            $rawRanges = [];
+            $searchFrom = 0;
+            foreach (self::rawValues([$block]) as $value) {
+                $at = strpos($html, $value, $searchFrom);
+                while ($at !== false && $at > 0 && $html[$at - 1] !== "\n") {
+                    $at = strpos($html, $value, $at + 1);
+                }
+                if ($at !== false) {
+                    $rawRanges[] = [$at, $at + strlen($value)];
+                    $searchFrom = $at + strlen($value);
+                }
+            }
             $literal = false;
             $rendered = [];
+            $offset = 0;
             foreach (explode("\n", $html) as $line) {
-                $rendered[] = $preserveBlock || $literal || $line === '' ? $line : $pad . '  ' . $line;
+                $rawLine = false;
+                foreach ($rawRanges as [$start, $end]) {
+                    if ($offset >= $start && $offset < $end) {
+                        $rawLine = true;
+
+                        break;
+                    }
+                }
+                $rendered[] = $rawLine || $literal || $line === '' ? $line : $pad . '  ' . $line;
                 // An HTML pre/textarea element owns the whitespace of every
                 // following line, including its closing tag line.
                 foreach (preg_split('/(<\/?(?:pre|textarea)\b[^>]*>)/i', $line, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [] as $part) {
@@ -109,6 +129,7 @@ final class Details
                         $literal = false;
                     }
                 }
+                $offset += strlen($line) + 1;
             }
             $lines[] = implode("\n", $rendered);
         }
@@ -118,19 +139,24 @@ final class Details
     }
 
     /**
-     * Whether any child is a raw block whose output must remain byte exact.
+     * The raw HTML payloads in document order, whose lines must remain byte exact.
      *
      * @param array<\MarkupCarve\Carve\Node> $nodes
+     *
+     * @return array<string>
      */
-    public static function hasRawBlock(array $nodes): bool
+    private static function rawValues(array $nodes): array
     {
+        $values = [];
         foreach ($nodes as $node) {
-            if ($node->type === 'raw_block' || self::hasRawBlock($node->children ?? [])) {
-                return true;
+            if ($node->type === 'raw_block' && ($node->f['format'] ?? null) === 'html') {
+                $value = PlainText::str($node->f['value'] ?? '');
+                $values[] = str_ends_with($value, "\n") ? substr($value, 0, -1) : $value;
             }
+            array_push($values, ...self::rawValues($node->children ?? []));
         }
 
-        return false;
+        return $values;
     }
 
     public static function attrs(Node $node, RenderHost $host, ?string $base = null): string
