@@ -640,7 +640,11 @@ final class NodeRulesB
      */
     public static function listItemBlockIndent(array $node, string $path, Context $c): void
     {
-        foreach (self::overindented($node, $path, $c) as [$childPath, $line, $indent, , $content]) {
+        foreach (self::overindented($node, $path, $c) as [$childPath, $line, $indent, $type, $content]) {
+            // The row lists its openers one by one, and an include directive is none of them (carve#6193).
+            if ($type === 'include') {
+                continue;
+            }
             $start = $c->layout->startOffset($childPath) ?? $line->start;
             $c->report('list-item-block-overindented', $start, $line->end, $childPath, [
                 'contentColumn' => (string)($content + 1),
@@ -734,7 +738,7 @@ final class NodeRulesB
         $type = Support::str($node, 'type') ?? '';
         $colonDiv = in_array($type, ['div', 'directive', 'admonition', 'figure_group'], true);
         $kind = $type === 'block_quote' ? 'quote' : ($colonDiv ? 'div' : str_replace('_', ' ', $type));
-        $width = $type === 'definition_term' ? 2 : ($colonDiv ? 3 : 1);
+        $width = self::openingMarkWidth($type, substr($c->source, $start, strcspn($c->source, "\n", $start)));
         $past = $column - $content;
         $c->report('block-opener-overindented', $start, $start + $width, $path, [
             'kind' => $kind,
@@ -778,6 +782,28 @@ final class NodeRulesB
         }
 
         return false;
+    }
+
+    /**
+     * The whole opening mark of a block opener, as the row of `block-opener-overindented` states its range (carve#6192).
+     */
+    private static function openingMarkWidth(string $type, string $text): int
+    {
+        if ($type === 'block_quote' || $type === 'table') {
+            return 1;
+        }
+        if ($type === 'definition_term') {
+            return 2;
+        }
+        if ($type === 'thematic_break') {
+            return strlen(Support::trimEnd($text));
+        }
+        $mark = $text[0] ?? '';
+        if ($mark === '' || !str_contains('#=:`~|', $mark)) {
+            return 1;
+        }
+
+        return strspn($text, $mark);
     }
 
     /**

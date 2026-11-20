@@ -226,6 +226,14 @@ final class LineRules
         return $line !== null && Support::trim($line->text) === '';
     }
 
+    /**
+     * C2-W-143: blank for the rules inside containers `$depth` quotes deep when only spaces and tabs follow their quote marks.
+     */
+    private static function blankWithin(?Line $line, int $depth): bool
+    {
+        return $line !== null && self::afterQuotes($line, $depth)[0] === '';
+    }
+
     private static function prior(Line $line, Context $c): ?Line
     {
         return $c->lines[$line->number - 2] ?? null;
@@ -496,7 +504,8 @@ final class LineRules
             return;
         }
         $value = substr($line->text, 1);
-        $c->report('blockquote-marker-without-space', $line->start, $line->start + 1, $line->path, ['text' => $value], 1);
+        $end = $line->start + strlen(Support::trimEnd($line->text));
+        $c->report('blockquote-marker-without-space', $line->start, $end, $line->path, ['text' => $value], 1);
     }
 
     /**
@@ -696,13 +705,14 @@ final class LineRules
             return;
         }
         $next = $c->lines[$line->number] ?? null;
+        $blank = self::blankWithin($next, $c->layout->quoteDepth($line->path));
         if (
-            $next !== null && !self::blankInContainer($next) && !$next->paragraph
+            $next !== null && !$blank && !$next->paragraph
             && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
         ) {
             return;
         }
-        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], self::blankInContainer($next) ? 1 : 0);
+        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], $blank ? 1 : 0);
     }
 
     private static function markdownDefinition(Line $line, Context $c): void
@@ -938,11 +948,6 @@ final class LineRules
         $text = self::afterQuotes($line, $depth)[0];
 
         return preg_replace('/^(?:[-*] |[0-9]+[.)] )[ \t]*/', '', $text) ?? $text;
-    }
-
-    private static function blankInContainer(?Line $line): bool
-    {
-        return $line !== null && preg_match('/^(?:[ \t]*>(?: |$))*[ \t]*$/', $line->text) === 1;
     }
 
     private static function descriptionColumn(Line $line, Context $c): void
