@@ -46,7 +46,7 @@ final class DataRules
     {
         if (self::$ids === null) {
             self::$ids = [];
-            foreach (self::data()['rules'] ?? [] as $rule) {
+            foreach (self::rules() as $rule) {
                 self::$ids[$rule['id']] = true;
             }
         }
@@ -61,28 +61,53 @@ final class DataRules
     {
         if (self::$data === null) {
             $file = dirname(__DIR__, 2) . '/spec/data/lint-model.json';
-            self::$data = is_file($file) ? json_decode((string)file_get_contents($file), true, 512, JSON_THROW_ON_ERROR) : [];
+            $decoded = is_file($file) ? json_decode((string)file_get_contents($file), true, 512, JSON_THROW_ON_ERROR) : [];
+            self::$data = is_array($decoded) ? $decoded : [];
         }
 
         return self::$data;
     }
 
+    /**
+     * @return list<array{id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null} & array<string, mixed>>
+     */
+    private static function rules(): array
+    {
+        $raw = self::data()['rules'] ?? [];
+        if (!is_array($raw)) {
+            return [];
+        }
+        $rules = [];
+        foreach ($raw as $rule) {
+            if (
+                is_array($rule) && is_string($rule['id'] ?? null)
+                && in_array($rule['over'] ?? null, ['line', 'block', 'inline'], true)
+            ) {
+                $rule['verbatim'] = is_array($rule['verbatim'] ?? null) ? $rule['verbatim'] : [];
+                $rule['types'] = is_array($rule['types'] ?? null) ? $rule['types'] : null;
+                $rules[] = $rule;
+            }
+        }
+
+        return $rules;
+    }
+
     public static function run(Context $context): void
     {
         $data = self::data();
-        if (($data['rules'] ?? []) === []) {
+        if (self::rules() === []) {
             return;
         }
         $self = new self($context);
         $byKind = ['line' => [], 'block' => [], 'inline' => []];
-        foreach ($data['rules'] as $rule) {
+        foreach (self::rules() as $rule) {
             if ($context->activeRule($rule['id'])) {
                 $byKind[$rule['over']][] = $rule;
             }
         }
         $apply = static function (stdClass $record, array $rules) use ($self): void {
             foreach ($rules as $rule) {
-                if (!isset($rule['types']) || in_array($record->type ?? null, $rule['types'], true)) {
+                if ($rule['types'] === null || in_array($record->type ?? null, $rule['types'], true)) {
                     $self->apply($rule, $record);
                 }
             }
@@ -99,8 +124,8 @@ final class DataRules
         foreach ($byKind['line'] as $rule) {
             foreach ($model->lines as $record) {
                 if (
-                    in_array($record->leaf, $data['verbatim_leaves'], true)
-                    && !in_array($record->leaf, $rule['verbatim'] ?? [], true)
+                    in_array($record->leaf, is_array($data['verbatim_leaves'] ?? null) ? $data['verbatim_leaves'] : [], true)
+                    && !in_array($record->leaf, $rule['verbatim'], true)
                 ) {
                     continue;
                 }
@@ -115,7 +140,7 @@ final class DataRules
      */
     private function apply(array $rule, stdClass $record): void
     {
-        $this->vars = $rule['let'] ?? [];
+        $this->vars = is_array($rule['let'] ?? null) ? $rule['let'] : [];
         $this->groups = [];
         $this->base = 0;
         if (isset($rule['when']) && !$this->value($rule['when'], $record)) {
@@ -126,7 +151,12 @@ final class DataRules
 
             return;
         }
-        [$text, $pattern] = $rule['each']['matches'];
+        $each = $rule['each'];
+        $matches = is_array($each) ? ($each['matches'] ?? null) : null;
+        if (!is_array($matches) || !is_string($matches[1] ?? null)) {
+            return;
+        }
+        [$text, $pattern] = $matches;
         $value = $this->value($text, $record);
         if (!is_string($value)) {
             return;
@@ -139,27 +169,41 @@ final class DataRules
         }
     }
 
+    // Report entries select a range and one of several message variants.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     /**
      * @param array<string, mixed> $rule
      * @param \stdClass $record
      */
     private function report(array $rule, stdClass $record): void
     {
-        foreach ($rule['report'] as $entry) {
+        $entries = $rule['report'] ?? null;
+        if (!is_array($entries) || !is_string($rule['id'] ?? null)) {
+            return;
+        }
+        $range = is_array($rule['range'] ?? null) ? $rule['range'] : [];
+        $ruleValues = is_array($rule['values'] ?? null) ? $rule['values'] : [];
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
             if (isset($entry['when']) && !$this->value($entry['when'], $record)) {
                 continue;
             }
-            $start = $this->value($entry['start'] ?? $rule['range']['start'] ?? ['f' => 'start'], $record);
-            $end = $this->value($entry['end'] ?? $rule['range']['end'] ?? ['f' => 'end'], $record);
+            $start = $this->value($entry['start'] ?? $range['start'] ?? ['f' => 'start'], $record);
+            $end = $this->value($entry['end'] ?? $range['end'] ?? ['f' => 'end'], $record);
             if (!is_int($start) || !is_int($end)) {
                 return;
             }
             $values = [];
-            foreach (array_merge($rule['values'] ?? [], $entry['values'] ?? []) as $name => $expr) {
+            $entryValues = is_array($entry['values'] ?? null) ? $entry['values'] : [];
+            foreach (array_merge($ruleValues, $entryValues) as $name => $expr) {
                 $value = $this->value($expr, $record);
                 $values[$name] = is_int($value) || is_string($value) ? $value : '';
             }
-            $this->context->report($rule['id'], $start, $end, $record->path ?? '', $values, $entry['message'] ?? 0);
+            $message = is_int($entry['message'] ?? null) ? $entry['message'] : 0;
+            $this->context->report($rule['id'], $start, $end, $record->path ?? '', $values, $message);
 
             return;
         }
@@ -178,7 +222,10 @@ final class DataRules
     {
         $groups = [];
         foreach ($match as $key => $part) {
-            if (!is_string($key) || !is_array($part) || $part[1] < 0 || $part[0] === null) {
+            if (
+                !is_array($part) || !is_int($part[1] ?? null)
+                || $part[1] < 0 || !is_string($part[0] ?? null)
+            ) {
                 continue;
             }
             $groups[$key] = [$base + $part[1], $base + $part[1] + strlen($part[0])];
@@ -212,7 +259,9 @@ final class DataRules
             return $record->start ?? 0;
         }
         if (isset($expr['text_from'])) {
-            return (int)$this->value($expr['text_from'], $record);
+            $from = $this->value($expr['text_from'], $record);
+
+            return is_int($from) ? $from : 0;
         }
 
         return 0;
@@ -234,6 +283,38 @@ final class DataRules
         return $value;
     }
 
+    private static function integer(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        return is_string($value) && is_numeric($value) ? (int)$value : 0;
+    }
+
+    private static function string(mixed $value): string
+    {
+        return is_string($value) || is_int($value) || is_float($value) || is_bool($value)
+            ? (string)$value : '';
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private static function set(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_string($value)) {
+            $fromData = self::data()[$value] ?? null;
+
+            return is_array($fromData) ? $fromData : [];
+        }
+
+        return [];
+    }
+
     // The JSON expression grammar intentionally has one branch per supported operator.
     // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
@@ -242,10 +323,10 @@ final class DataRules
         if (!is_array($expr) || array_is_list($expr)) {
             return $expr;
         }
-        if (isset($expr['f'])) {
+        if (is_string($expr['f'] ?? null)) {
             return $this->field($expr['f'], $record);
         }
-        if (isset($expr['v'])) {
+        if (is_string($expr['v'] ?? null)) {
             $name = $expr['v'];
             $original = [$this->groups, $this->base];
             $value = $this->value($this->vars[$name] ?? null, $record);
@@ -253,13 +334,13 @@ final class DataRules
 
             return $value;
         }
-        if (isset($expr['match'])) {
+        if (is_string($expr['match'] ?? null)) {
             return $this->groups[$expr['match']][($expr['at'] ?? null) === 'end' ? 1 : 0] ?? null;
         }
-        if (isset($expr['has'])) {
+        if (is_string($expr['has'] ?? null)) {
             return $this->field($expr['has'], $record) !== null;
         }
-        if (isset($expr['all'])) {
+        if (is_array($expr['all'] ?? null)) {
             foreach ($expr['all'] as $item) {
                 if (!$this->value($item, $record)) {
                     return false;
@@ -268,7 +349,7 @@ final class DataRules
 
             return true;
         }
-        if (isset($expr['any'])) {
+        if (is_array($expr['any'] ?? null)) {
             foreach ($expr['any'] as $item) {
                 if ($this->value($item, $record)) {
                     return true;
@@ -280,15 +361,16 @@ final class DataRules
         if (isset($expr['not'])) {
             return !$this->value($expr['not'], $record);
         }
-        if (isset($expr['if'])) {
+        if (is_array($expr['if'] ?? null) && array_key_exists(2, $expr['if'])) {
             return $this->value($expr['if'][$this->value($expr['if'][0], $record) ? 1 : 2], $record);
         }
-        if (isset($expr['some'])) {
+        if (is_array($expr['some'] ?? null) && is_string($expr['some']['in'] ?? null)) {
             $list = $this->field($expr['some']['in'], $record);
             if (!is_array($list)) {
                 return false;
             }
-            foreach (array_slice($list, $expr['some']['from'] ?? 0) as $item) {
+            $from = is_int($expr['some']['from'] ?? null) ? $expr['some']['from'] : 0;
+            foreach (array_slice($list, $from) as $item) {
                 $copy = clone $record;
                 $copy->item = $item;
                 if ($this->value($expr['some']['where'], $copy)) {
@@ -304,7 +386,7 @@ final class DataRules
                 'starts', 'matches', 'concat', 'slice', 'extend_left', 'skip_right',
             ] as $op
         ) {
-            if (!isset($expr[$op])) {
+            if (!is_array($expr[$op] ?? null) || !array_key_exists(1, $expr[$op])) {
                 continue;
             }
             $parts = $expr[$op];
@@ -315,20 +397,22 @@ final class DataRules
                 'eq' => $a === $b, 'ne' => $a !== $b, 'lt' => $a !== null && $b !== null && $a < $b,
                 'le' => $a !== null && $b !== null && $a <= $b,
                 'gt' => $a !== null && $b !== null && $a > $b,
-                'ge' => $a !== null && $b !== null && $a >= $b, 'add' => (int)$a + (int)$b,
-                'sub' => (int)$a - (int)$b,
-                'in' => in_array($a, is_array($b) ? $b : (self::data()[$b] ?? []), true),
+                'ge' => $a !== null && $b !== null && $a >= $b,
+                'add' => self::integer($a) + self::integer($b),
+                'sub' => self::integer($a) - self::integer($b),
+                'in' => in_array($a, self::set($b), true),
                 'contains' => is_array($a) ? in_array($b, $a, true)
                     : (is_string($a) && is_string($b) && str_contains($a, $b)),
                 'starts' => is_string($a) && is_string($b) && str_starts_with($a, $b),
-                'matches' => $this->matches($a, $b, $parts[2] ?? '', $parts[0], $record),
+                'matches' => $this->matches($a, $b, is_string($parts[2] ?? null) ? $parts[2] : '', $parts[0], $record),
                 'concat' => implode('', array_map(
-                    static fn (mixed $v): string => (string)$v,
+                    static fn (mixed $v): string => self::string($v),
                     array_map(fn (mixed $x): mixed => $this->value($x, $record), $parts),
                 )),
-                'slice' => is_string($a) ? self::slice($a, (int)$b, isset($parts[2]) ? (int)$this->value($parts[2], $record) : null) : '',
-                'extend_left' => $this->scan((int)$a, (string)$b, -1, $record),
-                'skip_right' => $this->scan((int)$a, (string)$b, 1, $record),
+                'slice' => is_string($a) ? self::slice($a, self::integer($b), isset($parts[2])
+                    ? self::integer($this->value($parts[2], $record)) : null) : '',
+                'extend_left' => $this->scan(self::integer($a), self::string($b), -1, $record),
+                'skip_right' => $this->scan(self::integer($a), self::string($b), 1, $record),
             };
         }
         if (isset($expr['len'])) {
@@ -337,13 +421,13 @@ final class DataRules
             return is_string($value) ? strlen($value) : (is_array($value) ? count($value) : 0);
         }
         if (isset($expr['trim_end'])) {
-            return rtrim((string)$this->value($expr['trim_end'], $record), " \t");
+            return rtrim(self::string($this->value($expr['trim_end'], $record)), " \t");
         }
         if (isset($expr['words'])) {
-            return str_replace('_', ' ', (string)$this->value($expr['words'], $record));
+            return str_replace('_', ' ', self::string($this->value($expr['words'], $record)));
         }
         if (isset($expr['text_from'])) {
-            $from = (int)$this->value($expr['text_from'], $record);
+            $from = self::integer($this->value($expr['text_from'], $record));
             $line = $record->line->text ?? $record->text ?? '';
             $start = $record->line->start ?? $record->start ?? 0;
 

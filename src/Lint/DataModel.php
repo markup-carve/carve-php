@@ -71,11 +71,6 @@ final class DataModel
     public array $blocks = [];
 
     /**
-     * @var array<string, true>
-     */
-    private array $taskPaths = [];
-
-    /**
      * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int}>
      */
     private array $blockWalked = [];
@@ -203,9 +198,6 @@ final class DataModel
         foreach ($c->walked as $item) {
             $parentHolder = $this->holderByPath[$item['parent']] ?? null;
             $type = self::type($item['node']);
-            if ($type === 'list_item' && isset($item['node']['task'])) {
-                $this->taskPaths[$item['path']] = true;
-            }
             if ($parentHolder !== null && $parentHolder['inline']) {
                 $pos = Support::pos($item['node']);
                 if ($pos !== null && $item['path'] !== '') {
@@ -416,14 +408,6 @@ final class DataModel
             };
             if (preg_match($marker, $written, $match)) {
                 $content = max($content, $this->context->layout->columnOf($from + strlen($match[0]), $quotes));
-            }
-        }
-        if ($type === 'list_item' && isset($this->taskPaths[$path])) {
-            $start = $this->context->layout->startOffset($path) ?? 0;
-            $lineEnd = strpos($this->context->source, "\n", $start);
-            $written = substr($this->context->source, $start, ($lineEnd === false ? strlen($this->context->source) : $lineEnd) - $start);
-            if (preg_match('/^(?:[-*]|[0-9]+[.)]|[A-Za-z][.)])[ \t]+\[[ xX]\][ \t]+/', $written, $match)) {
-                $content = max($content, $this->context->layout->columnOf($start + strlen($match[0]), $quotes));
             }
         }
 
