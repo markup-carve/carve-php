@@ -717,17 +717,8 @@ final class NodeRulesB
             return;
         }
         [$ownerPath, $ownerType] = self::blockOwner($path, $c);
-        if ($ownerType === 'list_item') {
+        if (self::listItemThroughDiv($ownerPath, $ownerType, $c)) {
             return;
-        }
-        $ancestorPath = $ownerPath;
-        $ancestorType = $ownerType;
-        while (in_array($ancestorType, ['div', 'admonition', 'directive', 'figure_group'], true)) {
-            $ancestorPath = Support::parent($ancestorPath) ?? '';
-            $ancestorType = $c->nodeTypes[$ancestorPath] ?? 'document';
-            if ($ancestorType === 'list_item') {
-                return;
-            }
         }
         $quote = self::ancestorPath($path, $c, 'block_quote');
         if ($quote !== null && self::quoteOpenerExempt($quote, $pos, $c)) {
@@ -802,6 +793,22 @@ final class NodeRulesB
         }
 
         return [$ownerPath, $ownerType];
+    }
+
+    private static function listItemThroughDiv(string $path, string $type, Context $c): bool
+    {
+        if ($type === 'list_item') {
+            return true;
+        }
+        while (in_array($type, ['div', 'admonition', 'directive', 'figure_group'], true)) {
+            $path = Support::parent($path) ?? '';
+            $type = $c->nodeTypes[$path] ?? 'document';
+            if ($type === 'list_item') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function ancestorPath(string $path, Context $c, string $type): ?string
