@@ -425,6 +425,9 @@ final class LineRules
 
     private static function bareHtml(Line $line, Context $c): void
     {
+        if (!str_contains($line->text, '<')) {
+            return;
+        }
         if (
             !isset($c->tableRowPaths[$line->number])
             && !in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'heading'], true)
@@ -508,6 +511,9 @@ final class LineRules
 
     private static function quoteWithoutSpace(Line $line, Context $c): void
     {
+        if (($line->text[0] ?? '') !== '>') {
+            return;
+        }
         // Read source spelling before masking an inline comment and its preceding space.
         $raw = $c->lines[$line->number - 1] ?? $line;
         $text = $raw->text;

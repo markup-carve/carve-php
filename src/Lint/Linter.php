@@ -110,6 +110,7 @@ final class Linter
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $maskCursor = 0;
+        $lineRules = LineRules::all();
         foreach ($c->lines as $line) {
             if ($line->opaque) {
                 if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
@@ -120,7 +121,7 @@ final class Linter
                 continue;
             }
             $scan = self::masked($line, $c, $maskCursor);
-            foreach (LineRules::all() as [$id, $check]) {
+            foreach ($lineRules as [$id, $check]) {
                 if ($c->active($id)) {
                     $check($scan, $c);
                 }
