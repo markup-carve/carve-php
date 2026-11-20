@@ -52,6 +52,10 @@ final class Command
         'output' => true,
         'profile' => true,
         'url-policy' => true,
+        'mode' => true,
+        'labels' => true,
+        'social' => true,
+        'symbols' => true,
         'report-losses' => true,
         'report-includes' => true,
     ];
@@ -85,6 +89,11 @@ final class Command
         'fix' => true,
         'from-ast' => true,
         'no-positions' => false,
+        'raw-html' => true,
+        'roundtrip' => true,
+        'sections' => true,
+        'smart-typography' => true,
+        'source-lines' => true,
     ];
 
     /**
@@ -115,7 +124,32 @@ final class Command
             return 0;
         }
         if (in_array('--help', $args, true)) {
-            fwrite($out, "Usage: carve [command] [flags] [file ...]\n");
+            $help = <<<'HELP'
+Carve 0.2 command line
+
+Usage: carve [command] [flags] [file ...]
+       carve import --from FORMAT [flags] [file]
+
+Commands: render (default), ast, diagnostics, lint, fix, flatten, fmt, import, migrate-ast
+Input: a file path or - for standard input; no file reads standard input.
+
+Every command: --help, --version
+Render: --to html|markdown|plain|ansi, --heading-ids MODE,
+  --labels JSON, --mode interactive|static, --profile PROFILE,
+  --raw-html, --roundtrip, --sections, --smart-typography,
+  --social JSON, --soft-break newline|space|br, --source-lines,
+  --symbols JSON, --url-policy JSON, --strict-losses,
+  --allow-loss CODE, --max-render-losses N, --report-losses FILE
+AST: --from-ast, --no-positions
+Lint and fix: --rules JSON, --platforms JSON, --ignore FILE-ID,
+  --strict, --json, --fix, --write
+Fmt: --check, --diff, --write, --normalize, --align-tables, --from-ast
+Import: --from markdown|gfm|djot|html, --raw-html, --strict-losses
+Common file options: --output FILE (-o), --include-root DIR,
+  --includes, --no-includes, --report-includes FILE
+
+HELP;
+            fwrite($out, $help);
 
             return 0;
         }
@@ -261,6 +295,8 @@ final class Command
      * @param int $i
      * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
      *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
      * @return int The index of the last argument read.
      */
     private static function option(array $args, int $i, array &$parsed): int
@@ -274,6 +310,13 @@ final class Command
         }
         $equals = strpos($arg, '=');
         $name = substr($arg, 2, $equals === false ? null : $equals - 2);
+        if (
+            in_array($name, [
+                'mode', 'labels', 'social', 'symbols', 'raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines',
+            ], true) && $parsed['command'] !== 'render'
+        ) {
+            throw new OptionError('unknown option ' . $arg);
+        }
         if (isset(self::VALUED[$name]) || (isset(self::OPTION_FLAGS[$name]) && $parsed['command'] === 'render')) {
             self::valued($name, $equals !== false ? substr($arg, $equals + 1) : ($args[$i + 1] ?? null), $parsed);
 
@@ -313,6 +356,9 @@ final class Command
         }
         if ($name === 'strict-losses') {
             $parsed['options']['strictLosses'] = true;
+        } elseif (in_array($name, ['raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines'], true)) {
+            $key = str_replace('-', '', ucwords($name, '-'));
+            $parsed['options'][lcfirst($key)] = true;
         } elseif ($name === 'no-positions') {
             $parsed['values']['positions'] = false;
         } else {
@@ -384,6 +430,16 @@ final class Command
         }
         if ($name === 'profile') {
             $parsed['options']['profile'] = $value;
+
+            return;
+        }
+        if ($name === 'mode') {
+            $parsed['options']['mode'] = $value;
+
+            return;
+        }
+        if (in_array($name, ['labels', 'social', 'symbols'], true)) {
+            $parsed['options'][$name] = self::json($name, $value);
 
             return;
         }
