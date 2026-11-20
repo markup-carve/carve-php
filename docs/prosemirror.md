@@ -32,6 +32,10 @@ this bridge renders are the same JSON, and either side reads what the other save
 - A node the editor content model cannot hold becomes an atom, `carveBlock` or `carveInline`, carrying the whole node.
   Nothing is dropped: `ProseMirrorToCarve::toTree()` of a rendered document gives the tree back.
 - Keys of `carve` that start with `$` are the kit's own bookkeeping. No tree field starts with `$`.
+- A `soft_break`, the line end inside a wrapped paragraph, is the inline leaf `carveSoftBreak`. The kit renders it
+  as `<span data-carve-soft-break> </span>`, so the editor shows a space and the cursor passes it as one character,
+  and the way back saves it as `soft_break`. Copy and paste inside the editor keeps it. Plain text pasted from outside
+  is lossy: its line ends arrive as spaces, so the pasted paragraph saves as one line.
 
 A ProseMirror node or mark with no Carve node, such as a mark an application extension added, is an error
 (`InvalidArgumentException`), not a skip. See [Application nodes on the way in](#application-nodes-on-the-way-in).
