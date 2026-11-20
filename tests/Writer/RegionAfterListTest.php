@@ -22,4 +22,10 @@ final class RegionAfterListTest extends TestCase
     {
         self::assertSame("- a\n  %% plain\n", Carve::format("- a\n%% plain\n"));
     }
+
+    public function testRegionAfterAListEndingInAFenceKeepsTheOpenFenceSpelling(): void
+    {
+        $input = "- ```\n  x\n  ```\n%% #endregion r\n";
+        self::assertSame("- ```\n  x\n%% #endregion r\n", Carve::format($input));
+    }
 }
