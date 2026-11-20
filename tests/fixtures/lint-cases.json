@@ -740,7 +740,7 @@
      "/children/0",
      0,
      21,
-     "(key) does not apply to a pipe table in 0.2. Mark header cells with the header mark and write alignment on the cells."
+     "`header-rows` does not apply to a pipe table in 0.2. Mark header cells with the header mark and write alignment on the cells."
     ]
    ]
   },
