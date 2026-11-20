@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use Generator;
 use stdClass;
 
 /**
@@ -291,6 +292,7 @@ final class DataRules
                 $apply($record, 'block');
             },
             $acceptBlock,
+            isset($typedRules['inline']['text_run']),
         );
         foreach ($byKind['line'] as $rule) {
             $filter = $lineFilters[$rule['id']];
@@ -341,6 +343,26 @@ final class DataRules
             return;
         }
         $each = $rule['each'];
+        $pairs = is_array($each) ? ($each['pairs'] ?? null) : null;
+        if (is_array($pairs) && is_string($pairs[1] ?? null)) {
+            $value = $this->value($pairs[0], $record);
+            if (!is_string($value)) {
+                return;
+            }
+            $base = $this->textBase($pairs[0], $record);
+            $predicateGroups = $this->groups;
+            foreach (self::pairGroups($value, $pairs[1], ($pairs[2] ?? null) === 'strict') as $groups) {
+                $absolute = [];
+                foreach ($groups as $name => [$start, $end]) {
+                    $absolute[$name] = [$base + $start, $base + $end];
+                }
+                $this->groups = array_replace($predicateGroups, $absolute);
+                $this->base = $base;
+                $this->report($rule, $record);
+            }
+
+            return;
+        }
         $matches = is_array($each) ? ($each['matches'] ?? null) : null;
         if (!is_array($matches) || !is_string($matches[1] ?? null)) {
             return;
@@ -407,7 +429,133 @@ final class DataRules
         static $cache = [];
         $key = $flags . "\0" . $source;
 
-        return $cache[$key] ??= '~' . str_replace('~', '\\~', $source) . '~' . $flags;
+        if (str_contains($source, '\\u{')) {
+            $source = str_replace('\\u{', '\\x{', $source);
+        }
+        if (str_contains($source, '\\p{') || str_contains($source, '\\x{')) {
+            $flags .= 'u';
+        }
+
+        $escaped = '';
+        $slashes = 0;
+        for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            $char = $source[$i];
+            if ($char === '~' && $slashes % 2 === 0) {
+                $escaped .= '\\';
+            }
+            $escaped .= $char;
+            $slashes = $char === '\\' ? $slashes + 1 : 0;
+        }
+
+        return $cache[$key] ??= '~' . $escaped . '~' . $flags;
+    }
+
+    /**
+     * @return array{0: string, 1: int, 2: int}
+     */
+    private static function charAt(string $text, int $at): array
+    {
+        $length = strlen($text);
+        if ($at >= $length || $at < 0) {
+            return ['', $at, $at];
+        }
+        $lead = ord($text[$at]);
+        $width = $lead < 0x80 ? 1 : ($lead < 0xE0 ? 2 : ($lead < 0xF0 ? 3 : 4));
+        $end = min($length, $at + $width);
+
+        return [substr($text, $at, $end - $at), $at, $end];
+    }
+
+    /**
+     * @return array{0: string, 1: int, 2: int}
+     */
+    private static function charBefore(string $text, int $at): array
+    {
+        if ($at <= 0) {
+            return ['', 0, 0];
+        }
+        $start = $at - 1;
+        while ($start > 0 && (ord($text[$start]) & 0xC0) === 0x80) {
+            $start--;
+        }
+
+        return [substr($text, $start, $at - $start), $start, $at];
+    }
+
+    private static function escapedAt(string $text, int $at): bool
+    {
+        $slashes = 0;
+        while ($at > $slashes && $text[$at - 1 - $slashes] === '\\') {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 1;
+    }
+
+    private static function joinedAt(string $text, int $at): bool
+    {
+        return preg_match('/^[\p{M}\x{200D}\x{FE00}-\x{FE0F}\x{E0100}-\x{E01EF}]/u', substr($text, $at, 5)) === 1;
+    }
+
+    /**
+     * @return \Generator<array<string, array{0: int, 1: int}>>
+     */
+    private static function pairGroups(string $text, string $mark, bool $strict): Generator
+    {
+        $width = strlen($mark);
+        if ($width === 0) {
+            return;
+        }
+        $length = strlen($text);
+        $at = 0;
+        while ($at < $length) {
+            $start = strpos($text, $mark, $at);
+            if ($start === false) {
+                return;
+            }
+            [$before, $beforeStart] = self::charBefore($text, $start);
+            [$afterOpen] = self::charAt($text, $start + $width);
+            if (
+                $strict && (
+                    self::joinedAt($text, $start + $width) || self::escapedAt($text, $start)
+                    || ($start > 0 && $text[$start - 1] === $mark[0]) || $afterOpen === ''
+                    || preg_match('/^[\p{Zs}\t\n\r\f\v]$/u', $afterOpen) === 1
+                    || $afterOpen === $mark[0]
+                    || ($width === 1 && preg_match('/^[\p{L}\p{N}]$/u', $before) === 1)
+                )
+            ) {
+                $at = $start + $width;
+
+                continue;
+            }
+            $end = strpos($text, $mark, $start + $width + 1);
+            while ($end !== false) {
+                [$prior] = self::charBefore($text, $end);
+                if (
+                    preg_match('/^[\p{Zs}\t\n\r]$/u', $prior) !== 1
+                    && !self::escapedAt($text, $end)
+                    && (!$strict || !self::joinedAt($text, $end + $width))
+                ) {
+                    break;
+                }
+                $end = strpos($text, $mark, $end + $width);
+            }
+            if ($end === false) {
+                return;
+            }
+            $after = $end + $width;
+            [, , $afterEnd] = self::charAt($text, $after);
+
+            yield [
+                'open' => [$start, $start + $width],
+                'inner' => [$start + $width, $end],
+                'close' => [$end, $after],
+                'before' => [$beforeStart, $start],
+                'after' => [$after, $afterEnd],
+            ];
+
+            $at = $after;
+        }
     }
 
     /**

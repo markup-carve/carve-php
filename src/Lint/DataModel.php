@@ -61,6 +61,32 @@ final class DataModel
     ];
 
     /**
+     * @var array<string, true>
+     */
+    private const INLINE_PARENTS = [
+        'paragraph' => true,
+        'heading' => true,
+        'definition_term' => true,
+        'cell_paragraph' => true,
+        'line' => true,
+        'citation_definition' => true,
+        'emphasis' => true,
+        'strong' => true,
+        'underline' => true,
+        'strike' => true,
+        'highlight' => true,
+        'superscript' => true,
+        'subscript' => true,
+        'insert' => true,
+        'delete' => true,
+        'span' => true,
+        'link' => true,
+        'inline_footnote' => true,
+        'inline_extension' => true,
+        'small_caps' => true,
+    ];
+
+    /**
      * @var list<\stdClass>
      */
     public array $lines = [];
@@ -97,9 +123,15 @@ final class DataModel
      * @param \Closure(\stdClass): void $onInline
      * @param \Closure(\stdClass): void $onBlock
      * @param \Closure(string, string, string): bool $acceptBlock
+     * @param bool $textRuns
      */
-    public function __construct(private Context $context, private Closure $onInline, private Closure $onBlock, private Closure $acceptBlock)
-    {
+    public function __construct(
+        private Context $context,
+        private Closure $onInline,
+        private Closure $onBlock,
+        private Closure $acceptBlock,
+        private bool $textRuns,
+    ) {
         $this->build();
     }
 
@@ -191,9 +223,45 @@ final class DataModel
     private function build(): void
     {
         $c = $this->context;
+        $runs = [];
+        $openRuns = [];
         foreach ($c->walked as $item) {
             $parentHolder = $this->holderByPath[$item['parent']] ?? null;
             $type = self::type($item['node']);
+            if ($this->textRuns) {
+                $parentType = $c->nodeTypes[$item['parent']] ?? 'document';
+                if (isset(self::INLINE_PARENTS[$parentType])) {
+                    $key = $item['parent'];
+                    if ($type === 'text' || $type === 'soft_break') {
+                        $open = $openRuns[$key] ?? null;
+                        $pos = Support::pos($item['node']);
+                        if ($pos !== null) {
+                            if ($open !== null && $open->next === $item['index']) {
+                                $open->end = $pos['endOffset'];
+                                $open->next = $item['index'] + 1;
+                                $open->text = substr($c->source, $open->start, $open->end - $open->start);
+                            } else {
+                                $run = (object)[
+                                    'type' => 'text_run',
+                                    'path' => $key,
+                                    'parent' => $parentType,
+                                    'leaf' => $parentHolder['type'] ?? $parentType,
+                                    'start' => $pos['startOffset'],
+                                    'end' => $pos['endOffset'],
+                                    'next' => $item['index'] + 1,
+                                    'text' => substr($c->source, $pos['startOffset'], $pos['endOffset'] - $pos['startOffset']),
+                                ];
+                                $runs[] = $run;
+                                $openRuns[$key] = $run;
+                            }
+                        } elseif ($open !== null && $open->next === $item['index']) {
+                            $open->next = $item['index'] + 1;
+                        }
+                    } else {
+                        unset($openRuns[$key]);
+                    }
+                }
+            }
             if ($parentHolder !== null && $parentHolder['inline']) {
                 $pos = Support::pos($item['node']);
                 if ($pos !== null && $item['path'] !== '') {
@@ -215,6 +283,9 @@ final class DataModel
             } elseif ($parentHolder !== null) {
                 $this->holderByPath[$item['path']] = $parentHolder;
             }
+        }
+        foreach ($runs as $run) {
+            ($this->onInline)($run);
         }
         $c->walked = [];
         $this->holderByPath = [];
