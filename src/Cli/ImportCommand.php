@@ -132,14 +132,10 @@ final class ImportCommand
         $count = count($args);
         for ($i = 0; $i < $count; $i++) {
             $arg = $args[$i];
-            if (str_starts_with($arg, '--from=')) {
-                $from = substr($arg, 7);
-            } elseif ($arg === '--from') {
-                $from = $args[++$i] ?? '';
-            } elseif ($arg === '--raw-html') {
-                $options['rawHtml'] = true;
-            } elseif ($arg === '--strict-losses') {
-                $options['strictLosses'] = true;
+            if (preg_match('/^--(from|adapter|allow-loss|max-render-losses)(?:=(.*))?$/s', $arg, $m) === 1) {
+                $from = self::valueFlag($m[1], $m[2] ?? ($args[++$i] ?? null), $from, $options);
+            } elseif ($arg === '--raw-html' || $arg === '--strict-losses') {
+                $options[$arg === '--raw-html' ? 'rawHtml' : 'strictLosses'] = true;
             } elseif ($arg === '-o' || $arg === '--output') {
                 $output = $args[++$i] ?? null;
                 if ($output === null) {
@@ -147,9 +143,6 @@ final class ImportCommand
                 }
             } elseif (str_starts_with($arg, '--output=')) {
                 $output = substr($arg, 9);
-            } elseif (preg_match('/^--(allow-loss|max-render-losses)(?:=(.*))?$/s', $arg, $m) === 1) {
-                // C2-T-027, C2-T-029: the importer reads allowLosses and maxLosses (C2-H-204, C2-H-205).
-                Command::optionFlag($m[1], $m[2] ?? ($args[++$i] ?? null), $options);
             } elseif ($arg === '-' || !str_starts_with($arg, '-')) {
                 $files[] = $arg;
             } else {
@@ -158,6 +151,33 @@ final class ImportCommand
         }
 
         return [$from, $options, $files, $output];
+    }
+
+    /**
+     * A flag with a value: `--from`, `--adapter` (C2-M-102), and `--allow-loss` and `--max-render-losses`, which the
+     * importer reads as allowLosses and maxLosses (C2-T-027, C2-T-029, C2-H-204, C2-H-205).
+     *
+     * @param string $name
+     * @param string|null $value
+     * @param string|null $from
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve\OptionError ! From `Command::optionFlag()`.
+     *
+     * @return string|null The input format.
+     */
+    private static function valueFlag(string $name, ?string $value, ?string $from, array &$options): ?string
+    {
+        if ($name === 'from') {
+            return $value ?? '';
+        }
+        if ($name === 'adapter') {
+            $options['adapter'] = $value ?? '';
+        } else {
+            Command::optionFlag($name, $value, $options);
+        }
+
+        return $from;
     }
 
     /**

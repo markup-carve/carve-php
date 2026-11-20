@@ -21,7 +21,7 @@ final class HtmlImporter
 {
     /**
      * @param string $html
-     * @param array<string, mixed> $options `rawHtml` (C2-M-066), `labels` (C2-M-101), `strictLosses` (C2-M-082),
+     * @param array<string, mixed> $options `adapter` (C2-M-102), `rawHtml` (C2-M-066), `labels` (C2-M-101), `strictLosses` (C2-M-082),
      *   `allowLosses` and `maxLosses`
      *   (C2-H-204, C2-H-205).
      * @param bool $legacyParser Read with the libxml parser even where `Dom\HTMLDocument` exists.
@@ -46,10 +46,11 @@ final class HtmlImporter
         }
         $opts = Options::from(array_intersect_key(
             $options,
-            ['rawHtml' => true, 'labels' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
+            ['adapter' => true, 'rawHtml' => true, 'labels' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
         ));
         $root = HtmlParser::parse($html, $legacyParser);
         SourceLocations::assign($html, $root);
+        Adapters::apply($root, $opts->adapter);
         if ($prepare !== null) {
             $prepare($root);
         }

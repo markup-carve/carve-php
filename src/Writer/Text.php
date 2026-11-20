@@ -993,6 +993,10 @@ final class Text
     private static function firstLine(string $line, Context $c): int
     {
         $ch = $line[0];
+        // C2-B-046: behind the marker of an item, a box shape would read as its task box.
+        if ($c->boxLead && preg_match('/^\[(.)\] [ \t]*[^ \t]/', $line, $m) === 1 && isset(Tables::TASK_MARKS[$m[1]])) {
+            return 0;
+        }
         if (!str_contains(self::LINE_OPENERS, $ch) && (!ctype_alnum($ch) || Markers::quickReject($line, 0, strlen($line)))) {
             return -1;
         }

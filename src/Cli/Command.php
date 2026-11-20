@@ -144,7 +144,7 @@ AST: --from-ast, --no-positions
 Lint and fix: --rules JSON, --platforms JSON, --ignore FILE-ID,
   --strict, --json, --fix, --write
 Fmt: --check, --diff, --write, --normalize, --align-tables, --from-ast
-Import: --from markdown|gfm|djot|html, --raw-html, --strict-losses
+Import: --from markdown|gfm|djot|html, --raw-html, --adapter NAME, --strict-losses
 Common file options: --output FILE (-o), --include-root DIR,
   --includes, --no-includes, --report-includes FILE
 

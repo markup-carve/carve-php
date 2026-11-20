@@ -580,6 +580,7 @@ final class Blocks
         $c->counts = Inline::counts($nodes);
         $c->lineStart = $lineStart;
         $c->afterDescriptions = $this->w->afterDescriptions;
+        $c->boxLead = $this->w->lead !== null && $this->w->lead === $this->w->boxLead;
         $c->owner = $prefix === '' ? 'top' : (str_ends_with($prefix, '> ') || str_ends_with($prefix, '>') ? 'quote' : 'body');
         $c->writerState = $this->w;
 
@@ -1101,6 +1102,7 @@ final class Blocks
         $gap = strlen($marker) >= 2 && str_ends_with($marker, '.') && ctype_upper($marker[0]) ? '  ' : ' ';
         $task = is_array($node['task'] ?? null) ? $node['task'] : null;
         $box = $task === null ? '' : '[' . (is_string($task['mark'] ?? null) ? $task['mark'] : ' ') . '] ';
+        $this->w->boxLead = $task === null ? ($this->w->lead ?? $prefix) . $head . $gap : null;
         $this->body($node, $path, $prefix, $head . $gap . $box, strlen($marker) + strlen($gap), $tight);
         $this->w->bareDotLead = $marker === '.' && $this->w->lead !== null;
     }

@@ -33,6 +33,11 @@ final class State
     public bool $afterDescriptions = false;
 
     /**
+     * C2-B-046: the lead behind the marker of an item without a task, where text could read as a task box.
+     */
+    public ?string $boxLead = null;
+
+    /**
      * @var array<string, true> Paths already reported.
      */
     private array $lost = [];
@@ -248,6 +253,7 @@ final class State
         $head = $this->lead ?? $prefix;
         $this->lead = null;
         $this->bareDotLead = false;
+        $this->boxLead = null;
         $this->lines[] = $text === '' ? rtrim($head, " \t") : $head . $text;
     }
 
