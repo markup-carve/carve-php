@@ -411,7 +411,7 @@ final class TableWriter
     }
 
     /**
-     * C2-W-065, C2-W-098: a row attribute glued to the closing pipe; a value with a pipe has no spelling.
+     * C2-W-065, C2-W-098: a row attribute glued to the closing pipe.
      *
      * @param array<mixed> $row
      * @param string $path
@@ -420,13 +420,7 @@ final class TableWriter
      */
     private function rowAttributes(array $row, string $path): string
     {
-        $block = BraceBlock::of($row);
-        if (str_contains($block, '|')) {
-            $this->w->lose($path, 'table_row', 'attrs');
-            $block = (string)str_replace('|', '', $block);
-        }
-
-        return $block;
+        return BraceBlock::of($row);
     }
 
     /**

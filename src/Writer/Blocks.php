@@ -890,7 +890,7 @@ final class Blocks
     private function frontmatter(array $node, string $path, string $prefix): void
     {
         $format = Inline::str($node, 'format');
-        if ($format !== 'yaml' && preg_match('/^[A-Za-z][A-Za-z0-9_+-]*$/', $format) !== 1) {
+        if ($format !== 'yaml' && preg_match('/^[A-Za-z0-9]+$/', $format) !== 1) {
             // C2-W-124: the node would read back as another type.
             $this->w->lose($path, 'frontmatter', null);
         }

@@ -108,6 +108,8 @@ final class Linter
         self::measure($root, '', '', 0, $c);
         self::visit($root, '', $c, $controls);
         NodeRulesB::finish($c);
+        usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $maskCursor = 0;
         foreach ($c->lines as $line) {
             if ($line->opaque) {
                 if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
@@ -117,7 +119,7 @@ final class Linter
 
                 continue;
             }
-            $scan = self::masked($line, $c);
+            $scan = self::masked($line, $c, $maskCursor);
             foreach (LineRules::all() as [$id, $check]) {
                 if ($c->active($id)) {
                     $check($scan, $c);
@@ -409,13 +411,19 @@ final class Linter
         }
     }
 
-    private static function masked(Line $line, Context $c): Line
+    private static function masked(Line $line, Context $c, int &$cursor): Line
     {
         $text = $line->text;
         $changed = false;
-        foreach ($c->leafMask as [$from, $to]) {
+        $count = count($c->leafMask);
+        while ($cursor < $count && $c->leafMask[$cursor][1] <= $line->start) {
+            $cursor++;
+        }
+        $end = $line->start + strlen($text);
+        for ($i = $cursor; $i < $count && $c->leafMask[$i][0] < $end; $i++) {
+            [$from, $to] = $c->leafMask[$i];
             $a = max($from, $line->start);
-            $b = min($to, $line->start + strlen($text));
+            $b = min($to, $end);
             if ($a < $b) {
                 $text = substr_replace($text, str_repeat("\0", $b - $a), $a - $line->start, $b - $a);
                 $changed = true;
