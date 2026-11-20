@@ -85,15 +85,13 @@ final class Spoiler
         $base = clone $node;
         $attrs = $node->f['attrs'] ?? null;
         $base->f['attrs'] = AuthorAttrs::withClass($attrs instanceof Attrs ? $attrs : null, 'spoiler-revealed');
-        $body = PlainText::nodes($slots['body'] ?? []);
 
         return Details::container(
             '<section' . Details::attrs($base, $host, 'spoiler') . '>',
             $heading,
-            ($host->blocks)($body),
+            PlainText::nodes($slots['body'] ?? []),
             '</section>',
             $host,
-            Details::hasRawBlock($body),
         );
     }
 }
