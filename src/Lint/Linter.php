@@ -185,6 +185,9 @@ final class Linter
         if ($dataRules && gc_status()['roots'] >= 1000) {
             gc_collect_cycles();
         }
+        if ($dataRules && memory_get_usage(true) - memory_get_usage(false) > 16 * 1024 * 1024) {
+            gc_mem_caches();
+        }
 
         return $findings;
     }
