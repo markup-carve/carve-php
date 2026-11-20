@@ -6,21 +6,31 @@ namespace MarkupCarve\Carve\Lint;
 
 use stdClass;
 
-/** An interpreter for the C2-W-141 expressions in the pinned lint model. */
 final class DataRules
 {
-    /** @var array<string, mixed>|null */
+    /**
+     * @var array<string, mixed>|null
+     */
     private static ?array $data = null;
 
-    /** @var array<string, mixed> */
+    /**
+     * @var array<string, true>|null
+     */
+    private static ?array $ids = null;
+
+    /**
+     * @var array<string, mixed>
+     */
     private array $vars = [];
 
-    /** @var array<string, array{0: int, 1: int}> */
+    /**
+     * @var array<string, array{0: int, 1: int}>
+     */
     private array $groups = [];
 
     private int $base = 0;
 
-    private function __construct(private Context $context, private DataModel $model)
+    private function __construct(private Context $context)
     {
     }
 
@@ -29,18 +39,24 @@ final class DataRules
         return getenv('CARVE_LINT_RULES') === 'data' && (self::data()['rules'] ?? []) !== [];
     }
 
-    /** @return array<string, true> */
+    /**
+     * @return array<string, true>
+     */
     public static function ids(): array
     {
-        $out = [];
-        foreach (self::data()['rules'] ?? [] as $rule) {
-            $out[$rule['id']] = true;
+        if (self::$ids === null) {
+            self::$ids = [];
+            foreach (self::data()['rules'] ?? [] as $rule) {
+                self::$ids[$rule['id']] = true;
+            }
         }
 
-        return $out;
+        return self::$ids;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     */
     private static function data(): array
     {
         if (self::$data === null) {
@@ -57,23 +73,35 @@ final class DataRules
         if (($data['rules'] ?? []) === []) {
             return;
         }
-        $model = new DataModel($context);
-        $self = new self($context, $model);
+        $self = new self($context);
+        $byKind = ['line' => [], 'block' => [], 'inline' => []];
         foreach ($data['rules'] as $rule) {
-            if (!$context->active($rule['id'])) {
-                continue;
+            if ($context->activeRule($rule['id'])) {
+                $byKind[$rule['over']][] = $rule;
             }
-            $records = match ($rule['over']) {
-                'line' => $model->lines,
-                'block' => $model->blocks,
-                'inline' => $model->inline,
-            };
-            foreach ($records as $record) {
-                if (isset($rule['types']) && !in_array($record->type ?? null, $rule['types'], true)) {
-                    continue;
+        }
+        $apply = static function (stdClass $record, array $rules) use ($self): void {
+            foreach ($rules as $rule) {
+                if (!isset($rule['types']) || in_array($record->type ?? null, $rule['types'], true)) {
+                    $self->apply($rule, $record);
                 }
-                if ($rule['over'] === 'line' && in_array($record->leaf, $data['verbatim_leaves'], true)
-                    && !in_array($record->leaf, $rule['verbatim'] ?? [], true)) {
+            }
+        };
+        $model = new DataModel(
+            $context,
+            static function (stdClass $record) use ($apply, $byKind): void {
+                $apply($record, $byKind['inline']);
+            },
+            static function (stdClass $record) use ($apply, $byKind): void {
+                $apply($record, $byKind['block']);
+            },
+        );
+        foreach ($byKind['line'] as $rule) {
+            foreach ($model->lines as $record) {
+                if (
+                    in_array($record->leaf, $data['verbatim_leaves'], true)
+                    && !in_array($record->leaf, $rule['verbatim'] ?? [], true)
+                ) {
                     continue;
                 }
                 $self->apply($rule, $record);
@@ -81,7 +109,10 @@ final class DataRules
         }
     }
 
-    /** @param array<string, mixed> $rule */
+    /**
+     * @param array<string, mixed> $rule
+     * @param \stdClass $record
+     */
     private function apply(array $rule, stdClass $record): void
     {
         $this->vars = $rule['let'] ?? [];
@@ -108,7 +139,10 @@ final class DataRules
         }
     }
 
-    /** @param array<string, mixed> $rule */
+    /**
+     * @param array<string, mixed> $rule
+     * @param \stdClass $record
+     */
     private function report(array $rule, stdClass $record): void
     {
         foreach ($rule['report'] as $entry) {
@@ -136,7 +170,10 @@ final class DataRules
         return '~' . str_replace('~', '\\~', $source) . '~' . $flags;
     }
 
-    /** @param array<string, mixed> $match */
+    /**
+     * @param array<string, mixed> $match
+     * @param int $base
+     */
     private function saveGroups(array $match, int $base): void
     {
         $groups = [];
@@ -196,6 +233,9 @@ final class DataRules
 
         return $value;
     }
+
+    // The JSON expression grammar intentionally has one branch per supported operator.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     private function value(mixed $expr, stdClass $record): mixed
     {
@@ -258,13 +298,19 @@ final class DataRules
 
             return false;
         }
-        foreach (['eq', 'ne', 'lt', 'le', 'gt', 'ge', 'add', 'sub', 'in', 'contains', 'starts', 'matches', 'concat', 'slice', 'extend_left', 'skip_right'] as $op) {
+        foreach (
+            [
+                'eq', 'ne', 'lt', 'le', 'gt', 'ge', 'add', 'sub', 'in', 'contains',
+                'starts', 'matches', 'concat', 'slice', 'extend_left', 'skip_right',
+            ] as $op
+        ) {
             if (!isset($expr[$op])) {
                 continue;
             }
             $parts = $expr[$op];
             $a = $this->value($parts[0], $record);
             $b = $this->value($parts[1], $record);
+
             return match ($op) {
                 'eq' => $a === $b, 'ne' => $a !== $b, 'lt' => $a !== null && $b !== null && $a < $b,
                 'le' => $a !== null && $b !== null && $a <= $b,
@@ -272,10 +318,14 @@ final class DataRules
                 'ge' => $a !== null && $b !== null && $a >= $b, 'add' => (int)$a + (int)$b,
                 'sub' => (int)$a - (int)$b,
                 'in' => in_array($a, is_array($b) ? $b : (self::data()[$b] ?? []), true),
-                'contains' => is_array($a) ? in_array($b, $a, true) : (is_string($a) && is_string($b) && str_contains($a, $b)),
+                'contains' => is_array($a) ? in_array($b, $a, true)
+                    : (is_string($a) && is_string($b) && str_contains($a, $b)),
                 'starts' => is_string($a) && is_string($b) && str_starts_with($a, $b),
                 'matches' => $this->matches($a, $b, $parts[2] ?? '', $parts[0], $record),
-                'concat' => implode('', array_map(static fn (mixed $v): string => (string)$v, array_map(fn (mixed $x): mixed => $this->value($x, $record), $parts))),
+                'concat' => implode('', array_map(
+                    static fn (mixed $v): string => (string)$v,
+                    array_map(fn (mixed $x): mixed => $this->value($x, $record), $parts),
+                )),
                 'slice' => is_string($a) ? self::slice($a, (int)$b, isset($parts[2]) ? (int)$this->value($parts[2], $record) : null) : '',
                 'extend_left' => $this->scan((int)$a, (string)$b, -1, $record),
                 'skip_right' => $this->scan((int)$a, (string)$b, 1, $record),
@@ -329,6 +379,7 @@ final class DataRules
     private function scan(int $from, string $characters, int $direction, stdClass $record): int
     {
         $line = $record->line->text ?? $record->text ?? '';
+        $length = strlen($line);
         $start = $record->line->start ?? $record->start ?? 0;
         $at = $from - $start;
         if ($direction < 0) {
@@ -336,7 +387,7 @@ final class DataRules
                 $at--;
             }
         } else {
-            while ($at < strlen($line) && str_contains($characters, $line[$at])) {
+            while ($at < $length && str_contains($characters, $line[$at])) {
                 $at++;
             }
         }

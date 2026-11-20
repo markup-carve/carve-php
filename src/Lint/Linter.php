@@ -154,7 +154,7 @@ final class Linter
             $index = $path === '' ? 0 : ($childCounts[$parent] = ($childCounts[$parent] ?? -1) + 1);
             self::visit($node, $path, $c, $controls, $parent, $index);
         }
-        unset($childCounts);
+        unset($childCounts, $tree, $root);
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $maskCursor = 0;
@@ -174,19 +174,7 @@ final class Linter
             }
         }
 
-        if (DataRules::enabled()) {
-            $ids = DataRules::ids();
-            $kept = [];
-            $keptLines = [];
-            foreach ($c->diagnostics as $i => $diagnostic) {
-                if (isset($ids[$diagnostic->code])) {
-                    continue;
-                }
-                $kept[] = $diagnostic;
-                $keptLines[] = $c->findingLines[$i];
-            }
-            $c->diagnostics = $kept;
-            $c->findingLines = $keptLines;
+        if ($c->dataRules) {
             DataRules::run($c);
         }
 
@@ -220,14 +208,24 @@ final class Linter
      * @param string $path
      * @param \MarkupCarve\Carve\Lint\Context $c
      * @param array<int, array<array{0: string, 1: array<string>}>> $controls
+     * @param int $index
+     * @param string $parent
      *
      * @return void
      */
+    // The parser walk handles facts for all node forms before visiting children.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     private static function visit(array $node, string $path, Context $c, array &$controls, string $parent, int $index): void
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $c->nodeTypes[$path] = $type;
-        $c->walked[] = ['node' => $node, 'path' => $path, 'parent' => $parent, 'index' => $index];
+        if ($c->dataRules) {
+            $compact = array_intersect_key($node, array_flip(['type', 'form', 'pos', 'attrs', 'task']));
+            $compact['imageLine'] = count($node['children'] ?? []) === 1
+                && ($node['children'][0]['type'] ?? '') === 'image';
+            $c->walked[] = ['node' => $compact, 'path' => $path, 'parent' => $parent, 'index' => $index];
+        }
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
             $c->ids[$attrs['id']] = true;

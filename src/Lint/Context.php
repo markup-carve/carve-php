@@ -36,6 +36,8 @@ final class Context
      */
     public array $walked = [];
 
+    public bool $dataRules;
+
     /**
      * @var array<string, int> The first line of the node at each path.
      */
@@ -178,6 +180,7 @@ final class Context
      */
     public function __construct(public string $source, public array $options, private array $catalog)
     {
+        $this->dataRules = DataRules::enabled();
         $start = 0;
         $number = 1;
         while (($feed = strpos($source, "\n", $start)) !== false) {
@@ -241,10 +244,10 @@ final class Context
      */
     public function active(string $id): bool
     {
-        return $this->activeRules[$id] ??= $this->resolveActive($id);
+        return $this->activeRules[$id] ??= (!$this->dataRules || !isset(DataRules::ids()[$id])) && $this->activeRule($id);
     }
 
-    private function resolveActive(string $id): bool
+    public function activeRule(string $id): bool
     {
         if (($this->catalog[$id]['status'] ?? null) === 'void') {
             return false;
