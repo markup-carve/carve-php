@@ -107,6 +107,12 @@ final class SpanMarks
                 $rows[$rowPath] = $cells;
             }
         }
+        // A row span that reaches past the last row of its group has no row for its marks.
+        foreach ($pending as [$at, $left]) {
+            if ($left > 0 && !in_array($at, $unspelled, true)) {
+                $unspelled[] = $at;
+            }
+        }
     }
 
     /**
@@ -145,6 +151,9 @@ final class SpanMarks
         foreach ($pending as $start => $held) {
             if ($start >= $column && $held[1] > 0) {
                 $pending[$start][1]--;
+                if ($held[3] !== true && !in_array($held[0], $unspelled, true)) {
+                    $unspelled[] = $held[0];
+                }
             }
         }
 

@@ -244,12 +244,13 @@ final class TableWriter
      */
     private function table(array $node, string $path, string $prefix, bool $prewritten): void
     {
-        $this->spanCounts($node, $path);
         $groups = $this->groups($node);
         $rows = array_sum(array_map('count', $groups));
         $format = $this->w->fact($path, 'sourceFormat');
         $wanted = in_array($format, ['csv', 'tsv'], true) || ($format === null && $this->pipeCannotSpell($node));
-        $delimited = $rows === 0 || ($wanted && $this->allowsDelimited($node));
+        // C2-W-066: span marks have no delimited form, so a table that needs them is a pipe table.
+        $delimited = $rows === 0 || ($wanted && $this->spans === null && $this->allowsDelimited($node));
+        $this->spanCounts($node, $path);
         if ($delimited) {
             $this->delimited($node, $path, $prefix, is_string($format) && $format !== 'pipe' ? $format : 'csv', $prewritten);
 
