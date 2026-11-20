@@ -428,6 +428,9 @@ final class LineRules
         if (!str_contains($line->text, '<')) {
             return;
         }
+        if (self::hasAncestor($line->path, $c, 'caption')) {
+            return;
+        }
         if (
             !isset($c->tableRowPaths[$line->number])
             && !in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'heading'], true)

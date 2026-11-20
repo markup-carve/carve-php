@@ -2325,6 +2325,12 @@
      "A blank line follows this attribute line, so it is text. Remove the blank line if you mean to attach it to a following block."
     ]
    ]
+  },
+  "bare-html-tag#6215-caption": {
+   "trigger": "| x | y |\n^ <i>",
+   "near": "| x | y |\n^ text",
+   "options": {},
+   "findings": []
   }
  }
 }
