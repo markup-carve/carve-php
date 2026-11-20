@@ -54,4 +54,19 @@ final class ProfileContainerNestingTest extends TestCase
             $result->diagnostics[0]->message,
         );
     }
+
+    public function testInlineNodesDoNotConsumeContainerDepth(): void
+    {
+        $quote = Carve::renderWithDiagnostics('> > > > `x`', ['profile' => 'comment']);
+        self::assertSame([], $quote->diagnostics);
+        self::assertStringContainsString('<blockquote><p><code>x</code></p></blockquote>', $quote->html);
+
+        $list = Carve::renderWithDiagnostics('- - a `b` <c:d>', ['profile' => 'minimal']);
+        self::assertStringContainsString('<li>a <code>b</code> c:d</li>', $list->html);
+        self::assertCount(1, $list->diagnostics);
+        self::assertSame(
+            'Degraded a construct the profile "minimal" does not allow: autolink.',
+            $list->diagnostics[0]->message,
+        );
+    }
 }
