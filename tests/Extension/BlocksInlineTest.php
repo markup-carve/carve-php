@@ -89,6 +89,27 @@ final class BlocksInlineTest extends TestCase
         );
     }
 
+    public function testDetailsPreservesLiteralCodeLines(): void
+    {
+        $this->assertSame(
+            "<details>\n  <summary>Req</summary>\n  <pre><code class=\"language-php\">x\n  y\n</code></pre>\n</details>",
+            self::html("::: details \"Req\"\n```php\nx\n  y\n```\n:::\n", Details::bundle()),
+        );
+        $this->assertSame(
+            "<ul>\n  <li>outer\n    <details>\n      <summary>Req</summary>\n"
+            . "      <pre><code class=\"language-php\">x\n  y\n</code></pre>\n    </details>\n  </li>\n</ul>",
+            self::html("- outer\n\n  ::: details \"Req\"\n  ```php\n  x\n    y\n  ```\n  :::", Details::bundle()),
+        );
+    }
+
+    public function testDetailsPreservesRawHtmlLines(): void
+    {
+        $this->assertSame(
+            "<details>\n  <summary>Raw</summary>\n<div>\n  x\n</div>\n</details>",
+            self::html("::: details \"Raw\"\n```=html\n<div>\n  x\n</div>\n```\n:::\n", Details::bundle(), ['rawHtml' => true]),
+        );
+    }
+
     public function testDetailsTreeWriteAndFallback(): void
     {
         $source = "::: details \"T\"\nx\n:::\n";

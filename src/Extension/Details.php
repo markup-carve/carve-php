@@ -75,15 +75,52 @@ final class Details
     /**
      * Writes `head`, the body one level in, then `tail`, indented to the block depth like core containers.
      */
-    public static function container(string $head, string $inner, string $body, string $tail, RenderHost $host): string
-    {
-        $lines = [$head, '  ' . $inner];
+    public static function container(
+        string $head,
+        string $inner,
+        string $body,
+        string $tail,
+        RenderHost $host,
+        bool $preserveBody = false,
+    ): string {
+        $pad = str_repeat('  ', $host->blockDepth);
+        $lines = [$head, $pad . '  ' . $inner];
         if ($body !== '') {
-            $lines[] = (string)preg_replace('/^(?=.)/m', '  ', $body);
+            $literal = false;
+            $rendered = [];
+            foreach (explode("\n", $body) as $line) {
+                $rendered[] = $preserveBody || $literal || $line === '' ? $line : $pad . '  ' . $line;
+                // An HTML pre/textarea element owns the whitespace of every
+                // following line, including its closing tag line.
+                foreach (preg_split('/(<\/?(?:pre|textarea)\b[^>]*>)/i', $line, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [] as $part) {
+                    if (preg_match('/^<(pre|textarea)\b/i', $part) === 1) {
+                        $literal = true;
+                    } elseif (preg_match('/^<\/(pre|textarea)\b/i', $part) === 1) {
+                        $literal = false;
+                    }
+                }
+            }
+            $lines[] = implode("\n", $rendered);
         }
-        $lines[] = $tail;
+        $lines[] = $pad . $tail;
 
-        return str_replace("\n", "\n" . str_repeat('  ', $host->blockDepth), implode("\n", $lines));
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Whether any child is a raw block whose output must remain byte exact.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $nodes
+     */
+    public static function hasRawBlock(array $nodes): bool
+    {
+        foreach ($nodes as $node) {
+            if ($node->type === 'raw_block' || self::hasRawBlock($node->children ?? [])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function attrs(Node $node, RenderHost $host, ?string $base = null): string
@@ -106,13 +143,15 @@ final class Details
         $attrs = $node->f['attrs'] ?? null;
         $authoredOpen = AuthorAttrs::value($attrs instanceof Attrs ? $attrs : null, 'open') !== null;
         $open = $host->mode === 'static' && !$authoredOpen ? ' open' : '';
+        $body = PlainText::nodes($slots['body'] ?? []);
 
         return self::container(
             '<details' . $open . self::attrs($node, $host, $base) . '>',
             '<summary>' . ($text === '' ? RenderHost::escapeText($label) : $text) . '</summary>',
-            ($host->blocks)(PlainText::nodes($slots['body'] ?? [])),
+            ($host->blocks)($body),
             '</details>',
             $host,
+            self::hasRawBlock($body),
         );
     }
 }
