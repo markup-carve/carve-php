@@ -448,8 +448,12 @@ final class DataRules
 
     private function field(string $path, stdClass $record): mixed
     {
+        if (!str_contains($path, '.')) {
+            return $record->$path ?? null;
+        }
+        static $parts = [];
         $value = $record;
-        foreach (explode('.', $path) as $part) {
+        foreach ($parts[$path] ??= explode('.', $path) as $part) {
             if (is_object($value)) {
                 $value = $value->$part ?? null;
             } elseif (is_array($value)) {
