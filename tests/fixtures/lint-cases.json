@@ -2165,6 +2165,172 @@
      "This link reference definition is unused."
     ]
    ]
+  },
+  "block-opener-without-blank-line#6198": {
+   "trigger": "para\n>",
+   "near": "para\nplain",
+   "options": [],
+   "findings": [
+    [
+     "block-opener-without-blank-line",
+     "/children/0",
+     5,
+     6,
+     "This line looks like a quote but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
+    ]
+   ]
+  },
+  "caption-looking-paragraph#6200": {
+   "trigger": ": key\n|",
+   "near": ": key\nplain",
+   "options": [],
+   "findings": []
+  },
+  "blockquote-marker-without-space#6202": {
+   "trigger": ">\t",
+   "near": "> ",
+   "options": [],
+   "findings": [
+    [
+     "blockquote-marker-without-space",
+     "/children/0",
+     0,
+     1,
+     "A blockquote marker must be bare `>` or followed by a space. This line is literal text; write `> \t` to quote it."
+    ]
+   ]
+  },
+  "block-opener-without-blank-line#6203": {
+   "trigger": "para\n*[x]: y",
+   "near": "para\nplain",
+   "options": [],
+   "findings": [
+    [
+     "block-opener-without-blank-line",
+     "/children/0",
+     5,
+     10,
+     "This line looks like a definition but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
+    ]
+   ]
+  },
+  "fence-closer-indented#6213": {
+   "trigger": "````\n  ```",
+   "near": "````\n````",
+   "options": [],
+   "findings": []
+  },
+  "bare-html-tag#6214": {
+   "trigger": "| <i> |",
+   "near": "| text |",
+   "options": [],
+   "findings": [
+    [
+     "bare-html-tag",
+     "/children/0/children/0/children/0",
+     2,
+     5,
+     "This bare HTML tag is escaped as text; use a raw HTML block if markup is intended."
+    ]
+   ]
+  },
+  "bare-html-tag#6215": {
+   "trigger": ":: a <b>",
+   "near": ":: a text",
+   "options": [],
+   "findings": []
+  },
+  "indented-code-block#6216": {
+   "trigger": "\t1. w.\n\n    :",
+   "near": "1. w.\n\n:",
+   "options": [],
+   "findings": []
+  },
+  "list-marker-without-blank-line#6217": {
+   "trigger": "| w | w |\n^ w\n- ::",
+   "near": "| w | w |\n^ w\nplain",
+   "options": [],
+   "findings": []
+  },
+  "definition-in-container#6218": {
+   "trigger": "| w | w |\n^ w\n[^w]: %%",
+   "near": "| w | w |\n^ w\nplain",
+   "options": [],
+   "findings": []
+  },
+  "comment-fence-closer-with-text#6219": {
+   "trigger": "> %%%%\n> %%%% x",
+   "near": "> %%%%\n> plain",
+   "options": [],
+   "findings": [
+    [
+     "comment-fence-closer-with-text",
+     "/children/0/children/0",
+     7,
+     15,
+     "This line starts with a percent run and holds other text, so it is content of the comment block and does not close it. Put the closing run alone on its line."
+    ]
+   ]
+  },
+  "description-term-multi-line#6220": {
+   "trigger": "> :: w\n> w",
+   "near": "> :: w",
+   "options": [],
+   "findings": [
+    [
+     "description-term-multi-line",
+     "/children/0/children/0/children/0",
+     9,
+     10,
+     "This line continues the term above. Add a blank line after the term if it is a paragraph."
+    ]
+   ]
+  },
+  "fence-closer-indented#6221": {
+   "trigger": "> ```\n>   ```",
+   "near": "> ```\n> ```",
+   "options": [],
+   "findings": [
+    [
+     "fence-closer-indented",
+     "/children/0/children/0",
+     10,
+     13,
+     "This line closes the block opened on line (n) although it is indented differently. If it is content, make the outer fence longer."
+    ]
+   ]
+  },
+  "blockquote-marker-without-space#6226": {
+   "trigger": "a\n> %% x",
+   "near": "a\n> text",
+   "options": [],
+   "findings": []
+  },
+  "github-alert-marker#6227": {
+   "trigger": "> :: a\n> :: t2\n>: key\n> > [!NOTE]",
+   "near": "> :: a\n> plain",
+   "options": [],
+   "findings": []
+  },
+  "unattached-block-attribute#6255": {
+   "trigger": "{#id .c k=v}\n{#id .c k=v}\n\n",
+   "near": "{#id}\n# heading",
+   "options": [],
+   "findings": [
+    [
+     "unattached-block-attribute",
+     "/children/0",
+     0,
+     12,
+     "A blank line follows this attribute line, so it is text. Remove the blank line if you mean to attach it to a following block."
+    ]
+   ]
+  },
+  "bare-html-tag#6215-caption": {
+   "trigger": "| x | y |\n^ <i>",
+   "near": "| x | y |\n^ text",
+   "options": {},
+   "findings": []
   }
  }
 }

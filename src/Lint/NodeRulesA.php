@@ -1006,8 +1006,17 @@ final class NodeRulesA
         }
         $line = $c->lines[$pos['startLine']] ?? null;
         if ($line !== null) {
-            $indent = strspn($line->text, " \t");
-            $c->report('description-term-multi-line', $line->start + $indent, $line->end, $path);
+            $at = 0;
+            for ($depth = $c->layout->quoteDepth($path); $depth > 0; $depth--) {
+                $mark = $at + strspn($line->text, " \t", $at);
+                if (($line->text[$mark] ?? '') !== '>' || !in_array($line->text[$mark + 1] ?? '', ['', ' '], true)) {
+                    break;
+                }
+                $at = $mark + 1 + (($line->text[$mark + 1] ?? '') === ' ' ? 1 : 0);
+            }
+            $at += strspn($line->text, " \t", $at);
+            $start = max($line->start + $at, $line->content ?? $line->start);
+            $c->report('description-term-multi-line', $start, $line->end, $path);
         }
     }
 
@@ -1538,12 +1547,18 @@ final class NodeRulesA
         }
         $first = $c->lines[$pos['startLine'] - 1] ?? null;
         $last = $c->lines[$pos['endLine'] - 1] ?? null;
-        if ($first === null || $last === null || preg_match('/^[ \t]*`{3,}[ \t]*$/', $last->text) !== 1) {
+        if (
+            $first === null || $last === null
+            || preg_match('/^(?:[ \t]*> ?)*[ \t]*(`{3,})[ \t]*$/', $last->text, $match, PREG_OFFSET_CAPTURE) !== 1
+        ) {
             return;
         }
         $opener = strpos($first->text, '```');
-        $closer = strpos($last->text, '```');
-        if ($opener === false || $closer === false || $opener === $closer) {
+        $closer = $match[1][1];
+        if (
+            $opener === false || $opener === $closer
+            || strlen($match[1][0]) < strspn($first->text, '`', $opener)
+        ) {
             return;
         }
         $c->report('fence-closer-indented', $last->start + $closer, $last->end, $path);
