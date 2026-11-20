@@ -73,6 +73,11 @@ final class Profile
     ];
 
     /**
+     * @var array<string, true>
+     */
+    private const NESTING_CONTAINERS = ['list' => true, 'block_quote' => true, 'div' => true, 'admonition' => true];
+
+    /**
      * @var array<string, true>|null
      */
     private ?array $allowedBlock = null;
@@ -148,10 +153,11 @@ final class Profile
             $stack[] = [$kid, 0];
         }
         while ($stack !== []) {
-            [$node, $level] = array_pop($stack);
+            [$node, $parentLevel] = array_pop($stack);
+            $level = $parentLevel + (isset(self::NESTING_CONTAINERS[$node->type]) ? 1 : 0);
             $this->level[spl_object_id($node)] = $level;
             foreach (Walk::kids($node) as $kid) {
-                $stack[] = [$kid, $level + 1];
+                $stack[] = [$kid, $level];
             }
         }
     }
@@ -173,7 +179,7 @@ final class Profile
      */
     private function tooDeep(Node $node): bool
     {
-        // G-render-3: a list item is part of its list and is never degraded on its own, as the oracle does.
+        // A list item shares its list's container level and is never degraded on its own.
         return $this->maxNesting !== null && $node->type !== 'list_item' && ($this->level[spl_object_id($node)] ?? 0) > $this->maxNesting;
     }
 
@@ -259,15 +265,25 @@ final class Profile
 
     /**
      * @param \MarkupCarve\Carve\Node $node
+     * @param bool $block
      *
      * @return void
      */
-    private function report(Node $node): void
+    private function report(Node $node, bool $block = false): void
     {
+        $type = $node->type;
+        if (
+            $block && in_array($type, ['paragraph', 'code_block', 'block_quote'], true)
+            && ($node->f['caption'] ?? null) instanceof Node
+        ) {
+            $type = 'figure';
+        }
+        $typeAllowed = $block ? $this->allowsBlockType($type) : $this->allowsType($type);
         $this->log->loss(
             'profile-construct-degraded',
             'warning',
             ['profile' => $this->name, 'construct' => $node->type],
+            variant: $typeAllowed && $this->tooDeep($node) ? 1 : 0,
             node: $node,
         );
     }
@@ -358,7 +374,7 @@ final class Profile
         if (!HtmlRenderer::visible($node)) {
             return null;
         }
-        $this->report($node);
+        $this->report($node, true);
         $paras = $this->degradedTexts($node);
         $out = [];
         foreach ($paras as $text) {
@@ -379,7 +395,7 @@ final class Profile
      */
     public function degradedParagraphs(Node $node): array
     {
-        $this->report($node);
+        $this->report($node, true);
 
         return array_values(array_filter($this->degradedTexts($node), static fn (string $text): bool => $text !== ''));
     }
