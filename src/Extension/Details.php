@@ -74,22 +74,32 @@ final class Details
 
     /**
      * Writes `head`, the body one level in, then `tail`, indented to the block depth like core containers.
+     *
+     * @param string $head
+     * @param string $inner
+     * @param array<\MarkupCarve\Carve\Node> $body
+     * @param string $tail
+     * @param \MarkupCarve\Carve\Extension\RenderHost $host
      */
     public static function container(
         string $head,
         string $inner,
-        string $body,
+        array $body,
         string $tail,
         RenderHost $host,
-        bool $preserveBody = false,
     ): string {
         $pad = str_repeat('  ', $host->blockDepth);
         $lines = [$head, $pad . '  ' . $inner];
-        if ($body !== '') {
+        foreach ($body as $block) {
+            $html = ($host->blocks)([$block]);
+            if ($html === '') {
+                continue;
+            }
+            $preserveBlock = self::hasRawBlock([$block]);
             $literal = false;
             $rendered = [];
-            foreach (explode("\n", $body) as $line) {
-                $rendered[] = $preserveBody || $literal || $line === '' ? $line : $pad . '  ' . $line;
+            foreach (explode("\n", $html) as $line) {
+                $rendered[] = $preserveBlock || $literal || $line === '' ? $line : $pad . '  ' . $line;
                 // An HTML pre/textarea element owns the whitespace of every
                 // following line, including its closing tag line.
                 foreach (preg_split('/(<\/?(?:pre|textarea)\b[^>]*>)/i', $line, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [] as $part) {
@@ -143,15 +153,13 @@ final class Details
         $attrs = $node->f['attrs'] ?? null;
         $authoredOpen = AuthorAttrs::value($attrs instanceof Attrs ? $attrs : null, 'open') !== null;
         $open = $host->mode === 'static' && !$authoredOpen ? ' open' : '';
-        $body = PlainText::nodes($slots['body'] ?? []);
 
         return self::container(
             '<details' . $open . self::attrs($node, $host, $base) . '>',
             '<summary>' . ($text === '' ? RenderHost::escapeText($label) : $text) . '</summary>',
-            ($host->blocks)($body),
+            PlainText::nodes($slots['body'] ?? []),
             '</details>',
             $host,
-            self::hasRawBlock($body),
         );
     }
 }

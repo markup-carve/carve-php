@@ -108,6 +108,14 @@ final class BlocksInlineTest extends TestCase
             "<details>\n  <summary>Raw</summary>\n<div>\n  x\n</div>\n</details>",
             self::html("::: details \"Raw\"\n```=html\n<div>\n  x\n</div>\n```\n:::\n", Details::bundle(), ['rawHtml' => true]),
         );
+        $this->assertSame(
+            "<details>\n  <summary>Raw</summary>\n  <p>Before.</p>\n<div>raw</div>\n  <p>After.</p>\n</details>",
+            self::html(
+                "::: details \"Raw\"\nBefore.\n```=html\n<div>raw</div>\n```\nAfter.\n:::\n",
+                Details::bundle(),
+                ['rawHtml' => true],
+            ),
+        );
     }
 
     public function testDetailsTreeWriteAndFallback(): void
