@@ -717,7 +717,7 @@ final class NodeRulesB
             return;
         }
         [$ownerPath, $ownerType] = self::blockOwner($path, $c);
-        if ($ownerType === 'list_item' || self::ancestorPath($path, $c, 'list_item') !== null) {
+        if ($ownerType === 'list_item') {
             return;
         }
         $quote = self::ancestorPath($path, $c, 'block_quote');

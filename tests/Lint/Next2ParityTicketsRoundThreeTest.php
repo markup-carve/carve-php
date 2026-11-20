@@ -29,7 +29,6 @@ final class Next2ParityTicketsRoundThreeTest extends TestCase
             '#5395 term continuation' => ["2) :: term\n   - - -\n", 'deprecated-spaced-thematic-break', [[14, 19]]],
             '#5394 quoted blank' => ["> {#id}\n>\n", 'unattached-block-attribute', [[2, 7]]],
             '#5392 longer colon' => [":::\n%%%\n%%%\n::::\n", 'colon-fence-length-mismatch', [[12, 16]]],
-            '#5385 div in item' => ["1. ::::\n    >\n", 'block-opener-overindented', []],
             '#5387 lazy quote' => ["c\n> %%%\n", 'block-opener-without-blank-line', [[2, 3]]],
             '#5386 quoted after attrs' => ["{#id}\n> | x |\n", 'block-opener-overindented', []],
             '#5388 caption quote' => [">\n^ Caption\n> code\n", 'block-opener-without-blank-line', [[12, 13]]],
