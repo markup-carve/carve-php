@@ -123,13 +123,13 @@ final class TableWriter
             is_array($node['children'] ?? null) ? $node['children'] : [],
             static fn (mixed $group): bool => is_array($group) && ($group['type'] ?? '') === 'table_body',
         ));
-        if (count($bodies) < 2) {
-            return '';
-        }
         $counts = array_map(static fn (array $body): int => count(array_filter(
             is_array($body['children'] ?? null) ? $body['children'] : [],
             static fn (mixed $row): bool => is_array($row) && ($row['type'] ?? '') === 'table_row',
         )), $bodies);
+        if (count($bodies) < 2 && !in_array(0, $counts, true)) {
+            return '';
+        }
 
         return implode(',', $counts);
     }

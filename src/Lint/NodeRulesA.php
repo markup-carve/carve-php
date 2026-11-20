@@ -121,7 +121,7 @@ final class NodeRulesA
 
                 continue;
             }
-            $end = self::nextCloser($text, $mark, $start + $size + 1);
+            $end = self::nextCloser($text, $mark, $id, $start + $size + 1);
             if ($end < 0) {
                 break;
             }
@@ -134,15 +134,17 @@ final class NodeRulesA
         return $ranges;
     }
 
-    private static function nextCloser(string $text, string $mark, int $from): int
+    private static function nextCloser(string $text, string $mark, string $id, int $from): int
     {
         $end = $from <= strlen($text) ? strpos($text, $mark, $from) : false;
+        $size = strlen($mark);
         while (
             $end !== false && (
                 preg_match('/[\p{Zs}\t\n\r]$/u', substr($text, 0, $end)) === 1 || self::escapedAt($text, $end)
+                || self::joined($text, $end + $size, $id)
             )
         ) {
-            $next = $end + strlen($mark);
+            $next = $end + $size;
             $end = $next <= strlen($text) ? strpos($text, $mark, $next) : false;
         }
 
