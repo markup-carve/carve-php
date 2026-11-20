@@ -342,6 +342,12 @@ final class Text
      */
     private function clean(string $text): string
     {
+        // Every forbidden plain-text byte is CR, DEL, or the UTF-8 lead byte of a C1 control.
+        // Most text nodes need no replacement; keep the Unicode pattern for the few that do.
+        if (!$this->ansi && strpbrk($text, "\r\x7f\xc2") === false) {
+            return $text;
+        }
+
         return $this->ansi
             ? (string)preg_replace('/[\x00-\x08\x0b-\x1f\x{7f}-\x{9f}]/u', '', $text)
             : (string)preg_replace('/[\r\x{7f}-\x{9f}]/u', '', $text);

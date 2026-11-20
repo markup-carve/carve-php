@@ -242,6 +242,12 @@ final class ExportTest extends TestCase
         $this->assertSame(['raw-format-dropped'], $result->codes());
     }
 
+    public function testPlainTextCleanKeepsOrdinaryUnicodeAndDropsOnlyForbiddenControls(): void
+    {
+        $tree = self::paragraphTree([['type' => 'text', 'value' => "a\u{00A0}b\u{2014}c\rc\u{007F}d\u{0080}e\u{009F}f\n"]]);
+        $this->assertSame("a\u{00A0}b\u{2014}ccdef\n", (new PlainTextExporter())->export($tree)->output);
+    }
+
     public function testAnsiStylesInlineMarkup(): void
     {
         $this->assertSame("a \e[1mb\e[0m \e[3mc\e[0m \e[93md\e[0m\n", self::ansi('a *b* /c/ `d`'));
