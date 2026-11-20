@@ -5726,7 +5726,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => 'cc54159dbf0227072512ae6a6bbd4a0c093210a5',
+        'commit' => '8e5e2b251c79be101046dda87bb986066b183928',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6341,6 +6341,21 @@ final class Tables
 
     /** C2-H-137 options.json */
     public const OPTIONS = [
+        'adapter' => [
+            'kind' => 'import',
+            'readBy' => 'import',
+            'type' => 'enum',
+            'values' => [
+                'generic',
+                'tiptap',
+                'prosemirror',
+                'ckeditor',
+                'tinymce',
+                'word',
+                'google-docs',
+            ],
+            'default' => 'generic',
+        ],
         'alignTables' => [
             'kind' => 'format',
             'readBy' => 'format',
@@ -7564,45 +7579,45 @@ final class Tables
     public const INCLUDE_OPTIONS = [
         [
             'rank' => 1,
+            'name' => 'code',
+            'kind' => 'mode',
+            'value' => 'language',
+            'needs_value' => false,
+        ],
+        [
+            'rank' => 2,
             'name' => 'lines',
             'kind' => 'selection',
             'value' => 'range',
             'needs_value' => true,
         ],
         [
-            'rank' => 2,
+            'rank' => 3,
             'name' => 'region',
             'kind' => 'selection',
             'value' => 'identifier',
             'needs_value' => true,
         ],
         [
-            'rank' => 3,
+            'rank' => 4,
             'name' => 'rows',
             'kind' => 'selection',
             'value' => 'range',
             'needs_value' => true,
         ],
         [
-            'rank' => 4,
+            'rank' => 5,
             'name' => 'cols',
             'kind' => 'transform',
             'value' => 'range_or_names',
             'needs_value' => true,
         ],
         [
-            'rank' => 5,
+            'rank' => 6,
             'name' => 'shift',
             'kind' => 'transform',
             'value' => 'signed_integer_or_auto',
             'needs_value' => true,
-        ],
-        [
-            'rank' => 6,
-            'name' => 'code',
-            'kind' => 'mode',
-            'value' => 'language',
-            'needs_value' => false,
         ],
     ];
 
