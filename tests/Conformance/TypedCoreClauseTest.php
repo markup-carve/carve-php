@@ -79,6 +79,8 @@ final class TypedCoreClauseTest extends TestCase
             } elseif (isset($case['tree'])) {
                 $node = TreeReader::read(json_encode($case['tree'], JSON_THROW_ON_ERROR), $options);
                 self::assertSame($expected['html'], HtmlRenderer::render($node, Options::from($options)));
+            } elseif ($options['strictLosses'] ?? false) {
+                self::assertSame($expected['html'], Carve::renderWithDiagnostics($source, $options)->html);
             } else {
                 self::assertSame($expected['html'], Carve::toHtml($source, $options));
             }
