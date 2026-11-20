@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -108,6 +109,33 @@ final class SpanMarksAndPairsTest extends TestCase
         $html = Carve::render($written->source);
         $this->assertStringContainsString('<td colspan="2">m</td>', $html);
         $this->assertStringContainsString('<td rowspan="2">a</td>', $html);
+    }
+
+    public function testOnlyTheCountsWithoutMarksTakeThemInATableThatHoldsMarks(): void
+    {
+        $tree = TreeEncoder::decoded(Carve::parse("| a | < | b |\n| c | d | e |\n| f | g | h |\n| i | j |\n"));
+        $rows = &$tree['children'][0]['children'][0]['children'];
+        $rows[1]['children'] = [$rows[1]['children'][0] + ['colspan' => 2], $rows[1]['children'][2]];
+        $rows[2]['children'][1] += ['rowspan' => 2];
+        unset($rows);
+        $written = Writer::writeWithDiagnostics(self::withoutPositions($tree));
+        $this->assertSame("| a | < | b |\n| c | < | e |\n| f | g | h |\n| i | ^ | j |\n", $written->source);
+        $this->assertSame([], $written->diagnostics);
+    }
+
+    /**
+     * @param mixed $node
+     *
+     * @return mixed
+     */
+    private static function withoutPositions(mixed $node): mixed
+    {
+        if (!is_array($node)) {
+            return $node;
+        }
+        unset($node['pos']);
+
+        return array_map(self::withoutPositions(...), $node);
     }
 
     /**
