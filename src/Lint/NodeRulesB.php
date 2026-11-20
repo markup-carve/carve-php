@@ -751,18 +751,33 @@ final class NodeRulesB
      */
     private static function quoteOpenerExempt(string $quote, array $pos, Context $c): bool
     {
-        if ($c->lineOf($c->layout->startOffset($quote) ?? -1) === $pos['startLine']) {
-            $lineStart = $c->lines[$pos['startLine'] - 1]->start ?? 0;
-            $before = substr($c->source, $lineStart, $pos['startOffset'] - $lineStart);
-            $mark = strrpos($before, '>');
-            if ($mark !== false && substr($before, $mark + 1) === ' ') {
-                return true;
-            }
+        $start = $c->layout->startOffset($quote);
+        if ($start === null) {
+            return false;
         }
-        $previous = $c->lines[$pos['startLine'] - 2] ?? null;
+        $line = $c->lines[$pos['startLine'] - 1] ?? null;
+        if ($line === null) {
+            return false;
+        }
+        $before = substr($c->source, $line->start, $pos['startOffset'] - $line->start);
+        $mark = strrpos($before, '>');
+        if ($mark === false || substr($before, $mark + 1) !== ' ') {
+            return false;
+        }
+        if ($c->lineOf($start) === $pos['startLine']) {
+            return true;
+        }
+        $depth = $c->layout->quoteDepth($quote) + 1;
+        for ($number = $c->lineOf($start); $number <= $pos['startLine']; $number++) {
+            $line = $c->lines[$number - 1] ?? null;
+            if ($line === null || preg_match('/^(?:[ \t]*>(?: |$)){' . $depth . '}/', $line->text) !== 1) {
+                continue;
+            }
 
-        return $pos['startLine'] === ($c->firstLines[$quote] ?? -1) + 1 && $previous !== null
-            && preg_match('/^[ \t]*\{[^\n]*\}[ \t]*$/', $previous->text) === 1;
+            return $number === $pos['startLine'];
+        }
+
+        return false;
     }
 
     /**
