@@ -136,7 +136,7 @@ final class OptionsAndPolicyTest extends RenderTestCase
     {
         $em = static fn (array $c): array => ['type' => 'emphasis', 'children' => [$c]];
         $tree = self::doc(self::p($em($em($em(self::t('x'))))));
-        $this->assertSame('<p><em><em>x</em></em></p>', self::html($tree, ['profile' => 'minimal']));
+        $this->assertSame('<p><em><em><em>x</em></em></em></p>', self::html($tree, ['profile' => 'minimal']));
     }
 
     /**
