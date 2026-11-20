@@ -55,6 +55,11 @@ final class DataRules
     private static ?array $nodeFields = null;
 
     /**
+     * @var array<string, array{node: array<string, true>, item: array<string, true>}>
+     */
+    private static array $nodeFieldsByType = [];
+
+    /**
      * @var array<string, mixed>
      */
     private array $vars = [];
@@ -208,12 +213,40 @@ final class DataRules
     }
 
     /**
+     * @return array<string, array{node: array<string, true>, item: array<string, true>}>
+     */
+    private static function fieldsByNodeType(Context $context): array
+    {
+        $byType = [];
+        foreach (self::rules() as $rule) {
+            if (!$context->activeRule($rule['id']) || !in_array($rule['over'], ['block', 'inline'], true)) {
+                continue;
+            }
+            $local = ['node' => [], 'item' => []];
+            self::gatherFields($rule, $local);
+            foreach ($rule['types'] ?? [] as $nodeType) {
+                if (is_string($nodeType)) {
+                    $byType[$nodeType]['node'] = ($byType[$nodeType]['node'] ?? []) + $local['node'];
+                    $byType[$nodeType]['item'] = ($byType[$nodeType]['item'] ?? []) + $local['item'];
+                }
+            }
+        }
+
+        return $byType;
+    }
+
+    /**
      * @return array<string, true>
      */
     public static function nodeTypes(Context $context): array
     {
         $types = [];
+        $fields = ['node' => [], 'item' => []];
+        $byType = self::fieldsByNodeType($context);
         foreach (self::rules() as $rule) {
+            if ($context->activeRule($rule['id'])) {
+                self::gatherFields($rule, $fields);
+            }
             if (
                 !in_array($rule['over'], ['block', 'inline'], true)
                 || !$context->activeRule($rule['id']) || !self::readsNode($rule)
@@ -231,6 +264,7 @@ final class DataRules
             }
         }
 
+        $lookupTypes = [];
         foreach (self::rules() as $rule) {
             if (!$context->activeRule($rule['id'])) {
                 continue;
@@ -240,7 +274,13 @@ final class DataRules
             self::lookupTypes($rule, $blocks, $inline);
             foreach (array_keys($blocks + $inline) as $type) {
                 $types[$type] = true;
+                $lookupTypes[$type] = true;
             }
+        }
+        self::$nodeFields = $fields;
+        self::$nodeFieldsByType = $byType;
+        foreach ($lookupTypes as $type => $_) {
+            self::$nodeFieldsByType[$type] = $fields;
         }
 
         return $types;
@@ -297,7 +337,8 @@ final class DataRules
      */
     public static function nodeData(array $node): array
     {
-        $fields = self::$nodeFields;
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        $fields = self::$nodeFieldsByType[$type] ?? self::$nodeFields;
         if ($fields === null) {
             $fields = ['node' => [], 'item' => []];
             foreach (self::rules() as $rule) {
@@ -860,6 +901,9 @@ final class DataRules
     private function field(string $path, stdClass $record): mixed
     {
         if (!str_contains($path, '.')) {
+            if (($path === 'ancestors' || $path === 'ancestor_ids') && !property_exists($record, $path)) {
+                $this->populateAncestors($record);
+            }
             if ($path === 'text' && property_exists($record, 'text') && $record->text === null) {
                 $record->text = substr($this->context->source, $record->start, $record->end - $record->start);
             }
@@ -870,6 +914,12 @@ final class DataRules
         $value = $record;
         foreach ($parts[$path] ??= explode('.', $path) as $part) {
             if (is_object($value)) {
+                if (
+                    $value instanceof stdClass && ($part === 'ancestors' || $part === 'ancestor_ids')
+                    && !property_exists($value, $part)
+                ) {
+                    $this->populateAncestors($value);
+                }
                 if (
                     $value instanceof stdClass && $part === 'text' && property_exists($value, 'text')
                     && $value->text === null && isset($value->start, $value->end)
@@ -885,6 +935,21 @@ final class DataRules
         }
 
         return $value;
+    }
+
+    private function populateAncestors(stdClass $record): void
+    {
+        $path = $record->path ?? '';
+        $ids = [];
+        $types = [];
+        while (is_string($path) && $path !== '') {
+            $split = strrpos($path, '/children/');
+            $path = $split === false ? '' : substr($path, 0, $split);
+            $ids[] = $path;
+            $types[] = $this->context->nodeTypes[$path] ?? 'document';
+        }
+        $record->ancestor_ids = $ids;
+        $record->ancestors = $types;
     }
 
     private static function integer(mixed $value): int
@@ -954,6 +1019,14 @@ final class DataRules
             $needle = $this->value($parts[1] ?? null, $record);
 
             return is_string($haystack) && is_string($needle) ? strpos($haystack, $needle) : -1;
+        }
+        if ($op === 'json_escape' && isset($expr['json_escape'])) {
+            $encoded = json_encode(
+                self::string($this->value($expr['json_escape'], $record)),
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            );
+
+            return substr($encoded, 1, -1);
         }
         if ($op === 'all' && is_array($expr['all'] ?? null)) {
             foreach ($expr['all'] as $item) {
@@ -1110,6 +1183,15 @@ final class DataRules
                     break;
                 }
                 $chosen = $candidate;
+            }
+        } elseif (($expr['after'] ?? false) === true) {
+            $chosen = null;
+            foreach ($list as $candidate) {
+                if ($candidate->start > ($record->start ?? 0)) {
+                    $chosen = $candidate;
+
+                    break;
+                }
             }
         } else {
             $chosen = $list[0];

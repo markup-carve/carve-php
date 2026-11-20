@@ -291,6 +291,7 @@ final class DataModel
         foreach ($runs as $run) {
             ($this->onInline)($run);
         }
+        unset($runs, $openRuns);
         $c->walked = [];
         $this->holderByPath = [];
         $count = count($c->lines);
@@ -369,6 +370,7 @@ final class DataModel
             $record->quote_marks = $this->quoteMarks($record->text);
             $record->lazy = $this->lazy($record);
         }
+        unset($holders, $held, $record, $sourceLine, $node, $pos, $item);
         $this->buildNodes();
         $this->markColonContainers();
     }
