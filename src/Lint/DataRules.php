@@ -12,6 +12,28 @@ use stdClass;
 final class DataRules
 {
     /**
+     * @var array<string, true>
+     */
+    private const BINARY_OPS = [
+        'eq' => true,
+        'ne' => true,
+        'lt' => true,
+        'le' => true,
+        'gt' => true,
+        'ge' => true,
+        'add' => true,
+        'sub' => true,
+        'in' => true,
+        'contains' => true,
+        'starts' => true,
+        'matches' => true,
+        'concat' => true,
+        'slice' => true,
+        'extend_left' => true,
+        'skip_right' => true,
+    ];
+
+    /**
      * @var array<string, mixed>|null
      */
     private static ?array $data = null;
@@ -428,10 +450,11 @@ final class DataRules
         if (!is_array($expr) || array_is_list($expr)) {
             return $expr;
         }
-        if (is_string($expr['f'] ?? null)) {
+        $op = array_key_first($expr);
+        if ($op === 'f' && is_string($expr['f'] ?? null)) {
             return $this->field($expr['f'], $record);
         }
-        if (is_string($expr['v'] ?? null)) {
+        if ($op === 'v' && is_string($expr['v'] ?? null)) {
             $name = $expr['v'];
             $original = [$this->groups, $this->base];
             $value = $this->value($this->vars[$name] ?? null, $record);
@@ -439,13 +462,13 @@ final class DataRules
 
             return $value;
         }
-        if (is_string($expr['match'] ?? null)) {
+        if ($op === 'match' && is_string($expr['match'] ?? null)) {
             return $this->groups[$expr['match']][($expr['at'] ?? null) === 'end' ? 1 : 0] ?? null;
         }
-        if (is_string($expr['has'] ?? null)) {
+        if ($op === 'has' && is_string($expr['has'] ?? null)) {
             return $this->field($expr['has'], $record) !== null;
         }
-        if (is_array($expr['all'] ?? null)) {
+        if ($op === 'all' && is_array($expr['all'] ?? null)) {
             foreach ($expr['all'] as $item) {
                 if (!$this->value($item, $record)) {
                     return false;
@@ -454,7 +477,7 @@ final class DataRules
 
             return true;
         }
-        if (is_array($expr['any'] ?? null)) {
+        if ($op === 'any' && is_array($expr['any'] ?? null)) {
             foreach ($expr['any'] as $item) {
                 if ($this->value($item, $record)) {
                     return true;
@@ -463,13 +486,13 @@ final class DataRules
 
             return false;
         }
-        if (isset($expr['not'])) {
+        if ($op === 'not' && isset($expr['not'])) {
             return !$this->value($expr['not'], $record);
         }
-        if (is_array($expr['if'] ?? null) && array_key_exists(2, $expr['if'])) {
+        if ($op === 'if' && is_array($expr['if'] ?? null) && array_key_exists(2, $expr['if'])) {
             return $this->value($expr['if'][$this->value($expr['if'][0], $record) ? 1 : 2], $record);
         }
-        if (is_array($expr['some'] ?? null) && is_string($expr['some']['in'] ?? null)) {
+        if ($op === 'some' && is_array($expr['some'] ?? null) && is_string($expr['some']['in'] ?? null)) {
             $list = $this->field($expr['some']['in'], $record);
             if (!is_array($list)) {
                 return false;
@@ -485,15 +508,10 @@ final class DataRules
 
             return false;
         }
-        foreach (
-            [
-                'eq', 'ne', 'lt', 'le', 'gt', 'ge', 'add', 'sub', 'in', 'contains',
-                'starts', 'matches', 'concat', 'slice', 'extend_left', 'skip_right',
-            ] as $op
+        if (
+            is_string($op) && isset(self::BINARY_OPS[$op])
+            && is_array($expr[$op]) && array_key_exists(1, $expr[$op])
         ) {
-            if (!is_array($expr[$op] ?? null) || !array_key_exists(1, $expr[$op])) {
-                continue;
-            }
             $parts = $expr[$op];
             $a = $this->value($parts[0], $record);
             $b = $this->value($parts[1], $record);
