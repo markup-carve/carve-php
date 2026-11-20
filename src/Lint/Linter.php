@@ -105,7 +105,7 @@ final class Linter
         /** @var array<int, array<array{0: string, 1: array<string>}>> $controls */
         $controls = [];
         $root = Support::node($tree);
-        self::measure($root, '', '', 0, $c);
+        self::measureRoot($root, $c);
         self::visit($root, '', $c, $controls);
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
@@ -248,22 +248,34 @@ final class Linter
         $c->layout->register($path, $node, $quotes, $parent);
         $pos = Support::pos($node);
         $inner = $quotes + ($type === 'block_quote' && $pos !== null && self::marked($c->source, $pos['startOffset']) ? 1 : 0);
-        $previousType = '';
         foreach (self::children($node, $type, $path) as [$child, $childPath]) {
-            if ($path === '') {
-                $blockPos = Support::pos($child);
-                if ($blockPos !== null) {
-                    $firstLine = $c->lines[$blockPos['startLine'] - 1] ?? null;
-                    if (
-                        ($child['type'] ?? null) === 'paragraph' && $firstLine !== null
-                        && str_starts_with($firstLine->text, '    ')
-                    ) {
-                        $c->previousTopLevelBlocks[$blockPos['startLine']] = $previousType;
-                    }
-                    $previousType = is_string($child['type'] ?? null) ? $child['type'] : '';
-                }
-            }
             self::measure($child, $childPath, $path, $inner, $c);
+        }
+    }
+
+    /**
+     * Register top-level predecessor kinds while measuring their trees, without adding work to each recursive node.
+     *
+     * @param array<string, mixed> $root
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     */
+    private static function measureRoot(array $root, Context $c): void
+    {
+        $c->layout->register('', $root, 0, '');
+        $previousType = '';
+        foreach (self::children($root, 'document', '') as [$child, $childPath]) {
+            $blockPos = Support::pos($child);
+            if ($blockPos !== null) {
+                $firstLine = $c->lines[$blockPos['startLine'] - 1] ?? null;
+                if (
+                    ($child['type'] ?? null) === 'paragraph' && $firstLine !== null
+                    && str_starts_with($firstLine->text, '    ')
+                ) {
+                    $c->previousTopLevelBlocks[$blockPos['startLine']] = $previousType;
+                }
+                $previousType = is_string($child['type'] ?? null) ? $child['type'] : '';
+            }
+            self::measure($child, $childPath, '', 0, $c);
         }
     }
 
