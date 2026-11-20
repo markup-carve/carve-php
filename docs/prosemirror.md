@@ -117,8 +117,9 @@ For anything else an entry is a pair of closures. `toTree` gets the ProseMirror 
 `'block'` or `'inline'`; `blocks` and `inlines`, which convert the node's `content`) and returns a tree node.
 `fromTree` gets the tree node and the same helpers (there `blocks` and `inlines` load tree children) and returns the
 ProseMirror node, or null for a tree node that is not its own. For a mark, `toTree` gets the mark and returns the
-inline container without `children`, and `fromTree` returns the mark or null. A type that is neither in the kit nor in
-`mapping` still throws.
+inline container without `children`, and `fromTree` returns the mark or null. Each class uses its own half:
+`ProseMirrorToCarve` calls `toTree` and throws without it, `ProseMirrorRenderer` calls `fromTree` and without it
+loads the tree node as a kit node. A type that is neither in the kit nor in `mapping` still throws.
 
 ### Kit shapes
 
