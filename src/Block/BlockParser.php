@@ -255,7 +255,10 @@ final class BlockParser
                 $quoteDepth++;
             }
         }
-        while ($quoteDepth > 0 && $j < $end && $this->s[$j] === '>') {
+        while (
+            $quoteDepth > 0 && $j < $end && $this->s[$j] === '>'
+            && ($j + 1 === $end || $this->s[$j + 1] === ' ')
+        ) {
             $j++;
             $j += strspn($this->s, " \t", $j, $end - $j);
             $quoteDepth--;
