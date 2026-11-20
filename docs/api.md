@@ -113,6 +113,8 @@ Interface. Implemented by every error a public call throws (C2-T-006, C2-T-040),
 
 Class. The one documented exception: an option name or value that options.json does not allow.
 
+Fields: `?string $path`.
+
 ### `MarkupCarve\Carve\InputError`
 
 Class.
