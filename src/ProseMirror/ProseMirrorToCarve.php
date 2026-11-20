@@ -11,7 +11,7 @@ use MarkupCarve\Carve\Carve;
  * Carve from ProseMirror JSON in the schema of the carve-grammars Tiptap kit (`tiptap/tree.js`).
  *
  * `toTree()` builds the 0.2 tree, `convert()` writes it with `Carve::write()`. A ProseMirror node or mark with no
- * Carve node is an error, not a skip.
+ * Carve node in the kit or the `mapping` option is an error, not a skip.
  */
 final class ProseMirrorToCarve
 {
@@ -60,6 +60,46 @@ final class ProseMirrorToCarve
      * @var array<array{path: string, type: string, attribute: string, value: mixed}>
      */
     private array $ignored = [];
+
+    /**
+     * @var array{
+     *     nodes: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     *     marks: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     * }
+     */
+    private array $mapping;
+
+    /**
+     * @var array<string, string>
+     */
+    private array $pointers = [];
+
+    /**
+     * @param array<string, mixed> $options `mapping`: the host's own ProseMirror nodes and marks (docs/prosemirror.md).
+     */
+    public function __construct(array $options = [])
+    {
+        $this->mapping = Kit::mapping($options['mapping'] ?? null);
+    }
+
+    /**
+     * The ProseMirror JSON pointer of the node at `$treePath` in the last `toTree()` or `convert()`, such as the `path`
+     * of a lint finding on the saved source: the pointer of the node or mark it came from, or of its nearest ancestor
+     * that came from one (a span mark cell, a table section). Null when no ancestor did.
+     */
+    public function pointerFor(string $treePath): ?string
+    {
+        $at = $treePath;
+        while (true) {
+            if (array_key_exists($at, $this->pointers)) {
+                return $this->pointers[$at];
+            }
+            if ($at === '') {
+                return null;
+            }
+            $at = substr($at, 0, (int)strrpos($at, '/'));
+        }
+    }
 
     /**
      * The attributes the last `toTree()` or `convert()` did not read, each with the JSON pointer of its node or mark in
@@ -146,14 +186,14 @@ final class ProseMirrorToCarve
     }
 
     /**
-     * The tree, and for each top-level block the index of the loaded block it came from (null for a block the editor
-     * added).
+     * The tree; for each top-level block the index of the loaded block it came from (null for a block the editor
+     * added); and by tree path, the JSON pointer of the ProseMirror node or mark each tree node came from.
      *
      * @param array<string, mixed>|string $doc
      *
      * @throws \InvalidArgumentException
      *
-     * @return array{tree: array<string, mixed>, origins: array<int|null>}
+     * @return array{tree: array<string, mixed>, origins: array<int|null>, pointers: array<string, string>}
      */
     public function toTreeWithOrigins(array|string $doc): array
     {
@@ -165,11 +205,11 @@ final class ProseMirrorToCarve
         }
         $children = [];
         $origins = [];
-        foreach (self::content($doc) as $pm) {
+        foreach (self::content($doc) as $at => $pm) {
             if (self::isPlaceholder($pm)) {
                 continue;
             }
-            $node = $this->block($pm);
+            $node = $this->block($pm, '/content/' . $at);
             if ($node === null) {
                 continue;
             }
@@ -182,10 +222,64 @@ final class ProseMirrorToCarve
             $tree[$key] = $value;
         }
         $tree['children'] = $children;
+        $tree['$pointer'] = '';
+        $this->pointers = [];
+        $tree = $this->strip($tree, '');
         $this->ignored = [];
         $this->collectIgnored(Kit::map($doc), '');
 
-        return ['tree' => $tree, 'origins' => $origins];
+        return ['tree' => $tree, 'origins' => $origins, 'pointers' => $this->pointers];
+    }
+
+    /**
+     * Moves each node's `$pointer` into `$this->pointers` under its tree path.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     *
+     * @return array<string, mixed>
+     */
+    private function strip(array $node, string $path): array
+    {
+        if (array_key_exists('$pointer', $node)) {
+            $this->pointers[$path] = Kit::str($node['$pointer']);
+            unset($node['$pointer']);
+        }
+        foreach ($node as $key => $value) {
+            if (!is_array($value)) {
+                continue;
+            }
+            if (!array_is_list($value)) {
+                if (is_string($value['type'] ?? null)) {
+                    $node[$key] = $this->strip($value, $path . '/' . $key);
+                }
+
+                continue;
+            }
+            foreach ($value as $index => $item) {
+                if (is_array($item) && is_string($item['type'] ?? null)) {
+                    $value[$index] = $this->strip($item, $path . '/' . $key . '/' . $index);
+                }
+            }
+            $node[$key] = $value;
+        }
+
+        return $node;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $pointer
+     *
+     * @return array<string, mixed>
+     */
+    private static function tag(array $node, string $pointer): array
+    {
+        if (!array_key_exists('$pointer', $node)) {
+            $node['$pointer'] = $pointer;
+        }
+
+        return $node;
     }
 
     /**
@@ -196,8 +290,9 @@ final class ProseMirrorToCarve
     {
         $type = Kit::str($pm['type'] ?? null);
         $attrs = Kit::map($pm['attrs'] ?? null);
+        $read = $this->reads($type, $attrs, $path);
         foreach ($attrs as $attribute => $value) {
-            if ($attribute === 'carve' || $value === null || in_array($attribute, self::READ[$type] ?? [], true)) {
+            if ($attribute === 'carve' || $value === null || in_array($attribute, $read, true)) {
                 continue;
             }
             if ((self::STOCK[$type][$attribute] ?? null) === $value) {
@@ -218,6 +313,25 @@ final class ProseMirrorToCarve
         foreach (self::content($pm) as $index => $child) {
             $this->collectIgnored($child, $path . '/content/' . $index);
         }
+    }
+
+    /**
+     * The attributes a node or mark reads: a declared mapping its own, a callback all of them.
+     *
+     * @param string $type
+     * @param array<string, mixed> $attrs
+     * @param string $path
+     *
+     * @return array<string>
+     */
+    private function reads(string $type, array $attrs, string $path): array
+    {
+        $host = $this->mapping[preg_match('~/marks/\d+$~', $path) === 1 ? 'marks' : 'nodes'][$type] ?? null;
+        if ($host !== null) {
+            return $host->attributes ?? array_map('strval', array_keys($attrs));
+        }
+
+        return self::READ[$type] ?? [];
     }
 
     /**
@@ -245,18 +359,22 @@ final class ProseMirrorToCarve
     }
 
     /**
+     * `$content` is the content of the node at `$base`, from index `$offset` on.
+     *
      * @param array<array<string, mixed>> $content
+     * @param string $base
+     * @param int $offset
      *
      * @return array<array<string, mixed>>
      */
-    private function blocks(array $content): array
+    private function blocks(array $content, string $base, int $offset = 0): array
     {
         $out = [];
-        foreach ($content as $pm) {
+        foreach (array_values($content) as $index => $pm) {
             if (self::isPlaceholder($pm)) {
                 continue;
             }
-            $node = $this->block($pm);
+            $node = $this->block($pm, $base . '/content/' . ($index + $offset));
             if ($node !== null) {
                 $out[] = $node;
             }
@@ -282,20 +400,35 @@ final class ProseMirrorToCarve
 
     /**
      * @param array<string, mixed> $pm
+     * @param string $pointer
+     *
+     * @return array<string, mixed>|null
+     */
+    private function block(array $pm, string $pointer): ?array
+    {
+        $host = $this->mapping['nodes'][Kit::str($pm['type'] ?? null)] ?? null;
+        $node = $host !== null ? $this->saveMapped($pm, $host, 'block', $pointer) : $this->blockOf($pm, $pointer);
+
+        return $node === null ? null : self::tag($node, $pointer);
+    }
+
+    /**
+     * @param array<string, mixed> $pm
+     * @param string $pointer
      *
      * @throws \InvalidArgumentException
      *
      * @return array<string, mixed>|null
      */
-    private function block(array $pm): ?array
+    private function blockOf(array $pm, string $pointer): ?array
     {
         $type = Kit::str($pm['type'] ?? null);
         $carve = Kit::carveOf($pm);
         if (isset(self::textblocks()[$type])) {
-            return $this->textblock($pm);
+            return $this->textblock($pm, $pointer);
         }
         if (isset(self::containers()[$type])) {
-            return $this->container($pm);
+            return $this->container($pm, $pointer);
         }
         $code = array_search($type, Kit::CODE_BLOCKS, true);
         if ($code !== false) {
@@ -303,20 +436,72 @@ final class ProseMirrorToCarve
         }
 
         return match ($type) {
-            'carveCaptioned' => $this->captioned($pm),
+            'carveCaptioned' => $this->captioned($pm, $pointer),
             'carveBlock' => Kit::map(Kit::clean(array_diff_key($carve, ['$index' => true]))),
             'codeBlock' => $this->codeBlock($pm),
             'horizontalRule' => self::with(['type' => 'thematic_break'], Kit::treeFields($carve)),
-            'bulletList', 'orderedList', 'taskList' => $this->listNode($pm),
-            'carveDefinitionList' => $this->mixed($pm, 'definition_list'),
-            'carveLineBlock' => $this->mixed($pm, 'line_block'),
-            'table' => $this->table($pm),
+            'bulletList', 'orderedList', 'taskList' => $this->listNode($pm, $pointer),
+            'carveDefinitionList' => $this->mixed($pm, 'definition_list', $pointer),
+            'carveLineBlock' => $this->mixed($pm, 'line_block', $pointer),
+            'table' => $this->table($pm, $pointer),
             // A block image, as Tiptap's Image extension makes by default, is an image paragraph (C2-A-136, C2-H-020).
-            'image' => ['type' => 'paragraph', 'role' => 'image', 'children' => [self::image($pm)]],
+            'image' => ['type' => 'paragraph', 'role' => 'image', 'children' => [self::tag(self::image($pm), $pointer)]],
             default => throw new InvalidArgumentException(
                 sprintf('ProseMirrorToCarve: no Carve node for the ProseMirror node "%s"', $type),
             ),
         };
+    }
+
+    /**
+     * The tree node of a host node.
+     *
+     * @param array<string, mixed> $pm
+     * @param \MarkupCarve\Carve\ProseMirror\MappingEntry $entry
+     * @param string $position `block` or `inline`
+     * @param string $pointer
+     *
+     * @throws \InvalidArgumentException
+     *
+     * @return array<string, mixed>
+     */
+    private function saveMapped(array $pm, MappingEntry $entry, string $position, string $pointer): array
+    {
+        $type = Kit::str($pm['type'] ?? null);
+        $content = self::content($pm);
+        if ($entry->as === null) {
+            $toTree = $entry->toTree;
+            if ($toTree === null) {
+                throw new InvalidArgumentException(
+                    sprintf('ProseMirrorToCarve: the mapping of the ProseMirror node "%s" has no toTree', $type),
+                );
+            }
+
+            return Kit::map($toTree($pm, [
+                'position' => $position,
+                'blocks' => fn (mixed $content): array => $this->blocks(Kit::nodes($content), $pointer),
+                'inlines' => fn (mixed $content): array => $this->inlines(Kit::nodes($content), $pointer),
+            ]));
+        }
+        $want = $position === 'block' ? 'div' : 'span';
+        if ($entry->as !== $want) {
+            throw new InvalidArgumentException(sprintf(
+                'ProseMirrorToCarve: the ProseMirror node "%s" is mapped to a %s and cannot stand as %s',
+                $type,
+                $entry->as,
+                $position === 'block' ? 'a block' : 'an inline',
+            ));
+        }
+        if (!$entry->content && $content !== []) {
+            throw new InvalidArgumentException(
+                sprintf('ProseMirrorToCarve: the ProseMirror node "%s" has content; map it with content: true', $type),
+            );
+        }
+
+        return [
+            'type' => $want,
+            'attrs' => Kit::mappedAttrs($entry, Kit::map($pm['attrs'] ?? null)),
+            'children' => $position === 'block' ? $this->blocks($content, $pointer) : $this->inlines($content, $pointer),
+        ];
     }
 
     /**
@@ -340,28 +525,32 @@ final class ProseMirrorToCarve
      *
      * @param array<string, mixed> $pm
      * @param string $type
+     * @param string $pointer
      *
      * @return array<string, mixed>
      */
-    private function mixed(array $pm, string $type): array
+    private function mixed(array $pm, string $type, string $pointer): array
     {
-        return self::with(['type' => $type], Kit::treeFields(Kit::carveOf($pm))) + ['children' => $this->blocks(self::content($pm))];
+        $node = self::with(['type' => $type], Kit::treeFields(Kit::carveOf($pm)));
+
+        return $node + ['children' => $this->blocks(self::content($pm), $pointer)];
     }
 
     /**
      * @param array<string, mixed> $pm
+     * @param string $pointer
      *
      * @return array<string, mixed>|null
      */
-    private function captioned(array $pm): ?array
+    private function captioned(array $pm, string $pointer): ?array
     {
         $content = self::content($pm);
-        $node = isset($content[0]) ? $this->block($content[0]) : null;
+        $node = isset($content[0]) ? $this->block($content[0], $pointer . '/content/0') : null;
         $caption = $content[1] ?? null;
         // An empty caption the editor made (to fill the wrapper) is no caption.
         $empty = $caption === null || (Kit::carveOf($caption)['$empty'] ?? null) !== true && !self::filled($caption);
         if ($node !== null && $caption !== null && !$empty) {
-            $node['caption'] = $this->block($caption);
+            $node['caption'] = $this->block($caption, $pointer . '/content/1');
         }
 
         return $node;
@@ -401,10 +590,11 @@ final class ProseMirrorToCarve
 
     /**
      * @param array<string, mixed> $pm
+     * @param string $pointer
      *
      * @return array<string, mixed>
      */
-    private function textblock(array $pm): array
+    private function textblock(array $pm, string $pointer): array
     {
         [$tree, $owned] = self::textblocks()[Kit::str($pm['type'] ?? null)];
         $carve = Kit::carveOf($pm);
@@ -415,17 +605,18 @@ final class ProseMirrorToCarve
                 $node[$key] = $attrs[$key];
             }
         }
-        $node['children'] = $this->inlines(self::content($pm));
+        $node['children'] = $this->inlines(self::content($pm), $pointer);
 
         return $node;
     }
 
     /**
      * @param array<string, mixed> $pm
+     * @param string $pointer
      *
      * @return array<string, mixed>
      */
-    private function container(array $pm): array
+    private function container(array $pm, string $pointer): array
     {
         [$tree, $owned] = self::containers()[Kit::str($pm['type'] ?? null)];
         $node = self::with(['type' => $tree], Kit::treeFields(Kit::carveOf($pm)));
@@ -436,14 +627,16 @@ final class ProseMirrorToCarve
             }
         }
         $content = self::content($pm);
+        $offset = 0;
         if (($content[0]['type'] ?? null) === 'carveTitle') {
-            $title = $this->inlines(self::content($content[0]));
+            $title = $this->inlines(self::content($content[0]), $pointer . '/content/0');
             if ($title !== []) {
                 $node['title'] = $title;
             }
             $content = array_slice($content, 1);
+            $offset = 1;
         }
-        $node['children'] = $this->blocks($content);
+        $node['children'] = $this->blocks($content, $pointer, $offset);
 
         return $node;
     }
@@ -475,10 +668,11 @@ final class ProseMirrorToCarve
 
     /**
      * @param array<string, mixed> $pm
+     * @param string $pointer
      *
      * @return array<string, mixed>|null
      */
-    private function listNode(array $pm): ?array
+    private function listNode(array $pm, string $pointer): ?array
     {
         $fields = Kit::treeFields(Kit::carveOf($pm));
         // An item with nothing in it is what Enter or a toggle leaves behind, unless it was loaded empty.
@@ -491,7 +685,11 @@ final class ProseMirrorToCarve
         }
         $node = self::with(['type' => 'list', 'spacing' => 'tight'], $fields);
         $node['marker'] = self::marker($pm, $fields['marker'] ?? null);
-        $node['children'] = array_map($this->listItem(...), array_values($items));
+        $children = [];
+        foreach ($items as $at => $item) {
+            $children[] = self::tag($this->listItem($item, $pointer . '/content/' . $at), $pointer . '/content/' . $at);
+        }
+        $node['children'] = $children;
 
         return $node;
     }
@@ -524,10 +722,11 @@ final class ProseMirrorToCarve
 
     /**
      * @param array<string, mixed> $item
+     * @param string $pointer
      *
      * @return array<string, mixed>
      */
-    private function listItem(array $item): array
+    private function listItem(array $item, string $pointer): array
     {
         $itemFields = Kit::treeFields(Kit::carveOf($item));
         $child = self::with(['type' => 'list_item'], $itemFields);
@@ -537,17 +736,18 @@ final class ProseMirrorToCarve
                 $child['task'] = ['mark' => $checked ? 'x' : ' '];
             }
         }
-        $child['children'] = $this->blocks(self::content($item));
+        $child['children'] = $this->blocks(self::content($item), $pointer);
 
         return $child;
     }
 
     /**
      * @param array<string, mixed> $pm
+     * @param string $pointer
      *
      * @return array<string, mixed>
      */
-    private function table(array $pm): array
+    private function table(array $pm, string $pointer): array
     {
         $carve = Kit::carveOf($pm);
         $sections = Kit::nodes($carve['$sections'] ?? null);
@@ -555,13 +755,19 @@ final class ProseMirrorToCarve
             $sections = [['type' => 'table_body']];
         }
         $pmRows = [];
-        foreach (self::content($pm) as $row) {
+        foreach (self::content($pm) as $at => $row) {
+            $kept = array_filter(
+                self::content($row),
+                static fn (array $cell): bool => (Kit::carveOf($cell)['$pad'] ?? null) !== true || self::filled($cell),
+            );
             $pmRows[] = [
                 'carve' => Kit::carveOf($row),
-                'cells' => array_values(array_filter(
-                    self::content($row),
-                    static fn (array $cell): bool => (Kit::carveOf($cell)['$pad'] ?? null) !== true || self::filled($cell),
-                )),
+                'cells' => array_values($kept),
+                'pointer' => $pointer . '/content/' . $at,
+                'cellPointers' => array_map(
+                    static fn (int $index): string => $pointer . '/content/' . $at . '/content/' . $index,
+                    array_keys($kept),
+                ),
             ];
         }
         $lead = self::leadingHead($sections, $pmRows);
@@ -593,7 +799,12 @@ final class ProseMirrorToCarve
      * so from a body stays there.
      *
      * @param array<array<string, mixed>> $sections
-     * @param array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>}> $rows
+     * @param array<array{
+     *     carve: array<string, mixed>,
+     *     cells: array<array<string, mixed>>,
+     *     pointer: string,
+     *     cellPointers: array<string>,
+     * }> $rows
      */
     private static function leadingHead(array $sections, array $rows): int
     {
@@ -614,14 +825,25 @@ final class ProseMirrorToCarve
     /**
      * The rows with the section each goes to: a loaded row its own, a new row that of the row before it.
      *
-     * @param array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>}> $rows
+     * @param array<array{
+     *     carve: array<string, mixed>,
+     *     cells: array<array<string, mixed>>,
+     *     pointer: string,
+     *     cellPointers: array<string>,
+     * }> $rows
      * @param array<array<string, mixed>> $sections
      * @param int $lead The rows that go to the head at `$head`.
      * @param int $shift Where that head was inserted, or -1.
      * @param int $added Where a body was inserted, or -1.
      * @param int $head
      *
-     * @return array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>, section: int}>
+     * @return array<array{
+     *     carve: array<string, mixed>,
+     *     cells: array<array<string, mixed>>,
+     *     pointer: string,
+     *     cellPointers: array<string>,
+     *     section: int,
+     * }>
      */
     private static function place(array $rows, array $sections, int $lead, int $shift, int $added, int $head): array
     {
@@ -680,7 +902,13 @@ final class ProseMirrorToCarve
      * mark cells it covers (C2-B-172 to C2-B-174): a row span stops at the end of its group, and a cell that spans both
      * ways keeps its columns, since a `^` below a cell of more than one column joins nothing.
      *
-     * @param array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>, section: int}> $placed
+     * @param array<array{
+     *     carve: array<string, mixed>,
+     *     cells: array<array<string, mixed>>,
+     *     pointer: string,
+     *     cellPointers: array<string>,
+     *     section: int,
+     * }> $placed
      * @param bool $bare
      * @param array<int, array<array<string, mixed>>> $rowsOf
      */
@@ -699,9 +927,9 @@ final class ProseMirrorToCarve
             }
             $cells = [];
             $column = 0;
-            foreach ($row['cells'] as $pmCell) {
+            foreach ($row['cells'] as $at => $pmCell) {
                 self::covered($below, $column, $cells, $bare);
-                $cell = $this->cell($pmCell);
+                $cell = $this->cell($pmCell, $row['cellPointers'][$at]);
                 $attrs = Kit::map($pmCell['attrs'] ?? null);
                 $colspan = Kit::spanCount($attrs['colspan'] ?? null);
                 $rowspan = min(Kit::spanCount($attrs['rowspan'] ?? null), $left);
@@ -729,7 +957,8 @@ final class ProseMirrorToCarve
             foreach (Kit::nodes($row['carve']['$before'] ?? null) as $comment) {
                 $rowsOf[$row['section']][] = $comment;
             }
-            $rowsOf[$row['section']][] = self::with(['type' => 'table_row'], Kit::treeFields($row['carve'])) + ['children' => $cells];
+            $tableRow = self::with(['type' => 'table_row'], Kit::treeFields($row['carve']));
+            $rowsOf[$row['section']][] = $tableRow + ['children' => $cells, '$pointer' => $row['pointer']];
         }
 
         return $width;
@@ -797,19 +1026,20 @@ final class ProseMirrorToCarve
 
     /**
      * @param array<string, mixed> $pm
+     * @param string $pointer
      *
      * @return array<string, mixed>
      */
-    private function cell(array $pm): array
+    private function cell(array $pm, string $pointer): array
     {
         $content = self::content($pm);
         $single = count(array_filter($content, static fn (array $c): bool => !self::isPlaceholder($c))) === 1;
         $children = [];
-        foreach ($content as $child) {
+        foreach ($content as $at => $child) {
             if (self::isPlaceholder($child)) {
                 continue;
             }
-            $node = $this->block($child);
+            $node = $this->block($child, $pointer . '/content/' . $at);
             if ($node === null) {
                 continue;
             }
@@ -828,6 +1058,7 @@ final class ProseMirrorToCarve
         $node = self::with(['type' => 'table_cell'], $fields);
         $node['header'] = ($pm['type'] ?? null) === 'tableHeader';
         $node['children'] = $children;
+        $node['$pointer'] = $pointer;
 
         return $node;
     }
@@ -851,18 +1082,27 @@ final class ProseMirrorToCarve
      * Rebuilds the nested inline containers from the marks of each leaf: a longer run opens outside a shorter one.
      *
      * @param array<array<string, mixed>> $content
+     * @param string $base
      *
      * @return array<array<string, mixed>>
      */
-    private function inlines(array $content): array
+    private function inlines(array $content, string $base): array
     {
         $leaves = [];
-        foreach ($content as $pm) {
-            $marks = array_values(array_filter(
+        foreach (array_values($content) as $at => $pm) {
+            $pointer = $base . '/content/' . $at;
+            $kept = array_filter(
                 Kit::nodes($pm['marks'] ?? null),
                 static fn (array $mark): bool => ($mark['type'] ?? null) !== 'code',
-            ));
-            $leaves[] = ['pm' => $pm, 'marks' => $marks, 'keys' => array_map(self::markKey(...), $marks)];
+            );
+            $marks = array_values($kept);
+            $leaves[] = [
+                'pm' => $pm,
+                'pointer' => $pointer,
+                'marks' => $marks,
+                'markPointers' => array_map(static fn (int $index): string => $pointer . '/marks/' . $index, array_keys($kept)),
+                'keys' => array_map(self::markKey(...), $marks),
+            ];
         }
         $runs = array_fill(0, count($leaves), []);
         for ($index = count($leaves) - 1; $index >= 0; $index--) {
@@ -883,13 +1123,15 @@ final class ProseMirrorToCarve
             $stack = array_slice($stack, 0, $keep);
             foreach (self::fresh($leaf, array_column($stack, 'key'), $runs[$index]) as $entry) {
                 $id = count($nodes);
-                $nodes[] = $this->markNode($entry['mark']);
+                $nodes[] = self::tag($this->markNode($entry['mark']), $leaf['markPointers'][$entry['order']]);
                 $kids[$stack === [] ? -1 : $stack[count($stack) - 1]['id']][] = $id;
                 $kids[$id] = [];
                 $stack[] = ['key' => $entry['key'], 'id' => $id];
             }
             $id = count($nodes);
-            $nodes[] = $this->leaf($leaf['pm']);
+            $host = $this->mapping['nodes'][Kit::str($leaf['pm']['type'] ?? null)] ?? null;
+            $node = $host !== null ? $this->saveMapped($leaf['pm'], $host, 'inline', $leaf['pointer']) : $this->leaf($leaf['pm']);
+            $nodes[] = self::tag($node, $leaf['pointer']);
             $kids[$stack === [] ? -1 : $stack[count($stack) - 1]['id']][] = $id;
         }
 
@@ -899,7 +1141,13 @@ final class ProseMirrorToCarve
     /**
      * The marks of `$leaf` not open yet, in the order they open: the longest run first, then the loaded depth.
      *
-     * @param array{pm: array<string, mixed>, marks: array<array<string, mixed>>, keys: array<string>} $leaf
+     * @param array{
+     *     pm: array<string, mixed>,
+     *     pointer: string,
+     *     marks: array<array<string, mixed>>,
+     *     markPointers: array<string>,
+     *     keys: array<string>,
+     * } $leaf
      * @param array<string> $opened
      * @param array<string, int> $run
      *
@@ -957,6 +1205,10 @@ final class ProseMirrorToCarve
     {
         self::$marks ??= Kit::inverse(Kit::MARKS);
         $type = Kit::str($mark['type'] ?? null);
+        $host = $this->mapping['marks'][$type] ?? null;
+        if ($host !== null) {
+            return $this->saveMappedMark($mark, $host);
+        }
         $spec = self::$marks[$type] ?? null;
         if ($spec === null) {
             throw new InvalidArgumentException(sprintf('ProseMirrorToCarve: no Carve node for the ProseMirror mark "%s"', $type));
@@ -972,6 +1224,30 @@ final class ProseMirrorToCarve
         $node['children'] = [];
 
         return $node;
+    }
+
+    /**
+     * @param array<string, mixed> $mark
+     * @param \MarkupCarve\Carve\ProseMirror\MappingEntry $entry
+     *
+     * @throws \InvalidArgumentException
+     *
+     * @return array<string, mixed>
+     */
+    private function saveMappedMark(array $mark, MappingEntry $entry): array
+    {
+        if ($entry->as !== null) {
+            return ['type' => 'span', 'attrs' => Kit::mappedAttrs($entry, Kit::map($mark['attrs'] ?? null)), 'children' => []];
+        }
+        $toTree = $entry->toTree;
+        if ($toTree === null) {
+            throw new InvalidArgumentException(sprintf(
+                'ProseMirrorToCarve: the mapping of the ProseMirror mark "%s" has no toTree',
+                Kit::str($mark['type'] ?? null),
+            ));
+        }
+
+        return array_merge(Kit::map($toTree($mark)), ['children' => []]);
     }
 
     /**

@@ -45,6 +45,6 @@ final class DocsTest extends TestCase
 
     public function testThereAreExamples(): void
     {
-        $this->assertCount(5, self::examples());
+        $this->assertCount(7, self::examples());
     }
 }

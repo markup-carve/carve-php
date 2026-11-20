@@ -248,12 +248,13 @@ Class. ProseMirror JSON of a Carve 0.2 tree, in the schema of the carve-grammars
 
 Class. Carve from ProseMirror JSON in the schema of the carve-grammars Tiptap kit (`tiptap/tree.js`).
 
+- `pointerFor(string $treePath): ?string`: The ProseMirror JSON pointer of the node at `$treePath` in the last `toTree()` or `convert()`, such as the `path` of a lint finding on the saved source: the pointer of the node or mark it came from, or of its nearest ancestor that came from one (a span mark cell, a table section). Null when no ancestor did.
 - `ignoredAttributes(): array`: The attributes the last `toTree()` or `convert()` did not read, each with the JSON pointer of its node or mark in the saved document. A host that must not lose editor state can refuse a save when this is not empty.
 - `static carveTypeFor(string $proseMirrorName): ?string`: The Carve tree type of a ProseMirror node or mark name of the kit, or null when the kit does not map it. `carveBlock` and `carveInline` carry a whole node of any type and give null.
 - `static proseMirrorNames(): array`: Every ProseMirror node and mark name the kit maps to one Carve tree type, as name => tree type.
 - `convert(array|string $doc, array $options = []): string`: The canonical Carve source of a ProseMirror document.
 - `toTree(array|string $doc): array`: The Carve 0.2 `document` tree of a ProseMirror document, as decoded AST JSON.
-- `toTreeWithOrigins(array|string $doc): array`: The tree, and for each top-level block the index of the loaded block it came from (null for a block the editor added).
+- `toTreeWithOrigins(array|string $doc): array`: The tree; for each top-level block the index of the loaded block it came from (null for a block the editor added); and by tree path, the JSON pointer of the ProseMirror node or mark each tree node came from.
 
 ## Extensions (provisional)
 
