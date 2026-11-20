@@ -156,11 +156,17 @@ final class Options
         }
         $o->setUrlPolicy([]);
         foreach ($options as $name => $value) {
-            $reads = Tables::OPTIONS[$name]['readBy'] ?? null;
-            if ($stages !== null && $reads !== null && array_intersect((array)$reads, $stages) === []) {
-                throw new OptionError('option ' . $name . ' is not read by this call');
+            try {
+                $reads = Tables::OPTIONS[$name]['readBy'] ?? null;
+                if ($stages !== null && $reads !== null && array_intersect((array)$reads, $stages) === []) {
+                    throw new OptionError('option ' . $name . ' is not read by this call');
+                }
+                $o->set((string)$name, $value);
+            } catch (OptionError $error) {
+                $pointer = '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$name);
+
+                throw new OptionError($error->getMessage(), previous: $error, path: $pointer);
             }
-            $o->set((string)$name, $value);
         }
         // Choose the channel after all options are read, independent of map order.
         foreach ($o->extensions as $extension) {
