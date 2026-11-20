@@ -290,7 +290,11 @@ final class DataRules
         }
         $base = $this->textBase($text, $record);
         preg_match_all(self::pattern($pattern), $value, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
+        $predicateGroups = $this->groups;
+        $predicateBase = $this->base;
         foreach ($matches as $match) {
+            $this->groups = $predicateGroups;
+            $this->base = $predicateBase;
             $this->saveGroups($match, $base);
             $this->report($rule, $record);
         }
@@ -358,7 +362,7 @@ final class DataRules
             $groups[$key] = [$base + $part[1], $base + $part[1] + strlen($part[0])];
         }
         if ($groups !== []) {
-            $this->groups = $groups;
+            $this->groups = array_replace($this->groups, $groups);
             $this->base = $base;
         }
     }
