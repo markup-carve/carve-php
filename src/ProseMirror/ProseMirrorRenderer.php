@@ -317,7 +317,7 @@ final class ProseMirrorRenderer
     {
         $value = Kit::str($node['value'] ?? null);
         $newline = str_ends_with($value, "\n");
-        $text = $newline ? substr($value, 0, -1) : $value;
+        $text = $newline && !str_ends_with($value, "\n\n") ? substr($value, 0, -1) : $value;
         $carve = Kit::fields($node, ['value', 'syntax']);
         if (!$newline) {
             $carve['$newline'] = false;
