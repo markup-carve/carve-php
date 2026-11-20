@@ -157,12 +157,15 @@ final class TableWriter
     }
 
     /**
-     * @param array<array<mixed>> $rows
+     * @param array<mixed> $rows
      */
     private static function leadingHeaderRows(array $rows): int
     {
         $count = 0;
         foreach ($rows as $row) {
+            if (!is_array($row) || ($row['type'] ?? '') !== 'table_row') {
+                continue;
+            }
             $cells = array_values(array_filter(
                 is_array($row['children'] ?? null) ? $row['children'] : [],
                 static fn (mixed $cell): bool => is_array($cell) && ($cell['type'] ?? '') === 'table_cell',
@@ -411,10 +414,7 @@ final class TableWriter
     private function group(array $group, string $path, bool $last, array &$lines): void
     {
         $items = is_array($group['children'] ?? null) ? $group['children'] : [];
-        $bodyHeaders = ($group['type'] ?? '') === 'table_body' ? self::leadingHeaderRows(array_values(array_filter(
-            $items,
-            static fn (mixed $item): bool => is_array($item) && ($item['type'] ?? '') === 'table_row',
-        ))) : 0;
+        $bodyHeaders = ($group['type'] ?? '') === 'table_body' ? self::leadingHeaderRows($items) : 0;
         $rowIndex = 0;
         $lastAt = count($items) - 1;
         foreach ($items as $at => $item) {
