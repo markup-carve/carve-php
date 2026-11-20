@@ -35,6 +35,16 @@ final class Context
     public array $firstLines = [];
 
     /**
+     * @var array<int, string> Type of the top-level block before a block starting on this line.
+     */
+    public array $previousTopLevelBlocks = [];
+
+    /**
+     * @var array<int, string> Path of each parsed pipe table row by source line.
+     */
+    public array $tableRowPaths = [];
+
+    /**
      * @var array<int, true> First lines of parsed description entries.
      */
     public array $descriptionEntryLines = [];

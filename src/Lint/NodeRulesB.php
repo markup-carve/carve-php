@@ -242,12 +242,26 @@ final class NodeRulesB
             if ($line === null) {
                 continue;
             }
-            $text = self::trimStart($line->text);
+            $text = self::commentBody($line, $c->layout->quoteDepth($path));
             $run = strspn($text, '%');
             if ($run >= $width && Support::trim(substr($text, $run)) !== '') {
                 $c->report('comment-fence-closer-with-text', $line->start, $line->end, $path);
             }
         }
+    }
+
+    private static function commentBody(Line $line, int $depth): string
+    {
+        $at = 0;
+        for (; $depth > 0; $depth--) {
+            $mark = $at + strspn($line->text, " \t", $at);
+            if (($line->text[$mark] ?? '') !== '>' || !in_array($line->text[$mark + 1] ?? '', ['', ' '], true)) {
+                break;
+            }
+            $at = $mark + 1 + (($line->text[$mark + 1] ?? '') === ' ' ? 1 : 0);
+        }
+
+        return self::trimStart(substr($line->text, $at));
     }
 
     /**

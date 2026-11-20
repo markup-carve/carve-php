@@ -425,7 +425,10 @@ final class LineRules
 
     private static function bareHtml(Line $line, Context $c): void
     {
-        if (!$line->paragraph) {
+        if (
+            !isset($c->tableRowPaths[$line->number])
+            && !in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'heading'], true)
+        ) {
             return;
         }
         $from = 0;
@@ -446,7 +449,8 @@ final class LineRules
             if (str_contains($inside, '://') || str_contains($inside, '@') || str_starts_with($inside, '/#')) {
                 continue;
             }
-            $c->report('bare-html-tag', $line->start + $at, $line->start + $end + 1, $line->path);
+            $path = $c->tableRowPaths[$line->number] ?? $line->path;
+            $c->report('bare-html-tag', $line->start + $at, $line->start + $end + 1, $path);
 
             return;
         }
@@ -504,12 +508,18 @@ final class LineRules
 
     private static function quoteWithoutSpace(Line $line, Context $c): void
     {
-        [$text, $start] = self::trimmed($line);
-        if ($start !== $line->start || !str_starts_with($text, '>') || strlen($text) < 2 || $text[1] === ' ') {
+        // Read source spelling before masking an inline comment and its preceding space.
+        $raw = $c->lines[$line->number - 1] ?? $line;
+        $text = $raw->text;
+        $start = $raw->start;
+        if (!str_starts_with($text, '>') || strlen($text) < 2 || $text[1] === ' ') {
             return;
         }
-        $value = self::shown($line, $c, $start - $line->start + 1, strlen($text) - 1);
-        $end = $start + strlen(rtrim(substr($line->text, $start - $line->start), " \t"));
+        $value = substr($text, 1);
+        $end = $start + strlen(rtrim($text, " \t"));
+        if ($end === $start + 1 && $text[1] === "\t") {
+            $value = "\t";
+        }
         $c->report('blockquote-marker-without-space', $start, $end, $line->path, ['text' => $value]);
     }
 
@@ -577,6 +587,9 @@ final class LineRules
 
     private static function startsBlock(string $text): bool
     {
+        if ($text === '>') {
+            return true;
+        }
         foreach (['> ', ':: ', ': '] as $opener) {
             if (str_starts_with($text, $opener)) {
                 return true;
@@ -587,7 +600,8 @@ final class LineRules
             return true;
         }
 
-        return self::isHeading($text) || (str_starts_with($text, '[') && str_contains($text, ']:'));
+        return self::isHeading($text) || (str_starts_with($text, '[') && str_contains($text, ']:'))
+            || preg_match('/^\*\[[^\]]+\]:/', $text) === 1;
     }
 
     /**
@@ -631,7 +645,7 @@ final class LineRules
         }
         $opener = match (true) {
             self::isHeading($text) => 'a heading',
-            str_starts_with($text, '> ') => 'a quote',
+            str_starts_with($text, '>') => 'a quote',
             str_starts_with($text, '{') => 'an attribute line',
             str_starts_with($text, ':: ') => 'a term',
             str_starts_with($text, ': ') => 'a description',
@@ -660,13 +674,20 @@ final class LineRules
 
     private static function listWithoutBlank(Line $line, Context $c): void
     {
+        if (self::hasAncestor($line->path, $c, 'caption')) {
+            return;
+        }
         $previous = self::prior($line, $c);
-        if ($previous === null || !$line->paragraph || $previous->path !== $line->path || self::blank($previous)) {
+        if (
+            $previous === null
+            || !in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'definition_term', 'definition_description'], true)
+            || $previous->path !== $line->path || self::blank($previous)
+        ) {
             return;
         }
         [$text, $start] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
         if (!str_starts_with($text, '+ ') && self::isListMarker($text)) {
-            $owner = $c->nodeTypes[$line->path] ?? null;
+            $owner = $c->nodeTypes[$line->path];
             $variant = in_array($owner, ['definition_term', 'definition_description'], true) ? 1 : 0;
             $c->report('list-marker-without-blank-line', $start, $start + strlen($text), $line->path, [], $variant);
         }
@@ -679,6 +700,7 @@ final class LineRules
             $line->paragraph && $line->number > 1 && self::blank($previous)
             && ($c->firstLines[$line->path] ?? null) === $line->number
             && count(explode('/', $line->path)) <= 3 && str_starts_with($line->text, '    ') && !self::blank($line)
+            && ($c->previousTopLevelBlocks[$line->number] ?? '') !== 'list'
         ) {
             self::reportLine('indented-code-block', $line, $c);
         }
@@ -698,14 +720,11 @@ final class LineRules
 
     private static function unattachedAttribute(Line $line, Context $c): void
     {
-        if (!$line->paragraph || !str_contains($line->text, '{')) {
+        if (!self::attributeCandidate($line)) {
             return;
         }
         $first = ($c->firstLines[$line->path] ?? null) === $line->number;
-        if (!$first && ($c->nodeTypes[$line->path] ?? null) === 'paragraph') {
-            return;
-        }
-        if (!$first && ($c->nodeTypes[$line->path] ?? null) === 'definition_term') {
+        if (!$first && in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'definition_term'], true)) {
             return;
         }
         // Only a block's first line starts behind container prefixes; on a later line a `> ` or marker is text.
@@ -717,6 +736,9 @@ final class LineRules
             return;
         }
         $next = $c->lines[$line->number] ?? null;
+        while ($next !== null && self::attributeRunFollower($line, $next)) {
+            $next = $c->lines[$next->number] ?? null;
+        }
         if (isset($c->attachedLines[$line->number]) && self::attributeReachesBlock($line, $c, $next)) {
             return;
         }
@@ -725,15 +747,28 @@ final class LineRules
             $next = null;
         }
         $blank = self::blankness($next, $c->layout->quoteDepth($line->path));
-        if (
-            $next !== null && $blank === 'text' && !$next->paragraph
-            && preg_match('/^[ \t]*(?:> )*[ \t]*%%/', $next->text) !== 1
-            && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
-            && !self::attributeContainerEnded($line, $next, $c)
-        ) {
+        if (self::attributeNextBlock($line, $next, $blank, $c)) {
             return;
         }
         $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], $blank === 'blank' ? 1 : 0);
+    }
+
+    private static function attributeCandidate(Line $line): bool
+    {
+        return $line->paragraph && str_contains($line->text, '{');
+    }
+
+    private static function attributeRunFollower(Line $line, Line $next): bool
+    {
+        return $next->path === $line->path && self::isAttributeLine(self::lineText($next)[0]);
+    }
+
+    private static function attributeNextBlock(Line $line, ?Line $next, string $blank, Context $c): bool
+    {
+        return $next !== null && $blank === 'text' && !$next->paragraph
+            && preg_match('/^[ \t]*(?:> )*[ \t]*%%/', $next->text) !== 1
+            && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
+            && !self::attributeContainerEnded($line, $next, $c);
     }
 
     private static function attributeReachesBlock(Line $line, Context $c, ?Line $next): bool
@@ -831,6 +866,9 @@ final class LineRules
 
     private static function definitionInContainer(Line $line, Context $c): void
     {
+        if (self::hasAncestor($line->path, $c, 'caption')) {
+            return;
+        }
         if (!str_contains($line->text, ']:')) {
             return;
         }
@@ -884,6 +922,9 @@ final class LineRules
 
     private static function githubAlert(Line $line, Context $c): void
     {
+        if (!in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'heading', 'table_row'], true)) {
+            return;
+        }
         if (!str_contains($line->text, '[!')) {
             return;
         }
@@ -982,20 +1023,13 @@ final class LineRules
         for ($distance = 1; $distance <= 2; $distance++) {
             $next = $c->lines[$line->number - 1 + $distance] ?? null;
             $prev = $c->lines[$line->number - 1 - $distance] ?? null;
-            $below = $below || ($next !== null && str_starts_with(self::neighborContent($next, $c->layout->quoteDepth($line->path)), '|'));
-            $above = $above || ($prev !== null && (str_starts_with(self::neighborContent($prev, $c->layout->quoteDepth($line->path)), '|')
+            $below = $below || ($next !== null && isset($c->tableRowPaths[$next->number]));
+            $above = $above || ($prev !== null && (isset($c->tableRowPaths[$prev->number])
                 || str_contains($prev->text, '![')));
         }
         if ($below || $above) {
             $c->report('caption-looking-paragraph', $start, $start + 1, $line->path, [], $below ? 0 : 1);
         }
-    }
-
-    private static function neighborContent(Line $line, int $depth): string
-    {
-        $text = self::afterQuotes($line, $depth)[0];
-
-        return preg_replace('/^(?:[-*] |[0-9]+[.)] )[ \t]*/', '', $text) ?? $text;
     }
 
     private static function descriptionColumn(Line $line, Context $c): void

@@ -206,6 +206,9 @@ final class Linter
         if ($type === 'definition_description') {
             $c->descriptionEntryLines[$pos['startLine']] = true;
         }
+        if ($type === 'table_row') {
+            $c->tableRowPaths[$pos['startLine']] = $path;
+        }
         if ($type === 'comment' && ($node['form'] ?? null) === 'block') {
             for ($line = $pos['startLine']; $line <= $pos['endLine']; $line++) {
                 $c->blockCommentStartLines[$line] = $pos['startLine'];
@@ -245,7 +248,21 @@ final class Linter
         $c->layout->register($path, $node, $quotes, $parent);
         $pos = Support::pos($node);
         $inner = $quotes + ($type === 'block_quote' && $pos !== null && self::marked($c->source, $pos['startOffset']) ? 1 : 0);
+        $previousType = '';
         foreach (self::children($node, $type, $path) as [$child, $childPath]) {
+            if ($path === '') {
+                $blockPos = Support::pos($child);
+                if ($blockPos !== null) {
+                    $firstLine = $c->lines[$blockPos['startLine'] - 1] ?? null;
+                    if (
+                        ($child['type'] ?? null) === 'paragraph' && $firstLine !== null
+                        && str_starts_with($firstLine->text, '    ')
+                    ) {
+                        $c->previousTopLevelBlocks[$blockPos['startLine']] = $previousType;
+                    }
+                    $previousType = is_string($child['type'] ?? null) ? $child['type'] : '';
+                }
+            }
             self::measure($child, $childPath, $path, $inner, $c);
         }
     }
