@@ -310,20 +310,20 @@ final class Stage4ClausesTest extends TestCase
         $this->assertSame('<p>[img: a]</p>', Carve::toHtml('![a](x)', ['profile' => 'minimal']));
     }
 
-    public function testC2H165DegradedInlineUsesPlainText(): void
+    public function testC2H166AllowedInlineKeepsCodeMarkup(): void
     {
         $this->assertSame(
-            '<p><strong><strong> a </strong></strong></p>',
+            '<p><strong><strong><code> a </code></strong></strong></p>',
             Carve::toHtml('{*{*`  a  `*}*}', ['profile' => 'minimal']),
         );
         $this->assertSame('<p>m</p>', Carve::toHtml('$$`m`', ['profile' => 'minimal']));
         $this->assertSame('<p> a </p>', Carve::toHtml('`  a  `{=html}', ['profile' => 'minimal']));
     }
 
-    public function testC2H165DegradedInlineDropsAttachedAttributes(): void
+    public function testC2H166AllowedInlineKeepsAttachedAttributes(): void
     {
         $this->assertSame(
-            '<p><strong><strong>a</strong></strong></p>',
+            '<p><strong><strong><code class="c">a</code></strong></strong></p>',
             Carve::toHtml('{*{*`a`{.c}*}*}', ['profile' => 'minimal']),
         );
     }

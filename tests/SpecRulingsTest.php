@@ -571,10 +571,10 @@ final class SpecRulingsTest extends TestCase
         $this->assertSame('<p>x</p>', Carve::toHtml("x\n{%%}"));
     }
 
-    public function testC2H166DegradedBreaksPrecedeCommentLineRemoval(): void
+    public function testC2H166InlineBreakKeepsCommentLineRemoval(): void
     {
         $this->assertSame(
-            '<p><strong>_<sup>a  b</sup>_</strong></p>',
+            "<p><strong>_<sup>a\nb</sup>_</strong></p>",
             Carve::toHtml("*_{^a\n{%%}\nb^}_*", ['profile' => 'minimal']),
         );
     }
