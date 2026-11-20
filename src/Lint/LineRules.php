@@ -226,6 +226,27 @@ final class LineRules
         return $line !== null && Support::trim($line->text) === '';
     }
 
+    /**
+     * C2-W-143: how a line reads for the rules inside `$depth` quotes: blank when only spaces and tabs follow their quote
+     * marks, outside when it lacks one of them, so those quotes ended above it, and text otherwise.
+     */
+    private static function blankness(?Line $line, int $depth): string
+    {
+        if ($line === null) {
+            return 'outside';
+        }
+        $at = 0;
+        for (; $depth > 0; $depth--) {
+            $mark = $at + strspn($line->text, " \t", $at);
+            if (($line->text[$mark] ?? '') !== '>' || !in_array($line->text[$mark + 1] ?? '', ['', ' '], true)) {
+                return 'outside';
+            }
+            $at = $mark + 1;
+        }
+
+        return trim(substr($line->text, $at), " \t") === '' ? 'blank' : 'text';
+    }
+
     private static function prior(Line $line, Context $c): ?Line
     {
         return $c->lines[$line->number - 2] ?? null;
@@ -487,7 +508,8 @@ final class LineRules
             return;
         }
         $value = self::shown($line, $c, $start - $line->start + 1, strlen($text) - 1);
-        $c->report('blockquote-marker-without-space', $start, $start + strlen($text), $line->path, ['text' => $value]);
+        $end = $start + strlen(rtrim(substr($line->text, $start - $line->start), " \t"));
+        $c->report('blockquote-marker-without-space', $start, $end, $line->path, ['text' => $value]);
     }
 
     public static function frontmatterQuote(Line $line, Context $c): void
@@ -496,7 +518,8 @@ final class LineRules
             return;
         }
         $value = substr($line->text, 1);
-        $c->report('blockquote-marker-without-space', $line->start, $line->start + 1, $line->path, ['text' => $value], 1);
+        $end = $line->start + strlen(rtrim($line->text, " \t"));
+        $c->report('blockquote-marker-without-space', $line->start, $end, $line->path, ['text' => $value], 1);
     }
 
     /**
@@ -553,10 +576,14 @@ final class LineRules
 
     private static function startsBlock(string $text): bool
     {
-        foreach (['> ', ':: ', ': ', '{.'] as $opener) {
+        foreach (['> ', ':: ', ': '] as $opener) {
             if (str_starts_with($text, $opener)) {
                 return true;
             }
+        }
+        // Any valid attribute line, spaced or with an id or a key (C2-B-090, carve#6197).
+        if (str_starts_with($text, '{') && self::isAttributeLine($text)) {
+            return true;
         }
 
         return self::isHeading($text) || (str_starts_with($text, '[') && str_contains($text, ']:'));
@@ -688,21 +715,18 @@ final class LineRules
         ) {
             return;
         }
-        $second = $text[1];
-        if ($second !== '.' && $second !== '#' && !($second >= 'a' && $second <= 'z')) {
-            return;
-        }
         if (isset($c->attachedLines[$line->number])) {
             return;
         }
         $next = $c->lines[$line->number] ?? null;
+        $blank = self::blankness($next, $c->layout->quoteDepth($line->path));
         if (
-            $next !== null && !self::blankInContainer($next) && !$next->paragraph
+            $next !== null && $blank === 'text' && !$next->paragraph
             && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
         ) {
             return;
         }
-        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], self::blankInContainer($next) ? 1 : 0);
+        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], $blank === 'blank' ? 1 : 0);
     }
 
     private static function markdownDefinition(Line $line, Context $c): void
@@ -938,11 +962,6 @@ final class LineRules
         $text = self::afterQuotes($line, $depth)[0];
 
         return preg_replace('/^(?:[-*] |[0-9]+[.)] )[ \t]*/', '', $text) ?? $text;
-    }
-
-    private static function blankInContainer(?Line $line): bool
-    {
-        return $line !== null && preg_match('/^(?:[ \t]*>(?: |$))*[ \t]*$/', $line->text) === 1;
     }
 
     private static function descriptionColumn(Line $line, Context $c): void
