@@ -16,12 +16,13 @@ final class MarkdownExporter implements OutputWriter
     /**
      * The Markdown of `$tree` and the losses of the run.
      *
-     * @param \MarkupCarve\Carve\Node $tree A tree of `Carve::parse()` or `Carve::decodeTree()`; it is not changed.
+     * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree A tree of `Carve::parse()` or `Carve::decodeTree()`, or decoded AST JSON
+     *   as `Carve::render()` takes it; it is not changed.
      * @param array<string, mixed> $options `smartTypography`, `strictLosses`, `urlPolicy`.
      *
      * @return \MarkupCarve\Carve\Export\ExportResult
      */
-    public function export(Node $tree, array $options = []): ExportResult
+    public function export(Node|array $tree, array $options = []): ExportResult
     {
         $x = Exporter::start('markdown', $tree, $options);
 
@@ -34,12 +35,12 @@ final class MarkdownExporter implements OutputWriter
     }
 
     /**
-     * @param \MarkupCarve\Carve\Node $tree
+     * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree
      * @param array<string, mixed> $options
      *
      * @return string
      */
-    public function write(Node $tree, array $options = []): string
+    public function write(Node|array $tree, array $options = []): string
     {
         return $this->export($tree, $options)->output;
     }

@@ -34,7 +34,7 @@ this bridge renders are the same JSON, and either side reads what the other save
 - Keys of `carve` that start with `$` are the kit's own bookkeeping. No tree field starts with `$`.
 
 A ProseMirror node or mark with no Carve node, such as a mark an application extension added, is an error
-(`InvalidArgumentException`), not a skip.
+(`InvalidArgumentException`), not a skip. See [Application nodes on the way in](#application-nodes-on-the-way-in).
 
 `tests/fixtures/prosemirror/kit-wire.json` holds what `tree.js` produces at the commit named in its `_provenance`,
 for one input per node and mark type, and `KitWireTest` checks both directions against it. Refresh it when the kit
@@ -60,6 +60,85 @@ assert((new ProseMirrorToCarve())->convert($doc) === "== Title\n\n*bold*\n");
 `convert()` writes with `Carve::write()` and takes its options. `toTree()` returns the tree as decoded AST JSON, and
 `toTreeWithOrigins()` also says, for each top-level block, which loaded block it came from (`null` for a block the
 editor added).
+
+## Application nodes on the way in
+
+The bridge has no `register()`. An application node or mark the kit has no name for is saved by turning it into a
+kit shape before `convert()`. Every shape below is input the bridge reads, the same as the output it writes:
+
+- Any kit node or mark with a `carve` attribute: its keys without a `$` are tree fields, copied onto the Carve node
+  as they stand. `attrs` (`classes`, `keyValues`, `id`) is the usual field to fill.
+- `carveDiv` (block) and the `carveSpan` mark (inline) are the general containers: give them the application's
+  name as a class and its data as key/value pairs.
+- `carveBlock` and `carveInline` atoms carry one whole Carve node in `carve`, for a node that is not a div or a
+  span (an extension node, a raw block).
+- Keys starting with `$` are the kit's bookkeeping, such as `$index` or `$id`. Leave them out of what an application
+  builds.
+
+A mention node and a poll widget, mapped before saving:
+
+```php
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$mention = ['type' => 'mention', 'attrs' => ['id' => '7', 'label' => 'Ann']];
+$poll = ['type' => 'poll', 'attrs' => ['question' => 'Lunch?']];
+
+$asSpan = static fn (array $node): array => [
+    'type' => 'text',
+    'text' => $node['attrs']['label'],
+    'marks' => [['type' => 'carveSpan', 'attrs' => ['carve' => [
+        'attrs' => ['classes' => ['mention'], 'keyValues' => [['data-id', $node['attrs']['id']]]],
+    ]]]],
+];
+$asDiv = static fn (array $node): array => [
+    'type' => 'carveDiv',
+    'attrs' => ['carve' => ['attrs' => ['classes' => ['poll']]]],
+    'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $node['attrs']['question']]]]],
+];
+
+$doc = ['type' => 'doc', 'content' => [
+    ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Hi '], $asSpan($mention)]],
+    $asDiv($poll),
+]];
+assert((new ProseMirrorToCarve())->convert($doc) === "Hi [Ann]{.mention data-id=7}\n\n::: poll\nLunch?\n:::\n");
+```
+
+To find out which names the kit reads, `ProseMirrorToCarve::carveTypeFor($name)` gives the Carve tree type of a
+node or mark name (`'tableHeader'` gives `'table_cell'`), or null for a name the kit does not map. `proseMirrorNames()`
+lists them all. `carveBlock` and `carveInline` give null, since they carry a node of any type.
+
+## Content from a stock Tiptap editor
+
+The way back also reads what a Tiptap setup without the kit's own content makes:
+
+- A cell's `colspan` and `rowspan` attributes are the Carve spans: the cell's counts and the `<` and `^` marks of the
+  cells it covers. On load the counts go to those attributes, so the editor shows the merged cell. A row span stops
+  at the end of its table group, and a cell that spans rows and columns keeps only its columns, since a `^` below a
+  cell of more than one column joins nothing.
+- In a table without a head, the leading rows whose cells are all `tableHeader` are the head, as they are when the
+  written source is parsed.
+- A block-level `image` (Tiptap's Image default) is an image paragraph, the tree of `![alt](src)`.
+
+`ignoredAttributes()` lists every attribute the last save did not read, with the JSON pointer of its node or mark.
+Examples are the `textAlign` of a TextAlign extension, a link's `target` and the `colwidth` of a resized column. Null
+values and the defaults the kit's Link gives every link are not listed. A host that must not lose editor state can
+refuse the save:
+
+```php
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$doc = ['type' => 'doc', 'content' => [
+    ['type' => 'paragraph', 'attrs' => ['textAlign' => 'center'], 'content' => [['type' => 'text', 'text' => 'x']]],
+]];
+$bridge = new ProseMirrorToCarve();
+$source = $bridge->convert($doc);
+assert($bridge->ignoredAttributes() === [
+    ['path' => '/content/0', 'type' => 'paragraph', 'attribute' => 'textAlign', 'value' => 'center'],
+]);
+```
+
+The decoded tree of `toTree()` goes to `Carve::render()` and to the Markdown, plain text and ANSI exporters as it
+is, with no `Carve::decodeTree()` in between.
 
 ## Destinations the editor would resolve
 

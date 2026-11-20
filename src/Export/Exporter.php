@@ -117,14 +117,14 @@ final class Exporter
      * Checks the options, validates the tree and resolves a copy of it, so the caller's tree is not changed.
      *
      * @param string $target
-     * @param \MarkupCarve\Carve\Node $tree
+     * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree
      * @param array<string, mixed> $options
      *
      * @throws \MarkupCarve\Carve\OptionError
      *
      * @return self
      */
-    public static function start(string $target, Node $tree, array $options): self
+    public static function start(string $target, Node|array $tree, array $options): self
     {
         foreach ($options as $name => $value) {
             if (!in_array($name, ['smartTypography', 'strictLosses', 'urlPolicy'], true)) {
@@ -132,7 +132,7 @@ final class Exporter
             }
         }
         $opts = Options::from($options);
-        $resolve = Closure::bind(static fn (Node $t, Options $o): array => Carve::resolvedTree($t, $o), null, Carve::class);
+        $resolve = Closure::bind(static fn (Node|array $t, Options $o): array => Carve::resolvedTree($t, $o), null, Carve::class);
         [$document, , $facts] = $resolve($tree, $opts);
 
         return new self($target, $document, $opts, $facts);
