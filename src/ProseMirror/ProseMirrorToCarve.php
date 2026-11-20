@@ -375,7 +375,8 @@ final class ProseMirrorToCarve
     {
         $carve = Kit::carveOf($pm);
         $node = self::with(['type' => 'code_block'], Kit::treeFields($carve));
-        $node['value'] = self::textOf($pm) . (($carve['$newline'] ?? null) === false ? '' : "\n");
+        $text = self::textOf($pm);
+        $node['value'] = $text . ((($carve['$newline'] ?? null) === false || str_ends_with($text, "\n")) ? '' : "\n");
         $language = Kit::map($pm['attrs'] ?? null)['language'] ?? null;
         if (is_string($language) && $language !== '') {
             $node['syntax'] = $language;
