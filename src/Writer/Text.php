@@ -1034,6 +1034,11 @@ final class Text
             return -1;
         }
         if ($ch === ':') {
+            // A comment-only line does not open a definition on the paragraph's next line (C2-B-137).
+            if ($c->lineCommentBefore) {
+                return -1;
+            }
+
             return $gap || substr($line, 1, 1) === ':' ? 0 : -1;
         }
         if (Markers::quickReject($line, 0, strlen($line)) || Markers::read($line, 0, strlen($line)) === null) {

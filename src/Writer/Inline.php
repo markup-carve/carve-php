@@ -157,6 +157,7 @@ final class Inline
                 continue;
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+            $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
             $following = $nodes[$at + 1] ?? null;
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
@@ -174,6 +175,14 @@ final class Inline
         }
 
         return $out;
+    }
+
+    private static function followsLineComment(array $nodes, int $at): bool
+    {
+        $prior = $nodes[$at - 2] ?? null;
+
+        return ($nodes[$at - 1]['type'] ?? '') === 'soft_break'
+            && is_array($prior) && ($prior['type'] ?? '') === 'comment' && ($prior['form'] ?? '') === 'line';
     }
 
     /**
