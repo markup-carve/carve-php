@@ -37,4 +37,10 @@ final class JoinedPairsAndEmptyBodyTest extends TestCase
         self::assertSame(6, $entries[0]->startOffset);
         self::assertSame(11, $entries[0]->endOffset);
     }
+
+    public function testLegacyPairCannotOpenInsideALongerRun(): void
+    {
+        $codes = array_map(static fn ($entry): string => $entry->code, Carve::lint('~~a~'));
+        self::assertNotContains('deprecated-bare-strike', $codes);
+    }
 }
