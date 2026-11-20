@@ -97,6 +97,9 @@ final class NodeRulesA
 
     private static function canOpen(string $text, string $mark, string $id, int $at): bool
     {
+        if (!str_starts_with($id, 'deprecated-bare-')) {
+            return true;
+        }
         $after = substr($text, $at + strlen($mark));
 
         return !self::joined($text, $at + strlen($mark), $id)
