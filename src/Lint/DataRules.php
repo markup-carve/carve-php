@@ -226,11 +226,28 @@ final class DataRules
                 }
             }
         }
-        $apply = static function (stdClass $record, array $rules) use ($self): void {
-            foreach ($rules as $rule) {
-                if ($rule['types'] === null || in_array($record->type ?? null, $rule['types'], true)) {
-                    $self->apply($rule, $record);
+        $typedRules = ['inline' => [], 'block' => []];
+        $untypedRules = ['inline' => [], 'block' => []];
+        foreach (['inline', 'block'] as $kind) {
+            foreach ($byKind[$kind] as $rule) {
+                if ($rule['types'] === null) {
+                    $untypedRules[$kind][] = $rule;
+
+                    continue;
                 }
+                foreach ($rule['types'] as $type) {
+                    if (is_string($type)) {
+                        $typedRules[$kind][$type][] = $rule;
+                    }
+                }
+            }
+        }
+        $apply = static function (stdClass $record, string $kind) use ($self, $typedRules, $untypedRules): void {
+            foreach ($typedRules[$kind][$record->type ?? ''] ?? [] as $rule) {
+                $self->apply($rule, $record);
+            }
+            foreach ($untypedRules[$kind] as $rule) {
+                $self->apply($rule, $record);
             }
         };
         $typedBlocks = [];
@@ -267,11 +284,11 @@ final class DataRules
         };
         $model = new DataModel(
             $context,
-            static function (stdClass $record) use ($apply, $byKind): void {
-                $apply($record, $byKind['inline']);
+            static function (stdClass $record) use ($apply): void {
+                $apply($record, 'inline');
             },
-            static function (stdClass $record) use ($apply, $byKind): void {
-                $apply($record, $byKind['block']);
+            static function (stdClass $record) use ($apply): void {
+                $apply($record, 'block');
             },
             $acceptBlock,
         );
