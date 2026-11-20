@@ -107,6 +107,7 @@ input error.
 - [Carve documentation](https://markup-carve.github.io/carve/)
 - [Library guide](docs/README.md)
 - [API reference](docs/api.md)
+- [ProseMirror / Tiptap bridge](docs/prosemirror.md)
 - [Migration guide from 0.1](docs/migration.md)
 
 ## Development

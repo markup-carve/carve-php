@@ -233,6 +233,25 @@ Class. Thrown under `strictLosses` when an export lost something.
 
 Fields: `array $diagnostics`.
 
+## ProseMirror bridge
+
+### `MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer`
+
+Class. ProseMirror JSON of a Carve 0.2 tree, in the schema of the carve-grammars Tiptap kit (`tiptap/tree.js`).
+
+- `blanked(): array`: The denied destinations the last `render()` kept out of the editor's link and image attributes.
+- `render(Node|array $tree): array`: The ProseMirror `doc` of `$tree`.
+- `renderJson(Node|array $tree): string`: `render()` as JSON, for the editor's `setContent()`.
+- `renderSource(string $source, array $options = []): array`: The ProseMirror `doc` of Carve source.
+
+### `MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve`
+
+Class. Carve from ProseMirror JSON in the schema of the carve-grammars Tiptap kit (`tiptap/tree.js`).
+
+- `convert(array|string $doc, array $options = []): string`: The canonical Carve source of a ProseMirror document.
+- `toTree(array|string $doc): array`: The Carve 0.2 `document` tree of a ProseMirror document, as decoded AST JSON.
+- `toTreeWithOrigins(array|string $doc): array`: The tree, and for each top-level block the index of the loaded block it came from (null for a block the editor added).
+
 ## Extensions (provisional)
 
 ### `MarkupCarve\Carve\Extension\ExtensionProvider`

@@ -48,6 +48,8 @@ final class PublicSurface
         'MarkupCarve\Carve\Export\AnsiExporter' => 'export',
         'MarkupCarve\Carve\Export\ExportResult' => 'export',
         'MarkupCarve\Carve\Export\CarveExportError' => 'export',
+        'MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer' => 'editor',
+        'MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve' => 'editor',
         'MarkupCarve\Carve\Extension\ExtensionProvider' => 'provisional',
         'MarkupCarve\Carve\Extension\ExtensionDefinition' => 'provisional',
         'MarkupCarve\Carve\Extension\Claim' => 'provisional',
@@ -84,6 +86,7 @@ final class PublicSurface
         'includes' => 'Includes',
         'output' => 'Output writers',
         'export' => 'Exports',
+        'editor' => 'ProseMirror bridge',
         'provisional' => 'Extensions (provisional)',
     ];
 
