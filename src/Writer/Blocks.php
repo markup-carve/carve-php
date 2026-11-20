@@ -261,10 +261,15 @@ final class Blocks
             return 0;
         }
         if (self::isCommentLine($node) && $this->isOpenContainer($before)) {
-            // C2-B-138: the line stays in the container, unless it ends a fence that the container ends with.
+            // C2-W-123 writes the final fence open when a comment follows it.
             if ($this->lastFence($before) !== null) {
                 return 0;
             }
+            $marker = '/^#(?:region[ \t]+[A-Za-z_][A-Za-z0-9_-]*|endregion(?:[ \t]+[A-Za-z_][A-Za-z0-9_-]*)?)$/';
+            if (preg_match($marker, Inline::str($node, 'value')) === 1) {
+                return 1;
+            }
+            // C2-B-138: an ordinary comment line stays in the open container.
             $this->w->lose($path, 'comment', null);
 
             return 1;
