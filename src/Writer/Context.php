@@ -139,6 +139,27 @@ final class Context
     public array $escapedAt = [];
 
     /**
+     * C2-W-146: the offsets of the text being written that take a backslash because a pair rule of lint reports them.
+     *
+     * @var array<int, bool>
+     */
+    public array $pairEscapes = [];
+
+    /**
+     * C2-W-146: the offsets the pair rules ask for across the text nodes of a run, by the path of the text node.
+     *
+     * @var array<string, array<int, bool>>
+     */
+    public array $runPairEscapes = [];
+
+    /**
+     * C2-W-146: each text node and soft break of the content as written, in order, for the pair test of a run.
+     *
+     * @var array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string}>
+     */
+    public array $runLog = [];
+
+    /**
      * @var array<int, bool>|null Whether each opening bracket of `$flat` takes a backslash, by offset.
      */
     public ?array $brackets = null;

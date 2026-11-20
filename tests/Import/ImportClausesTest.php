@@ -182,8 +182,9 @@ final class ImportClausesTest extends TestCase
         $row = $result->document['children'][0]['children'][0]['children'][0]['children'];
         $this->assertArrayNotHasKey('rowspan', $row[0]);
         $this->assertSame(2, $row[1]['rowspan']);
-        // C2-M-074: a pipe table spells a span only with marks, so the writer reports the imported one.
-        $this->assertSame(['import-structure-repaired', 'import-structure-repaired', 'field-unspellable'], $result->codes());
+        // C2-W-145: the clamped row span is written with its mark.
+        $this->assertSame(['import-structure-repaired', 'import-structure-repaired'], $result->codes());
+        $this->assertSame("| a | b |\n| c | ^ |\n", $result->source);
     }
 
     public function testC2M040ColumnAlignmentInATableWithoutHead(): void

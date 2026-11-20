@@ -29,6 +29,11 @@ final class TableWriter
      */
     private const GROUPS = ['table_head', 'table_body', 'table_foot'];
 
+    /**
+     * C2-W-145: the marks of the span counts of the table being written, or null where it needs none.
+     */
+    private ?SpanMarks $spans = null;
+
     public function __construct(private State $w, private Inline $inline)
     {
     }
@@ -219,12 +224,33 @@ final class TableWriter
      */
     public function write(array $node, string $path, string $prefix, bool $prewritten): void
     {
-        $this->spanCounts($node, $path);
+        // A table in a cell is written while the rows of the table around it are.
+        $outer = $this->spans;
+        $this->spans = SpanMarks::of($node, $path);
+        try {
+            $this->table($node, $path, $prefix, $prewritten);
+        } finally {
+            $this->spans = $outer;
+        }
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $prefix
+     * @param bool $prewritten
+     *
+     * @return void
+     */
+    private function table(array $node, string $path, string $prefix, bool $prewritten): void
+    {
         $groups = $this->groups($node);
         $rows = array_sum(array_map('count', $groups));
         $format = $this->w->fact($path, 'sourceFormat');
         $wanted = in_array($format, ['csv', 'tsv'], true) || ($format === null && $this->pipeCannotSpell($node));
-        $delimited = $rows === 0 || ($wanted && $this->allowsDelimited($node));
+        // C2-W-066: span marks have no delimited form, so a table that needs them is a pipe table.
+        $delimited = $rows === 0 || ($wanted && $this->spans === null && $this->allowsDelimited($node));
+        $this->spanCounts($node, $path);
         if ($delimited) {
             $this->delimited($node, $path, $prefix, is_string($format) && $format !== 'pipe' ? $format : 'csv', $prewritten);
 
@@ -253,6 +279,13 @@ final class TableWriter
      */
     private function spanCounts(array $node, string $path): void
     {
+        if ($this->spans !== null) {
+            foreach ($this->spans->unspelled as $at) {
+                $this->w->lose($at, 'table_cell', 'rowspan');
+            }
+
+            return;
+        }
         $table = TreeDecoder::fromArray(['type' => 'table'] + $node);
         if ($table === null) {
             return;
@@ -383,11 +416,8 @@ final class TableWriter
     {
         $cells = [];
         $height = 1;
-        foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $at => $cell) {
-            if (!is_array($cell)) {
-                continue;
-            }
-            [$prefix, $fragments] = $this->cell($cell, $path . '/children/' . $at, $head);
+        foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
+            [$prefix, $fragments] = $this->cell($cell, $at, $head);
             $cells[] = [$prefix, $fragments];
             $height = max($height, count($fragments) === 0 ? 1 : max(array_keys($fragments)) + 1);
         }
@@ -408,6 +438,24 @@ final class TableWriter
         }
 
         return $lines;
+    }
+
+    /**
+     * @param array<mixed> $row
+     * @param string $path
+     *
+     * @return array<array{0: array<mixed>, 1: string}> Each cell of the row and its path.
+     */
+    private static function rowCells(array $row, string $path): array
+    {
+        $out = [];
+        foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $at => $cell) {
+            if (is_array($cell)) {
+                $out[] = [$cell, $path . '/children/' . $at];
+            }
+        }
+
+        return $out;
     }
 
     /**

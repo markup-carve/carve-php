@@ -43,6 +43,7 @@ final class NodeRules
             ['markdown-strong-double-star', ['text'], self::pair('**', 'markdown-strong-double-star')],
             ['markdown-strong-double-star', ['paragraph'], NodeRulesA::multilineMarkdownStrong(...)],
             ['markdown-strikethrough-double-tilde', ['text'], self::pair('~~', 'markdown-strikethrough-double-tilde')],
+            ['markdown-strikethrough-double-tilde', ['paragraph'], self::multilinePair('~~', 'markdown-strikethrough-double-tilde')],
             ['djot-emphasis-underscore', ['text'], self::pair('_', 'djot-emphasis-underscore')],
             ['djot-subscript-tilde', ['text'], self::pair('~', 'djot-subscript-tilde')],
             ['djot-superscript-caret', ['text'], self::pair('^', 'djot-superscript-caret')],
