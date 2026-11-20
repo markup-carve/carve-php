@@ -11,6 +11,21 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  import-lowest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - name: Install lowest supported dependencies
+        run: composer update --prefer-lowest --prefer-stable --no-progress
+      - name: Run import tests
+        run: vendor/bin/phpunit tests/Import
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20

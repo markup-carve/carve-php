@@ -23,7 +23,7 @@
     "require": {
         "php": "^8.2",
         "symfony/polyfill-intl-normalizer": "^1.27",
-        "league/commonmark": "^2.7",
+        "league/commonmark": "^2.9.2",
         "php-collective/djot": "^0.1.35"
     },
     "suggest": {
