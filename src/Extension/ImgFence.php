@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Extension;
 
 use DOMDocument;
 use DOMElement;
+use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Node;
 use RuntimeException;
 
@@ -48,6 +49,8 @@ final class ImgFence
         'path' => true,
         'text' => true,
         'tspan' => true,
+        'title' => true,
+        'desc' => true,
     ];
 
     /**
@@ -113,7 +116,23 @@ final class ImgFence
             throw new RuntimeException('the SVG is not a single well-formed safe image');
         }
 
-        return '<img src="data:image/svg+xml,' . rawurlencode($svg) . '" alt="">';
+        // C2-X-059, C2-H-010, C2-H-013: the authored `alt` is the alt; `src` and `alt` replace authored keys.
+        $alt = '';
+        $authored = $node->f['attrs'] ?? null;
+        $attrs = $authored instanceof Attrs ? clone $authored : new Attrs();
+        $attrs->pairs = array_values(array_filter($attrs->pairs, static function (array $pair) use (&$alt): bool {
+            $key = strtolower($pair[0]);
+            if ($key === 'alt') {
+                $alt = $pair[1];
+            }
+
+            return $key !== 'alt' && $key !== 'src';
+        }));
+        $copy = clone $node;
+        $copy->f['attrs'] = $attrs;
+
+        return '<img src="data:image/svg+xml,' . rawurlencode($svg) . '" alt="' . RenderHost::escapeAttribute($alt) . '"'
+            . $host->attributes($copy) . '>';
     }
 
     /**
