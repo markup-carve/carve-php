@@ -43,6 +43,15 @@ final class WriterClausesTest extends TestCase
             'C2-W-096 a braced opener without its closer is text' => ["a {*b\n", "a {*b\n"],
             'C2-W-092 a later paragraph line is not tested for a list marker' => ["x\n- a\n", "x\n- a\n"],
             'C2-W-092 a later line inside an item is tested for a list marker' => ["- a\n  \\- b\n", "- a\n  \\- b\n"],
+            'C2-W-088 a description mark after a comment in an item is bare' => [
+                "- a\n  %% c\n  \\:: t\n", "- a\n  %% c\n  :: t\n",
+            ],
+            'C2-W-088 a later description mark after two comments is bare' => [
+                "- a\n  %% c\n  %% d\n  \\:: t\n", "- a\n  %% c\n  %% d\n  :: t\n",
+            ],
+            'C2-W-092 a description mark without a preceding comment still needs an escape' => [
+                "- a\n  \\:: t\n", "- a\n  \\:: t\n",
+            ],
             'C2-W-092 a first line that parses as a paragraph' => ["A. Smith\n", "A. Smith\n"],
             'C2-W-092 a description mark with no list before it' => ["\\: x\n", ": x\n"],
             'C2-W-092 a description mark behind a description list' => [":: t\n: d\n\n\\: x\n", ":: t\n: d\n\n\\: x\n"],

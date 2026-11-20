@@ -18,6 +18,11 @@ final class Context
     public bool $lineStart = false;
 
     /**
+     * A line comment immediately precedes the current continuation line.
+     */
+    public bool $lineCommentBefore = false;
+
+    /**
      * C2-W-092: what holds the paragraph, read from its prefix: `top`, `quote`, or `body` for an item, a description or a
      * footnote, where a list marker interrupts on every line.
      */
