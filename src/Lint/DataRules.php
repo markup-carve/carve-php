@@ -6,6 +6,9 @@ namespace MarkupCarve\Carve\Lint;
 
 use stdClass;
 
+/**
+ * @phpstan-type Rule array{id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null, when: mixed} & array<string, mixed>
+ */
 final class DataRules
 {
     /**
@@ -17,6 +20,11 @@ final class DataRules
      * @var array<string, true>|null
      */
     private static ?array $ids = null;
+
+    /**
+     * @var list<Rule>|null
+     */
+    private static ?array $rulesCache = null;
 
     /**
      * @var array<string, mixed>
@@ -68,13 +76,14 @@ final class DataRules
         return self::$data;
     }
 
-    // phpcs:disable Generic.Files.LineLength.MaxExceeded
-
     /**
-     * @return list<array{id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null, when: mixed} & array<string, mixed>>
+     * @return list<Rule>
      */
     private static function rules(): array
     {
+        if (self::$rulesCache !== null) {
+            return self::$rulesCache;
+        }
         $raw = self::data()['rules'] ?? [];
         if (!is_array($raw)) {
             return [];
@@ -92,10 +101,8 @@ final class DataRules
             }
         }
 
-        return $rules;
+        return self::$rulesCache = $rules;
     }
-
-    // phpcs:enable Generic.Files.LineLength.MaxExceeded
 
     // Read only unconditional literal predicates for safe prefiltering.
     // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
