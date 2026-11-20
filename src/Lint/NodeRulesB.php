@@ -729,7 +729,7 @@ final class NodeRulesB
             return;
         }
         $quotes = $c->layout->quoteDepth($path);
-        $start = $pos['startOffset'];
+        $start = self::openerBehindAttributes($node, $pos['startOffset'], $c);
         $column = $c->layout->columnOf($start, $quotes);
         $content = self::ownerContentColumn($ownerPath, $ownerType, $quotes, $c);
         if ($column <= $content) {
@@ -782,6 +782,34 @@ final class NodeRulesB
         }
 
         return false;
+    }
+
+    /**
+     * Where the opening mark of a block stands: an attributed block starts at its attribute lines (C2-W-138).
+     *
+     * @param array<string, mixed> $node
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param int $start
+     */
+    private static function openerBehindAttributes(array $node, int $start, Context $c): int
+    {
+        if (!isset($node['attrs'])) {
+            return $start;
+        }
+        while (true) {
+            $lineStart = strrpos(substr($c->source, 0, $start), "\n");
+            $lineStart = $lineStart === false ? 0 : $lineStart + 1;
+            $end = strpos($c->source, "\n", $start);
+            if ($end === false) {
+                return $start;
+            }
+            $rest = rtrim(substr($c->source, $start, $end - $start), " \t");
+            if (!str_starts_with($rest, '{') || preg_match('/^\{[^{}]*\}$/', $rest) !== 1) {
+                return $start;
+            }
+            $nextEnd = strcspn($c->source, "\n", $end + 1);
+            $start = $end + 1 + min($start - $lineStart, $nextEnd);
+        }
     }
 
     /**

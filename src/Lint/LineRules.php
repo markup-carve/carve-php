@@ -495,7 +495,8 @@ final class LineRules
             return;
         }
         $value = self::shown($line, $c, $start - $line->start + 1, strlen($text) - 1);
-        $c->report('blockquote-marker-without-space', $start, $start + strlen($text), $line->path, ['text' => $value]);
+        $end = $start + strlen(rtrim(substr($line->text, $start - $line->start), " \t"));
+        $c->report('blockquote-marker-without-space', $start, $end, $line->path, ['text' => $value]);
     }
 
     public static function frontmatterQuote(Line $line, Context $c): void
@@ -504,7 +505,7 @@ final class LineRules
             return;
         }
         $value = substr($line->text, 1);
-        $end = $line->start + strlen(Support::trimEnd($line->text));
+        $end = $line->start + strlen(rtrim($line->text, " \t"));
         $c->report('blockquote-marker-without-space', $line->start, $end, $line->path, ['text' => $value], 1);
     }
 

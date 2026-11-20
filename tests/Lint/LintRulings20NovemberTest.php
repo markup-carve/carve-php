@@ -27,6 +27,8 @@ final class LintRulings20NovemberTest extends TestCase
             '6192 thematic break' => ["   ***\n", 'block-opener-overindented', [[3, 6]]],
             '6192 quote mark' => ["   > q\n", 'block-opener-overindented', [[3, 4]]],
             '6192 table row' => ["   | a |\n", 'block-opener-overindented', [[3, 4]]],
+            '6192 attributed div opener' => ["   {.x}\n   :::: foo\n   x\n   ::::\n", 'block-opener-overindented', [[11, 15]]],
+            '6191 trailing no-break space stays' => [">a\u{a0}\n", 'blockquote-marker-without-space', [[0, 4]]],
             '6193 include line' => ["- a\n\n      {{ x.crv }}\n", 'list-item-block-overindented', []],
             '6194 trailing spaces' => [":::: x\n:::::  \n", 'colon-fence-length-mismatch', [[7, 12]]],
             '6194 quote inside a div' => ["::::\n> :::\n", 'colon-fence-length-mismatch', []],
