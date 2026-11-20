@@ -22,6 +22,8 @@ final class Next2ParityTicketsRoundThreeTest extends TestCase
             '#5390 quoted table' => ["> : x\n> | a |\n", 'caption-looking-paragraph', [[2, 3]]],
             '#5396 glued alert' => [">* > [!NOTE]\n", 'github-alert-marker', []],
             '#5391 quoted colon' => ["> ::::\n> :::\n", 'colon-fence-length-mismatch', [[9, 12]]],
+            '#5391 nested quoted colon' => ["::: box\n> ::::\n> :::\n:::\n", 'colon-fence-length-mismatch', [[10, 14], [17, 20]]],
+            '#5392 colon through item' => ["::: box\n1. ::::\n    >\n:::\n", 'colon-fence-length-mismatch', [[22, 25]]],
             '#5384 paragraph list text' => ["   {%c%}\n1. ___\n", 'thematic-break-spelling', []],
             '#5397 comment body' => ["\t>:::\n## H\ni) i) %%%%\n       %%% \n>  a <b>\n", 'bare-html-tag', []],
             '#5395 term continuation' => ["2) :: term\n   - - -\n", 'deprecated-spaced-thematic-break', [[14, 19]]],
