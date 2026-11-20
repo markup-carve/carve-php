@@ -44,13 +44,32 @@ final class Standard
 
     public static function renderer(string $name, string $mode, string $tabsMode = 'css'): ?Closure
     {
-        return match ($name) {
+        $direct = match ($name) {
             'carve.tabs' => $mode === 'static' ? Tabs::renderStatic(...)
                 : ($tabsMode === 'aria' ? Tabs::renderAria(...) : Tabs::render(...)),
-            'carve.imgFence.img', 'carve.imgFence.image' => ImgFence::render(...),
-            'carve.codeGroup' => $mode === 'static'
-                ? CodeGroup::bundle()->definitions()[0]->buildTimeRenderer
-                : CodeGroup::bundle()->definitions()[0]->renderer,
+            default => null,
+        };
+        if ($direct !== null) {
+            return $direct;
+        }
+        foreach (self::rendererBundle($name, $tabsMode)?->definitions() ?? [] as $definition) {
+            if ($definition->name === $name) {
+                return $mode === 'static' ? $definition->buildTimeRenderer : $definition->renderer;
+            }
+        }
+
+        return null;
+    }
+
+    private static function rendererBundle(string $name, string $standardMode): ?Bundle
+    {
+        return match ($name) {
+            'carve.imgFence.img', 'carve.imgFence.image' => ImgFence::bundle(),
+            'carve.codeGroup' => CodeGroup::bundle($standardMode),
+            'carve.details' => Details::bundle(),
+            'carve.spoiler', 'carve.spoilerBlock' => Spoiler::bundle(),
+            'carve.fencedRender.mermaid' => FencedRender::mermaid(),
+            'carve.mathBlock' => MathBlock::bundle(),
             default => null,
         };
     }

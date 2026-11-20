@@ -14,6 +14,15 @@ use RuntimeException;
  */
 final class ImgFence
 {
+    public static function bundle(): Bundle
+    {
+        return new Bundle(array_map(
+            static fn (string $language): ExtensionDefinition => self::definition($language)
+                ->withRenderer(self::render(...))->withBuildTimeRenderer(self::render(...)),
+            ['img', 'image'],
+        ));
+    }
+
     /**
      * @var string
      */
