@@ -171,7 +171,7 @@ final class LineRules
             return null;
         }
         // C2-B-024, C2-B-025: a lazy line's content starts at its first marker, a quote mark included (carve#6178).
-        [$text, $start] = self::lineText($line);
+        [$text, $start] = self::lineText($c->lines[$line->number - 1] ?? $line);
 
         return [$text, $start, $previous];
     }
@@ -521,6 +521,7 @@ final class LineRules
         $listed = preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+/', $before) === 1;
         $prior = $c->lines[$startLine - 2] ?? null;
         $nested = strspn($opener->text, " \t") > 0 && $prior !== null
+            && self::hasAncestor($prior->path, $c, 'list_item')
             && preg_match('/(?:^|[ \t])(?:[-*]|[0-9A-Za-z]+[.)])[ \t]+.*%{3,}/', $prior->text) === 1;
         if (!$quoted && !$listed && !$nested) {
             return;
@@ -666,6 +667,9 @@ final class LineRules
             return;
         }
         $first = ($c->firstLines[$line->path] ?? null) === $line->number;
+        if (!$first && ($c->nodeTypes[$line->path] ?? null) === 'paragraph') {
+            return;
+        }
         if (!$first && ($c->nodeTypes[$line->path] ?? null) === 'definition_term') {
             return;
         }
@@ -686,12 +690,12 @@ final class LineRules
         }
         $next = $c->lines[$line->number] ?? null;
         if (
-            $next !== null && !self::blank($next) && !$next->paragraph
+            $next !== null && !self::blankInContainer($next) && !$next->paragraph
             && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
         ) {
             return;
         }
-        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], self::blank($next) ? 1 : 0);
+        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], self::blankInContainer($next) ? 1 : 0);
     }
 
     private static function markdownDefinition(Line $line, Context $c): void
@@ -821,6 +825,9 @@ final class LineRules
         if (preg_match('/^[ \t]*>:/', $line->text) === 1) {
             return;
         }
+        if (preg_match('/^[ \t]*>(?: |\[!)/', $line->text) !== 1) {
+            return;
+        }
         $at = strpos($line->text, '[!');
         if ($at === false || !str_contains(substr($line->text, $at), ']') || !str_starts_with(Support::trimStart($line->text), '>')) {
             return;
@@ -910,13 +917,25 @@ final class LineRules
         for ($distance = 1; $distance <= 2; $distance++) {
             $next = $c->lines[$line->number - 1 + $distance] ?? null;
             $prev = $c->lines[$line->number - 1 - $distance] ?? null;
-            $below = $below || ($next !== null && str_starts_with(Support::trimStart($next->text), '|'));
-            $above = $above || ($prev !== null && (str_starts_with(Support::trimStart($prev->text), '|')
+            $below = $below || ($next !== null && str_starts_with(self::neighborContent($next, $c->layout->quoteDepth($line->path)), '|'));
+            $above = $above || ($prev !== null && (str_starts_with(self::neighborContent($prev, $c->layout->quoteDepth($line->path)), '|')
                 || str_contains($prev->text, '![')));
         }
         if ($below || $above) {
             $c->report('caption-looking-paragraph', $start, $start + 1, $line->path, [], $below ? 0 : 1);
         }
+    }
+
+    private static function neighborContent(Line $line, int $depth): string
+    {
+        $text = self::afterQuotes($line, $depth)[0];
+
+        return preg_replace('/^(?:[-*] |[0-9]+[.)] )[ \t]*/', '', $text) ?? $text;
+    }
+
+    private static function blankInContainer(?Line $line): bool
+    {
+        return $line !== null && preg_match('/^(?:[ \t]*>(?: |$))*[ \t]*$/', $line->text) === 1;
     }
 
     private static function descriptionColumn(Line $line, Context $c): void

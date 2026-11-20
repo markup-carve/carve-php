@@ -2052,15 +2052,7 @@
    "trigger": "- b\n{.x}\n",
    "near": "- b\n\n",
    "options": {},
-   "findings": [
-    [
-     "unattached-block-attribute",
-     "/children/0/children/0/children/0",
-     4,
-     8,
-     "A blank line follows this attribute line, so it is text. Remove the blank line if you mean to attach it to a following block."
-    ]
-   ]
+   "findings": []
   },
   "unattached-caption": {
    "trigger": "^ p\n",

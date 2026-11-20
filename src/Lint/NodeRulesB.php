@@ -557,13 +557,10 @@ final class NodeRulesB
             if ($line === null) {
                 continue;
             }
-            $indent = self::indentation($line->text);
-            if ($indent < 0) {
-                continue;
-            }
-            $column = $c->layout->columnOf($line->start + $indent, $c->layout->quoteDepth($path));
+            $start = $blockPos['startOffset'];
+            $column = $c->layout->columnOf($start, $c->layout->quoteDepth($path));
             if ($column > $marker && $column < $content) {
-                $c->report('list-item-body-below-content-column', $line->start + $indent, $line->end, $path);
+                $c->report('list-item-body-below-content-column', $start, $line->end, $path);
                 $reportedLines[$line->number] = true;
             }
         }
@@ -644,8 +641,7 @@ final class NodeRulesB
     public static function listItemBlockIndent(array $node, string $path, Context $c): void
     {
         foreach (self::overindented($node, $path, $c) as [$at, $line, $indent, , $content]) {
-            $bytes = self::indentation($line->text);
-            $start = $line->start + max(0, $bytes);
+            $start = $c->layout->startOffset($path . '/children/' . $at) ?? $line->start;
             $c->report('list-item-block-overindented', $start, $line->end, $path . '/children/' . $at, [
                 'contentColumn' => (string)($content + 1),
             ]);
@@ -721,17 +717,12 @@ final class NodeRulesB
             return;
         }
         [$ownerPath, $ownerType] = self::blockOwner($path, $c);
-        if ($ownerType === 'list_item') {
+        if ($ownerType === 'list_item' || self::ancestorPath($path, $c, 'list_item') !== null) {
             return;
         }
         $quote = self::ancestorPath($path, $c, 'block_quote');
-        if ($quote !== null && $c->lineOf($c->layout->startOffset($quote) ?? -1) === $pos['startLine']) {
-            $lineStart = $c->lines[$pos['startLine'] - 1]->start ?? 0;
-            $before = substr($c->source, $lineStart, $pos['startOffset'] - $lineStart);
-            $mark = strrpos($before, '>');
-            if ($mark !== false && substr($before, $mark + 1) === ' ') {
-                return;
-            }
+        if ($quote !== null && self::quoteOpenerExempt($quote, $pos, $c)) {
+            return;
         }
         $quotes = $c->layout->quoteDepth($path);
         $start = $pos['startOffset'];
@@ -751,6 +742,27 @@ final class NodeRulesB
             'columns' => $past === 1 ? 'column' : 'columns',
             'owner' => str_replace('_', ' ', $ownerType),
         ]);
+    }
+
+    /**
+     * @param string $quote
+     * @param array{startLine: int, startOffset: int} $pos
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     */
+    private static function quoteOpenerExempt(string $quote, array $pos, Context $c): bool
+    {
+        if ($c->lineOf($c->layout->startOffset($quote) ?? -1) === $pos['startLine']) {
+            $lineStart = $c->lines[$pos['startLine'] - 1]->start ?? 0;
+            $before = substr($c->source, $lineStart, $pos['startOffset'] - $lineStart);
+            $mark = strrpos($before, '>');
+            if ($mark !== false && substr($before, $mark + 1) === ' ') {
+                return true;
+            }
+        }
+        $previous = $c->lines[$pos['startLine'] - 2] ?? null;
+
+        return $pos['startLine'] === ($c->firstLines[$quote] ?? -1) + 1 && $previous !== null
+            && preg_match('/^[ \t]*\{[^\n]*\}[ \t]*$/', $previous->text) === 1;
     }
 
     /**
@@ -858,28 +870,44 @@ final class NodeRulesB
         if ($opener === null || $endLine === null || $c->lineOf($opener[0]) === $endLine->number) {
             return;
         }
-        $closer = Support::trim($endLine->text);
-        $previousLine = $c->lines[$pos['endLine'] - 2] ?? null;
-        if ($previousLine !== null && preg_match('/^[ \t]*%{3,}/', $previousLine->text) === 1) {
+        if (self::endsInComment($node, $pos['endLine'])) {
             return;
         }
+        $closerRun = self::bareColonRun($endLine, $c->layout->quoteDepth($path));
+        if ($closerRun === null) {
+            return;
+        }
+        $closerLength = $closerRun[1];
         [$activeRun, $innerType] = self::activeColonRun($node, $c, $opener, $pos['endLine']);
         if (
-            !self::allColons($closer) || strlen($closer) === $activeRun[1]
-            || ($activeRun === $opener && self::closesInner($node, strlen($closer), $c))
+            $closerLength === $activeRun[1]
+            || ($activeRun === $opener && self::closesInner($node, $closerLength, $c))
         ) {
             return;
         }
         $activeLine = $c->lineOf($activeRun[0]);
         $activeColumn = $activeRun[0] - ($c->lines[$activeLine - 1]->start ?? 0) + 1;
-        $runStart = $endLine->start + strspn($endLine->text, " \t");
-        $c->report('colon-fence-length-mismatch', $runStart, $endLine->end, $path, [
-            'authoredWidth' => (string)strlen($closer),
+        $runStart = $closerRun[0];
+        $c->report('colon-fence-length-mismatch', $runStart, $runStart + $closerRun[1], $path, [
+            'authoredWidth' => (string)$closerLength,
             'expectedWidth' => (string)$activeRun[1],
             'kind' => str_replace(['directive', '_'], ['div', ' '], (string)($innerType ?? $type)),
             'line' => (string)$activeLine,
             'column' => (string)$activeColumn,
-        ], strlen($closer) < $activeRun[1] ? ($activeRun !== $opener ? 1 : 0) : 2);
+        ], $closerLength < $activeRun[1] ? ($activeRun !== $opener ? 1 : 0) : 2);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param int $endLine
+     */
+    private static function endsInComment(array $node, int $endLine): bool
+    {
+        $children = Support::kids($node);
+        $last = $children === [] ? null : $children[array_key_last($children)];
+
+        return ($last['type'] ?? null) === 'comment' && ($last['form'] ?? null) === 'block'
+            && (Support::pos($last)['endLine'] ?? -1) === $endLine;
     }
 
     /**
@@ -903,7 +931,7 @@ final class NodeRulesB
                 continue;
             }
             $runLine = $c->lines[$c->lineOf($run[0]) - 1] ?? null;
-            if ($runLine === null || !self::allColons(Support::trim($runLine->text))) {
+            if ($runLine === null || self::bareColonRun($runLine, $c->layout->quoteDepth($path)) === null) {
                 continue;
             }
             $c->report('colon-fence-length-mismatch', $run[0], $run[0] + $run[1], $path . '/children/' . $at, [
@@ -914,6 +942,25 @@ final class NodeRulesB
                 'column' => (string)($opener[0] - ($c->lines[$c->lineOf($opener[0]) - 1]->start ?? 0) + 1),
             ]);
         }
+    }
+
+    /**
+     * @return array{int, int}|null
+     */
+    private static function bareColonRun(Line $line, int $quotes): ?array
+    {
+        $at = 0;
+        for ($i = 0; $i < $quotes; $i++) {
+            $at += strspn($line->text, " \t", $at);
+            if (($line->text[$at] ?? '') !== '>' || !in_array($line->text[$at + 1] ?? '', ['', ' '], true)) {
+                return null;
+            }
+            $at += ($line->text[$at + 1] ?? '') === ' ' ? 2 : 1;
+        }
+        $at += strspn($line->text, " \t", $at);
+        $text = Support::trimEnd(substr($line->text, $at));
+
+        return self::allColons($text) ? [$line->start + $at, strlen($text)] : null;
     }
 
     /**
