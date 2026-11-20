@@ -96,8 +96,9 @@ final class DataModel
      * @param \MarkupCarve\Carve\Lint\Context $context
      * @param \Closure(\stdClass): void $onInline
      * @param \Closure(\stdClass): void $onBlock
+     * @param \Closure(string, string, string): bool $acceptBlock
      */
-    public function __construct(private Context $context, private Closure $onInline, private Closure $onBlock)
+    public function __construct(private Context $context, private Closure $onInline, private Closure $onBlock, private Closure $acceptBlock)
     {
         $this->build();
     }
@@ -471,6 +472,22 @@ final class DataModel
             $opener = $node['attrs'] ?? null ? $this->openerStart($start, $quotes) : $start;
             $endLine = strpos($c->source, "\n", $opener);
             $openerText = self::trimEnd(substr($c->source, $opener, ($endLine === false ? strlen($c->source) : $endLine) - $opener));
+            $lastLine = $this->lines[$pos['endLine'] - 1] ?? $line;
+            $this->blocks[] = (object)[
+                'type' => $type,
+                'path' => $item['path'],
+                'start' => $start,
+                'end' => $pos['endOffset'],
+                'opener_start' => $opener,
+                'opener_text' => $openerText,
+                'line' => $line,
+                'last_line' => $lastLine,
+            ];
+            $parentType = $c->nodeTypes[$item['parent']] ?? 'document';
+            $itemOwnerType = $c->nodeTypes[$itemPath] ?? 'document';
+            if (!(($this->acceptBlock)($type, $parentType, $itemOwnerType))) {
+                continue;
+            }
             $column = $c->layout->columnOf($start, $quotes);
             $markColumn = $c->layout->columnOf($opener, $quotes);
             $prevPath = $item['index'] > 0 && preg_match('~/[0-9]+$~', $item['path'])
@@ -483,7 +500,7 @@ final class DataModel
                 'text' => in_array($type, ['list', 'line', 'frontmatter'], true)
                     ? substr($c->source, $start, $pos['endOffset'] - $start) : '',
                 'line' => $line,
-                'last_line' => $this->lines[$pos['endLine'] - 1] ?? $line,
+                'last_line' => $lastLine,
                 'column' => $column,
                 'opener_column' => $c->layout->markerColumn($item['path']) ?? $column,
                 'mark_column' => $markColumn,
@@ -499,16 +516,6 @@ final class DataModel
                 'prev_type' => $prevPath === null ? null : ($c->nodeTypes[$prevPath] ?? null),
             ];
             ($this->onBlock)($record);
-            $this->blocks[] = (object)[
-                'type' => $type,
-                'path' => $item['path'],
-                'start' => $start,
-                'end' => $pos['endOffset'],
-                'opener_start' => $opener,
-                'opener_text' => $openerText,
-                'line' => $line,
-                'last_line' => $record->last_line,
-            ];
         }
         $this->blockWalked = [];
     }

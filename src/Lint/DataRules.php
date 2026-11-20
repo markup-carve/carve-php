@@ -68,8 +68,10 @@ final class DataRules
         return self::$data;
     }
 
+    // phpcs:disable Generic.Files.LineLength.MaxExceeded
+
     /**
-     * @return list<array{id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null} & array<string, mixed>>
+     * @return list<array{id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null, when: mixed} & array<string, mixed>>
      */
     private static function rules(): array
     {
@@ -85,11 +87,60 @@ final class DataRules
             ) {
                 $rule['verbatim'] = is_array($rule['verbatim'] ?? null) ? $rule['verbatim'] : [];
                 $rule['types'] = is_array($rule['types'] ?? null) ? $rule['types'] : null;
+                $rule['when'] = $rule['when'] ?? null;
                 $rules[] = $rule;
             }
         }
 
         return $rules;
+    }
+
+    // phpcs:enable Generic.Files.LineLength.MaxExceeded
+
+    // Read only unconditional literal predicates for safe prefiltering.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * @return array<string, true>|null
+     */
+    private static function requiredValues(mixed $when, string $field): ?array
+    {
+        if (!is_array($when)) {
+            return null;
+        }
+        $terms = is_array($when['all'] ?? null) ? $when['all'] : [$when];
+        foreach ($terms as $term) {
+            if (!is_array($term)) {
+                continue;
+            }
+            if (is_array($term['all'] ?? null)) {
+                $nested = self::requiredValues($term, $field);
+                if ($nested !== null) {
+                    return $nested;
+                }
+            }
+            foreach (['eq', 'in'] as $operator) {
+                $args = $term[$operator] ?? null;
+                if (!is_array($args) || !is_array($args[0] ?? null) || ($args[0]['f'] ?? null) !== $field) {
+                    continue;
+                }
+                $values = $operator === 'eq' ? [$args[1] ?? null] : ($args[1] ?? null);
+                if (!is_array($values)) {
+                    continue;
+                }
+                $out = [];
+                foreach ($values as $value) {
+                    if (is_string($value)) {
+                        $out[$value] = true;
+                    }
+                }
+                if ($out !== []) {
+                    return $out;
+                }
+            }
+        }
+
+        return null;
     }
 
     public static function run(Context $context): void
@@ -100,9 +151,16 @@ final class DataRules
         }
         $self = new self($context);
         $byKind = ['line' => [], 'block' => [], 'inline' => []];
+        $lineFilters = [];
         foreach (self::rules() as $rule) {
             if ($context->activeRule($rule['id'])) {
                 $byKind[$rule['over']][] = $rule;
+                if ($rule['over'] === 'line') {
+                    $lineFilters[$rule['id']] = [
+                        'leafs' => self::requiredValues($rule['when'], 'leaf'),
+                        'shapes' => self::requiredValues($rule['when'], 'shape'),
+                    ];
+                }
             }
         }
         $apply = static function (stdClass $record, array $rules) use ($self): void {
@@ -112,6 +170,38 @@ final class DataRules
                 }
             }
         };
+        $typedBlocks = [];
+        $genericBlocks = [];
+        foreach ($byKind['block'] as $rule) {
+            if ($rule['types'] !== null) {
+                foreach ($rule['types'] as $type) {
+                    if (is_string($type)) {
+                        $typedBlocks[$type] = true;
+                    }
+                }
+
+                continue;
+            }
+            $genericBlocks[] = [
+                'parents' => self::requiredValues($rule['when'], 'parent.type'),
+                'itemOwners' => self::requiredValues($rule['when'], 'item_owner.type'),
+            ];
+        }
+        $acceptBlock = static function (string $type, string $parentType, string $itemOwnerType) use ($typedBlocks, $genericBlocks): bool {
+            if (isset($typedBlocks[$type])) {
+                return true;
+            }
+            foreach ($genericBlocks as $filter) {
+                if (
+                    ($filter['parents'] === null || isset($filter['parents'][$parentType]))
+                    && ($filter['itemOwners'] === null || isset($filter['itemOwners'][$itemOwnerType]))
+                ) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
         $model = new DataModel(
             $context,
             static function (stdClass $record) use ($apply, $byKind): void {
@@ -120,9 +210,17 @@ final class DataRules
             static function (stdClass $record) use ($apply, $byKind): void {
                 $apply($record, $byKind['block']);
             },
+            $acceptBlock,
         );
         foreach ($byKind['line'] as $rule) {
+            $filter = $lineFilters[$rule['id']];
             foreach ($model->lines as $record) {
+                if (
+                    ($filter['leafs'] !== null && !isset($filter['leafs'][$record->leaf]))
+                    || ($filter['shapes'] !== null && !isset($filter['shapes'][$record->shape]))
+                ) {
+                    continue;
+                }
                 if (
                     in_array($record->leaf, is_array($data['verbatim_leaves'] ?? null) ? $data['verbatim_leaves'] : [], true)
                     && !in_array($record->leaf, $rule['verbatim'], true)
