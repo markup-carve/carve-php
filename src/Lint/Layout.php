@@ -95,7 +95,7 @@ final class Layout
         }
         $end = $this->lineEnd($start);
         $content = match ($node['type'] ?? '') {
-            'list_item' => $this->itemContent($start, $end, isset($node['task'])),
+            'list_item' => $this->itemContent($start, $end),
             'definition_description' => $this->s[$start] === ':' && ($this->s[$start + 1] ?? '') !== ':'
                 ? $this->afterSpace($start + 1, $end, 1) : -1,
             'footnote' => $this->footnoteContent($start, $end),
@@ -211,7 +211,10 @@ final class Layout
         return is_array($pos) && is_int($pos['endOffset'] ?? null) ? $pos['endOffset'] : null;
     }
 
-    private function itemContent(int $start, int $end, bool $task): int
+    /**
+     * C2-B-027, C2-L-051: a task mark is item text, so it does not move the content column.
+     */
+    private function itemContent(int $start, int $end): int
     {
         $ch = $this->s[$start] ?? '';
         if ($ch === '-' || $ch === '*') {
@@ -224,9 +227,6 @@ final class Layout
             }
             $spaces = $this->s[$p] === '.' && $p > $start && ctype_upper($ch) ? 2 : 1;
             $content = $this->afterSpace($this->braceBlocksEnd($p + 1, $end), $end, $spaces);
-        }
-        if ($task && $content >= 0 && $content + 3 <= $end && $this->s[$content] === '[' && $this->s[$content + 2] === ']') {
-            return $this->afterSpace($content + 3, $end, 1);
         }
 
         return $content;
