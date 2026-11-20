@@ -147,9 +147,14 @@ final class Linter
         $root = Support::node($tree);
         self::measureRoot($root, $c);
         // The measure walk registered every node in tree order, so the visit reads that list instead of walking again.
+        $childCounts = [];
         foreach ($c->layout->nodes() as $path => $node) {
-            self::visit($node, (string)$path, $c, $controls);
+            $path = (string)$path;
+            $parent = $c->layout->parent($path);
+            $index = $path === '' ? 0 : ($childCounts[$parent] = ($childCounts[$parent] ?? -1) + 1);
+            self::visit($node, $path, $c, $controls, $parent, $index);
         }
+        unset($childCounts);
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $maskCursor = 0;
@@ -167,6 +172,22 @@ final class Linter
             foreach ($lineRules as [, $check]) {
                 $check($scan, $c);
             }
+        }
+
+        if (DataRules::enabled()) {
+            $ids = DataRules::ids();
+            $kept = [];
+            $keptLines = [];
+            foreach ($c->diagnostics as $i => $diagnostic) {
+                if (isset($ids[$diagnostic->code])) {
+                    continue;
+                }
+                $kept[] = $diagnostic;
+                $keptLines[] = $c->findingLines[$i];
+            }
+            $c->diagnostics = $kept;
+            $c->findingLines = $keptLines;
+            DataRules::run($c);
         }
 
         return self::ordered(self::filter($c, $controls));
@@ -202,10 +223,11 @@ final class Linter
      *
      * @return void
      */
-    private static function visit(array $node, string $path, Context $c, array &$controls): void
+    private static function visit(array $node, string $path, Context $c, array &$controls, string $parent, int $index): void
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $c->nodeTypes[$path] = $type;
+        $c->walked[] = ['node' => $node, 'path' => $path, 'parent' => $parent, 'index' => $index];
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
             $c->ids[$attrs['id']] = true;

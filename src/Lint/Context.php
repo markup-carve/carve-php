@@ -30,6 +30,13 @@ final class Context
     public array $nodeTypes = [];
 
     /**
+     * The parsed nodes in source walk order for the shared data rule model.
+     *
+     * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int}>
+     */
+    public array $walked = [];
+
+    /**
      * @var array<string, int> The first line of the node at each path.
      */
     public array $firstLines = [];
