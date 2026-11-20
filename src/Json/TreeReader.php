@@ -197,6 +197,9 @@ final class TreeReader
             }
         }
         self::checkTree($root, $declared, $envelope ? '/document' : '', $standardTabs);
+        if (array_key_exists('annotations', $options)) {
+            AnnotationRanges::check($root, $options['annotations'], $declared);
+        }
 
         return $root;
     }
