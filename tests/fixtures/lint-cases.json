@@ -2331,6 +2331,12 @@
    "near": "| x | y |\n^ text",
    "options": {},
    "findings": []
+  },
+  "block-marker-as-text#6184": {
+   "trigger": "a\n~~~js",
+   "near": "a\nplain",
+   "options": {},
+   "findings": []
   }
  }
 }

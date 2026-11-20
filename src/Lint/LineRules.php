@@ -379,12 +379,13 @@ final class LineRules
             return;
         }
         [$text, $start] = self::paragraphContent($line, $c);
-        if (str_starts_with($text, ':::') && strspn($text, ':') >= 3) {
+        $first = ($c->firstLines[$line->path] ?? null) === $line->number;
+        if ($first && str_starts_with($text, ':::') && strspn($text, ':') >= 3) {
             $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'a div opener']);
 
             return;
         }
-        if (str_starts_with($text, '~~~')) {
+        if ($first && str_starts_with($text, '~~~')) {
             $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'a tilde fence']);
 
             return;
