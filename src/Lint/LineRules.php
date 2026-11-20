@@ -729,6 +729,7 @@ final class LineRules
             $next !== null && $blank === 'text' && !$next->paragraph
             && preg_match('/^[ \t]*(?:> )*[ \t]*%%/', $next->text) !== 1
             && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
+            && !self::attributeContainerEnded($line, $next, $c)
         ) {
             return;
         }
@@ -743,7 +744,23 @@ final class LineRules
         }
 
         return $next !== null && $next->start < strlen($c->source)
+            && !self::attributeContainerEnded($line, $next, $c)
             && self::blankness($next, $c->layout->quoteDepth($line->path)) === 'text';
+    }
+
+    private static function attributeContainerEnded(Line $line, Line $next, Context $c): bool
+    {
+        $path = $line->path;
+        while (($path = Support::parent($path)) !== null) {
+            if (
+                in_array($c->nodeTypes[$path] ?? null, ['block_quote', 'list_item', 'definition_description', 'footnote', 'div'], true)
+                && ($c->layout->endOffset($path) ?? PHP_INT_MAX) < $next->start
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function markdownDefinition(Line $line, Context $c): void

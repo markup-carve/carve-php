@@ -57,6 +57,11 @@ final class Layout
         return self::start($this->nodes[$path][0] ?? null);
     }
 
+    public function endOffset(string $path): ?int
+    {
+        return self::end($this->nodes[$path][0] ?? null);
+    }
+
     /**
      * @param string $path
      * @param array<string, mixed> $node
