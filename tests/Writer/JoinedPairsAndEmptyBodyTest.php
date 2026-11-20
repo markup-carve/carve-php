@@ -28,4 +28,19 @@ final class JoinedPairsAndEmptyBodyTest extends TestCase
         self::assertSame("{body-rows=0}\n|= H |\n", $result->source);
         self::assertSame([], $result->diagnostics);
     }
+
+    public function testEscapedMarkDoesNotConsumeALaterPair(): void
+    {
+        $onlyStrike = static fn ($entry): bool => $entry->code === 'deprecated-bare-strike';
+        $entries = array_values(array_filter(Carve::lint('\\~foo ~bar~'), $onlyStrike));
+        self::assertCount(1, $entries);
+        self::assertSame(6, $entries[0]->startOffset);
+        self::assertSame(11, $entries[0]->endOffset);
+    }
+
+    public function testLegacyPairCannotOpenInsideALongerRun(): void
+    {
+        $codes = array_map(static fn ($entry): string => $entry->code, Carve::lint('~~a~'));
+        self::assertNotContains('deprecated-bare-strike', $codes);
+    }
 }

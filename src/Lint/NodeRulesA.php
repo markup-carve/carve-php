@@ -95,6 +95,22 @@ final class NodeRulesA
         return $ranges;
     }
 
+    private static function canOpen(string $text, string $mark, string $id, int $at): bool
+    {
+        if (!str_starts_with($id, 'deprecated-bare-')) {
+            return true;
+        }
+        $after = substr($text, $at + strlen($mark));
+
+        return !self::joined($text, $at + strlen($mark), $id)
+            && !self::escapedAt($text, $at)
+            && !($at > 0 && $text[$at - 1] === $mark[0])
+            && $after !== ''
+            && preg_match('/^[\p{Zs}\t\n\r\f\v]/u', $after) !== 1
+            && $after[0] !== $mark[0]
+            && (strlen($mark) === 2 || preg_match('/[\p{L}\p{N}]$/u', substr($text, 0, $at)) !== 1);
+    }
+
     /**
      * The pair rules whose reading follows carve-js `paired`: a candidate opener, the first later closer that no
      * whitespace and no backslash stands before, and the test of the pair; the search goes on behind that closer.
@@ -116,7 +132,7 @@ final class NodeRulesA
             if ($start === false) {
                 break;
             }
-            if (self::joined($text, $start + $size, $id)) {
+            if (!self::canOpen($text, $mark, $id, $start)) {
                 $at = $start + $size;
 
                 continue;
