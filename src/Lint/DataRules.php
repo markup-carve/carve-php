@@ -172,6 +172,39 @@ final class DataRules
         return null;
     }
 
+    /**
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private static function requiredTexts(mixed $when): array
+    {
+        if (!is_array($when)) {
+            return [];
+        }
+        $terms = is_array($when['all'] ?? null) ? $when['all'] : [$when];
+        $out = [];
+        foreach ($terms as $term) {
+            if (!is_array($term)) {
+                continue;
+            }
+            if (is_array($term['all'] ?? null)) {
+                array_push($out, ...self::requiredTexts($term));
+            }
+            foreach (['eq', 'starts', 'contains'] as $operator) {
+                $args = $term[$operator] ?? null;
+                if (!is_array($args)) {
+                    continue;
+                }
+                $field = is_array($args[0] ?? null) ? ($args[0]['f'] ?? null) : null;
+                $literal = $args[1] ?? null;
+                if (in_array($field, ['body', 'text'], true) && is_string($literal) && $literal !== '') {
+                    $out[] = [$field, $operator, $literal];
+                }
+            }
+        }
+
+        return $out;
+    }
+
     public static function run(Context $context): void
     {
         $data = self::data();
@@ -188,6 +221,7 @@ final class DataRules
                     $lineFilters[$rule['id']] = [
                         'leafs' => self::requiredValues($rule['when'], 'leaf'),
                         'shapes' => self::requiredValues($rule['when'], 'shape'),
+                        'texts' => self::requiredTexts($rule['when']),
                     ];
                 }
             }
@@ -249,6 +283,17 @@ final class DataRules
                     || ($filter['shapes'] !== null && !isset($filter['shapes'][$record->shape]))
                 ) {
                     continue;
+                }
+                foreach ($filter['texts'] as [$field, $operator, $literal]) {
+                    $value = $record->$field;
+                    $matches = match ($operator) {
+                        'eq' => $value === $literal,
+                        'starts' => str_starts_with($value, $literal),
+                        default => str_contains($value, $literal),
+                    };
+                    if (!$matches) {
+                        continue 2;
+                    }
                 }
                 if (
                     in_array($record->leaf, is_array($data['verbatim_leaves'] ?? null) ? $data['verbatim_leaves'] : [], true)
@@ -342,7 +387,10 @@ final class DataRules
 
     private static function pattern(string $source, string $flags = ''): string
     {
-        return '~' . str_replace('~', '\\~', $source) . '~' . $flags;
+        static $cache = [];
+        $key = $flags . "\0" . $source;
+
+        return $cache[$key] ??= '~' . str_replace('~', '\\~', $source) . '~' . $flags;
     }
 
     /**
