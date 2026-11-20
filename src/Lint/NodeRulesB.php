@@ -879,7 +879,7 @@ final class NodeRulesB
         }
         $opener = self::openerRun($node, $c);
         if ($opener !== null) {
-            self::anonymousDivRuns($node, $path, $c, $opener);
+            self::shorterAnonymousDivRuns($node, $path, $c, $opener);
         }
         $endLine = $c->lines[$pos['endLine'] - 1] ?? null;
         if ($opener === null || $endLine === null || $c->lineOf($opener[0]) === $endLine->number) {
@@ -935,33 +935,27 @@ final class NodeRulesB
      *
      * @return void
      */
-    private static function anonymousDivRuns(array $node, string $path, Context $c, array $opener): void
+    private static function shorterAnonymousDivRuns(array $node, string $path, Context $c, array $opener): void
     {
         foreach (Support::kids($node) as $at => $child) {
-            $childPath = $path . '/children/' . $at;
-            if (($child['type'] ?? null) === 'block_quote') {
-                self::anonymousDivRuns($child, $childPath, $c, $opener);
-
-                continue;
-            }
             if (($child['type'] ?? null) !== 'div') {
                 continue;
             }
             $run = self::openerRun($child, $c);
-            if ($run === null || $run[1] === $opener[1]) {
+            if ($run === null || $run[1] >= $opener[1]) {
                 continue;
             }
             $runLine = $c->lines[$c->lineOf($run[0]) - 1] ?? null;
-            if ($runLine === null || self::bareColonRun($runLine, $c->layout->quoteDepth($childPath)) === null) {
+            if ($runLine === null || self::bareColonRun($runLine, $c->layout->quoteDepth($path)) === null) {
                 continue;
             }
-            $c->report('colon-fence-length-mismatch', $run[0], $run[0] + $run[1], $childPath, [
+            $c->report('colon-fence-length-mismatch', $run[0], $run[0] + $run[1], $path . '/children/' . $at, [
                 'authoredWidth' => (string)$run[1],
                 'expectedWidth' => (string)$opener[1],
                 'kind' => 'div',
                 'line' => (string)$c->lineOf($opener[0]),
                 'column' => (string)($opener[0] - ($c->lines[$c->lineOf($opener[0]) - 1]->start ?? 0) + 1),
-            ], $run[1] < $opener[1] ? 0 : 2);
+            ]);
         }
     }
 
@@ -994,28 +988,22 @@ final class NodeRulesB
      */
     private static function activeColonRun(array $node, Context $c, array $opener, int $endLine): array
     {
-        $active = $opener;
-        $type = null;
-        while (true) {
-            $children = Support::kids($node);
-            $inner = $children === [] ? null : $children[array_key_last($children)];
-            if ($inner === null) {
-                return [$active, $type];
-            }
-            if (in_array($inner['type'] ?? null, ['div', 'directive', 'admonition'], true)) {
-                $innerRun = self::openerRun($inner, $c);
-                $innerEnd = Support::pos($inner)['endLine'] ?? 0;
-                $innerLast = $innerEnd > 0 ? ($c->lines[$innerEnd - 1] ?? null) : null;
-                $innerClosed = $innerRun !== null && $innerLast !== null
-                    && self::allColons(Support::trim($innerLast->text))
-                    && strlen(Support::trim($innerLast->text)) === $innerRun[1];
-                if ($innerRun !== null && $innerEnd < $endLine && !$innerClosed) {
-                    $active = $innerRun;
-                    $type = (string)$inner['type'];
-                }
-            }
-            $node = $inner;
+        $children = Support::kids($node);
+        $inner = $children === [] ? null : $children[array_key_last($children)];
+        if ($inner === null || !in_array($inner['type'] ?? null, ['div', 'directive', 'admonition'], true)) {
+            return [$opener, null];
         }
+        $innerRun = self::openerRun($inner, $c);
+        $innerEnd = Support::pos($inner)['endLine'] ?? 0;
+        $innerLast = $innerEnd > 0 ? ($c->lines[$innerEnd - 1] ?? null) : null;
+        $innerClosed = $innerRun !== null && $innerLast !== null
+            && self::allColons(Support::trim($innerLast->text))
+            && strlen(Support::trim($innerLast->text)) === $innerRun[1];
+        if ($innerRun !== null && $innerEnd < $endLine && !$innerClosed) {
+            return [$innerRun, (string)$inner['type']];
+        }
+
+        return [$opener, null];
     }
 
     /**
