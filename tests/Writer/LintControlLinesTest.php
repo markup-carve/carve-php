@@ -44,6 +44,18 @@ final class LintControlLinesTest extends TestCase
         self::assertSame("```\n$c\n\nx\n```\n", Carve::format("```\n$c\n\nx\n```\n"));
     }
 
+    public function testACrlfBlankLineBelowTheCommentStays(): void
+    {
+        $c = self::CONTROL;
+        self::assertSame("x\n\n$c\n\n== See [a]()\n", Carve::format("x\r\n\r\n$c\r\n\r\n## See [a]()\r\n"));
+    }
+
+    public function testACommentThatHoldsTheKeywordLaterIsNoControl(): void
+    {
+        $c = self::CONTROL;
+        self::assertSame("x\n\n%% foo $c\n\n== H\n", Carve::format("x\n\n%% foo $c\n## H\n"));
+    }
+
     public function testASuppliedTreeHasTheCommentDirectlyAboveTheNextBlock(): void
     {
         $c = self::CONTROL;

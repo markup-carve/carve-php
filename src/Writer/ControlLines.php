@@ -22,7 +22,14 @@ final class ControlLines
     /**
      * @var string
      */
-    private const BLANK = '/^[ \t>]*$/';
+    private const BLANK = '/^[ \t>]*\r?$/';
+
+    /**
+     * C2-B-215: the keyword starts the comment, and the comment ends or a space or a comma follows it.
+     *
+     * @var string
+     */
+    private const CONTROL_VALUE = '/^carve-lint-disable-next-line(?![^ ,])/';
 
     /**
      * The parse work of the check, as a multiple of the document length, so that it stays linear.
@@ -262,7 +269,7 @@ final class ControlLines
         }
         if (
             ($node['type'] ?? null) === 'comment' && ($node['form'] ?? null) === 'line' && is_string($node['value'] ?? null)
-            && preg_match(self::CONTROL, '%% ' . $node['value']) === 1
+            && preg_match(self::CONTROL_VALUE, $node['value']) === 1
         ) {
             $found[] = $node;
         }
