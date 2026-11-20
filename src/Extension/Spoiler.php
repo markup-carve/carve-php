@@ -89,7 +89,7 @@ final class Spoiler
         return Details::container(
             '<section' . Details::attrs($base, $host, 'spoiler') . '>',
             $heading,
-            ($host->blocks)(PlainText::nodes($slots['body'] ?? [])),
+            PlainText::nodes($slots['body'] ?? []),
             '</section>',
             $host,
         );

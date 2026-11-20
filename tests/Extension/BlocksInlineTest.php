@@ -89,6 +89,43 @@ final class BlocksInlineTest extends TestCase
         );
     }
 
+    public function testDetailsPreservesLiteralCodeLines(): void
+    {
+        $this->assertSame(
+            "<details>\n  <summary>Req</summary>\n  <pre><code class=\"language-php\">x\n  y\n</code></pre>\n</details>",
+            self::html("::: details \"Req\"\n```php\nx\n  y\n```\n:::\n", Details::bundle()),
+        );
+        $this->assertSame(
+            "<ul>\n  <li>outer\n    <details>\n      <summary>Req</summary>\n"
+            . "      <pre><code class=\"language-php\">x\n  y\n</code></pre>\n    </details>\n  </li>\n</ul>",
+            self::html("- outer\n\n  ::: details \"Req\"\n  ```php\n  x\n    y\n  ```\n  :::", Details::bundle()),
+        );
+    }
+
+    public function testDetailsPreservesRawHtmlLines(): void
+    {
+        $this->assertSame(
+            "<details>\n  <summary>Raw</summary>\n<div>\n  x\n</div>\n</details>",
+            self::html("::: details \"Raw\"\n```=html\n<div>\n  x\n</div>\n```\n:::\n", Details::bundle(), ['rawHtml' => true]),
+        );
+        $this->assertSame(
+            "<details>\n  <summary>Raw</summary>\n  <p>Before.</p>\n<div>raw</div>\n  <p>After.</p>\n</details>",
+            self::html(
+                "::: details \"Raw\"\nBefore.\n```=html\n<div>raw</div>\n```\nAfter.\n:::\n",
+                Details::bundle(),
+                ['rawHtml' => true],
+            ),
+        );
+        $this->assertSame(
+            "<details>\n  <summary>Q</summary>\n  <blockquote>\n    <p>before</p>\n<i>x</i>\n    <p>after</p>\n  </blockquote>\n</details>",
+            self::html(
+                "::: details \"Q\"\n> before\n> ```=html\n> <i>x</i>\n> ```\n> after\n:::\n",
+                Details::bundle(),
+                ['rawHtml' => true],
+            ),
+        );
+    }
+
     public function testDetailsTreeWriteAndFallback(): void
     {
         $source = "::: details \"T\"\nx\n:::\n";

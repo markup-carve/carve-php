@@ -74,16 +74,89 @@ final class Details
 
     /**
      * Writes `head`, the body one level in, then `tail`, indented to the block depth like core containers.
+     *
+     * @param string $head
+     * @param string $inner
+     * @param array<\MarkupCarve\Carve\Node> $body
+     * @param string $tail
+     * @param \MarkupCarve\Carve\Extension\RenderHost $host
      */
-    public static function container(string $head, string $inner, string $body, string $tail, RenderHost $host): string
-    {
-        $lines = [$head, '  ' . $inner];
-        if ($body !== '') {
-            $lines[] = (string)preg_replace('/^(?=.)/m', '  ', $body);
-        }
-        $lines[] = $tail;
+    public static function container(
+        string $head,
+        string $inner,
+        array $body,
+        string $tail,
+        RenderHost $host,
+    ): string {
+        $pad = str_repeat('  ', $host->blockDepth);
+        $lines = [$head, $pad . '  ' . $inner];
+        foreach ($body as $block) {
+            $html = ($host->blocks)([$block]);
+            if ($html === '') {
+                continue;
+            }
+            $rawRanges = [];
+            $searchFrom = 0;
+            foreach (self::rawValues([$block]) as $value) {
+                $at = strpos($html, $value, $searchFrom);
+                while ($at !== false && $at > 0 && $html[$at - 1] !== "\n") {
+                    $at = strpos($html, $value, $at + 1);
+                }
+                if ($at !== false) {
+                    $rawRanges[] = [$at, $at + strlen($value)];
+                    $searchFrom = $at + strlen($value);
+                }
+            }
+            $literal = false;
+            $rendered = [];
+            $offset = 0;
+            foreach (explode("\n", $html) as $line) {
+                $rawLine = false;
+                foreach ($rawRanges as [$start, $end]) {
+                    if ($offset >= $start && $offset < $end) {
+                        $rawLine = true;
 
-        return str_replace("\n", "\n" . str_repeat('  ', $host->blockDepth), implode("\n", $lines));
+                        break;
+                    }
+                }
+                $rendered[] = $rawLine || $literal || $line === '' ? $line : $pad . '  ' . $line;
+                // An HTML pre/textarea element owns the whitespace of every
+                // following line, including its closing tag line.
+                foreach (preg_split('/(<\/?(?:pre|textarea)\b[^>]*>)/i', $line, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [] as $part) {
+                    if (preg_match('/^<(pre|textarea)\b/i', $part) === 1) {
+                        $literal = true;
+                    } elseif (preg_match('/^<\/(pre|textarea)\b/i', $part) === 1) {
+                        $literal = false;
+                    }
+                }
+                $offset += strlen($line) + 1;
+            }
+            $lines[] = implode("\n", $rendered);
+        }
+        $lines[] = $pad . $tail;
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * The raw HTML payloads in document order, whose lines must remain byte exact.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $nodes
+     *
+     * @return array<string>
+     */
+    private static function rawValues(array $nodes): array
+    {
+        $values = [];
+        foreach ($nodes as $node) {
+            if ($node->type === 'raw_block' && ($node->f['format'] ?? null) === 'html') {
+                $value = PlainText::str($node->f['value'] ?? '');
+                $values[] = str_ends_with($value, "\n") ? substr($value, 0, -1) : $value;
+            }
+            array_push($values, ...self::rawValues($node->children ?? []));
+        }
+
+        return $values;
     }
 
     public static function attrs(Node $node, RenderHost $host, ?string $base = null): string
@@ -110,7 +183,7 @@ final class Details
         return self::container(
             '<details' . $open . self::attrs($node, $host, $base) . '>',
             '<summary>' . ($text === '' ? RenderHost::escapeText($label) : $text) . '</summary>',
-            ($host->blocks)(PlainText::nodes($slots['body'] ?? [])),
+            PlainText::nodes($slots['body'] ?? []),
             '</details>',
             $host,
         );
