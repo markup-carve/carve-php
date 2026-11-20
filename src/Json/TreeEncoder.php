@@ -69,6 +69,18 @@ final class TreeEncoder
     }
 
     /**
+     * The decoded AST shape with the positions of `$source`, without canonical JSON.
+     *
+     * @return array<string, mixed>
+     */
+    public static function decodedWithPositions(Node $root, string $source): array
+    {
+        $encoder = new self();
+
+        return self::decodedArray($encoder->encode($root, $source));
+    }
+
+    /**
      * Match json_decode(..., true) for object-valued node fields without serializing the tree.
      *
      * @return mixed
