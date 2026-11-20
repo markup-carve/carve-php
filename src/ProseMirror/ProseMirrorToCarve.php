@@ -31,6 +31,97 @@ final class ProseMirrorToCarve
     private static ?array $marks = null;
 
     /**
+     * The attributes each node and mark reads; any other attribute with a value is reported as ignored.
+     *
+     * @var array<string, array<string>>
+     */
+    private const READ = [
+        'heading' => ['level'],
+        'codeBlock' => ['language'],
+        'orderedList' => ['start'],
+        'taskItem' => ['checked'],
+        'tableCell' => ['colspan', 'rowspan'],
+        'tableHeader' => ['colspan', 'rowspan'],
+        'image' => ['src', 'alt', 'title'],
+        'link' => ['href'],
+        'carveAdmonition' => ['kind'],
+        'carveMath' => ['value', 'display'],
+        'carveFootnoteRef' => ['key'],
+    ];
+
+    /**
+     * Values the kit's own extensions give every node or mark of a type, which carry nothing to lose.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const STOCK = ['link' => ['target' => '_blank', 'rel' => 'noopener noreferrer nofollow']];
+
+    /**
+     * @var array<array{path: string, type: string, attribute: string, value: mixed}>
+     */
+    private array $ignored = [];
+
+    /**
+     * The attributes the last `toTree()` or `convert()` did not read, each with the JSON pointer of its node or mark in
+     * the saved document. A host that must not lose editor state can refuse a save when this is not empty.
+     *
+     * @return array<array{path: string, type: string, attribute: string, value: mixed}>
+     */
+    public function ignoredAttributes(): array
+    {
+        return $this->ignored;
+    }
+
+    /**
+     * The Carve tree type of a ProseMirror node or mark name of the kit, or null when the kit does not map it.
+     * `carveBlock` and `carveInline` carry a whole node of any type and give null.
+     */
+    public static function carveTypeFor(string $proseMirrorName): ?string
+    {
+        return self::proseMirrorNames()[$proseMirrorName] ?? null;
+    }
+
+    /**
+     * Every ProseMirror node and mark name the kit maps to one Carve tree type, as name => tree type.
+     *
+     * @return array<string, string>
+     */
+    public static function proseMirrorNames(): array
+    {
+        $out = [];
+        foreach ([Kit::TEXTBLOCKS, Kit::CONTAINERS, Kit::MARKS] as $table) {
+            foreach ($table as $tree => [$name]) {
+                $out[$name] = $tree;
+            }
+        }
+        foreach (Kit::CODE_BLOCKS as $tree => $name) {
+            $out[$name] = $tree;
+        }
+
+        return $out + [
+            'codeBlock' => 'code_block',
+            'horizontalRule' => 'thematic_break',
+            'bulletList' => 'list',
+            'orderedList' => 'list',
+            'taskList' => 'list',
+            'listItem' => 'list_item',
+            'taskItem' => 'list_item',
+            'carveDefinitionList' => 'definition_list',
+            'carveLineBlock' => 'line_block',
+            'table' => 'table',
+            'tableRow' => 'table_row',
+            'tableCell' => 'table_cell',
+            'tableHeader' => 'table_cell',
+            'text' => 'text',
+            'code' => 'code',
+            'hardBreak' => 'hard_break',
+            'image' => 'image',
+            'carveMath' => 'math',
+            'carveFootnoteRef' => 'footnote_ref',
+        ];
+    }
+
+    /**
      * The canonical Carve source of a ProseMirror document.
      *
      * @param array<string, mixed>|string $doc The editor's `getJSON()`, decoded or as JSON.
@@ -90,8 +181,42 @@ final class ProseMirrorToCarve
             $tree[$key] = $value;
         }
         $tree['children'] = $children;
+        $this->ignored = [];
+        $this->collectIgnored(Kit::map($doc), '');
 
         return ['tree' => $tree, 'origins' => $origins];
+    }
+
+    /**
+     * @param array<string, mixed> $pm
+     * @param string $path
+     */
+    private function collectIgnored(array $pm, string $path): void
+    {
+        $type = Kit::str($pm['type'] ?? null);
+        $attrs = Kit::map($pm['attrs'] ?? null);
+        foreach ($attrs as $attribute => $value) {
+            if ($attribute === 'carve' || $value === null || in_array($attribute, self::READ[$type] ?? [], true)) {
+                continue;
+            }
+            if ((self::STOCK[$type][$attribute] ?? null) === $value) {
+                continue;
+            }
+            $this->ignored[] = ['path' => $path, 'type' => $type, 'attribute' => $attribute, 'value' => $value];
+        }
+        // A `^` below a cell of more than one column joins nothing (C2-B-172), so such a cell keeps only its columns.
+        if (
+            in_array($type, ['tableCell', 'tableHeader'], true)
+            && Kit::spanCount($attrs['colspan'] ?? null) > 1 && Kit::spanCount($attrs['rowspan'] ?? null) > 1
+        ) {
+            $this->ignored[] = ['path' => $path, 'type' => $type, 'attribute' => 'rowspan', 'value' => $attrs['rowspan']];
+        }
+        foreach (Kit::nodes($pm['marks'] ?? null) as $index => $mark) {
+            $this->collectIgnored($mark, $path . '/marks/' . $index);
+        }
+        foreach (self::content($pm) as $index => $child) {
+            $this->collectIgnored($child, $path . '/content/' . $index);
+        }
     }
 
     /**
@@ -185,6 +310,8 @@ final class ProseMirrorToCarve
             'carveDefinitionList' => $this->mixed($pm, 'definition_list'),
             'carveLineBlock' => $this->mixed($pm, 'line_block'),
             'table' => $this->table($pm),
+            // A block image, as Tiptap's Image extension makes by default, is an image paragraph (C2-A-136, C2-H-020).
+            'image' => ['type' => 'paragraph', 'role' => 'image', 'children' => [self::image($pm)]],
             default => throw new InvalidArgumentException(
                 sprintf('ProseMirrorToCarve: no Carve node for the ProseMirror node "%s"', $type),
             ),
@@ -425,6 +552,22 @@ final class ProseMirrorToCarve
         if ($sections === []) {
             $sections = [['type' => 'table_body']];
         }
+        $pmRows = [];
+        foreach (self::content($pm) as $row) {
+            $pmRows[] = [
+                'carve' => Kit::carveOf($row),
+                'cells' => array_values(array_filter(
+                    self::content($row),
+                    static fn (array $cell): bool => (Kit::carveOf($cell)['$pad'] ?? null) !== true || self::filled($cell),
+                )),
+            ];
+        }
+        $lead = self::leadingHead($sections, $pmRows);
+        $shift = 0;
+        if ($lead > 0) {
+            $shift = max(self::find($sections, static fn (array $s, int $i): bool => !array_key_exists('$node', $s)), 0);
+            array_splice($sections, $shift, 0, [['type' => 'table_head']]);
+        }
         // A body row added after a head that has no body behind it needs one; loaded rows keep their sections.
         $head = self::find($sections, static fn (array $s, int $i): bool => ($s['type'] ?? null) === 'table_head');
         $added = -1;
@@ -432,8 +575,9 @@ final class ProseMirrorToCarve
             array_splice($sections, $head + 1, 0, [['type' => 'table_body']]);
             $added = $head + 1;
         }
+        $placed = self::place($pmRows, $sections, $lead, $lead > 0 ? $shift : -1, $added, $head);
         $rowsOf = array_fill(0, count($sections), []);
-        $width = $this->placeRows(self::content($pm), $sections, $added, $rowsOf);
+        $width = $this->spanRows($placed, ($carve['$bareSpans'] ?? null) === true, $rowsOf);
         $node = self::with(['type' => 'table'], Kit::treeFields($carve));
         $node['children'] = self::sections($sections, $rowsOf);
         $columns = is_array($node['columns'] ?? null) ? array_slice(array_values($node['columns']), 0, $width) : [];
@@ -443,44 +587,147 @@ final class ProseMirrorToCarve
     }
 
     /**
-     * Sorts the rows into the sections they came from, a new row into the section of the row before it; returns the
-     * width of the widest row.
+     * C2-B-178: in a table without a head, the number of leading rows of header cells, which are the head. A row loaded
+     * so from a body stays there.
      *
-     * @param array<array<string, mixed>> $rows
      * @param array<array<string, mixed>> $sections
-     * @param int $added The index of a body section the save added, or -1.
-     * @param array<int, array<array<string, mixed>>> $rowsOf
+     * @param array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>}> $rows
      */
-    private function placeRows(array $rows, array $sections, int $added, array &$rowsOf): int
+    private static function leadingHead(array $sections, array $rows): int
+    {
+        if (self::find($sections, static fn (array $s, int $i): bool => ($s['type'] ?? null) === 'table_head') >= 0) {
+            return 0;
+        }
+        $lead = 0;
+        foreach ($rows as $row) {
+            if (($row['carve']['$th'] ?? null) === true || !self::headerRow($row['cells'])) {
+                break;
+            }
+            $lead++;
+        }
+
+        return $lead;
+    }
+
+    /**
+     * The rows with the section each goes to: a loaded row its own, a new row that of the row before it.
+     *
+     * @param array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>}> $rows
+     * @param array<array<string, mixed>> $sections
+     * @param int $lead The rows that go to the head at `$head`.
+     * @param int $shift Where that head was inserted, or -1.
+     * @param int $added Where a body was inserted, or -1.
+     * @param int $head
+     *
+     * @return array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>, section: int}>
+     */
+    private static function place(array $rows, array $sections, int $lead, int $shift, int $added, int $head): array
     {
         $current = self::find($sections, static fn (array $s, int $i): bool => ($s['type'] ?? null) === 'table_body');
         if ($current < 0) {
             $current = self::find($sections, static fn (array $s, int $i): bool => !array_key_exists('$node', $s));
         }
-        $width = 0;
-        foreach ($rows as $row) {
-            $rowCarve = Kit::carveOf($row);
-            $cells = self::content($row);
-            $from = $rowCarve['$section'] ?? null;
-            $from = is_int($from) && $added >= 0 && $from >= $added ? $from + 1 : $from;
-            if (is_int($from) && isset($rowsOf[$from])) {
+        $placed = [];
+        foreach ($rows as $index => $row) {
+            $from = $row['carve']['$section'] ?? null;
+            if (is_int($from)) {
+                $from = $shift >= 0 && $from >= $shift ? $from + 1 : $from;
+                $from = $added >= 0 && $from >= $added ? $from + 1 : $from;
+            }
+            if ($index < $lead) {
+                $current = $head;
+            } elseif (is_int($from) && isset($sections[$from])) {
                 $current = $from;
-            } elseif (
-                ($sections[$current]['type'] ?? null) === 'table_head'
-                && array_filter($cells, static fn (array $c): bool => ($c['type'] ?? null) !== 'tableHeader') !== []
-            ) {
+            } elseif (($sections[$current]['type'] ?? null) === 'table_head' && !self::headerRow($row['cells'])) {
                 $current = self::bodyAfter($sections, $current);
             }
-            $kept = array_filter(
-                $cells,
-                static fn (array $cell): bool => (Kit::carveOf($cell)['$pad'] ?? null) !== true || self::filled($cell),
-            );
-            $saved = array_map($this->cell(...), array_values($kept));
-            $width = max($width, count($saved));
-            foreach (Kit::nodes($rowCarve['$before'] ?? null) as $comment) {
-                $rowsOf[$current][] = $comment;
+            $placed[] = $row + ['section' => $current];
+        }
+
+        return $placed;
+    }
+
+    /**
+     * @param array<array<string, mixed>> $cells
+     */
+    private static function headerRow(array $cells): bool
+    {
+        return $cells !== [] && array_filter($cells, static fn (array $c): bool => ($c['type'] ?? null) !== 'tableHeader') === [];
+    }
+
+    /**
+     * Steps `$column` past the columns a row span from above covers, with a `^` mark cell for each.
+     *
+     * @param array<int, int> $below
+     * @param int $column
+     * @param array<array<string, mixed>> $cells
+     * @param bool $bare
+     */
+    private static function covered(array $below, int &$column, array &$cells, bool $bare): void
+    {
+        while (($below[$column] ?? 0) > 0) {
+            if (!$bare) {
+                $cells[] = ['type' => 'table_cell', 'header' => false, 'span' => 'rowspan', 'children' => []];
             }
-            $rowsOf[$current][] = self::with(['type' => 'table_row'], Kit::treeFields($rowCarve)) + ['children' => $saved];
+            $column++;
+        }
+    }
+
+    /**
+     * Saves the rows into `$rowsOf`; returns the width of the widest row. A span becomes the cell's counts and the
+     * mark cells it covers (C2-B-172 to C2-B-174): a row span stops at the end of its group, and a cell that spans both
+     * ways keeps its columns, since a `^` below a cell of more than one column joins nothing.
+     *
+     * @param array<array{carve: array<string, mixed>, cells: array<array<string, mixed>>, section: int}> $placed
+     * @param bool $bare
+     * @param array<int, array<array<string, mixed>>> $rowsOf
+     */
+    private function spanRows(array $placed, bool $bare, array &$rowsOf): int
+    {
+        $below = [];
+        $width = 0;
+        $count = count($placed);
+        foreach ($placed as $index => $row) {
+            if ($index > 0 && $placed[$index - 1]['section'] !== $row['section']) {
+                $below = [];
+            }
+            $left = 0;
+            while ($index + $left < $count && $placed[$index + $left]['section'] === $row['section']) {
+                $left++;
+            }
+            $cells = [];
+            $column = 0;
+            foreach ($row['cells'] as $pmCell) {
+                self::covered($below, $column, $cells, $bare);
+                $cell = $this->cell($pmCell);
+                $attrs = Kit::map($pmCell['attrs'] ?? null);
+                $colspan = Kit::spanCount($attrs['colspan'] ?? null);
+                $rowspan = min(Kit::spanCount($attrs['rowspan'] ?? null), $left);
+                if ($colspan > 1 && $rowspan > 1 && !$bare) {
+                    $rowspan = 1;
+                }
+                if ($colspan > 1) {
+                    $cell['colspan'] = $colspan;
+                }
+                if ($rowspan > 1) {
+                    $cell['rowspan'] = $rowspan;
+                }
+                $cells[] = $cell;
+                for ($offset = 1; $offset < $colspan && !$bare; $offset++) {
+                    $cells[] = ['type' => 'table_cell', 'header' => false, 'span' => 'colspan', 'children' => []];
+                }
+                for ($offset = 0; $offset < $colspan && $rowspan > 1; $offset++) {
+                    $below[$column + $offset] = $rowspan;
+                }
+                $column += $colspan;
+            }
+            self::covered($below, $column, $cells, $bare);
+            $width = max($width, $column);
+            $below = array_map(static fn (int $n): int => max(0, $n - 1), $below);
+            foreach (Kit::nodes($row['carve']['$before'] ?? null) as $comment) {
+                $rowsOf[$row['section']][] = $comment;
+            }
+            $rowsOf[$row['section']][] = self::with(['type' => 'table_row'], Kit::treeFields($row['carve'])) + ['children' => $cells];
         }
 
         return $width;
@@ -564,8 +811,10 @@ final class ProseMirrorToCarve
             if ($node === null) {
                 continue;
             }
-            if (($child['type'] ?? null) === 'paragraph' && !array_key_exists('$type', Kit::carveOf($child)) && $single) {
+            $inline = in_array($child['type'] ?? null, ['paragraph', 'image'], true);
+            if ($inline && !array_key_exists('$type', Kit::carveOf($child)) && $single) {
                 $node['type'] = 'cell_paragraph';
+                unset($node['role']);
             }
             $children[] = $node;
         }
@@ -573,7 +822,8 @@ final class ProseMirrorToCarve
         if ($children === [] && (Kit::carveOf($pm)['$empty'] ?? null) !== true) {
             $children[] = ['type' => 'cell_paragraph', 'children' => []];
         }
-        $node = self::with(['type' => 'table_cell'], Kit::treeFields(Kit::carveOf($pm)));
+        $fields = array_diff_key(Kit::treeFields(Kit::carveOf($pm)), ['colspan' => true, 'rowspan' => true]);
+        $node = self::with(['type' => 'table_cell'], $fields);
         $node['header'] = ($pm['type'] ?? null) === 'tableHeader';
         $node['children'] = $children;
 

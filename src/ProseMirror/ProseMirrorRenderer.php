@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
+use Closure;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Html\UrlPolicy;
@@ -57,9 +58,13 @@ final class ProseMirrorRenderer
      */
     public function render(Node|array $tree): array
     {
-        if ($tree instanceof Node) {
-            $tree = Kit::map(Kit::decode(Carve::encodeTree($tree)));
+        if (is_array($tree) && ($tree['type'] ?? null) !== 'document') {
+            throw new InvalidArgumentException('ProseMirrorRenderer expects a Carve document tree');
         }
+        // A copy, resolved as `Carve::render()` resolves its input (C2-T-005).
+        $resolve = Closure::bind(static fn (Node|array $t, Options $o): array => Carve::resolvedTree($t, $o), null, Carve::class);
+        [$doc] = $resolve($tree, Options::from([]));
+        $tree = Kit::map(Kit::decode(Carve::encodeTree($doc)));
         if (($tree['type'] ?? null) !== 'document') {
             throw new InvalidArgumentException('ProseMirrorRenderer expects a Carve document tree');
         }
@@ -429,15 +434,52 @@ final class ProseMirrorRenderer
             return self::blockAtom($node);
         }
         // ProseMirror tables are rectangular: short rows get marked padding cells, which the way back drops while empty.
-        $width = max(array_map(static fn (array $row): int => count(Kit::nodes($row['content'])), $rows));
+        $widths = Kit::gridWidths(array_map(
+            static fn (array $row): array => array_map(static function (array $cell): array {
+                $attrs = Kit::map($cell['attrs'] ?? null);
+
+                return [Kit::spanCount($attrs['colspan'] ?? null), Kit::spanCount($attrs['rowspan'] ?? null)];
+            }, Kit::nodes($row['content'])),
+            $rows,
+        ));
+        $width = $widths === [] ? 0 : max($widths);
         $pad = ['type' => 'tableCell', 'attrs' => ['carve' => ['$pad' => true]], 'content' => [['type' => 'paragraph']]];
         foreach ($rows as $i => $row) {
-            $rows[$i]['content'] = array_pad(Kit::nodes($row['content']), $width, $pad);
+            $content = Kit::nodes($row['content']);
+            for ($column = $widths[$i]; $column < $width; $column++) {
+                $content[] = $pad;
+            }
+            $rows[$i]['content'] = $content;
         }
         $carve = Kit::fields($node, ['children']);
         $carve['$sections'] = $sections;
+        if ($this->bareSpans($node)) {
+            $carve['$bareSpans'] = true;
+        }
 
         return ['type' => 'table', 'attrs' => ['carve' => $carve], 'content' => $rows];
+    }
+
+    /**
+     * Whether the table has counts and no mark cells: an imported span (C2-A-093), which saves back without marks.
+     *
+     * @param array<string, mixed> $node
+     */
+    private function bareSpans(array $node): bool
+    {
+        $counted = false;
+        foreach ($this->list($node['children'] ?? []) as $section) {
+            foreach ($this->list($section['children'] ?? []) as $row) {
+                foreach ($this->list($row['children'] ?? []) as $cell) {
+                    if (array_key_exists('span', $cell)) {
+                        return false;
+                    }
+                    $counted = $counted || ($cell['colspan'] ?? 1) > 1 || ($cell['rowspan'] ?? 1) > 1;
+                }
+            }
+        }
+
+        return $counted;
     }
 
     /**
@@ -467,10 +509,20 @@ final class ProseMirrorRenderer
                 $carve['$before'] = $before;
             }
             $before = [];
+            // ProseMirror has no cell where a span mark stands: the covering cell's counts span it.
+            $cells = array_values(array_filter(
+                $this->list($row['children'] ?? []),
+                static fn (array $cell): bool => !array_key_exists('span', $cell),
+            ));
+            $content = array_map($this->cell(...), $cells);
+            $th = array_filter($content, static fn (array $c): bool => $c['type'] !== 'tableHeader') === [];
+            if (($section['type'] ?? null) !== 'table_head' && $content !== [] && $th) {
+                $carve['$th'] = true;
+            }
             $rows[] = [
                 'type' => 'tableRow',
                 'attrs' => ['carve' => $carve],
-                'content' => array_map($this->cell(...), $this->list($row['children'] ?? [])),
+                'content' => $content,
             ];
         }
         if ($before !== []) {
@@ -496,14 +548,20 @@ final class ProseMirrorRenderer
                 ? $this->textblock(['type' => 'paragraph'] + $child, ['$type' => 'cell_paragraph'])
                 : $this->block($child);
         }
-        $carve = Kit::fields($cell, ['children', 'header']);
+        $carve = Kit::fields($cell, ['children', 'header', 'colspan', 'rowspan']);
         if ($content === []) {
             $carve['$empty'] = true;
+        }
+        $attrs = ['carve' => Kit::carveAttr($carve)];
+        foreach (['colspan', 'rowspan'] as $key) {
+            if (is_int($cell[$key] ?? null) && $cell[$key] > 1) {
+                $attrs[$key] = $cell[$key];
+            }
         }
 
         return [
             'type' => ($cell['header'] ?? false) === true ? 'tableHeader' : 'tableCell',
-            'attrs' => ['carve' => Kit::carveAttr($carve)],
+            'attrs' => $attrs,
             'content' => $content !== [] ? $content : [['type' => 'paragraph']],
         ];
     }

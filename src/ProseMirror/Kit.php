@@ -116,6 +116,47 @@ final class Kit
     }
 
     /**
+     * The width of each row of `$rows` (`[colspan, rowspan]` per cell), row spans from above included.
+     *
+     * @param array<array<array{0: int, 1: int}>> $rows
+     *
+     * @return array<int>
+     */
+    public static function gridWidths(array $rows): array
+    {
+        $below = [];
+        $out = [];
+        foreach ($rows as $cells) {
+            $taken = array_map(static fn (int $count): bool => $count > 0, $below);
+            $column = 0;
+            foreach ($cells as [$colspan, $rowspan]) {
+                while ($taken[$column] ?? false) {
+                    $column++;
+                }
+                for ($offset = 0; $offset < $colspan; $offset++) {
+                    if ($rowspan > 1) {
+                        $below[$column + $offset] = max($below[$column + $offset] ?? 0, $rowspan);
+                    }
+                    $taken[$column + $offset] = true;
+                }
+                $column += $colspan;
+            }
+            $out[] = max($column, $taken === [] ? 0 : max(array_keys($taken)) + 1);
+            $below = array_map(static fn (int $count): int => max(0, $count - 1), $below);
+        }
+
+        return $out;
+    }
+
+    /**
+     * A span count of an editor attribute: an integer above 1, or 1.
+     */
+    public static function spanCount(mixed $value): int
+    {
+        return is_int($value) && $value > 1 ? $value : 1;
+    }
+
+    /**
      * A copy of `$value` without positions, at any depth.
      */
     public static function clean(mixed $value): mixed

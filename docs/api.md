@@ -199,25 +199,25 @@ Class. The `carve` target: `Carve::write()` of a tree, with `alignTables` and `e
 
 Class. The Markdown export of a 0.2 tree: CommonMark with the GFM tables, task lists, strikethrough and footnotes. It is also the writer of the reserved target `markdown`.
 
-- `export(Node $tree, array $options = []): ExportResult`: The Markdown of `$tree` and the losses of the run.
+- `export(Node|array $tree, array $options = []): ExportResult`: The Markdown of `$tree` and the losses of the run.
 - `target(): string`
-- `write(Node $tree, array $options = []): string`
+- `write(Node|array $tree, array $options = []): string`
 
 ### `MarkupCarve\Carve\Export\PlainTextExporter`
 
 Class. The plain-text export of a 0.2 tree. It is also the writer of the reserved target `plain`.
 
-- `export(Node $tree, array $options = []): ExportResult`: The plain text of `$tree` and the losses of the run.
+- `export(Node|array $tree, array $options = []): ExportResult`: The plain text of `$tree` and the losses of the run.
 - `target(): string`
-- `write(Node $tree, array $options = []): string`
+- `write(Node|array $tree, array $options = []): string`
 
 ### `MarkupCarve\Carve\Export\AnsiExporter`
 
 Class. The export of a 0.2 tree as text styled with ANSI escape sequences for a terminal. It is also the writer of the reserved target `ansi`.
 
-- `export(Node $tree, array $options = []): ExportResult`: The ANSI-styled text of `$tree` and the losses of the run.
+- `export(Node|array $tree, array $options = []): ExportResult`: The ANSI-styled text of `$tree` and the losses of the run.
 - `target(): string`
-- `write(Node $tree, array $options = []): string`
+- `write(Node|array $tree, array $options = []): string`
 
 ### `MarkupCarve\Carve\Export\ExportResult`
 
@@ -248,6 +248,9 @@ Class. ProseMirror JSON of a Carve 0.2 tree, in the schema of the carve-grammars
 
 Class. Carve from ProseMirror JSON in the schema of the carve-grammars Tiptap kit (`tiptap/tree.js`).
 
+- `ignoredAttributes(): array`: The attributes the last `toTree()` or `convert()` did not read, each with the JSON pointer of its node or mark in the saved document. A host that must not lose editor state can refuse a save when this is not empty.
+- `static carveTypeFor(string $proseMirrorName): ?string`: The Carve tree type of a ProseMirror node or mark name of the kit, or null when the kit does not map it. `carveBlock` and `carveInline` carry a whole node of any type and give null.
+- `static proseMirrorNames(): array`: Every ProseMirror node and mark name the kit maps to one Carve tree type, as name => tree type.
 - `convert(array|string $doc, array $options = []): string`: The canonical Carve source of a ProseMirror document.
 - `toTree(array|string $doc): array`: The Carve 0.2 `document` tree of a ProseMirror document, as decoded AST JSON.
 - `toTreeWithOrigins(array|string $doc): array`: The tree, and for each top-level block the index of the loaded block it came from (null for a block the editor added).

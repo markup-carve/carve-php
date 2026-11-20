@@ -71,9 +71,10 @@ The bridge keeps its class names and moves to the schema of the 0.2 Tiptap kit i
 | `(new ProseMirrorRenderer())->renderJson($document)` | `(new ProseMirrorRenderer())->renderJson(Carve::parse($source))`, or `renderSource($source)` for the array |
 | `(new ProseMirrorToCarve())->convert($array)`, `convertJson($json)` (a `Document`) | `convert($arrayOrJson)` for Carve source, `toTree($arrayOrJson)` for the tree |
 | `droppedTypes()`, `degradedTypes()` | gone: nothing is dropped; a node the editor cannot hold travels as a `carveBlock` or `carveInline` atom |
-| `droppedAttributes()`, `degradedAttributes()` | gone: every tree field travels in the `carve` attribute |
+| `droppedAttributes()`, `degradedAttributes()` | every tree field travels in the `carve` attribute; `ignoredAttributes()` lists the editor attributes the save did not read, such as `textAlign` or a link `target` |
 | `destination-denied` in `droppedTypes()` | `blanked()`: the denied link and image destinations, `null` in the editor attribute and kept in `carve` |
-| `ProseMirrorRenderer::register()`, `ProseMirrorToCarve::register()` | gone: an application node round-trips as an attributed `carveDiv` or `carveSpan`; an unknown ProseMirror name is an error |
+| `ProseMirrorRenderer::register()`, `ProseMirrorToCarve::register()` | gone: map an application node to an attributed `carveDiv` or `carveSpan`, or a `carveBlock`/`carveInline` atom, before saving (worked example in [prosemirror.md](prosemirror.md#application-nodes-on-the-way-in)); an unknown ProseMirror name is an error |
+| `SchemaMap::carveTypeFor()` | `ProseMirrorToCarve::carveTypeFor()`, and `proseMirrorNames()` for the whole map |
 | `withSourcePositions()`, `carvePos` | gone: positions never reach the editor document |
 | `resources/prosemirror-schema-map.json`, `resources/prosemirror-wire-fixtures.json`, `scripts/check-schema-map.php` | the kit itself is the schema; `tests/fixtures/prosemirror/kit-wire.json` pins its output |
 | 0.1 attributes (`id`, `class`, `carveKeyValues`, `carveTight`, `carveMarker`, ...) and nodes (`carveLinkRefDef`, `carveSymbol`, `carveFigure`, ...) | not read: load a stored 0.1 editor document with carve-php 0.1, write its Carve source, and load that source |
