@@ -499,7 +499,19 @@ final class BlockReader
         $siblings = $node->parent === null ? [] : $node->parent->children;
         $behind = false;
         foreach (array_slice($siblings, (int)array_search($node, $siblings, true) + 1) as $sibling) {
-            $behind = $behind || !$sibling->isBlank();
+            if ($sibling->isBlank()) {
+                continue;
+            }
+            // A later untitled note section contributes definitions, not a block after this placement point.
+            if (Notes::isSection($sibling)) {
+                $later = $this->titled($sibling);
+                if (!isset($later['title']) && !isset($later['groupLabel'])) {
+                    continue;
+                }
+            }
+            $behind = true;
+
+            break;
         }
         if (!isset($parts['title']) && !isset($parts['groupLabel']) && !$behind) {
             return [];

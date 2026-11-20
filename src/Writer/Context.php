@@ -23,8 +23,8 @@ final class Context
     public bool $lineCommentBefore = false;
 
     /**
-     * C2-W-092: what holds the paragraph, read from its prefix: `top`, `quote`, or `body` for an item, a description or a
-     * footnote, where a list marker interrupts on every line.
+     * C2-W-092: what holds the paragraph: `top`, `quote`, `body` for an item or footnote, or `description` for a
+     * description body. List markers interrupt every body line; description marks also interrupt description lines.
      */
     public string $owner = 'top';
 

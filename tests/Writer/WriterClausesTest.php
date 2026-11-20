@@ -49,8 +49,8 @@ final class WriterClausesTest extends TestCase
             'C2-W-088 a later description mark after two comments is bare' => [
                 "- a\n  %% c\n  %% d\n  \\:: t\n", "- a\n  %% c\n  %% d\n  :: t\n",
             ],
-            'C2-W-092 a description mark without a preceding comment still needs an escape' => [
-                "- a\n  \\:: t\n", "- a\n  \\:: t\n",
+            'C2-W-088 a later description mark in an item stays bare' => [
+                "- a\n  \\:: t\n", "- a\n  :: t\n",
             ],
             'C2-W-092 a first line that parses as a paragraph' => ["A. Smith\n", "A. Smith\n"],
             'C2-W-092 a description mark with no list before it' => ["\\: x\n", ": x\n"],

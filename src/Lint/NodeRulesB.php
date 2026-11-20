@@ -1624,7 +1624,7 @@ final class NodeRulesB
                     $line = $c->lines[$pos['startLine'] - 1] ?? null;
                     if (
                         $line !== null && $pos['startLine'] !== $itemLine
-                        && ($type !== 'paragraph' || ($child['role'] ?? null) === 'image')
+                        && ($type !== 'paragraph' || ($child['role'] ?? null) === 'image' || isset($child['attrs']))
                     ) {
                         $quotes = $c->layout->quoteDepth($childPath);
                         $start = $c->layout->startOffset($childPath) ?? $line->start + self::indentation($line->text);
