@@ -52,6 +52,11 @@ final class Context
     public array $paragraphStarts = [];
 
     /**
+     * @var array<int, true> Start bytes of parsed braced underline spans.
+     */
+    public array $underlineStarts = [];
+
+    /**
      * Frontmatter lines whose text is opaque to all other line rules.
      *
      * @var array<int, true>

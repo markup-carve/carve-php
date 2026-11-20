@@ -15,4 +15,10 @@ final class BracedUnderlineItemTest extends TestCase
             self::assertSame([], Carve::lint($source), $source);
         }
     }
+
+    public function testAttributeLikeTextStillReports(): void
+    {
+        $codes = array_column(Carve::lint("- {_a=b_} x\n"), 'code');
+        self::assertContains('block-marker-as-text', $codes);
+    }
 }
