@@ -37,6 +37,9 @@ final class LintRulings20NovemberTest extends TestCase
             '6195 blank-line warning' => ["para\n{.c}\n", 'block-opener-without-blank-line', [[5, 9]]],
             '6196 quote line is blank' => ["> {.c}\n>\n> # H\n", 'unattached-block-attribute', [[2, 6]]],
             '6196 >> at column 1 is text' => ["{.c}\n>>\n", 'unattached-block-attribute', []],
+            '6197 spaced attribute line' => ["para\n{ .c }\n", 'block-opener-without-blank-line', [[5, 11]]],
+            '6197 id attribute line' => ["para\n{#id}\n", 'block-opener-without-blank-line', [[5, 10]]],
+            '6197 spaced id alone' => ["{ #id }\n", 'unattached-block-attribute', [[0, 7]]],
         ];
     }
 
@@ -55,6 +58,18 @@ final class LintRulings20NovemberTest extends TestCase
             }
         }
         $this->assertSame($expected, $found);
+    }
+
+    public function testALineOutsideTheQuoteEndsIt(): void
+    {
+        $messages = [];
+        foreach (Carve::lint("> > {.c}\n>\n") as $d) {
+            if ($d->code === 'unattached-block-attribute') {
+                $messages[] = $d->message;
+            }
+        }
+        $this->assertCount(1, $messages);
+        $this->assertStringStartsWith('This attribute line reaches no block', $messages[0]);
     }
 
     public function testQuoteLineIsBlankForTheAttributeLine(): void

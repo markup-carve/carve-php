@@ -227,11 +227,24 @@ final class LineRules
     }
 
     /**
-     * C2-W-143: blank for the rules inside containers `$depth` quotes deep when only spaces and tabs follow their quote marks.
+     * C2-W-143: how a line reads for the rules inside `$depth` quotes: blank when only spaces and tabs follow their quote
+     * marks, outside when it lacks one of them, so those quotes ended above it, and text otherwise.
      */
-    private static function blankWithin(?Line $line, int $depth): bool
+    private static function blankness(?Line $line, int $depth): string
     {
-        return $line !== null && self::afterQuotes($line, $depth)[0] === '';
+        if ($line === null) {
+            return 'outside';
+        }
+        $at = 0;
+        for (; $depth > 0; $depth--) {
+            $mark = $at + strspn($line->text, " \t", $at);
+            if (($line->text[$mark] ?? '') !== '>' || !in_array($line->text[$mark + 1] ?? '', ['', ' '], true)) {
+                return 'outside';
+            }
+            $at = $mark + 1;
+        }
+
+        return trim(substr($line->text, $at), " \t") === '' ? 'blank' : 'text';
     }
 
     private static function prior(Line $line, Context $c): ?Line
@@ -563,10 +576,14 @@ final class LineRules
 
     private static function startsBlock(string $text): bool
     {
-        foreach (['> ', ':: ', ': ', '{.'] as $opener) {
+        foreach (['> ', ':: ', ': '] as $opener) {
             if (str_starts_with($text, $opener)) {
                 return true;
             }
+        }
+        // Any valid attribute line, spaced or with an id or a key (C2-B-090, carve#6197).
+        if (str_starts_with($text, '{') && self::isAttributeLine($text)) {
+            return true;
         }
 
         return self::isHeading($text) || (str_starts_with($text, '[') && str_contains($text, ']:'));
@@ -698,22 +715,18 @@ final class LineRules
         ) {
             return;
         }
-        $second = $text[1];
-        if ($second !== '.' && $second !== '#' && !($second >= 'a' && $second <= 'z')) {
-            return;
-        }
         if (isset($c->attachedLines[$line->number])) {
             return;
         }
         $next = $c->lines[$line->number] ?? null;
-        $blank = self::blankWithin($next, $c->layout->quoteDepth($line->path));
+        $blank = self::blankness($next, $c->layout->quoteDepth($line->path));
         if (
-            $next !== null && !$blank && !$next->paragraph
+            $next !== null && $blank === 'text' && !$next->paragraph
             && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
         ) {
             return;
         }
-        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], $blank ? 1 : 0);
+        $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], $blank === 'blank' ? 1 : 0);
     }
 
     private static function markdownDefinition(Line $line, Context $c): void
