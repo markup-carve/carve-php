@@ -291,6 +291,16 @@ final class DataModel
         foreach ($runs as $run) {
             ($this->onInline)($run);
         }
+        $pipeTables = [];
+        foreach ($c->walked as $item) {
+            if (self::type($item['node']) !== 'table' || $c->layout->sourceFormat($item['path']) !== 'pipe') {
+                continue;
+            }
+            $tablePos = Support::pos($item['node']);
+            if ($tablePos !== null) {
+                $pipeTables[] = [$tablePos['startLine'] - 1, $tablePos['endLine'] - 1];
+            }
+        }
         unset($runs, $openRuns);
         $c->walked = [];
         $this->holderByPath = [];
@@ -345,6 +355,8 @@ final class DataModel
                 'leaf_start' => $pos['startOffset'] ?? -1,
                 'leaf_head' => null,
                 'leaf_next' => null,
+                'table_above' => null,
+                'table_below' => null,
                 'attached_here' => isset($c->attachedLines[$i + 1]),
                 'closes_container' => false,
                 'ancestors' => $this->ancestors($linePath),
@@ -373,6 +385,24 @@ final class DataModel
             }
             $record->quote_marks = $this->quoteMarks($record->text);
             $record->lazy = $this->lazy($record);
+        }
+        foreach ($pipeTables as [$first, $last]) {
+            $seen = null;
+            for ($i = $first; $i <= $last && isset($this->lines[$i]); $i++) {
+                $line = $this->lines[$i];
+                $line->table_above = $seen;
+                if (!str_starts_with($line->raw_body, '%%')) {
+                    $seen = $line;
+                }
+            }
+            $seen = null;
+            for ($i = min($last, count($this->lines) - 1); $i >= $first; $i--) {
+                $line = $this->lines[$i];
+                $line->table_below = $seen;
+                if (!str_starts_with($line->raw_body, '%%')) {
+                    $seen = $line;
+                }
+            }
         }
         unset($holders, $held, $record, $sourceLine, $node, $pos, $item);
         $this->buildNodes();
@@ -594,6 +624,19 @@ final class DataModel
                 'after_quote_mark' => str_ends_with(substr($c->source, $line->start, $start - $line->start), '> '),
                 'prev_type' => $prevPath === null ? null : ($c->nodeTypes[$prevPath] ?? null),
             ];
+            if (in_array($type, ['table', 'table_row', 'table_cell'], true)) {
+                $tablePath = $item['path'];
+                while ($tablePath !== '' && ($c->nodeTypes[$tablePath] ?? '') !== 'table') {
+                    $tablePath = self::pathParent($tablePath);
+                }
+                $record->source_format = $tablePath !== '' ? $c->layout->sourceFormat($tablePath) : null;
+            }
+            if ($type === 'table_row' || $type === 'table_cell') {
+                $rowPath = $type === 'table_row' ? $item['path'] : self::pathParent($item['path']);
+                $groupType = $c->nodeTypes[self::pathParent($rowPath)] ?? null;
+                $record->group = in_array($groupType, ['table_head', 'table_body', 'table_foot'], true) ? $groupType : null;
+                $record->row_index = (int)substr($rowPath, strrpos($rowPath, '/') + 1);
+            }
             if (isset($c->dataNodeTypes[$type]) || isset($c->dataNodeTypes['*'])) {
                 $record->node = $node;
             }

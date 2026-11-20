@@ -928,7 +928,12 @@ final class DataRules
                 }
                 $value = $value->$part ?? null;
             } elseif (is_array($value)) {
-                $value = $value[$part] ?? null;
+                $index = ctype_digit($part) || (str_starts_with($part, '-') && ctype_digit(substr($part, 1)))
+                    ? (int)$part : $part;
+                if (is_int($index) && $index < 0 && array_is_list($value)) {
+                    $index += count($value);
+                }
+                $value = $value[$index] ?? null;
             } else {
                 return null;
             }
