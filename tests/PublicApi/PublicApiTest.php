@@ -34,6 +34,23 @@ final class PublicApiTest extends TestCase
      */
     private const EMBED = "Watch:\n\n```embed\nhttps://youtu.be/abc\n```\n";
 
+    public function testLintUsesTheRenderedHeadingIdPolicyForFragmentLinks(): void
+    {
+        $source = "= Alpha\n\nSee [a](#alpha).\n";
+
+        $this->assertSame([], array_column(Carve::lint($source, ['headingIds' => 'lower']), 'code'));
+        $this->assertSame([], array_column(Carve::lint($source, ['headingIds' => 'ascii-lower']), 'code'));
+
+        $default = Carve::lint($source);
+        $this->assertSame(['broken-fragment-link'], array_column($default, 'code'));
+        $this->assertStringContainsString('the id "Alpha" differs only in case', $default[0]->message);
+
+        $this->assertSame(
+            ['broken-fragment-link'],
+            array_column(Carve::lint($source, ['headingIds' => 'off']), 'code'),
+        );
+    }
+
     public function testParseAndRenderTakeSourceOrTree(): void
     {
         $tree = Carve::parse("# T\n\n[T][]\n", ['headingIds' => 'lower']);
