@@ -161,8 +161,8 @@ final class Options
         foreach ($o->extensions as $extension) {
             $renderer = $o->rendererOptions[$extension->name] ?? null;
             if ($renderer === 'standard' || is_array($renderer)) {
-                $tabsMode = is_array($renderer) ? $renderer['standard']['mode'] : 'css';
-                $renderer = Standard::renderer($extension->name, $o->mode, $tabsMode);
+                $standardMode = is_array($renderer) ? $renderer['standard']['mode'] : 'css';
+                $renderer = Standard::renderer($extension->name, $o->mode, $standardMode);
             }
             $renderer ??= $o->mode === 'static' ? $extension->buildTimeRenderer : $extension->renderer;
             if ($renderer instanceof Closure) {
@@ -398,13 +398,14 @@ final class Options
 
                 continue;
             }
-            if ($renderer === 'standard' && Standard::renderer($name, $this->mode) !== null) {
+            if ($renderer === 'standard' && Standard::renderer($name, 'interactive') !== null) {
                 $validated[$name] = $renderer;
 
                 continue;
             }
             if (
-                $name !== 'carve.tabs' || !is_array($renderer) || array_keys($renderer) !== ['standard']
+                !in_array($name, ['carve.tabs', 'carve.codeGroup'], true)
+                || !is_array($renderer) || array_keys($renderer) !== ['standard']
                 || !is_array($renderer['standard']) || array_keys($renderer['standard']) !== ['mode']
                 || !is_string($renderer['standard']['mode'])
                 || !in_array($renderer['standard']['mode'], ['css', 'aria'], true)
