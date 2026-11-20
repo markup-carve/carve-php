@@ -238,6 +238,7 @@ final class DataModel
             $sourceLine = $c->lines[$i];
             $held = $holders[$i];
             [$path, $leaf, $pos] = $held ?? ['', 'none', null];
+            $linePath = $sourceLine->path !== '' ? $sourceLine->path : $path;
             $marks = isset(self::VERBATIM[$leaf]) ? $this->quoteDepth($path) : PHP_INT_MAX;
             $start = $sourceLine->content !== null
                 && $sourceLine->content >= $sourceLine->start
@@ -266,7 +267,7 @@ final class DataModel
                 'leaf_next' => null,
                 'attached_here' => isset($c->attachedLines[$i + 1]),
                 'closes_container' => false,
-                'ancestors' => $this->ancestors($path),
+                'ancestors' => $this->ancestors($linePath),
                 'quote_depth' => $this->quoteDepth($path),
                 'quote_marks' => 0,
                 'quote_prefix' => str_contains(substr($sourceLine->text, 0, $start - $sourceLine->start), '>'),
@@ -274,7 +275,7 @@ final class DataModel
                 'lazy' => false,
                 'open_colon' => [],
                 'shape' => self::shape($body),
-                'path' => $path !== '' ? $path : $sourceLine->path,
+                'path' => $linePath,
             ];
             $this->lines[] = $record;
         }
@@ -492,7 +493,7 @@ final class DataModel
                 'path' => $item['path'],
                 'start' => $start,
                 'end' => $pos['endOffset'],
-                'text' => in_array($type, ['list', 'line', 'frontmatter'], true)
+                'text' => in_array($type, ['list', 'line', 'frontmatter', 'table_row'], true)
                     ? substr($c->source, $start, $pos['endOffset'] - $start) : '',
                 'line' => $line,
                 'last_line' => $lastLine,
