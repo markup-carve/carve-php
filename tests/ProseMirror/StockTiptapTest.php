@@ -258,6 +258,9 @@ final class StockTiptapTest extends TestCase
             ['path' => '/content/0/content/1', 'type' => 'image', 'attribute' => 'width', 'value' => 120],
         ], $bridge->ignoredAttributes());
 
+        $bridge->toTree(['type' => 'doc', 'attrs' => ['lang' => 'de'], 'content' => []]);
+        $this->assertSame([['path' => '', 'type' => 'doc', 'attribute' => 'lang', 'value' => 'de']], $bridge->ignoredAttributes());
+
         $bridge->toTree((new ProseMirrorRenderer())->renderSource("|= a | b |\n| [x](https://a) | ![i](i.png) |\n"));
         $this->assertSame([], $bridge->ignoredAttributes());
     }

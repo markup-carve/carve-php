@@ -182,9 +182,7 @@ final class ProseMirrorToCarve
         }
         $tree['children'] = $children;
         $this->ignored = [];
-        foreach (self::content($doc) as $index => $pm) {
-            $this->collectIgnored($pm, '/content/' . $index);
-        }
+        $this->collectIgnored(Kit::map($doc), '');
 
         return ['tree' => $tree, 'origins' => $origins];
     }
