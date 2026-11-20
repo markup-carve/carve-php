@@ -872,7 +872,7 @@ final class Carve
      * C2-A-188: reads the JSON of a 2.0 tree or envelope.
      *
      * @param string $json
-     * @param array<string, mixed> $options `extensions`, the registered extensions for the reader checks (C2-X-038).
+     * @param array<string, mixed> $options `extensions` and optional `annotations`, the annotation-range sidecar (C2-T-005).
      *
      * @return \MarkupCarve\Carve\Node
      */
@@ -898,7 +898,7 @@ final class Carve
      * C2-A-188: returns when the tree passes the schema and the reader checks, and throws the refusal otherwise.
      *
      * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree
-     * @param array<string, mixed> $options `extensions`.
+     * @param array<string, mixed> $options `extensions` and optional `annotations`, the annotation-range sidecar (C2-T-005).
      *
      * @return void
      */
@@ -1032,7 +1032,15 @@ final class Carve
      */
     private static function treeOptions(array $options): array
     {
-        return self::readerExtensions(Options::from(self::normalize($options), ['tree'])->extensions);
+        $hasAnnotations = array_key_exists('annotations', $options);
+        $annotations = $options['annotations'] ?? null;
+        unset($options['annotations']);
+        $reader = self::readerExtensions(Options::from(self::normalize($options), ['tree'])->extensions);
+        if ($hasAnnotations) {
+            $reader['annotations'] = $annotations;
+        }
+
+        return $reader;
     }
 
     /**
