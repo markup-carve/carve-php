@@ -795,7 +795,7 @@ final class Markdown
 
     private function inlineInlineExtension(Node $node): string
     {
-        return $this->inlines(Exporter::extensionContent($node, false));
+        return $this->x->extensionOutput($node, fn (): string => $this->inlines(Exporter::extensionContent($node, false)));
     }
 
     private function inlineCriticComment(Node $node): string
@@ -1129,7 +1129,7 @@ final class Markdown
 
     private function blockBlockExtension(Node $node): string
     {
-        return $this->blocks(Exporter::extensionContent($node, true));
+        return $this->x->extensionOutput($node, fn (): string => $this->blocks(Exporter::extensionContent($node, true)));
     }
 
     private function blockAbbreviationDef(Node $node): string

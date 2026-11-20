@@ -138,7 +138,12 @@ assert((new MarkdownExporter())->export(Carve::parse("::: x\nz\n:::\n"))->codes(
 Options: `smartTypography` (default `true`: the glyph of smart punctuation; `false`: the characters as typed),
 `strictLosses` (throw `Export\CarveExportError` with the `diagnostics` instead of returning a result that lost
 something) and `urlPolicy` (`['deny' => [...]]` or `['allow' => [...]]`; a denied destination is written empty and
-reported). An unknown option throws `OptionError`.
+reported). `extensions` accepts the same registrations and bundles as `parse`. A registration can use
+`withExporter('markdown', $callback)`, `withExporter('plain', $callback)` or `withExporter('ansi', $callback)`.
+The callback receives the resolved extension node and an `Export\ExportHost`; `$host->target` names the current
+target and `$host->fallback()` writes the node's core fallback through that target. Its returned text replaces
+the fallback for that target. A target without a callback still writes the core fallback. An unknown option
+throws `OptionError`.
 
 The losses are `render-loss` entries with the pointer of their node: `markdown-container-flattened`,
 `markdown-caption-flattened`, `markdown-attributes-dropped`, `fence-title-dropped`, `raw-html-escaped`,
