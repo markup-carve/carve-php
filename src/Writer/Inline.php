@@ -177,11 +177,18 @@ final class Inline
         return $out;
     }
 
+    /**
+     * @param array<mixed> $nodes
+     * @param int $at
+     *
+     * @return bool
+     */
     private static function followsLineComment(array $nodes, int $at): bool
     {
         $prior = $nodes[$at - 2] ?? null;
+        $break = $nodes[$at - 1] ?? null;
 
-        return ($nodes[$at - 1]['type'] ?? '') === 'soft_break'
+        return is_array($break) && ($break['type'] ?? '') === 'soft_break'
             && is_array($prior) && ($prior['type'] ?? '') === 'comment' && ($prior['form'] ?? '') === 'line';
     }
 
