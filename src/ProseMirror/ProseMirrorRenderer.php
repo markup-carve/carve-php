@@ -30,11 +30,21 @@ final class ProseMirrorRenderer
     private array $blanked = [];
 
     /**
-     * @param array<string, mixed> $options `urlPolicy`, as for `Carve::render()`.
+     * @var array{
+     *     nodes: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     *     marks: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     * }
+     */
+    private array $mapping;
+
+    /**
+     * @param array<string, mixed> $options `urlPolicy`, as for `Carve::render()`; `mapping`, the host's own
+     *   ProseMirror nodes and marks (docs/prosemirror.md).
      */
     public function __construct(array $options = [])
     {
         $this->options = Options::from(array_intersect_key($options, ['urlPolicy' => true]));
+        $this->mapping = Kit::mapping($options['mapping'] ?? null);
     }
 
     /**
@@ -74,6 +84,10 @@ final class ProseMirrorRenderer
         $content = $this->blocks($children);
         if ($children !== []) {
             foreach ($content as $index => $node) {
+                // A host node has no `carve` attribute in its schema.
+                if (isset($this->mapping['nodes'][Kit::str($node['type'] ?? null)])) {
+                    continue;
+                }
                 $carve = Kit::carveOf($node);
                 $carve['$index'] = $index;
                 $attrs = Kit::map($node['attrs'] ?? null);
@@ -156,6 +170,10 @@ final class ProseMirrorRenderer
         if (array_key_exists('caption', $node) && $type !== 'caption') {
             return $this->captioned($node);
         }
+        $mapped = $this->loadMapped($node, 'block');
+        if ($mapped !== null) {
+            return $mapped;
+        }
         if (isset(Kit::TEXTBLOCKS[$type])) {
             return $this->textblock($node);
         }
@@ -175,6 +193,83 @@ final class ProseMirrorRenderer
             'table' => $this->table($node),
             default => self::blockAtom($node),
         };
+    }
+
+    /**
+     * The host node a tree node loads as, or null.
+     *
+     * @param array<string, mixed> $node
+     * @param string $position `block` or `inline`
+     *
+     * @return array<string, mixed>|null
+     */
+    private function loadMapped(array $node, string $position): ?array
+    {
+        foreach ($this->mapping['nodes'] as $name => $entry) {
+            if ($entry->as === null) {
+                $fromTree = $entry->fromTree;
+                $pm = $fromTree !== null ? $fromTree($node, [
+                    'position' => $position,
+                    'blocks' => fn (mixed $children): array => $this->blocks($this->list($children)),
+                    'inlines' => fn (mixed $children): array => $this->inlines($this->list($children)),
+                ]) : null;
+                if (is_array($pm)) {
+                    return Kit::map($pm);
+                }
+
+                continue;
+            }
+            if (!Kit::declared($entry, $node, $position === 'block' ? 'div' : 'span', !$entry->content)) {
+                continue;
+            }
+            $pm = ['type' => $name];
+            $attrs = Kit::declaredAttrs($node);
+            if ($attrs !== []) {
+                $pm['attrs'] = $attrs;
+            }
+            $children = $this->list($node['children'] ?? null);
+            if ($children !== []) {
+                $pm['content'] = $position === 'block' ? $this->blocks($children) : $this->inlines($children);
+            }
+
+            return $pm;
+        }
+
+        return null;
+    }
+
+    /**
+     * The host mark an inline container loads as, or null.
+     *
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>|null
+     */
+    private function loadMappedMark(array $node): ?array
+    {
+        foreach ($this->mapping['marks'] as $name => $entry) {
+            if ($entry->as === null) {
+                $fromTree = $entry->fromTree;
+                $mark = $fromTree !== null ? $fromTree($node) : null;
+                if (is_array($mark)) {
+                    return Kit::map($mark);
+                }
+
+                continue;
+            }
+            if (!Kit::declared($entry, $node, 'span', false)) {
+                continue;
+            }
+            $mark = ['type' => $name];
+            $attrs = Kit::declaredAttrs($node);
+            if ($attrs !== []) {
+                $mark['attrs'] = $attrs;
+            }
+
+            return $mark;
+        }
+
+        return null;
     }
 
     /**
@@ -588,8 +683,21 @@ final class ProseMirrorRenderer
     private function pushInlines(array $children, array $marks, array $open, array &$out): void
     {
         foreach ($children as $child) {
-            $spec = Kit::MARKS[Kit::str($child['type'] ?? null)] ?? null;
             $inner = $this->list($child['children'] ?? null);
+            $hostMark = $inner !== [] ? $this->loadMappedMark($child) : null;
+            $hostName = Kit::str($hostMark['type'] ?? null);
+            if ($hostMark !== null && !isset($open[$hostName])) {
+                $this->pushInlines($inner, [...$marks, $hostMark], $open + [$hostName => true], $out);
+
+                continue;
+            }
+            $hostNode = $this->loadMapped($child, 'inline');
+            if ($hostNode !== null) {
+                $out[] = self::withMarks($hostNode, $marks);
+
+                continue;
+            }
+            $spec = Kit::MARKS[Kit::str($child['type'] ?? null)] ?? null;
             if ($spec !== null && $inner !== [] && !isset($open[$spec[0]])) {
                 [$mark, $owned] = $spec;
                 $carve = Kit::fields($child, ['children', ...$owned]);

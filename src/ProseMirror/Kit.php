@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\ProseMirror;
 
+use Closure;
+use InvalidArgumentException;
 use stdClass;
 
 /**
@@ -97,6 +99,171 @@ final class Kit
      * @var array<string, true>
      */
     private const POSITIONS = ['pos' => true, 'segments' => true, 'srcByteLength' => true];
+
+    /**
+     * The host's `mapping` option, checked: `nodes` and `marks`, each ProseMirror name => entry. A declared entry is
+     * `as`, `class`, `attributes` and `content`; a callback entry is `toTree` and `fromTree`.
+     *
+     * @throws \InvalidArgumentException
+     *
+     * @return array{
+     *     nodes: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     *     marks: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     * }
+     */
+    public static function mapping(mixed $mapping): array
+    {
+        $out = ['nodes' => [], 'marks' => []];
+        if ($mapping === null) {
+            return $out;
+        }
+        if (!is_array($mapping)) {
+            throw new InvalidArgumentException('mapping: expected an array with "nodes" and "marks"');
+        }
+        foreach (['nodes', 'marks'] as $kind) {
+            $entries = $mapping[$kind] ?? [];
+            if (!is_array($entries)) {
+                throw new InvalidArgumentException(sprintf('mapping: "%s" must be an array', $kind));
+            }
+            foreach ($entries as $name => $entry) {
+                $out[$kind][(string)$name] = self::mappingEntry($kind, (string)$name, $entry);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
+    private static function mappingEntry(string $kind, string $name, mixed $entry): MappingEntry
+    {
+        $entry = is_array($entry) ? $entry : [];
+        $toTree = $entry['toTree'] ?? null;
+        $fromTree = $entry['fromTree'] ?? null;
+        if ($toTree instanceof Closure || $fromTree instanceof Closure) {
+            return new MappingEntry(
+                null,
+                toTree: $toTree instanceof Closure ? $toTree : null,
+                fromTree: $fromTree instanceof Closure ? $fromTree : null,
+            );
+        }
+        $allowed = $kind === 'marks' ? ['span'] : ['span', 'div'];
+        $as = $entry['as'] ?? null;
+        $attributes = $entry['attributes'] ?? [];
+        $class = $entry['class'] ?? null;
+        $content = $entry['content'] ?? false;
+        $names = is_array($attributes) && array_is_list($attributes) ? array_values(array_filter($attributes, 'is_string')) : null;
+        if (
+            !is_string($as) || !in_array($as, $allowed, true) || !is_string($class) || $class === ''
+            || $names === null || $names !== $attributes || !is_bool($content)
+        ) {
+            throw new InvalidArgumentException(sprintf(
+                'mapping: the %s "%s" needs "as" (%s), a "class" and string "attributes", or "toTree" and "fromTree"',
+                $kind === 'marks' ? 'mark' : 'node',
+                $name,
+                implode(' or ', $allowed),
+            ));
+        }
+
+        // A declared node is an atom unless it has `content: true`.
+        return new MappingEntry($as, $class, $names, $content);
+    }
+
+    /**
+     * The Carve attributes of a declared node or mark: its class, and each declared attribute with a value as a
+     * key/value pair (a string as it is, any other value as JSON).
+     *
+     * @param \MarkupCarve\Carve\ProseMirror\MappingEntry $entry
+     * @param array<string, mixed> $attrs
+     *
+     * @return array<string, mixed>
+     */
+    public static function mappedAttrs(MappingEntry $entry, array $attrs): array
+    {
+        $keyValues = [];
+        foreach ($entry->attributes ?? [] as $name) {
+            $value = $attrs[$name] ?? null;
+            if ($value !== null) {
+                $keyValues[] = [
+                    $name,
+                    is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                ];
+            }
+        }
+
+        return $keyValues !== [] ? ['classes' => [$entry->class], 'keyValues' => $keyValues] : ['classes' => [$entry->class]];
+    }
+
+    /**
+     * Whether `$node` is exactly what a declared entry saves, so loading it as the host type loses nothing.
+     *
+     * @param \MarkupCarve\Carve\ProseMirror\MappingEntry $entry
+     * @param array<string, mixed> $node
+     * @param bool $atom
+     * @param string $type
+     */
+    public static function declared(MappingEntry $entry, array $node, string $type, bool $atom): bool
+    {
+        if ($entry->as !== $type || ($node['type'] ?? null) !== $type || self::fields($node, ['children', 'attrs']) !== []) {
+            return false;
+        }
+        if ($atom && self::nodes($node['children'] ?? null) !== []) {
+            return false;
+        }
+        $attrs = self::map($node['attrs'] ?? null);
+        if (array_diff(array_keys($attrs), ['classes', 'keyValues']) !== [] || ($attrs['classes'] ?? null) !== [$entry->class]) {
+            return false;
+        }
+
+        return self::declaredPairs($entry, $attrs['keyValues'] ?? []);
+    }
+
+    /**
+     * Whether `$pairs` are key/value pairs of distinct keys the entry declares.
+     *
+     * @param \MarkupCarve\Carve\ProseMirror\MappingEntry $entry
+     * @param mixed $pairs
+     */
+    private static function declaredPairs(MappingEntry $entry, mixed $pairs): bool
+    {
+        if (!is_array($pairs)) {
+            return false;
+        }
+        $seen = [];
+        foreach ($pairs as $pair) {
+            $key = is_array($pair) ? ($pair[0] ?? null) : null;
+            if (
+                !is_string($key) || !is_string($pair[1] ?? null) || isset($seen[$key])
+                || !in_array($key, $entry->attributes ?? [], true)
+            ) {
+                return false;
+            }
+            $seen[$key] = true;
+        }
+
+        return true;
+    }
+
+    /**
+     * The ProseMirror attributes of a declared node: its key/value pairs.
+     *
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, string>
+     */
+    public static function declaredAttrs(array $node): array
+    {
+        $out = [];
+        $pairs = self::map($node['attrs'] ?? null)['keyValues'] ?? [];
+        foreach (is_array($pairs) ? $pairs : [] as $pair) {
+            if (is_array($pair) && is_string($pair[0] ?? null) && is_string($pair[1] ?? null)) {
+                $out[$pair[0]] = $pair[1];
+            }
+        }
+
+        return $out;
+    }
 
     /**
      * `$tables` keyed by the second name: node or mark name => [tree type, owned fields].

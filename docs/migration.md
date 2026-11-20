@@ -73,7 +73,7 @@ The bridge keeps its class names and moves to the schema of the 0.2 Tiptap kit i
 | `droppedTypes()`, `degradedTypes()` | gone: nothing is dropped; a node the editor cannot hold travels as a `carveBlock` or `carveInline` atom |
 | `droppedAttributes()`, `degradedAttributes()` | every tree field travels in the `carve` attribute; `ignoredAttributes()` lists the editor attributes the save did not read, such as `textAlign` or a link `target` |
 | `destination-denied` in `droppedTypes()` | `blanked()`: the denied link and image destinations, `null` in the editor attribute and kept in `carve` |
-| `ProseMirrorRenderer::register()`, `ProseMirrorToCarve::register()` | gone: map an application node to an attributed `carveDiv` or `carveSpan`, or a `carveBlock`/`carveInline` atom, before saving (worked example in [prosemirror.md](prosemirror.md#application-nodes-on-the-way-in)); an unknown ProseMirror name is an error |
+| `ProseMirrorRenderer::register()`, `ProseMirrorToCarve::register()` | the `mapping` constructor option of both classes, one table for both directions ([prosemirror.md](prosemirror.md#application-nodes)); an unknown ProseMirror name is an error |
 | `SchemaMap::carveTypeFor()` | `ProseMirrorToCarve::carveTypeFor()`, and `proseMirrorNames()` for the whole map |
 | `withSourcePositions()`, `carvePos` | gone: positions never reach the editor document |
 | `resources/prosemirror-schema-map.json`, `resources/prosemirror-wire-fixtures.json`, `scripts/check-schema-map.php` | the kit itself is the schema; `tests/fixtures/prosemirror/kit-wire.json` pins its output |

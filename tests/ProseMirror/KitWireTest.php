@@ -84,6 +84,45 @@ final class KitWireTest extends TestCase
         $this->assertSame(Kit::encode($case['tree']), Kit::encode((new ProseMirrorToCarve())->toTree($case['pm'])));
     }
 
+    /**
+     * @return array<string, array{array<string, mixed>}>
+     */
+    public static function mapped(): array
+    {
+        $out = [];
+        foreach (self::fixture()['mapped'] as $case) {
+            $out[$case['name']] = [$case];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<string, mixed> $case
+     */
+    #[DataProvider('mapped')]
+    public function testAMappedDocumentSavesAsTheKitSavesIt(array $case): void
+    {
+        $result = (new ProseMirrorToCarve(['mapping' => $case['mapping']]))->toTreeWithOrigins($case['doc']);
+
+        $this->assertSame(Kit::encode($case['saved']), Kit::encode($result['tree']));
+        $this->assertSame(Kit::encode($case['pointers']), Kit::encode($result['pointers']));
+    }
+
+    /**
+     * @param array<string, mixed> $case
+     */
+    #[DataProvider('mapped')]
+    public function testAMappedTreeLoadsAsTheKitLoadsIt(array $case): void
+    {
+        if (!isset($case['tree'])) {
+            $this->assertArrayNotHasKey('pm', $case);
+
+            return;
+        }
+        $this->assertSame(Kit::encode($case['pm']), (new ProseMirrorRenderer(['mapping' => $case['mapping']]))->renderJson($case['tree']));
+    }
+
     public function testTheFixtureNamesTheKitCommit(): void
     {
         $this->assertMatchesRegularExpression('/^[0-9a-f]{40}$/', self::fixture()['_provenance']['commit']);
