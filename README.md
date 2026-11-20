@@ -69,8 +69,9 @@ record), `maxLosses` (the cap on kept losses, default 100; the result's `suppres
 or `null` to keep the default.
 
 Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
-(`html`, `markdown`, `gfm` or `djot`), `rawHtml` (HTML only: keep raw HTML nodes), `strictLosses`, `allowLosses` and
-`maxLosses`, and `labels` (the labels used to render generated accessible names). Markdown, GFM and Djot go through
+(`html`, `markdown`, `gfm` or `djot`), `rawHtml` (HTML only: keep raw HTML nodes), `adapter` (HTML only: the editor
+that wrote the HTML, `generic` by default; `word` and `google-docs` read exported notes as footnotes, C2-M-102),
+`strictLosses`, `allowLosses` and `maxLosses`, and `labels` (the labels used to render generated accessible names). Markdown, GFM and Djot go through
 the HTML importer: `league/commonmark` (CommonMark 0.31 and the GFM
 extensions) and `php-collective/djot` render HTML, which the HTML importer reads. Includes: an
 `Include\IncludeResolver` such as `Include\FileResolver::forRoot($root)` in the `includes` option, or an array with
@@ -91,7 +92,7 @@ vendor/bin/carve diagnostics FILE...        diagnostics
 vendor/bin/carve lint FILE...               lint findings
 vendor/bin/carve fmt FILE...                canonical form (alias: format)
     --check  --diff  --write|-w  --normalize  --align-tables  --from-ast
-vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] FILE...
+vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] [--adapter=NAME] FILE...
 ```
 
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,

@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Import\Hub\DjotHtml;
 use MarkupCarve\Carve\Import\Hub\MarkdownHtml;
 use MarkupCarve\Carve\Import\Hub\Sink;
+use MarkupCarve\Carve\OptionError;
 
 /**
  * Markdown, GFM and Djot import through the HTML hub (ruling of 17 November): a library renders HTML and the HTML
@@ -32,12 +33,17 @@ final class HubImporter
      * @param string $format `markdown`, `gfm` or `djot`.
      * @param array<string, mixed> $options `strictLosses` (C2-M-082), `allowLosses` and `maxLosses` (C2-H-204, C2-H-205).
      *
+     * @throws \MarkupCarve\Carve\OptionError An editor adapter other than `generic` (C2-M-102).
      * @throws \MarkupCarve\Carve\Import\ImportInputError
      *
      * @return \MarkupCarve\Carve\Import\ImportResult
      */
     public static function import(string $input, string $format, array $options = []): ImportResult
     {
+        // C2-M-102: an editor adapter reads HTML only.
+        if (($options['adapter'] ?? 'generic') !== 'generic') {
+            throw new OptionError('option adapter: HTML only');
+        }
         $sink = new Sink();
         try {
             $html = $format === 'djot' ? DjotHtml::html($input, $sink) : MarkdownHtml::html($input, $format === 'gfm', $sink);

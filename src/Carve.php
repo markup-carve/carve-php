@@ -533,7 +533,7 @@ final class Carve
 
     /**
      * The HTML importer (import-html.md): the tree, the canonical source and the diagnostics of an HTML string. Options:
-     * `rawHtml` (C2-M-066), `labels` (C2-M-101) and `strictLosses` (C2-M-082). Needs `ext-dom`.
+     * `adapter` (C2-M-102), `rawHtml` (C2-M-066), `labels` (C2-M-101) and `strictLosses` (C2-M-082). Needs `ext-dom`.
      *
      * @param string $html
      * @param array<string, mixed> $options

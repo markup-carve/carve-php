@@ -29,6 +29,11 @@ final class Options
     public bool $rawHtml = false;
 
     /**
+     * C2-M-102: the editor that wrote the imported HTML.
+     */
+    public string $adapter = 'generic';
+
+    /**
      * @var array<\MarkupCarve\Carve\Extension\ExtensionDefinition> C2-X-002, C2-X-033.
      */
     public array $extensions = [];
@@ -273,6 +278,7 @@ final class Options
     private function setEnum(string $name, string $value): void
     {
         match ($name) {
+            'adapter' => $this->adapter = $value,
             'headingIds' => $this->headingIds = $value,
             'mode' => $this->mode = $value,
             'softBreak' => $this->softBreak = $value,
