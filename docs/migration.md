@@ -61,6 +61,23 @@ converter.
 The `roundtrip` option of the 0.1 Markdown writer is gone: 0.2 has no Markdown carrier format. The target `text` is
 named `plain`. `docs/README.md` lists the losses the exports report.
 
+## ProseMirror bridge
+
+The bridge keeps its class names and moves to the schema of the 0.2 Tiptap kit in carve-grammars
+(`tiptap/tree.js`). Details in [prosemirror.md](prosemirror.md).
+
+| 0.1 | 0.2 |
+|---|---|
+| `(new ProseMirrorRenderer())->renderJson($document)` | `(new ProseMirrorRenderer())->renderJson(Carve::parse($source))`, or `renderSource($source)` for the array |
+| `(new ProseMirrorToCarve())->convert($array)`, `convertJson($json)` (a `Document`) | `convert($arrayOrJson)` for Carve source, `toTree($arrayOrJson)` for the tree |
+| `droppedTypes()`, `degradedTypes()` | gone: nothing is dropped; a node the editor cannot hold travels as a `carveBlock` or `carveInline` atom |
+| `droppedAttributes()`, `degradedAttributes()` | gone: every tree field travels in the `carve` attribute |
+| `destination-denied` in `droppedTypes()` | `blanked()`: the denied link and image destinations, `null` in the editor attribute and kept in `carve` |
+| `ProseMirrorRenderer::register()`, `ProseMirrorToCarve::register()` | gone: an application node round-trips as an attributed `carveDiv` or `carveSpan`; an unknown ProseMirror name is an error |
+| `withSourcePositions()`, `carvePos` | gone: positions never reach the editor document |
+| `resources/prosemirror-schema-map.json`, `resources/prosemirror-wire-fixtures.json`, `scripts/check-schema-map.php` | the kit itself is the schema; `tests/fixtures/prosemirror/kit-wire.json` pins its output |
+| 0.1 attributes (`id`, `class`, `carveKeyValues`, `carveTight`, `carveMarker`, ...) and nodes (`carveLinkRefDef`, `carveSymbol`, `carveFigure`, ...) | not read: load a stored 0.1 editor document with carve-php 0.1, write its Carve source, and load that source |
+
 ## Includes
 
 | 0.1 | 0.2 |
