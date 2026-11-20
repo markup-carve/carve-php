@@ -12,6 +12,14 @@ final class NodeRulesA
     /**
      * @var array<string>
      */
+    private const WRITER_PAIRS = [
+        'deprecated-bare-underline', 'deprecated-bare-strike', 'deprecated-bare-highlight',
+        'markdown-strikethrough-double-tilde', 'markdown-strong-double-star',
+    ];
+
+    /**
+     * @var array<string>
+     */
     private const TABLE_KEYS = ['aligns', 'widths', 'header-rows', 'footer-rows'];
 
     /**
@@ -35,13 +43,40 @@ final class NodeRulesA
             return;
         }
         $text = substr($c->source, $range[0], $range[1] - $range[0]);
+        foreach (self::pairRanges($text, $mark, $id) as [$start, $end]) {
+            $c->report($id, $range[0] + $start, $range[0] + $end, $path);
+        }
+    }
+
+    /**
+     * The pairs of `$mark` that the rule `$id` reports in the source `$text` of one text node, as byte ranges. The
+     * writer tests its own text with them (C2-W-146).
+     *
+     * @param string $text
+     * @param string $mark
+     * @param string $id
+     *
+     * @return array<array{0: int, 1: int}>
+     */
+    public static function pairRanges(string $text, string $mark, string $id): array
+    {
+        if (in_array($id, self::WRITER_PAIRS, true)) {
+            return self::readPairs($text, $mark, $id);
+        }
+        $ranges = [];
         $at = 0;
         $length = strlen($text);
         $size = strlen($mark);
         while ($at < $length) {
             $start = strpos($text, $mark, $at);
             if ($start === false || $start + $size + 1 > $length) {
-                return;
+                break;
+            }
+            // C2-I-050: a bare mark followed by a combining mark, a variation selector or a zero-width joiner opens no pair.
+            if (self::joined($text, $start + $size, $id)) {
+                $at = $start + $size;
+
+                continue;
             }
             $end = strpos($text, $mark, $start + $size + 1);
             while ($end !== false && !self::pairs($text, $mark, $start, $end, $id)) {
@@ -53,11 +88,109 @@ final class NodeRulesA
 
                 continue;
             }
-            if (self::pairs($text, $mark, $start, $end, $id)) {
-                $c->report($id, $range[0] + $start, $range[0] + $end + $size, $path);
+            $ranges[] = [$start, $end + $size];
+            $at = $end + $size;
+        }
+
+        return $ranges;
+    }
+
+    /**
+     * The pair rules whose reading follows carve-js `paired`: a candidate opener, the first later closer that no
+     * whitespace and no backslash stands before, and the test of the pair; the search goes on behind that closer.
+     *
+     * @param string $text
+     * @param string $mark
+     * @param string $id
+     *
+     * @return array<array{0: int, 1: int}>
+     */
+    private static function readPairs(string $text, string $mark, string $id): array
+    {
+        $ranges = [];
+        $size = strlen($mark);
+        $at = 0;
+        $length = strlen($text);
+        while ($at < $length) {
+            $start = strpos($text, $mark, $at);
+            if ($start === false) {
+                break;
+            }
+            if (self::joined($text, $start + $size, $id)) {
+                $at = $start + $size;
+
+                continue;
+            }
+            $end = self::nextCloser($text, $mark, $start + $size + 1);
+            if ($end < 0) {
+                break;
+            }
+            if (self::validPair($text, $mark, $id, $start, $end)) {
+                $ranges[] = [$start, $end + $size];
             }
             $at = $end + $size;
         }
+
+        return $ranges;
+    }
+
+    private static function nextCloser(string $text, string $mark, int $from): int
+    {
+        $end = $from <= strlen($text) ? strpos($text, $mark, $from) : false;
+        while (
+            $end !== false && (
+                preg_match('/[\p{Zs}\t\n\r]$/u', substr($text, 0, $end)) === 1 || self::escapedAt($text, $end)
+            )
+        ) {
+            $next = $end + strlen($mark);
+            $end = $next <= strlen($text) ? strpos($text, $mark, $next) : false;
+        }
+
+        return $end === false ? -1 : $end;
+    }
+
+    private static function escapedAt(string $text, int $at): bool
+    {
+        $slashes = 0;
+        while ($at - 1 - $slashes >= 0 && $text[$at - 1 - $slashes] === '\\') {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 1;
+    }
+
+    private static function validPair(string $text, string $mark, string $id, int $start, int $end): bool
+    {
+        $inside = substr($text, $start + strlen($mark), $end - $start - strlen($mark));
+        $edge = '/^[\p{Zs}\t\n\r\f\v]|[\p{Zs}\t\n\r\f\v]$/u';
+        if (self::escapedAt($text, $start) || $inside === '' || preg_match($edge, $inside) === 1) {
+            return false;
+        }
+        if ($inside[0] === $mark[0] || $inside[strlen($inside) - 1] === $mark[0]) {
+            return false;
+        }
+        if ($mark === '**' && str_contains($inside, '*')) {
+            return false;
+        }
+        if ($id === 'markdown-strong-double-star' || $id === 'markdown-strikethrough-double-tilde') {
+            return true;
+        }
+
+        return preg_match('/[\p{L}\p{N}]$/u', substr($text, 0, $start)) !== 1
+            && preg_match('/^[\p{L}\p{N}]/u', substr($text, $end + strlen($mark))) !== 1;
+    }
+
+    /**
+     * @param string $text
+     * @param int $at
+     * @param string $id
+     *
+     * @return bool
+     */
+    private static function joined(string $text, int $at, string $id): bool
+    {
+        return str_starts_with($id, 'deprecated-bare-')
+            && preg_match('/^[\p{M}\x{200D}\x{FE00}-\x{FE0F}\x{E0100}-\x{E01EF}]/u', substr($text, $at, 4)) === 1;
     }
 
     /**
@@ -69,43 +202,14 @@ final class NodeRulesA
      */
     public static function multilineMarkdownStrong(array $node, string $path, Context $c): void
     {
-        if (($node['type'] ?? null) !== 'paragraph') {
-            return;
-        }
-        $bounds = Support::bounds($node);
-        if ($bounds === null) {
-            return;
-        }
-        $raw = Support::raw($node, $c);
-        preg_match_all('/\*\*([^*]+)\*\*/s', $raw, $matches, PREG_OFFSET_CAPTURE);
-        foreach ($matches[0] as $i => [$whole, $offset]) {
-            $inside = $matches[1][$i][0];
-            if (!str_contains($inside, "\n") || str_contains($inside, "\n\n") || self::jsTrim($inside) !== $inside) {
-                continue;
-            }
-            $start = $bounds[0] + $offset;
-            $end = $start + strlen($whole);
-            $masked = false;
-            foreach ($c->leafMask as [$from, $to]) {
-                $masked = $masked || ($from < $end && $to > $start);
-            }
-            if ($masked) {
-                continue;
-            }
-            $owner = $path;
-            foreach (Support::kids($node) as $at => $child) {
-                $part = Support::bounds($child);
-                if ($part !== null && $part[0] <= $start && $part[1] > $start) {
-                    $owner = $path . '/children/' . $at;
-
-                    break;
-                }
-            }
-            $c->report('markdown-strong-double-star', $start, $end, $owner);
+        foreach (self::runRanges($node, $c, '**', 'markdown-strong-double-star') as [$start, $end, $owner]) {
+            $c->report('markdown-strong-double-star', $start, $end, $path . '/children/' . $owner);
         }
     }
 
     /**
+     * A pair that crosses a line of a paragraph, read on each run of text and soft breaks as carve-js reads it.
+     *
      * @param array<string, mixed> $node
      * @param string $path
      * @param \MarkupCarve\Carve\Lint\Context $c
@@ -116,29 +220,64 @@ final class NodeRulesA
      */
     public static function multilineBarePair(array $node, string $path, Context $c, string $mark, string $id): void
     {
+        foreach (self::runRanges($node, $c, $mark, $id) as [$start, $end]) {
+            $c->report($id, $start, $end, $path);
+        }
+    }
+
+    /**
+     * The pairs of a paragraph that cross a line, in its runs of text and soft breaks: each range in the source and the
+     * index of the child it starts in.
+     *
+     * @param array<string, mixed> $node
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param string $mark
+     * @param string $id
+     *
+     * @return array<array{0: int, 1: int, 2: int}>
+     */
+    private static function runRanges(array $node, Context $c, string $mark, string $id): array
+    {
         if (($node['type'] ?? null) !== 'paragraph') {
-            return;
+            return [];
         }
-        $bounds = Support::bounds($node);
-        if ($bounds === null) {
-            return;
+        $runs = [];
+        $open = false;
+        foreach (Support::kids($node) as $at => $child) {
+            $type = $child['type'] ?? null;
+            $range = Support::bounds($child);
+            if (($type !== 'text' && $type !== 'soft_break') || $range === null) {
+                $open = false;
+
+                continue;
+            }
+            if ($open) {
+                $last = count($runs) - 1;
+                $runs[$last] = [$runs[$last][0], $range[1], [...$runs[$last][2], [$at, $range[0]]]];
+
+                continue;
+            }
+            $runs[] = [$range[0], $range[1], [[$at, $range[0]]]];
+            $open = true;
         }
-        $raw = Support::raw($node, $c);
-        $first = strpos($raw, $mark);
-        if ($first === false) {
-            return;
+        $found = [];
+        foreach ($runs as [$from, $to, $children]) {
+            $text = substr($c->source, $from, $to - $from);
+            foreach (self::pairRanges($text, $mark, $id) as [$start, $end]) {
+                if (!str_contains(substr($text, $start, $end - $start), "\n")) {
+                    continue;
+                }
+                $owner = $children[0][0];
+                foreach ($children as [$index, $begin]) {
+                    if ($begin <= $from + $start) {
+                        $owner = $index;
+                    }
+                }
+                $found[] = [$from + $start, $from + $end, (int)$owner];
+            }
         }
-        if ($first + 2 >= strlen($raw)) {
-            return;
-        }
-        $last = strpos($raw, $mark, $first + 2);
-        if (
-            $last === false || !str_contains(substr($raw, $first, $last - $first), "\n")
-            || !self::pairs($raw, $mark, $first, $last, $id)
-        ) {
-            return;
-        }
-        $c->report($id, $bounds[0] + $first, $bounds[0] + $last + 1, $path);
+
+        return $found;
     }
 
     /**

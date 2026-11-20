@@ -83,6 +83,13 @@ final class Inline
      */
     private int $visibleNext = -1;
 
+    /**
+     * The prefix and the value of the text node last written by `text`, for the run log of C2-W-146.
+     */
+    private int $textPrefix = 0;
+
+    private string $textValue = '';
+
     public function __construct(private State $w)
     {
     }
@@ -140,6 +147,51 @@ final class Inline
      * @return string
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
+    {
+        if ($c->flat !== null) {
+            return $this->contentOnce($nodes, $path, $c, $next);
+        }
+        // C2-W-146: a pair across the text nodes of a run is tested on the whole content, which is written again
+        // with the backslashes it asks for.
+        $start = clone $c;
+        $out = $this->contentOnce($nodes, $path, $c, $next);
+        $forced = [];
+        for ($round = 0; $round < 64; $round++) {
+            $asked = Text::runPairOpeners($c->runLog);
+            $new = false;
+            foreach ($asked as $at => $offsets) {
+                foreach ($offsets as $i => $_) {
+                    $new = $new || !isset($forced[$at][$i]);
+                    $forced[$at][$i] = true;
+                }
+            }
+            if (!$new) {
+                break;
+            }
+            $again = clone $start;
+            $again->runPairEscapes = $forced;
+            // The first write charged the reparse of its first line; the same line again is no new repair state.
+            $again->writerState = null;
+            $out = $this->contentOnce($nodes, $path, $again, $next);
+            foreach (get_object_vars($again) as $name => $field) {
+                $c->{$name} = $field;
+            }
+            $c->writerState = $start->writerState;
+        }
+        $c->runLog = [];
+
+        return $out;
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return string
+     */
+    private function contentOnce(array $nodes, string $path, Context $c, int $next): string
     {
         if ($c->flat === null) {
             $c->flat = '';
@@ -493,6 +545,16 @@ final class Inline
             $c->textPath = $path;
             $out = $points === null ? $this->text($node, $c, $next, $before) : $this->wrapped($node, $points, $c, $next);
             $c->here = -1;
+            if ($points === null) {
+                $c->runLog[] = [
+
+                    'path' => $path,
+                    'out' => $out,
+                    'prefix' => $this->textPrefix,
+                    'escaped' => $c->escapedAt,
+                    'value' => $this->textValue,
+                ];
+            }
             // C2-W-016: a CR at the end of a line is part of the line ending.
             if (str_ends_with($out, "\r") && ($next === 10 || $next === -1)) {
                 $this->w->lose($path, 'text', 'value');
@@ -502,6 +564,9 @@ final class Inline
             return $out;
         }
         $out = $this->own($node, $type, $path, $c, $next);
+        if ($type === 'soft_break') {
+            $c->runLog[] = ['path' => $path, 'out' => "\n", 'prefix' => 1, 'escaped' => [], 'value' => ''];
+        }
         if ($out === null) {
             $this->w->lose($path, $type, null);
             $out = $this->children($node, $path, $c, $next, 'fallback');
@@ -589,7 +654,10 @@ final class Inline
             $c->last = 0x28;
         }
 
-        return $prefix . Text::escape($value, $c, $next);
+        $this->textPrefix = strlen($prefix);
+        $this->textValue = $value;
+
+        return $prefix . Text::escapePairs($value, $c, $next);
     }
 
     /**

@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use MarkupCarve\Carve\Lint\NodeRulesA;
 
 /**
  * The escapes of a text node (C2-W-088 to C2-W-099), decided from the contexts of `data/escape-contexts.json` before the
@@ -98,6 +99,19 @@ final class Text
      *
      * @var string
      */
+    /**
+     * C2-W-146: the pair rules of lint, each with its mark.
+     *
+     * @var array<array{0: string, 1: string}>
+     */
+    private const PAIR_RULES = [
+        ['_', 'deprecated-bare-underline'], ['~', 'deprecated-bare-strike'], ['=', 'deprecated-bare-highlight'],
+        ['~~', 'markdown-strikethrough-double-tilde'], ['**', 'markdown-strong-double-star'],
+    ];
+
+    /**
+     * @var string
+     */
     public const DECIDED = '!"#$%\'(*+-./:<=>@[\\]^`{|}';
 
     public static function isPunct(string $c): bool
@@ -139,14 +153,176 @@ final class Text
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
-            $escape = $i === $marks || (str_contains(self::PUNCT, $ch) && !($c->inBracket && isset($balanced[$i]))
-                && self::needs($value, $i, $prev, $after, $c, $next));
+            $escape = $i === $marks || isset($c->pairEscapes[$i]) || (str_contains(self::PUNCT, $ch)
+                && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next));
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
             $prev = $byte;
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-146: the text `$value` written with the backslashes the pair rules of lint ask for on its spelling, each
+     * mark of a reported opening run escaped, until they ask for none. `$c` is the context before the text.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return string
+     */
+    public static function escapePairs(string $value, Context $c, int $next): string
+    {
+        $start = clone $c;
+        $forced = $c->runPairEscapes[$c->textPath] ?? [];
+        $c->pairEscapes = $forced;
+        $out = self::escape($value, $c, $next);
+        $c->pairEscapes = [];
+        for ($round = 0; $round < 64; $round++) {
+            $asked = self::pairOpeners($out, $c->escapedAt, $value);
+            $asked = array_diff_key($asked, $forced);
+            if ($asked === []) {
+                break;
+            }
+            $forced += $asked;
+            $again = clone $start;
+            $again->pairEscapes = $forced;
+            // The first write charged the reparse of its first line; the same line again is no new repair state.
+            $again->writerState = null;
+            $out = self::escape($value, $again, $next);
+            foreach (get_object_vars($again) as $name => $field) {
+                $c->{$name} = $field;
+            }
+            $c->pairEscapes = [];
+            $c->writerState = $start->writerState;
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-W-146: the offsets of the text nodes of each run of text and soft breaks in `$log` that the pair rules ask a
+     * backslash for, by path.
+     *
+     * @param array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string}> $log
+     *
+     * @return array<string, array<int, bool>>
+     */
+    public static function runPairOpeners(array $log): array
+    {
+        $runs = [];
+        $last = [];
+        foreach ($log as $entry) {
+            $slash = strrpos($entry['path'], '/');
+            $list = substr($entry['path'], 0, (int)$slash);
+            $index = (int)substr($entry['path'], (int)$slash + 1);
+            if (isset($last[$list]) && $last[$list][0] === $index - 1) {
+                $runs[$last[$list][1]][] = $entry;
+            } else {
+                $runs[] = [$entry];
+            }
+            $last[$list] = [$index, array_key_last($runs)];
+        }
+        $asked = [];
+        foreach ($runs as $run) {
+            if (count($run) < 2) {
+                continue;
+            }
+            $source = '';
+            $owners = [];
+            foreach ($run as $at => $entry) {
+                $source .= substr($entry['out'], 0, $entry['prefix']);
+                $owners[$at] = strlen($source);
+                $source .= substr($entry['out'], $entry['prefix']);
+            }
+            foreach (self::PAIR_RULES as [$mark, $id]) {
+                $size = strlen($mark);
+                foreach (NodeRulesA::pairRanges($source, $mark, $id) as [$from]) {
+                    for ($k = 0; $k < $size; $k++) {
+                        self::askRun($run, $owners, $from + $k, $asked);
+                    }
+                }
+            }
+        }
+
+        return $asked;
+    }
+
+    /**
+     * @param-out array<string, array<int, bool>> $asked
+     *
+     * @param array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string}> $run
+     * @param array<int, int> $owners Where the text of each entry starts in the source of the run.
+     * @param int $byte
+     * @param array<string, array<int, bool>> $asked
+     *
+     * @return void
+     */
+    private static function askRun(array $run, array $owners, int $byte, array &$asked): void
+    {
+        foreach ($run as $at => $entry) {
+            $from = $owners[$at];
+            $written = substr($entry['out'], $entry['prefix']);
+            if ($byte < $from || $byte >= $from + strlen($written) || $entry['value'] === '') {
+                continue;
+            }
+            $place = self::pairOpeners($written, $entry['escaped'], $entry['value'], $byte - $from);
+            foreach ($place as $i => $_) {
+                $asked[$entry['path']][$i] = true;
+            }
+
+            return;
+        }
+    }
+
+    /**
+     * @param string $out The text as written.
+     * @param array<int, bool> $escaped Whether each byte offset of `$value` took a backslash.
+     * @param string $value
+     * @param int $only A byte of `$out` whose offset in `$value` is asked for alone, or -1 for the pairs of `$out`.
+     *
+     * @return array<int, bool> The offsets of `$value` that the pair rules ask a backslash for.
+     */
+    private static function pairOpeners(string $out, array $escaped, string $value, int $only = -1): array
+    {
+        if (strpbrk($out, '_~=*') === false) {
+            return [];
+        }
+        // The offset in `$value` of each byte of `$out` that a character of the value starts.
+        $place = [];
+        $at = 0;
+        $n = strlen($value);
+        for ($i = 0; $i < $n; $i++) {
+            if ($escaped[$i] ?? false) {
+                $at++;
+            }
+            $place[$at] = $i;
+            $at++;
+        }
+        $asked = [];
+        if ($only >= 0) {
+            $i = $place[$only] ?? null;
+            if ($i !== null && !($escaped[$i] ?? false)) {
+                $asked[$i] = true;
+            }
+
+            return $asked;
+        }
+        foreach (self::PAIR_RULES as [$mark, $id]) {
+            $size = strlen($mark);
+            foreach (NodeRulesA::pairRanges($out, $mark, $id) as [$from]) {
+                for ($k = 0; $k < $size; $k++) {
+                    $i = $place[$from + $k] ?? null;
+                    if ($i !== null && !($escaped[$i] ?? false)) {
+                        $asked[$i] = true;
+                    }
+                }
+            }
+        }
+
+        return $asked;
     }
 
     /**

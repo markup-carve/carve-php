@@ -117,8 +117,12 @@ final class WriterClausesTest extends TestCase
     public static function importedLosses(): array
     {
         return [
-            'C2-M-074 an imported row span' => [
+            'C2-W-145 an imported row span is spelled with a mark' => [
                 '<table><tr><td rowspan="2">a</td><td>b</td></tr><tr><td>c</td></tr></table>',
+                [],
+            ],
+            'C2-W-145 an imported cell with both counts loses its row span' => [
+                '<table><tr><td rowspan="2" colspan="2">a</td><td>b</td></tr><tr><td>c</td></tr></table>',
                 ['field-unspellable'],
             ],
             'C2-W-057 a row with no cell' => [
