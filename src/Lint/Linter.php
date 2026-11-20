@@ -222,8 +222,9 @@ final class Linter
         $c->nodeTypes[$path] = $type;
         if ($c->dataRules) {
             $compact = array_intersect_key($node, array_flip(['type', 'form', 'pos', 'attrs', 'task']));
-            $compact['imageLine'] = count($node['children'] ?? []) === 1
-                && ($node['children'][0]['type'] ?? '') === 'image';
+            $children = $node['children'] ?? null;
+            $compact['imageLine'] = is_array($children) && count($children) === 1
+                && is_array($children[0] ?? null) && ($children[0]['type'] ?? '') === 'image';
             $c->walked[] = ['node' => $compact, 'path' => $path, 'parent' => $parent, 'index' => $index];
         }
         $attrs = $node['attrs'] ?? null;

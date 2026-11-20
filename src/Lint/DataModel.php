@@ -10,7 +10,7 @@ use stdClass;
 final class DataModel
 {
     /**
-     * @var array
+     * @var array<string, true>
      */
     private const LEAVES = [
         'paragraph' => true,
@@ -27,12 +27,12 @@ final class DataModel
     ];
 
     /**
-     * @var array
+     * @var array<string, true>
      */
     private const VERBATIM = ['code_block' => true, 'raw_block' => true, 'frontmatter' => true, 'comment_block' => true];
 
     /**
-     * @var array
+     * @var array<string, true>
      */
     private const INLINE_HOLDERS = [
         'paragraph' => true,
@@ -49,7 +49,7 @@ final class DataModel
     ];
 
     /**
-     * @var array
+     * @var array<string, true>
      */
     private const INLINE_LEAVES = [
         'paragraph' => true,
@@ -95,6 +95,8 @@ final class DataModel
      */
     private array $quoteDepths = ['' => 0];
 
+    private int $maskCursor = 0;
+
     /**
      * @param \MarkupCarve\Carve\Lint\Context $context
      * @param \Closure(\stdClass): void $onInline
@@ -105,6 +107,9 @@ final class DataModel
         $this->build();
     }
 
+    /**
+     * @param array<string, mixed> $node
+     */
     private static function type(array $node): string
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
@@ -158,10 +163,12 @@ final class DataModel
         }
         $text = $line->text;
         $length = strlen($text);
-        foreach ($this->context->leafMask as [$from, $to]) {
-            if ($to <= $line->start || $from >= $line->end) {
-                continue;
-            }
+        $masks = $this->context->leafMask;
+        while (isset($masks[$this->maskCursor]) && $masks[$this->maskCursor][1] <= $line->start) {
+            $this->maskCursor++;
+        }
+        for ($j = $this->maskCursor; isset($masks[$j]) && $masks[$j][0] < $line->end; $j++) {
+            [$from, $to] = $masks[$j];
             $a = max(0, $from - $line->start);
             $b = min($length, $to - $line->start);
             for ($i = $a; $i < $b; $i++) {
@@ -215,9 +222,11 @@ final class DataModel
             } elseif ($parentHolder === null) {
                 $this->blockWalked[] = $item;
             }
-            $this->holderByPath[$item['path']] = isset(self::INLINE_HOLDERS[$type])
-                ? ['type' => $type, 'inline' => isset(self::INLINE_LEAVES[$type])]
-                : $parentHolder;
+            if (isset(self::INLINE_HOLDERS[$type])) {
+                $this->holderByPath[$item['path']] = ['type' => $type, 'inline' => isset(self::INLINE_LEAVES[$type])];
+            } elseif ($parentHolder !== null) {
+                $this->holderByPath[$item['path']] = $parentHolder;
+            }
         }
         $c->walked = [];
         $this->holderByPath = [];
@@ -524,7 +533,7 @@ final class DataModel
      * @param int $at
      * @param list<\stdClass> $bounds
      * @param int $next
-     * @param list<\stdClass> $open
+     * @param array<int, \stdClass> $open
      */
     private static function boundaryAt(int $at, array $bounds, int &$next, array &$open): string
     {
