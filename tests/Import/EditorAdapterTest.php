@@ -18,20 +18,6 @@ use PHPUnit\Framework\TestCase;
 final class EditorAdapterTest extends TestCase
 {
     /**
-     * The generic cases pin carve-js's escaped `\[1\]` inside link text; the bare spelling of this writer gives the same
-     * tree (C2-W-088). Their trees are still compared.
-     *
-     * @var array<string, string>
-     */
-    private const SPELLING_DIFFERS = [
-        'CC-1419' => 'markup-carve/carve#6254',
-        'CC-1420' => 'markup-carve/carve#6254',
-        'CC-1421' => 'markup-carve/carve#6254',
-        'CC-1422' => 'markup-carve/carve#6254',
-        'CC-1423' => 'markup-carve/carve#6254',
-    ];
-
-    /**
      * @return array<string, array{0: array<string, mixed>}>
      */
     public static function adapterCases(): array
@@ -73,9 +59,7 @@ final class EditorAdapterTest extends TestCase
         foreach ($expected['diagnostics'] ?? [] as $code) {
             $this->assertContains(is_array($code) ? $code['code'] : $code, $result->codes());
         }
-        if (!isset(self::SPELLING_DIFFERS[$case['id']])) {
-            $this->assertSame($expected['carve'], $result->source);
-        }
+        $this->assertSame($expected['carve'], $result->source);
     }
 
     public function testTheHubRefusesAnAdapter(): void

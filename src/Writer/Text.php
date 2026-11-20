@@ -1034,10 +1034,10 @@ final class Text
         if ($ch === '^') {
             return $gap ? 0 : -1;
         }
-        if ($c->owner !== 'body') {
+        if (!in_array($c->owner, ['body', 'description'], true)) {
             return -1;
         }
-        if ($ch === ':') {
+        if ($ch === ':' && $c->owner === 'description') {
             // A comment-only line does not open a definition on the paragraph's next line (C2-B-137).
             if ($c->lineCommentBefore) {
                 return -1;

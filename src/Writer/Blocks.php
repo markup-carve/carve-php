@@ -51,6 +51,8 @@ final class Blocks
 
     private TableWriter $tables;
 
+    private string $bodyOwner = 'body';
+
     public function __construct(private State $w)
     {
         $this->inline = new Inline($w);
@@ -581,7 +583,7 @@ final class Blocks
         $c->lineStart = $lineStart;
         $c->afterDescriptions = $this->w->afterDescriptions;
         $c->boxLead = $this->w->lead !== null && $this->w->lead === $this->w->boxLead;
-        $c->owner = $prefix === '' ? 'top' : (str_ends_with($prefix, '> ') || str_ends_with($prefix, '>') ? 'quote' : 'body');
+        $c->owner = $prefix === '' ? 'top' : (str_ends_with($prefix, '> ') || str_ends_with($prefix, '>') ? 'quote' : $this->bodyOwner);
         $c->writerState = $this->w;
 
         return $c;
@@ -1009,7 +1011,13 @@ final class Blocks
         $behind = $this->w->lead === null ? 0 : max(0, strlen($this->w->lead) - strlen($prefix));
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        $this->blocks($children, $path . '/children', $prefix . str_repeat(' ', $behind + $width), $tight);
+        $priorOwner = $this->bodyOwner;
+        $this->bodyOwner = ($node['type'] ?? '') === 'definition_description' ? 'description' : 'body';
+        try {
+            $this->blocks($children, $path . '/children', $prefix . str_repeat(' ', $behind + $width), $tight);
+        } finally {
+            $this->bodyOwner = $priorOwner;
+        }
         if ($this->w->lead === null) {
             return;
         }
