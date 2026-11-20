@@ -68,13 +68,6 @@
      0,
      5,
      "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
-    ],
-    [
-     "block-marker-as-text",
-     "/children/0",
-     8,
-     11,
-     "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
     ]
    ]
   },
@@ -1150,13 +1143,6 @@
      "/children/0/children/0/children/0",
      2,
      5,
-     "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
-    ],
-    [
-     "block-marker-as-text",
-     "/children/0/children/0/children/0",
-     8,
-     11,
      "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
     ]
    ]
