@@ -117,11 +117,7 @@ final class InlineRenderer
     {
         $out = '';
         if ($this->profile !== null) {
-            foreach (self::dropCommentLineBreaks($nodes, $nested, $this->profile) as $node) {
-                $out .= $this->profile->inline($node, $depth, $this);
-            }
-
-            return $out;
+            return $this->profileInlines($nodes, $depth, $nested, $this->profile);
         }
         // With no comment in the tree, or a single node, C2-H-069 drops nothing.
         $list = $this->state->comments && count($nodes) > 1 ? self::dropCommentLineBreaks($nodes, $nested) : $nodes;
@@ -140,6 +136,29 @@ final class InlineRenderer
                     : Escape::text(PlainText::str($value));
             } else {
                 $out .= $this->other($node, $list, $i, $depth);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node> $nodes
+     * @param int $depth
+     * @param bool $nested
+     * @param \MarkupCarve\Carve\Html\Profile $profile
+     *
+     * @return string
+     */
+    private function profileInlines(array $nodes, int $depth, bool $nested, Profile $profile): string
+    {
+        $list = array_values(self::dropCommentLineBreaks($nodes, $nested, $profile));
+        $out = '';
+        foreach ($list as $i => $node) {
+            if ($node->type === 'smart_punctuation' && $this->o->quotes !== null && $profile->allowsInline($node)) {
+                $out .= Escape::text($this->quote($node, $this->o->quotes, $list[$i - 1] ?? null, $list[$i + 1] ?? null));
+            } else {
+                $out .= $profile->inline($node, $depth, $this);
             }
         }
 
