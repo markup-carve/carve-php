@@ -28,6 +28,16 @@ final class LintRulings20NovemberTest extends TestCase
             '6192 quote mark' => ["   > q\n", 'block-opener-overindented', [[3, 4]]],
             '6192 table row' => ["   | a |\n", 'block-opener-overindented', [[3, 4]]],
             '6192 attributed div opener' => ["   {.x}\n   :::: foo\n   x\n   ::::\n", 'block-opener-overindented', [[11, 15]]],
+            '6192 opener deeper than its attribute line' => [
+                "   {.x}\n    :::: foo\n    x\n    ::::\n",
+                'block-opener-overindented',
+                [[12, 16]],
+            ],
+            '6192 opener less deep than its attribute line' => [
+                "    {.x}\n   :::: foo\n   x\n   ::::\n",
+                'block-opener-overindented',
+                [[12, 16]],
+            ],
             '6191 trailing no-break space stays' => [">a\u{a0}\n", 'blockquote-marker-without-space', [[0, 4]]],
             '6193 include line' => ["- a\n\n      {{ x.crv }}\n", 'list-item-block-overindented', []],
             '6194 trailing spaces' => [":::: x\n:::::  \n", 'colon-fence-length-mismatch', [[7, 12]]],

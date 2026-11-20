@@ -807,8 +807,14 @@ final class NodeRulesB
             if (!str_starts_with($rest, '{') || preg_match('/^\{[^{}]*\}$/', $rest) !== 1) {
                 return $start;
             }
-            $nextEnd = strcspn($c->source, "\n", $end + 1);
-            $start = $end + 1 + min($start - $lineStart, $nextEnd);
+            // The opener may stand at another indent than its attribute line: find its first character on its own line.
+            $next = substr($c->source, $end + 1, strcspn($c->source, "\n", $end + 1));
+            $at = min($start - $lineStart, strlen($next));
+            $at += strspn($next, " \t", $at);
+            while ($at > 0 && !str_contains(" \t>", $next[$at - 1])) {
+                $at--;
+            }
+            $start = $end + 1 + $at;
         }
     }
 
