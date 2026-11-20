@@ -243,7 +243,7 @@ final class DataModel
                             } else {
                                 $run = (object)[
                                     'type' => 'text_run',
-                                    'path' => $key,
+                                    'path' => $item['path'],
                                     'parent' => $parentType,
                                     'leaf' => $parentHolder['type'] ?? $parentType,
                                     'start' => $pos['startOffset'],

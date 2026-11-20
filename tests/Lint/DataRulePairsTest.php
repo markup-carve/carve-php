@@ -16,11 +16,11 @@ final class DataRulePairsTest extends TestCase
     public static function cases(): array
     {
         return [
-            'strict opener at source start' => ["_em_\n", [['deprecated-bare-underline', 0, 4, '/children/0']]],
+            'strict opener at source start' => ["_em_\n", [['deprecated-bare-underline', 0, 4, '/children/0/children/0']]],
             'strict opener after a word' => ["a_b_\n", []],
-            'pair across a soft break' => ["_a\nb_\n", [['deprecated-bare-underline', 0, 5, '/children/0']]],
-            'pair inside a link' => ["a [~sub~](u) z\n", [['deprecated-bare-strike', 3, 8, '/children/0/children/1']]],
-            'double mark' => ["~~x~~\n", [['markdown-strikethrough-double-tilde', 0, 5, '/children/0']]],
+            'pair across a soft break' => ["_a\nb_\n", [['deprecated-bare-underline', 0, 5, '/children/0/children/0']]],
+            'pair inside a link' => ["a [~sub~](u) z\n", [['deprecated-bare-strike', 3, 8, '/children/0/children/1/children/0']]],
+            'double mark' => ["~~x~~\n", [['markdown-strikethrough-double-tilde', 0, 5, '/children/0/children/0']]],
         ];
     }
 
