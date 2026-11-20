@@ -1626,10 +1626,9 @@ final class NodeRulesB
                         $line !== null && $pos['startLine'] !== $itemLine
                         && ($type !== 'paragraph' || ($child['role'] ?? null) === 'image')
                     ) {
-                        $offset = self::indentation($line->text);
                         $quotes = $c->layout->quoteDepth($childPath);
-                        $indent = $quotes === 0 && !str_contains(substr($line->text, 0, $offset), "\t")
-                            ? $offset : $c->layout->columnOf($line->start + $offset, $quotes);
+                        $start = $c->layout->startOffset($childPath) ?? $line->start + self::indentation($line->text);
+                        $indent = $c->layout->columnOf($start, $quotes);
                         if ($indent > $content) {
                             $out[] = [$childPath, $line, $indent, $type, $content];
                         }

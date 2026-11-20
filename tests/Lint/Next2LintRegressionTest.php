@@ -16,6 +16,24 @@ final class Next2LintRegressionTest extends TestCase
     public static function cases(): array
     {
         return [
+            'attribute ends before a comment at end of document' => [
+                "{.c}\n%% x\n", 'unattached-block-attribute',
+                [['unattached-block-attribute', 0, 4]],
+            ],
+            'attribute ends before a region comment' => [
+                "{.c}\n%% #endregion\n", 'unattached-block-attribute',
+                [['unattached-block-attribute', 0, 4]],
+            ],
+            'attribute reaches a paragraph after a comment' => [
+                "{.c}\n%% x\npara\n", 'unattached-block-attribute', [],
+            ],
+            'attribute at final line feed uses end message' => [
+                "{.c}\n", 'unattached-block-attribute',
+                [['unattached-block-attribute', 0, 4]],
+            ],
+            'quoted item term below a tab is not overindented' => [
+                "> i) :::\n\t>   :: term\n", 'list-item-block-overindented', [],
+            ],
             'caption on a term continuation line' => [
                 " :: term\n: | A | B |\n  | x | y |",
                 'caption-looking-paragraph',
@@ -82,5 +100,20 @@ final class Next2LintRegressionTest extends TestCase
             }
         }
         self::assertSame($expected, $actual);
+    }
+
+    public function testFinalLineFeedDoesNotSelectBlankLineAdvice(): void
+    {
+        foreach (["{.c}\n", "para\n\n{.c}\n", "{.c}\n%% x\n"] as $source) {
+            $messages = array_values(array_map(
+                static fn ($diagnostic): string => $diagnostic->message,
+                array_filter(
+                    Carve::lint($source),
+                    static fn ($diagnostic): bool => $diagnostic->code === 'unattached-block-attribute',
+                ),
+            ));
+            self::assertCount(1, $messages);
+            self::assertStringStartsWith('This attribute line reaches no block:', $messages[0]);
+        }
     }
 }
