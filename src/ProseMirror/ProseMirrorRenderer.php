@@ -626,6 +626,10 @@ final class ProseMirrorRenderer
                 : self::withMarks(['type' => 'text', 'text' => Kit::str($node['value'])], $marks),
             'code' => $this->code($node, $marks),
             'hard_break' => self::withMarks(['type' => 'hardBreak', 'attrs' => ['carve' => Kit::carveAttr(Kit::fields($node))]], $marks),
+            'soft_break' => self::withMarks(
+                ['type' => 'carveSoftBreak', 'attrs' => ['carve' => Kit::carveAttr(Kit::fields($node))]],
+                $marks,
+            ),
             'image' => self::withMarks($this->image($node), $marks),
             'math' => self::withMarks([
 

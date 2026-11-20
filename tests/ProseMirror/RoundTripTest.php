@@ -26,11 +26,49 @@ final class RoundTripTest extends TestCase
         $this->assertRoundTrips(Documents::generated(1000), 1000);
     }
 
+    public function testAWrappedParagraphLoadsEachLineEndAsASoftBreakLeaf(): void
+    {
+        $sources = [
+            'plain' => "one\ntwo\nthree\n",
+            'marks' => "*a\nb* /c\nd/\n",
+            'link' => "[a\nb](u)\n",
+            'quote' => "> a\n> b\n",
+            'item' => "- a\n  b\n",
+            'admonition' => "::: note\na\nb\n:::\n",
+        ];
+        $renderer = new ProseMirrorRenderer();
+        foreach ($sources as $id => $source) {
+            $json = $renderer->renderJson(Carve::parse($source));
+            $this->assertStringContainsString('{"type":"carveSoftBreak","attrs":{"carve":null}', $json, $id);
+            $this->assertStringNotContainsString('soft_break', $json, $id);
+        }
+        $this->assertRoundTrips($sources, count($sources), 6);
+
+        $doc = [
+
+            'type' => 'doc',
+            'content' => [
+                [
+
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'oneX'],
+                        ['type' => 'carveSoftBreak'],
+                        ['type' => 'text', 'text' => 'Ytwo'],
+                    ],
+                ],
+            ],
+        ];
+        $this->assertSame("oneX\nYtwo\n", (new ProseMirrorToCarve())->convert($doc));
+        $this->assertSame('soft_break', ProseMirrorToCarve::carveTypeFor('carveSoftBreak'));
+    }
+
     /**
      * @param array<string, string> $sources
      * @param int $minimum
+     * @param int $minimumTypes
      */
-    private function assertRoundTrips(array $sources, int $minimum): void
+    private function assertRoundTrips(array $sources, int $minimum, int $minimumTypes = 60): void
     {
         $renderer = new ProseMirrorRenderer();
         $converter = new ProseMirrorToCarve();
@@ -62,7 +100,7 @@ final class RoundTripTest extends TestCase
         }
 
         $this->assertGreaterThanOrEqual($minimum, count($sources));
-        $this->assertGreaterThanOrEqual(60, count($types));
+        $this->assertGreaterThanOrEqual($minimumTypes, count($types));
         $this->assertSame([], $failures);
     }
 }

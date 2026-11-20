@@ -115,6 +115,7 @@ final class ProseMirrorToCarve
             'text' => 'text',
             'code' => 'code',
             'hardBreak' => 'hard_break',
+            'carveSoftBreak' => 'soft_break',
             'image' => 'image',
             'carveMath' => 'math',
             'carveFootnoteRef' => 'footnote_ref',
@@ -989,6 +990,7 @@ final class ProseMirrorToCarve
         return match ($type) {
             'text' => self::text($pm),
             'hardBreak' => self::with(['type' => 'hard_break'], Kit::treeFields($carve)),
+            'carveSoftBreak' => self::with(['type' => 'soft_break'], Kit::treeFields($carve)),
             'image' => self::image($pm),
             'carveMath' => self::with(['type' => 'math'], Kit::treeFields($carve))
                 + ['display' => ($attrs['display'] ?? null) === true, 'value' => Kit::str($attrs['value'] ?? null)],
