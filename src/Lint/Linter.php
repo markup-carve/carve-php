@@ -228,6 +228,13 @@ final class Linter
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $c->nodeTypes[$path] = $type;
+        if ($type === 'link_reference_definition') {
+            $c->referenceDefinitions[] = [$node, $path];
+        } elseif ($type === 'footnote') {
+            $c->footnoteDefinitions[] = [$node, $path];
+        } elseif ($type === 'footnote_ref') {
+            $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
+        }
         if ($c->dataRules) {
             $children = $node['children'] ?? null;
             $compact = [

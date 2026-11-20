@@ -1301,9 +1301,7 @@ final class NodeRulesB
     {
         $type = $node['type'] ?? null;
         $key = Support::str($node, 'key');
-        if ($type === 'link_reference_definition') {
-            $c->referenceDefinitions[] = [$node, $path];
-        } elseif (($type === 'link' || $type === 'image') && $key !== null) {
+        if (($type === 'link' || $type === 'image') && $key !== null) {
             $c->usedReferences[$key] = true;
         }
     }
@@ -1323,20 +1321,15 @@ final class NodeRulesB
     }
 
     /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param array<string, mixed> $_node
+     * @param string $_path
+     * @param \MarkupCarve\Carve\Lint\Context $_c
      *
      * @return void
      */
-    public static function unusedFootnote(array $node, string $path, Context $c): void
+    public static function unusedFootnote(array $_node, string $_path, Context $_c): void
     {
-        $type = $node['type'] ?? null;
-        if ($type === 'footnote') {
-            $c->footnoteDefinitions[] = [$node, $path];
-        } elseif ($type === 'footnote_ref') {
-            $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
-        }
+        // Definition and use keys are collected during every visit, including data mode.
     }
 
     /**
@@ -1478,7 +1471,7 @@ final class NodeRulesB
 
     private static function finishReferences(Context $c): void
     {
-        if ($c->off('unused-link-reference-definition')) {
+        if (!$c->active('unused-link-reference-definition')) {
             return;
         }
         foreach ($c->referenceDefinitions as [$node, $path]) {
@@ -1490,7 +1483,7 @@ final class NodeRulesB
 
     private static function finishFootnotes(Context $c): void
     {
-        if ($c->off('unused-footnote-definition')) {
+        if (!$c->active('unused-footnote-definition')) {
             return;
         }
         foreach ($c->footnoteDefinitions as [$node, $path]) {
