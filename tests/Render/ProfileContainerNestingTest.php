@@ -43,4 +43,15 @@ final class ProfileContainerNestingTest extends TestCase
         self::assertCount(1, $result->diagnostics);
         self::assertStringContainsString('exceeds the nesting limit', $result->diagnostics[0]->message);
     }
+
+    public function testExcludedTypeKeepsTypeExclusionMessage(): void
+    {
+        $result = Carve::renderWithDiagnostics('> a', ['profile' => 'minimal']);
+
+        self::assertCount(1, $result->diagnostics);
+        self::assertSame(
+            'Degraded a construct the profile "minimal" does not allow: block_quote.',
+            $result->diagnostics[0]->message,
+        );
+    }
 }
