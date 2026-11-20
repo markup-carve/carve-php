@@ -118,7 +118,7 @@ final class SpanMarks
     /**
      * @param array<mixed> $row
      * @param string $path
-     * @param array<int, array{0: string, 1: int, 2: int, 3: bool|null}> $pending
+     * @param array<int, array{0: string, 1: int, 2: int}> $pending
      * @param array<string> $unspelled
      *
      * @return array<array{0: array<mixed>, 1: string}>|null The cells with the marks, or null where it needs none.
@@ -134,24 +134,24 @@ final class SpanMarks
             $changed = self::takePending($pending, $column, $out, $cell, $unspelled) || $changed;
             $at = $path . '/children/' . $keys[$n];
             $out[] = [$cell, $at];
-            if (($cell['span'] ?? null) === 'rowspan' && ($pending[$column][3] ?? null) === true) {
+            if (($cell['span'] ?? null) === 'rowspan' && isset($pending[$column])) {
                 $pending[$column][1]--;
             }
             $colspan = self::count($cell, 'colspan');
-            $marked = self::addColumns($cells, $n, $colspan, $at, $out);
-            $changed = $changed || !$marked;
+            $missing = self::addColumns($cells, $n, $colspan, $at, $out);
+            $changed = $changed || $missing > 0;
             $rowspan = self::count($cell, 'rowspan');
             if ($rowspan > 1) {
-                $pending[$column] = [$at, $rowspan - 1, $colspan, null];
+                $pending[$column] = [$at, $rowspan - 1, $colspan];
             }
-            $column += $marked ? 1 : $colspan;
+            $column += 1 + $missing;
         }
         $changed = self::takePending($pending, $column, $out, null, $unspelled) || $changed;
         // A row span that no cell of this row reaches has no place in it.
         foreach ($pending as $start => $held) {
             if ($start >= $column && $held[1] > 0) {
                 $pending[$start][1]--;
-                if ($held[3] !== true && !in_array($held[0], $unspelled, true)) {
+                if (!in_array($held[0], $unspelled, true)) {
                     $unspelled[] = $held[0];
                 }
             }
@@ -161,7 +161,7 @@ final class SpanMarks
     }
 
     /**
-     * Adds the `<` marks of the cell `$cells[$n]` where the tree holds none. Returns whether it holds them or needs none.
+     * Adds the `<` marks of the cell `$cells[$n]` that the tree does not hold behind it. Returns how many it added.
      *
      * @param array<array<mixed>> $cells
      * @param int $n
@@ -169,44 +169,44 @@ final class SpanMarks
      * @param string $at The path of the cell.
      * @param array<array{0: array<mixed>, 1: string}> $out
      *
-     * @return bool
+     * @return int
      */
-    private static function addColumns(array $cells, int $n, int $colspan, string $at, array &$out): bool
+    private static function addColumns(array $cells, int $n, int $colspan, string $at, array &$out): int
     {
-        if (isset($cells[$n]['span']) || $colspan === 1 || self::markedColumns($cells, $n, $colspan)) {
-            return true;
+        if (isset($cells[$n]['span'])) {
+            return 0;
         }
-        for ($k = 1; $k < $colspan; $k++) {
+        $missing = $colspan - 1 - self::markedColumns($cells, $n, $colspan);
+        for ($k = 0; $k < $missing; $k++) {
             $out[] = [self::mark('colspan'), $at];
         }
 
-        return false;
+        return $missing;
     }
 
     /**
-     * Whether the `$colspan - 1` cells behind `$cells[$at]` are its marks.
+     * How many of the `$colspan - 1` cells behind `$cells[$at]` are its marks.
      *
      * @param array<array<mixed>> $cells
      * @param int $at
      * @param int $colspan
      *
-     * @return bool
+     * @return int
      */
-    private static function markedColumns(array $cells, int $at, int $colspan): bool
+    private static function markedColumns(array $cells, int $at, int $colspan): int
     {
-        for ($k = 1; $k < $colspan; $k++) {
-            if (($cells[$at + $k]['span'] ?? null) !== 'colspan') {
-                return false;
-            }
+        $held = 0;
+        while ($held < $colspan - 1 && ($cells[$at + 1 + $held]['span'] ?? null) === 'colspan') {
+            $held++;
         }
 
-        return true;
+        return $held;
     }
 
     /**
      * The marks of the row spans from above that hold the columns from `$column` on, before the cell `$next`.
      *
-     * @param array<int, array{0: string, 1: int, 2: int, 3: bool|null}> $pending
+     * @param array<int, array{0: string, 1: int, 2: int}> $pending
      * @param int $column
      * @param array<array{0: array<mixed>, 1: string}> $out
      * @param array<mixed>|null $next
@@ -217,13 +217,9 @@ final class SpanMarks
     private static function takePending(array &$pending, int &$column, array &$out, ?array $next, array &$unspelled): bool
     {
         $added = false;
-        while (isset($pending[$column]) && $pending[$column][1] > 0) {
-            // The first row below a count tells whether the tree holds its marks.
-            $pending[$column][3] ??= ($next['span'] ?? null) === 'rowspan';
-            [$at, , $width, $marked] = $pending[$column];
-            if ($marked) {
-                break;
-            }
+        // A `^` the tree holds at the column is the mark of its row, so none is added.
+        while (isset($pending[$column]) && $pending[$column][1] > 0 && ($next['span'] ?? null) !== 'rowspan') {
+            [$at, , $width] = $pending[$column];
             // A `^` below a cell of more than one column joins nothing, so that row span stays unspelled.
             if ($width === 1) {
                 $out[] = [self::mark('rowspan'), $at];

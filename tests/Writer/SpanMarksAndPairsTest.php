@@ -123,6 +123,45 @@ final class SpanMarksAndPairsTest extends TestCase
         $this->assertSame([], $written->diagnostics);
     }
 
+    public function testACountWithSomeOfItsMarksGetsOnlyTheRest(): void
+    {
+        $cell = static fn (string $value, array $extra = []): array => [
+
+            'type' => 'table_cell',
+            'header' => false,
+            'children' => [['type' => 'cell_paragraph', 'children' => [['type' => 'text', 'value' => $value]]]],
+        ] + $extra;
+        $mark = static fn (string $span): array => ['type' => 'table_cell', 'header' => false, 'span' => $span, 'children' => []];
+        $table = static fn (int $columns, array $rows): array => [
+
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'table',
+                    'columns' => array_fill(0, $columns, ['type' => 'table_column']),
+                    'children' => [
+                        [
+
+                            'type' => 'table_body',
+                            'children' => array_map(static fn (array $cells): array => [
+                                'type' => 'table_row',
+                                'children' => $cells,
+                            ], $rows),
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $written = Writer::writeWithDiagnostics($table(3, [[$cell('a', ['colspan' => 3]), $mark('colspan')]]));
+        $this->assertSame("| a | < | < |\n", $written->source);
+        $written = Writer::writeWithDiagnostics($table(2, [
+            [$cell('a', ['rowspan' => 3]), $cell('b')], [$mark('rowspan'), $cell('c')], [$cell('d')],
+        ]));
+        $this->assertSame("| a | b |\n| ^ | c |\n| ^ | d |\n", $written->source);
+        $this->assertSame([], $written->diagnostics);
+    }
+
     /**
      * @param mixed $node
      *
