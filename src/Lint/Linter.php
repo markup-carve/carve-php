@@ -212,6 +212,9 @@ final class Linter
         if ($type === 'paragraph' || $type === 'definition_term') {
             $c->paragraphStarts[$path] = $pos['startOffset'];
         }
+        if ($type === 'underline') {
+            $c->underlineStarts[$pos['startOffset']] = true;
+        }
         self::markContent($type, $pos, $c);
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
         if (isset(self::OPAQUE_LEAVES[$type])) {

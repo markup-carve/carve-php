@@ -391,7 +391,8 @@ final class LineRules
         }
         $second = $text[1] ?? '';
         $opens = $second === '.' || $second === '#' || $second === '_' || ($second !== '' && ctype_alpha($second));
-        if (str_starts_with($text, '{') && $opens && !self::isAttributeLine($text)) {
+        $underline = $second === '_' && isset($c->underlineStarts[$start]);
+        if (str_starts_with($text, '{') && $opens && !$underline && !self::isAttributeLine($text)) {
             $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'an attribute line']);
         }
     }
