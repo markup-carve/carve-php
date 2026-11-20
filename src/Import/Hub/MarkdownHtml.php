@@ -36,7 +36,7 @@ final class MarkdownHtml
         $environment = new Environment([
             'html_input' => 'allow',
             'allow_unsafe_links' => true,
-            'footnote' => ['container_add_hr' => false, 'enable_inline_footnotes' => false],
+            ...($gfm ? ['footnote' => ['container_add_hr' => false, 'enable_inline_footnotes' => false]] : []),
         ]);
         $environment->addExtension(new CommonMarkCoreExtension());
         // GFM without the tag filter: raw HTML stays raw in the tree, and the render decides what reaches the output.

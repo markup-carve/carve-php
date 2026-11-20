@@ -20,6 +20,11 @@ final class HubImporterTest extends TestCase
         return Carve::importDocument($input, ['from' => $from])->source;
     }
 
+    public function testMarkdownHeadingAtMinimumDependencyVersion(): void
+    {
+        $this->assertSame("= Hi\n", self::source("# Hi\n", 'markdown'));
+    }
+
     public function testKeepsARawHtmlBlockAndInlineHtmlRaw(): void
     {
         $this->assertSame(
