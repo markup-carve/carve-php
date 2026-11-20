@@ -294,6 +294,10 @@ final class DataModel
         unset($runs, $openRuns);
         $c->walked = [];
         $this->holderByPath = [];
+        // The line records reuse memory freed by the walk. Large allocator caches can otherwise force a new 2 MB page.
+        if (memory_get_usage(true) - memory_get_usage(false) > 16 * 1024 * 1024) {
+            gc_mem_caches();
+        }
         $count = count($c->lines);
         if ($count > 1 && $c->lines[$count - 1]->text === '' && str_ends_with($c->source, "\n")) {
             $count--;
