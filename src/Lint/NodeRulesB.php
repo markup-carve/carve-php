@@ -640,9 +640,9 @@ final class NodeRulesB
      */
     public static function listItemBlockIndent(array $node, string $path, Context $c): void
     {
-        foreach (self::overindented($node, $path, $c) as [$at, $line, $indent, , $content]) {
-            $start = $c->layout->startOffset($path . '/children/' . $at) ?? $line->start;
-            $c->report('list-item-block-overindented', $start, $line->end, $path . '/children/' . $at, [
+        foreach (self::overindented($node, $path, $c) as [$childPath, $line, $indent, , $content]) {
+            $start = $c->layout->startOffset($childPath) ?? $line->start;
+            $c->report('list-item-block-overindented', $start, $line->end, $childPath, [
                 'contentColumn' => (string)($content + 1),
             ]);
         }
@@ -717,7 +717,7 @@ final class NodeRulesB
             return;
         }
         [$ownerPath, $ownerType] = self::blockOwner($path, $c);
-        if ($ownerType === 'list_item') {
+        if (self::listItemThroughDiv($ownerPath, $ownerType, $c)) {
             return;
         }
         $quote = self::ancestorPath($path, $c, 'block_quote');
@@ -793,6 +793,22 @@ final class NodeRulesB
         }
 
         return [$ownerPath, $ownerType];
+    }
+
+    private static function listItemThroughDiv(string $path, string $type, Context $c): bool
+    {
+        if ($type === 'list_item') {
+            return true;
+        }
+        while (in_array($type, ['div', 'admonition', 'directive', 'figure_group'], true)) {
+            $path = Support::parent($path) ?? '';
+            $type = $c->nodeTypes[$path] ?? 'document';
+            if ($type === 'list_item') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function ancestorPath(string $path, Context $c, string $type): ?string
@@ -1522,14 +1538,14 @@ final class NodeRulesB
     }
 
     /**
-     * The children of a list item that open a block past its content column: index, line, indentation, type, content
+     * The descendants of a list item that open a block past its content column: path, line, indentation, type, content
      * column.
      *
      * @param array<string, mixed> $node
      * @param string $path
      * @param \MarkupCarve\Carve\Lint\Context $c
      *
-     * @return array<array{0: int, 1: \MarkupCarve\Carve\Lint\Line, 2: int, 3: string, 4: int}>
+     * @return array<array{0: string, 1: \MarkupCarve\Carve\Lint\Line, 2: int, 3: string, 4: int}>
      */
     private static function overindented(array $node, string $path, Context $c): array
     {
@@ -1538,30 +1554,33 @@ final class NodeRulesB
             return [];
         }
         $out = [];
-        foreach (Support::kids($node) as $at => $child) {
-            $type = Support::str($child, 'type') ?? '';
-            $pos = Support::pos($child);
-            if ($type === 'list' || $type === 'comment' || $pos === null) {
-                continue;
+        $itemLine = Support::pos($node)['startLine'] ?? -1;
+        $walk = static function (array $children, string $parentPath) use (&$walk, &$out, $c, $content, $itemLine): void {
+            foreach ($children as $at => $child) {
+                $childPath = $parentPath . '/children/' . $at;
+                $type = Support::str($child, 'type') ?? '';
+                $pos = Support::pos($child);
+                if ($type !== 'list' && $type !== 'comment' && $pos !== null) {
+                    $line = $c->lines[$pos['startLine'] - 1] ?? null;
+                    if (
+                        $line !== null && $pos['startLine'] !== $itemLine
+                        && ($type !== 'paragraph' || ($child['role'] ?? null) === 'image')
+                    ) {
+                        $offset = self::indentation($line->text);
+                        $quotes = $c->layout->quoteDepth($childPath);
+                        $indent = $quotes === 0 && !str_contains(substr($line->text, 0, $offset), "\t")
+                            ? $offset : $c->layout->columnOf($line->start + $offset, $quotes);
+                        if ($indent > $content) {
+                            $out[] = [$childPath, $line, $indent, $type, $content];
+                        }
+                    }
+                }
+                if (in_array($type, ['div', 'admonition', 'directive', 'figure_group'], true)) {
+                    $walk(Support::kids($child), $childPath);
+                }
             }
-            $line = $c->lines[$pos['startLine'] - 1] ?? null;
-            if ($line === null) {
-                continue;
-            }
-            if (
-                $pos['startLine'] === (Support::pos($node)['startLine'] ?? -1)
-                || ($type === 'paragraph' && ($child['role'] ?? null) !== 'image')
-            ) {
-                continue;
-            }
-            $offset = self::indentation($line->text);
-            $quotes = $c->layout->quoteDepth($path);
-            $indent = $quotes === 0 && !str_contains(substr($line->text, 0, $offset), "\t")
-                ? $offset : $c->layout->columnOf($line->start + $offset, $quotes);
-            if ($indent > $content) {
-                $out[] = [$at, $line, $indent, $type, $content];
-            }
-        }
+        };
+        $walk(Support::kids($node), $path);
 
         return $out;
     }

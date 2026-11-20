@@ -80,7 +80,7 @@ final class TypedCoreClauseTest extends TestCase
                 $node = TreeReader::read(json_encode($case['tree'], JSON_THROW_ON_ERROR), $options);
                 self::assertSame($expected['html'], HtmlRenderer::render($node, Options::from($options)));
             } else {
-                self::assertSame($expected['html'], Carve::toHtml($source, $options));
+                self::assertSame($expected['html'], Carve::renderWithDiagnostics($source, $options)->html);
             }
         }
         if (isset($expected['diagnostics']) || isset($expected['notReported'])) {

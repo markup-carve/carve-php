@@ -52,6 +52,20 @@ final class Next2OwnerAndVoidRulesTest extends TestCase
         }
     }
 
+    public function testDivInsideListItemKeepsOverindentedOpenerWithItem(): void
+    {
+        $source = "1. ::::\n    >\n";
+        $actual = array_values(array_map(
+            static fn ($diagnostic): array => [$diagnostic->code, $diagnostic->startOffset, $diagnostic->endOffset],
+            array_filter(Carve::lint($source), static fn ($diagnostic): bool => in_array(
+                $diagnostic->code,
+                ['list-item-block-overindented', 'block-opener-overindented'],
+                true,
+            )),
+        ));
+        self::assertSame([['list-item-block-overindented', 12, 13]], $actual);
+    }
+
     /**
      * @param string $source
      * @param array<string, mixed> $options
