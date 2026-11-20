@@ -261,6 +261,10 @@ final class Blocks
             return 0;
         }
         if (self::isCommentLine($node) && $this->isOpenContainer($before)) {
+            $marker = '/^#(?:region[ \t]+[A-Za-z_][A-Za-z0-9_-]*|endregion(?:[ \t]+[A-Za-z_][A-Za-z0-9_-]*)?)$/';
+            if (preg_match($marker, Inline::str($node, 'value')) === 1) {
+                return 1;
+            }
             // C2-B-138: the line stays in the container, unless it ends a fence that the container ends with.
             if ($this->lastFence($before) !== null) {
                 return 0;
