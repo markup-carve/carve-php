@@ -40,6 +40,7 @@ final class Writer
             return new WriteResult('', $w->losses);
         }
         $source = implode("\n", $w->lines) . "\n";
+        $source = ControlLines::keepAbove($source, ControlLines::source($layout), $w->extensions);
         // C2-W-099: a first block that would read as another tree on line 1 stands below one blank line.
         $first = is_array($children[0] ?? null) ? $children[0] : [];
         $opener = LineShapes::frontmatter($source, 0, (int)strpos($source, "\n")) !== null;
