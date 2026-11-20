@@ -716,18 +716,34 @@ final class LineRules
         ) {
             return;
         }
-        if (isset($c->attachedLines[$line->number])) {
+        $next = $c->lines[$line->number] ?? null;
+        if (isset($c->attachedLines[$line->number]) && self::attributeReachesBlock($line, $c, $next)) {
             return;
         }
-        $next = $c->lines[$line->number] ?? null;
+        // The empty entry after a final LF is not an authored blank line (C2-B-010).
+        if ($next !== null && $next->start === strlen($c->source) && $next->text === '') {
+            $next = null;
+        }
         $blank = self::blankness($next, $c->layout->quoteDepth($line->path));
         if (
             $next !== null && $blank === 'text' && !$next->paragraph
+            && preg_match('/^[ \t]*(?:> )*[ \t]*%%/', $next->text) !== 1
             && preg_match('/^[ \t]*(?:> )*[ \t]*:{3,}[ \t]*$/', $next->text) !== 1
         ) {
             return;
         }
         $c->report('unattached-block-attribute', $start, $start + strlen($text), $line->path, [], $blank === 'blank' ? 1 : 0);
+    }
+
+    private static function attributeReachesBlock(Line $line, Context $c, ?Line $next): bool
+    {
+        $at = $line->number;
+        while ($next !== null && preg_match('/^[ \t]*(?:> )*[ \t]*%%/', $next->text) === 1) {
+            $next = $c->lines[++$at] ?? null;
+        }
+
+        return $next !== null && $next->start < strlen($c->source)
+            && self::blankness($next, $c->layout->quoteDepth($line->path)) === 'text';
     }
 
     private static function markdownDefinition(Line $line, Context $c): void
