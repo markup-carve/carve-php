@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Diagnostics\Message;
+use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Html\RenderState;
@@ -98,6 +99,11 @@ final class Exporter
     private RenderState $state;
 
     /**
+     * @var array<string, \MarkupCarve\Carve\Extension\ExtensionDefinition>
+     */
+    private array $extensions = [];
+
+    /**
      * @param string $target `markdown`, `plain` or `ansi`.
      * @param \MarkupCarve\Carve\Node $document The resolved copy.
      * @param \MarkupCarve\Carve\Options $options
@@ -111,6 +117,9 @@ final class Exporter
     ) {
         $this->smartTypography = $options->smartTypography;
         $this->state = new RenderState($document, $options, null, $facts);
+        foreach ($options->extensions as $definition) {
+            $this->extensions[$definition->name] = $definition;
+        }
     }
 
     /**
@@ -127,9 +136,20 @@ final class Exporter
     public static function start(string $target, Node|array $tree, array $options): self
     {
         foreach ($options as $name => $value) {
-            if (!in_array($name, ['smartTypography', 'strictLosses', 'urlPolicy'], true)) {
+            if (!in_array($name, ['smartTypography', 'strictLosses', 'urlPolicy', 'extensions'], true)) {
                 throw new OptionError('unknown option ' . $name);
             }
+        }
+        if (isset($options['extensions']) && is_array($options['extensions'])) {
+            $definitions = [];
+            foreach ($options['extensions'] as $extension) {
+                if ($extension instanceof ExtensionProvider) {
+                    array_push($definitions, ...$extension->definitions());
+                } else {
+                    $definitions[] = $extension;
+                }
+            }
+            $options['extensions'] = $definitions;
         }
         $opts = Options::from($options);
         $resolve = Closure::bind(static fn (Node|array $t, Options $o): array => Carve::resolvedTree($t, $o), null, Carve::class);
@@ -172,6 +192,26 @@ final class Exporter
     public function loss(?Node $node, string $code, string $message, string $severity = 'warning'): void
     {
         $this->losses[] = [$code, $severity, $message, $node];
+    }
+
+    /**
+     * Write a qualified extension with its registered target callback, or its core fallback.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     * @param \Closure(): string $fallback
+     */
+    public function extensionOutput(Node $node, Closure $fallback): string
+    {
+        $name = PlainText::str($node->f['name'] ?? '');
+        $version = $node->f['version'] ?? null;
+        $definition = $this->extensions[$name] ?? null;
+        $exporter = $definition !== null && $definition->version === $version
+            ? ($definition->exporters[$this->target] ?? null) : null;
+        if ($exporter === null) {
+            return $fallback();
+        }
+
+        return $exporter($node, new ExportHost($this->target, $fallback));
     }
 
     /**

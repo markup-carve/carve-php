@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use Closure;
+use MarkupCarve\Carve\OptionError;
 
 /**
  * The registration of an extension (C2-X-001, C2-X-002, C2-X-033): its qualified name and version, the slots in the
@@ -29,6 +30,8 @@ final class ExtensionDefinition
      *   single, quote glyphs that smart typography writes.
      * @param (\Closure(\MarkupCarve\Carve\Node): \MarkupCarve\Carve\Node)|null $documentTransform C2-X-053: a document
      *   transform the extension registers; `render()` runs it, in registration order, on the render view.
+     * @param array<string, \Closure(\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Export\ExportHost): string> $exporters
+     *   Target-specific output of this registered extension. Other targets write its core fallback.
      */
     public function __construct(
         public readonly string $name,
@@ -42,6 +45,7 @@ final class ExtensionDefinition
         public readonly ?array $semanticKeys = null,
         public readonly ?array $quotes = null,
         public readonly ?Closure $documentTransform = null,
+        public readonly array $exporters = [],
     ) {
     }
 
@@ -66,6 +70,7 @@ final class ExtensionDefinition
             $this->semanticKeys,
             $this->quotes,
             $this->documentTransform,
+            $this->exporters,
         );
     }
 
@@ -84,6 +89,7 @@ final class ExtensionDefinition
             semanticKeys: $this->semanticKeys,
             quotes: $this->quotes,
             documentTransform: $this->documentTransform,
+            exporters: $this->exporters,
         );
     }
 
@@ -106,6 +112,39 @@ final class ExtensionDefinition
             $this->semanticKeys,
             $this->quotes,
             $this->documentTransform,
+            $this->exporters,
+        );
+    }
+
+    /**
+     * Register an exporter for one built-in target. Its output is trusted host text.
+     *
+     * @param string $target
+     * @param \Closure(\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Export\ExportHost): string $exporter
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    public function withExporter(string $target, Closure $exporter): self
+    {
+        if (!in_array($target, ['markdown', 'plain', 'ansi'], true)) {
+            throw new OptionError('unknown extension export target ' . $target);
+        }
+        $exporters = $this->exporters;
+        $exporters[$target] = $exporter;
+
+        return new self(
+            $this->name,
+            $this->version,
+            $this->slots,
+            $this->matcher,
+            $this->parent,
+            $this->transform,
+            $this->renderer,
+            $this->buildTimeRenderer,
+            $this->semanticKeys,
+            $this->quotes,
+            $this->documentTransform,
+            $exporters,
         );
     }
 }

@@ -273,6 +273,7 @@ Class. The registration of an extension (C2-X-001, C2-X-002, C2-X-033): its qual
 - `withRenderer(Closure $renderer): ExtensionDefinition`: The same registration with a renderer.
 - `withoutRenderers(): ExtensionDefinition`: The same registration without its renderers, so its nodes write the fallback (C2-X-035).
 - `withBuildTimeRenderer(Closure $renderer): ExtensionDefinition`: Register the renderer used only in static mode (C2-X-052).
+- `withExporter(string $target, Closure $exporter): ExtensionDefinition`: Register an exporter for one built-in target. Its output is trusted host text.
 
 ### `MarkupCarve\Carve\Extension\Claim`
 

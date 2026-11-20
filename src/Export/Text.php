@@ -587,7 +587,7 @@ final class Text
 
     private function blockBlockExtension(Node $node): string
     {
-        return $this->blocks(Exporter::extensionContent($node, true));
+        return $this->x->extensionOutput($node, fn (): string => $this->blocks(Exporter::extensionContent($node, true)));
     }
 
     private function lineBlock(Node $node): string
@@ -1098,7 +1098,7 @@ final class Text
 
     private function inlineInlineExtension(Node $node): string
     {
-        return $this->inlines(Exporter::extensionContent($node, false));
+        return $this->x->extensionOutput($node, fn (): string => $this->inlines(Exporter::extensionContent($node, false)));
     }
 
     private function inlineCaptionNumber(Node $node): string
