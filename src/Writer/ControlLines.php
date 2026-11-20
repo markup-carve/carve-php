@@ -39,6 +39,20 @@ final class ControlLines
     private const BUDGET = 16;
 
     /**
+     * The source of a layout record; none where it holds the bytes of a base64 input (C2-L-056).
+     *
+     * @param array<mixed>|null $layout
+     *
+     * @return string|null
+     */
+    public static function source(?array $layout): ?string
+    {
+        $source = $layout['source'] ?? null;
+
+        return ($layout['encoding'] ?? null) !== 'base64' && is_string($source) ? $source : null;
+    }
+
+    /**
      * A control comment that suppressed a line of `$original`, the source of the tree, is written directly above the
      * next line, and one that suppressed nothing keeps a blank line below it, where the tree reads back the same.
      *

@@ -56,6 +56,14 @@ final class LintControlLinesTest extends TestCase
         self::assertSame("x\n\n%% foo $c\n\n== H\n", Carve::format("x\n\n%% foo $c\n## H\n"));
     }
 
+    public function testABase64LayoutSourceCountsAsNoSource(): void
+    {
+        $c = self::CONTROL;
+        $tree = Carve::parse("x\n\n$c\n\n## See [a]()\n");
+        $layout = ['nodes' => [], 'source' => 'eA==', 'encoding' => 'base64'];
+        self::assertSame("x\n\n$c\n== See [a]()\n", Carve::write($tree, $layout));
+    }
+
     public function testASuppliedTreeHasTheCommentDirectlyAboveTheNextBlock(): void
     {
         $c = self::CONTROL;
