@@ -135,13 +135,17 @@ final class TypedCoreClauseTest extends TestCase
     private function tree(array $case, array $expected): void
     {
         $json = $case['json'] ?? json_encode($case['tree'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $options = Corpus::caseOptions($case);
+        if (array_key_exists('annotations', $case)) {
+            $options['annotations'] = $case['annotations'];
+        }
         if (isset($expected['refusal'])) {
             $this->expectException(TreeError::class);
-            TreeReader::read($json, Corpus::caseOptions($case));
+            TreeReader::read($json, $options);
 
             return;
         }
-        $tree = TreeReader::read($json, Corpus::caseOptions($case));
+        $tree = TreeReader::read($json, $options);
         self::assertNotNull($tree);
         if (isset($expected['tree'])) {
             $actual = json_decode(TreeEncoder::json($tree, null), true, 4096, JSON_THROW_ON_ERROR);
