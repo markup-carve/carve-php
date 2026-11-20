@@ -171,20 +171,15 @@ final class DataModel
                 $text[$i] = "\0";
             }
         }
+        $slashes = 0;
         for ($i = 0; $i < $length; $i++) {
             $code = ord($line->text[$i]);
             $punctuation = ($code >= 33 && $code <= 47) || ($code >= 58 && $code <= 64)
                 || ($code >= 91 && $code <= 96) || ($code >= 123 && $code <= 126);
-            if (!$punctuation) {
-                continue;
-            }
-            $slashes = 0;
-            for ($j = $i - 1; $j >= 0 && $line->text[$j] === '\\'; $j--) {
-                $slashes++;
-            }
-            if ($slashes % 2 === 1) {
+            if ($punctuation && $slashes % 2 === 1) {
                 $text[$i] = "\0";
             }
+            $slashes = $line->text[$i] === '\\' ? $slashes + 1 : 0;
         }
 
         return $text;
