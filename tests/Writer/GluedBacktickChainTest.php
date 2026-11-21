@@ -72,4 +72,31 @@ final class GluedBacktickChainTest extends TestCase
         $this->assertSame($source, $result->source);
         $this->assertSame($losses, $found);
     }
+
+    /**
+     * A raw span with a wider fence does not close the code run, which reads back as code: the leader is not reported
+     * as a lost node (carve#6341 tracks what is reported instead).
+     *
+     * @return void
+     */
+    public function testWiderRawFenceDoesNotLoseTheCodeLeader(): void
+    {
+        $children = [
+            [
+                'type' => 'paragraph',
+                'children' => [
+                    ['type' => 'code', 'value' => 'a'],
+                    ['type' => 'code', 'value' => 'a'],
+                    ['type' => 'raw_inline', 'format' => 'html', 'value' => '`'],
+                ],
+            ],
+        ];
+
+        $result = Carve::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => $children]);
+        $found = array_map(static fn ($d): string => $d->code . ' ' . $d->path, $result->diagnostics);
+
+        $this->assertSame("`aa``` ` ``{=html}\n", $result->source);
+        $this->assertSame('code', Carve::parse($result->source)->children[0]->children[0]->type ?? null);
+        $this->assertNotContains('structure-unspellable /children/0/children/0', $found);
+    }
 }

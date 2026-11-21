@@ -599,9 +599,10 @@ final class Inline
 
     /**
      * C2-W-112, C2-W-117, C2-W-124: a backtick run directly behind a code or math span with no attribute block joins its
-     * closer, and the joined run goes on through every code span after it and ends at the first raw span or attribute
-     * block. It reads back as one node: a math leader keeps its type and loses its value, a code run that ends in a raw
-     * span reads as that raw span, and every other node of the run is lost.
+     * closer. When the span behind opens with as many backticks as that closer, its own closer ends the joined span, so
+     * the run goes on through every such span and ends at the first raw span or attribute block. It reads back as one
+     * node: a math leader keeps its type and loses its value, a code run that ends in a raw span reads as that raw span,
+     * and every other node of the run is lost. Runs of unequal width are reported pairwise only (carve#6341).
      *
      * @param array<mixed> $nodes
      * @param int $at
@@ -616,34 +617,82 @@ final class Inline
         if (($type !== 'code' && $type !== 'math') || !is_array($node) || BraceBlock::of($node) !== '') {
             return;
         }
-        $members = [];
-        $raw = false;
-        for ($end = $at + 1; is_array($nodes[$end] ?? null); $end++) {
-            $behind = self::str($nodes[$end], 'type');
-            if ($behind !== 'code' && $behind !== 'raw_inline') {
-                break;
-            }
-            $members[$end] = $behind;
-            if ($behind === 'raw_inline' || BraceBlock::of($nodes[$end]) !== '') {
-                $raw = $behind === 'raw_inline';
-
-                break;
-            }
-        }
-        if ($members === []) {
+        $spans = self::writtenSpans($nodes, $at);
+        if (count($spans) < 2) {
             return;
         }
-        if ($type === 'math') {
-            $this->w->lose($path . '/' . $at, 'math', 'value');
-        } elseif ($raw) {
-            $this->w->lose($path . '/' . $at, 'code', null);
-        }
-        foreach ($members as $index => $behind) {
-            if ($type === 'code' && $behind === 'raw_inline') {
-                continue;
+        [$leader] = $spans;
+        if ($type === 'code') {
+            if (count($leader['nodes']) === 1 || $spans[1]['width'] === $leader['width']) {
+                // The leader's code spans are reported by `codeRun`; the raw span behind keeps the joined value.
+                $this->w->lose($path . '/' . $at, 'code', null);
             }
-            $this->w->lose($path . '/' . $index, $behind, null);
+
+            return;
         }
+        $this->w->lose($path . '/' . $at, 'math', 'value');
+        $width = $leader['width'];
+        foreach (array_slice($spans, 1) as $k => $span) {
+            if ($k > 0 && $span['width'] !== $width) {
+                break;
+            }
+            foreach ($span['nodes'] as $index => $behind) {
+                $this->w->lose($path . '/' . $index, $behind, null);
+            }
+            if ($span['closed'] || ($k === 0 && $span['width'] !== $width)) {
+                break;
+            }
+            $width = $span['width'];
+        }
+    }
+
+    /**
+     * The spans the writer spells from `$at` on while each opens directly behind the closer before it: consecutive code
+     * spans make one span, as `codeRun` writes them. Each has its fence width, its nodes and whether an attribute block
+     * or a raw format ends it.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     *
+     * @return list<array{width: int, nodes: array<int, string>, closed: bool}>
+     */
+    private static function writtenSpans(array $nodes, int $at): array
+    {
+        $spans = [];
+        $end = $at;
+        while (is_array($nodes[$end] ?? null)) {
+            $type = self::str($nodes[$end], 'type');
+            $allowed = $end === $at ? ['code', 'math'] : ['code', 'raw_inline'];
+            if (!in_array($type, $allowed, true)) {
+                break;
+            }
+            $value = '';
+            $members = [];
+            do {
+                $value .= self::str($nodes[$end], 'value');
+                $members[$end] = $type;
+                $closed = $type === 'raw_inline' || BraceBlock::of($nodes[$end]) !== '';
+                $end++;
+            } while ($type === 'code' && !$closed && is_array($nodes[$end] ?? null) && self::str($nodes[$end], 'type') === 'code');
+            $spans[] = ['width' => self::fenceWidth($value), 'nodes' => $members, 'closed' => $closed];
+            if ($closed) {
+                break;
+            }
+        }
+
+        return $spans;
+    }
+
+    /**
+     * The length of the backtick fence `codeSpan` writes around `$value`.
+     *
+     * @param string $value
+     *
+     * @return int
+     */
+    private static function fenceWidth(string $value): int
+    {
+        return strspn(self::codeSpan($value), '`');
     }
 
     /**
