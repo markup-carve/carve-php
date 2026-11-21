@@ -739,6 +739,15 @@ final class DataRules
                 $self->apply($rule, $record);
             }
         }
+        // The compiled closures hold this interpreter and the line records link to their neighbors: drop both, so the run
+        // leaves no cycles behind for the collector.
+        $self->compiledWhen = [];
+        $self->lookupRecords = ['block' => [], 'inline' => []];
+        $self->lookupIndexes = [];
+        foreach ($model->lines as $line) {
+            $line->prev = $line->prev2 = $line->next = $line->next2 = null;
+            $line->leaf_head = $line->leaf_next = $line->table_above = $line->table_below = null;
+        }
     }
 
     /**
