@@ -23,6 +23,16 @@ final class Context
     public ?string $lineTail = null;
 
     /**
+     * Text written after a multiline span, through the next line break or non-text node.
+     */
+    public string $lineAfterSpan = '';
+
+    /**
+     * The first pipe in the next text node must be escaped to keep the span's final line out of a table.
+     */
+    public bool $escapeFollowingPipe = false;
+
+    /**
      * A line comment immediately precedes the current continuation line.
      */
     public bool $lineCommentBefore = false;

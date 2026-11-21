@@ -146,6 +146,22 @@ final class WriterClausesTest extends TestCase
         $this->assertSame(['field-unspellable'], $result->codes());
     }
 
+    public function testC2W016FollowingTextCanCompleteATableRow(): void
+    {
+        $paragraph = [
+            'type' => 'paragraph',
+            'children' => [
+                ['type' => 'text', 'value' => 'a '],
+                ['type' => 'code', 'value' => "x\n|"],
+                ['type' => 'text', 'value' => '|'],
+            ],
+        ];
+        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+        $this->assertSame("a `x\n|`\\|\n", $result->source);
+        $this->assertSame([], $result->codes());
+        $this->assertSame($result->source, Carve::format($result->source));
+    }
+
     public function testC2W002SpanReadsBackAsTheSameTree(): void
     {
         $paragraph = [

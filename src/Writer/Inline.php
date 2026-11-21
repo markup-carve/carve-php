@@ -215,12 +215,17 @@ final class Inline
             $this->visibleLast = $visible;
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
             $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
+            $c->lineAfterSpan = in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)
+                ? self::followingTextLine($nodes, $at) : '';
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
             $out .= $part;
+            if ($type === 'text') {
+                $c->escapeFollowingPipe = false;
+            }
             if (!self::isBracedComment($node)) {
                 $visible = $c->lineStart ? -1 : $c->last;
                 $visibleNode = $node;
@@ -255,6 +260,33 @@ final class Inline
         $spelled = $prefix . self::codeSpan($value);
 
         return substr($spelled, 0, (int)strpos($spelled, "\n"));
+    }
+
+    /**
+     * The text that shares the final emitted line with a span.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     *
+     * @return string
+     */
+    private static function followingTextLine(array $nodes, int $at): string
+    {
+        $tail = '';
+        for ($i = $at + 1, $n = count($nodes); $i < $n; $i++) {
+            $node = $nodes[$i];
+            if (!is_array($node) || self::str($node, 'type') !== 'text') {
+                break;
+            }
+            $value = self::str($node, 'value');
+            $break = strpos($value, "\n");
+            $tail .= $break === false ? $value : substr($value, 0, $break);
+            if ($break !== false) {
+                break;
+            }
+        }
+
+        return $tail;
     }
 
     /**
@@ -1402,7 +1434,18 @@ final class Inline
                     $line = substr($spelled, (int)strrpos($spelled, "\n") + 1);
                     $line = str_starts_with($line, ' ') ? '' : $line;
                 }
-                if (Text::opensBlock($line, $span ? $c : null)) {
+                $emittedLine = $span && $at === $last ? $line . $c->lineAfterSpan : $line;
+                if (
+                    $span && $at === $last && str_starts_with($c->lineAfterSpan, '|')
+                    && Text::opensBlock($emittedLine, $c)
+                ) {
+                    $escapedLine = $line . '\\' . $c->lineAfterSpan;
+                    $c->escapeFollowingPipe = true;
+                    if (!Text::opensBlock($escapedLine, $c)) {
+                        continue;
+                    }
+                }
+                if (Text::opensBlock($emittedLine, $span ? $c : null)) {
                     $this->w->lose($path, self::str($node, 'type'), 'value');
 
                     break;
