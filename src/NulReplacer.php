@@ -10,6 +10,13 @@ namespace MarkupCarve\Carve;
 final class NulReplacer
 {
     /**
+     * Strings at least this long are repaired once per pass and shared.
+     *
+     * @var int
+     */
+    private const SHARED_BYTES = 32;
+
+    /**
      * @param \MarkupCarve\Carve\Node $doc
      *
      * @return void
@@ -17,10 +24,12 @@ final class NulReplacer
     public static function apply(Node $doc): void
     {
         $stack = [$doc];
+        // Every abbreviation node holds its definition's expansion: repaired once, not once per use (uses times length).
+        $repaired = [];
         while ($stack !== []) {
             $node = array_pop($stack);
             foreach ($node->f as $key => $value) {
-                $node->f[$key] = self::value($value, $stack);
+                $node->f[$key] = self::value($value, $stack, $repaired);
             }
             foreach ($node->children ?? [] as $child) {
                 $stack[] = $child;
@@ -31,13 +40,14 @@ final class NulReplacer
     /**
      * @param mixed $value
      * @param array<\MarkupCarve\Carve\Node> $stack
+     * @param array<string, string> $repaired
      *
      * @return mixed
      */
-    private static function value(mixed $value, array &$stack): mixed
+    private static function value(mixed $value, array &$stack, array &$repaired): mixed
     {
         if (is_string($value)) {
-            return Utf8::repair($value);
+            return strlen($value) < self::SHARED_BYTES ? Utf8::repair($value) : ($repaired[$value] ??= Utf8::repair($value));
         }
         if ($value instanceof Node) {
             $stack[] = $value;
@@ -56,7 +66,7 @@ final class NulReplacer
         }
         if (is_array($value)) {
             foreach ($value as $k => $v) {
-                $value[$k] = self::value($v, $stack);
+                $value[$k] = self::value($v, $stack, $repaired);
             }
         }
 
