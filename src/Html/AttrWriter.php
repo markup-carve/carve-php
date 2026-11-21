@@ -169,7 +169,7 @@ final class AttrWriter
         $hasStyle = $attrs->get('style') !== null;
         foreach ($attrs->pairs as [$name, $value]) {
             $lower = strtolower($name);
-            if (isset($seen[$lower]) || !self::validName($name) || $this->dropped($lower)) {
+            if (!self::validName($name) || $this->dropped($lower) || isset($seen[$lower])) {
                 continue;
             }
             if ($lower === 'align' && $alignDecl !== null) {
