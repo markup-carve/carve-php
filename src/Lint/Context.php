@@ -44,6 +44,11 @@ final class Context
     public array $dataNodeTypes = [];
 
     /**
+     * @var array<string, array{0: int, 1: int}> The layout span of each node without `pos`, by path (data rules only).
+     */
+    public array $layoutSpans = [];
+
+    /**
      * @var array<string, true>
      */
     private array $dataIds = [];
@@ -103,7 +108,7 @@ final class Context
     public array $findingLines = [];
 
     /**
-     * @var array<array{0: int, 1: int}> Byte ranges of the opaque leaves.
+     * @var array<array{0: int, 1: int, 2: string, 3: string}> Byte ranges of the opaque leaves, with path and type.
      */
     public array $leafMask = [];
 

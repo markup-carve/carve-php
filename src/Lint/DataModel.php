@@ -29,6 +29,17 @@ final class DataModel
     /**
      * @var array<string, true>
      */
+    private const BLOCK_OPAQUE = [
+        'code_block' => true,
+        'raw_block' => true,
+        'frontmatter' => true,
+        'link_reference_definition' => true,
+        'abbreviation_def' => true,
+    ];
+
+    /**
+     * @var array<string, true>
+     */
     private const VERBATIM = ['code_block' => true, 'raw_block' => true, 'frontmatter' => true, 'comment_block' => true];
 
     /**
@@ -190,6 +201,26 @@ final class DataModel
         return $line->start + $at;
     }
 
+    /**
+     * The end of up to `$quotes` quote marks, each with its leading and one following space or tab.
+     */
+    private static function quotePrefixEnd(string $text, int $quotes): int
+    {
+        $at = 0;
+        for ($mark = 0; $mark < $quotes; $mark++) {
+            $at += strspn($text, " \t", $at);
+            if (($text[$at] ?? '') !== '>') {
+                break;
+            }
+            $at++;
+            if (($text[$at] ?? '') === ' ' || ($text[$at] ?? '') === "\t") {
+                $at++;
+            }
+        }
+
+        return $at;
+    }
+
     private static function trimEnd(string $text): string
     {
         return rtrim($text, " \t");
@@ -213,9 +244,16 @@ final class DataModel
             $this->maskCursor++;
         }
         for ($j = $this->maskCursor; isset($masks[$j]) && $masks[$j][0] < $line->end; $j++) {
-            [$from, $to] = $masks[$j];
+            [$from, $to, $path, $type] = $masks[$j];
             $a = max(0, $from - $line->start);
             $b = min($length, $to - $line->start);
+            // C2-B-027: the quote marks that prefix a later line of an inline span in a quote are no characters of the span.
+            if ($from < $line->start && !isset(self::BLOCK_OPAQUE[$type])) {
+                $quotes = $this->quoteDepth($path);
+                if ($quotes > 0) {
+                    $a = max($a, min($b, self::quotePrefixEnd($line->text, $quotes)));
+                }
+            }
             if ($a < $b) {
                 $text = substr_replace($text, str_repeat("\0", $b - $a), $a, $b - $a);
             }
@@ -279,6 +317,10 @@ final class DataModel
                         unset($openRuns[$key]);
                     }
                 }
+            }
+            // The caption of an image paragraph is a block (C2-W-140).
+            if ($type === 'caption') {
+                $parentHolder = null;
             }
             if ($parentHolder !== null && $parentHolder['inline']) {
                 $pos = Support::pos($item['node']);
@@ -573,14 +615,19 @@ final class DataModel
         $c = $this->context;
         foreach ($this->blockWalked as $item) {
             $node = $item['node'];
+            if ($item['path'] === '') {
+                continue;
+            }
             $pos = Support::pos($node);
-            if ($pos === null || $item['path'] === '') {
+            // C2-W-140: every block has a record; a row a continuation joined has no `pos` (C2-A-158), so its layout gives the span.
+            $span = $pos === null ? ($c->layoutSpans[$item['path']] ?? null) : null;
+            if ($pos === null && $span === null) {
                 continue;
             }
             $type = self::type($node);
-            $start = $pos['startOffset'];
+            [$start, $end] = $pos === null ? $span : [$pos['startOffset'], $pos['endOffset']];
             // The encoder counts lines from the same offsets, so a node's own start line is the line of its start.
-            $included = is_array($node['pos'] ?? null) && isset($node['pos']['file']);
+            $included = $span !== null || (is_array($node['pos'] ?? null) && isset($node['pos']['file']));
             $line = $this->lines[($included ? $c->lineOf($start) : $pos['startLine']) - 1] ?? null;
             if ($line === null) {
                 continue;
@@ -599,13 +646,15 @@ final class DataModel
             }
             $opener = $node['attrs'] ?? null ? $this->openerStart($start, $quotes) : $start;
             $endLine = strpos($c->source, "\n", $opener);
+            $feed = $opener > 0 ? strrpos($c->source, "\n", $opener - 1 - strlen($c->source)) : false;
+            $openerLine = $feed === false ? 0 : $feed + 1;
             $openerText = self::trimEnd(substr($c->source, $opener, ($endLine === false ? strlen($c->source) : $endLine) - $opener));
-            $lastLine = $this->lines[$pos['endLine'] - 1] ?? $line;
+            $lastLine = $this->lines[($span === null ? $pos['endLine'] : $c->lineOf(max($start, $end - 1))) - 1] ?? $line;
             $bounds = [
                 'type' => $type,
                 'path' => $item['path'],
                 'start' => $start,
-                'end' => $pos['endOffset'],
+                'end' => $end,
                 'opener_start' => $opener,
             ];
             if (in_array($type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)) {
@@ -627,7 +676,7 @@ final class DataModel
                 'type' => $type,
                 'path' => $item['path'],
                 'start' => $start,
-                'end' => $pos['endOffset'],
+                'end' => $end,
                 'text' => null,
                 'line' => $line,
                 'last_line' => $lastLine,
@@ -642,7 +691,7 @@ final class DataModel
                 'index' => $item['index'],
                 'attributed' => isset($node['attrs']),
                 'image_line' => $type === 'paragraph' && self::imageLine($node),
-                'after_quote_mark' => str_ends_with(substr($c->source, $line->start, $start - $line->start), '> '),
+                'after_quote_mark' => str_ends_with(substr($c->source, $openerLine, $opener - $openerLine), '> '),
                 'prev_type' => $prevPath === null ? null : ($c->nodeTypes[$prevPath] ?? null),
             ];
             if (in_array($type, ['table', 'table_row', 'table_cell'], true)) {
@@ -722,6 +771,59 @@ final class DataModel
         }
     }
 
+    /**
+     * A colon container is closed by a bare run of at least its width on a later line of its own
+     * that no block inside it covers: a run that closed a child is the child's closer.
+     *
+     * @param list<\stdClass> $colon
+     *
+     * @return array<string, true> The paths of the closed containers.
+     */
+    private function closedColons(array $colon): array
+    {
+        $byPath = [];
+        foreach ($colon as $entry) {
+            $byPath[$entry->path] = $entry;
+        }
+        $runs = [];
+        foreach ($this->context->lines as $sourceLine) {
+            $from = self::quoteStart($sourceLine);
+            $text = rtrim(substr($sourceLine->text, $from - $sourceLine->start));
+            if (strlen($text) >= 3 && strspn($text, ':') === strlen($text)) {
+                $runs[] = [$from, $from + strlen($text), $sourceLine->number];
+            }
+        }
+        $closed = [];
+        if ($runs === [] || $byPath === []) {
+            return $closed;
+        }
+        $blocks = $this->blocks;
+        usort($blocks, static fn (stdClass $a, stdClass $b): int => ($a->start <=> $b->start) ?: (strlen($a->path) <=> strlen($b->path)));
+        $next = 0;
+        $stack = [];
+        foreach ($runs as [$start, $end, $number]) {
+            while (isset($blocks[$next]) && $blocks[$next]->start <= $start) {
+                $block = $blocks[$next++];
+                while ($stack !== [] && $stack[array_key_last($stack)]->end < $block->start) {
+                    array_pop($stack);
+                }
+                $stack[] = $block;
+            }
+            while ($stack !== [] && $stack[array_key_last($stack)]->end < $end) {
+                array_pop($stack);
+            }
+            $entry = $stack === [] ? null : ($byPath[$stack[array_key_last($stack)]->path] ?? null);
+            if (
+                $entry !== null && $number > $entry->first_line && $number <= $entry->last_line
+                && $end - $start >= $entry->width
+            ) {
+                $closed[$entry->path] = true;
+            }
+        }
+
+        return $closed;
+    }
+
     // Track nested colon runs and container boundaries in source order.
     // phpcs:ignore Generic.Metrics.CyclomaticComplexity.MaxExceeded
     private function markColonContainers(): void
@@ -763,10 +865,13 @@ final class DataModel
                 'end' => $block->end,
                 'owner' => self::boundaryAt($start, $bounds, $nextBound, $openBounds),
                 'last_line' => $block->last_line->number,
-                'closed' => $block->last_line->number > $block->line->number
-                    && preg_match('/^:{3,}$/', $block->last_line->body) === 1
-                    && strlen($block->last_line->body) >= strlen($match[1]),
+                'first_line' => $block->line->number,
+                'path' => $block->path,
             ];
+        }
+        $closed = $this->closedColons($colon);
+        foreach ($colon as $entry) {
+            $entry->closed = isset($closed[$entry->path]);
         }
         usort($colon, static fn (stdClass $a, stdClass $b): int => $a->start <=> $b->start);
         $nextBound = 0;

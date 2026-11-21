@@ -117,6 +117,26 @@ final class Linter
     }
 
     /**
+     * @param array<mixed> $entries
+     *
+     * @return array<string, array{0: int, 1: int}>
+     */
+    private static function layoutSpans(array $entries): array
+    {
+        $spans = [];
+        foreach ($entries as $entry) {
+            if (
+                is_array($entry) && is_string($entry['path'] ?? null)
+                && is_int($entry['startByte'] ?? null) && is_int($entry['endByte'] ?? null)
+            ) {
+                $spans[$entry['path']] = [$entry['startByte'], $entry['endByte']];
+            }
+        }
+
+        return $spans;
+    }
+
+    /**
      * @param string $source
      * @param array<string, mixed> $options
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $parseDiagnostics
@@ -137,10 +157,13 @@ final class Linter
                 $rawRefs[] = $entry;
             }
         }
+        $spans = DataRules::enabled() ? self::layoutSpans((array)($parsed->layout['nodes'] ?? [])) : [];
         unset($parsed);
         $tree = (new TreeEncoder())->encodeForLint($document, $source);
         unset($document);
         $c = new Context($source, $options, self::catalog());
+        $c->layoutSpans = $spans;
+        unset($spans);
         $c->layout->rawRefs($rawRefs);
         /** @var array<int, array<array{0: string, 1: array<string>}>> $controls */
         $controls = [];
@@ -298,7 +321,7 @@ final class Linter
         self::markContent($type, $pos, $c);
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
         if (isset(self::OPAQUE_LEAVES[$type])) {
-            $c->leafMask[] = [$pos['startOffset'], $pos['endOffset']];
+            $c->leafMask[] = [$pos['startOffset'], $pos['endOffset'], $path, $type];
         }
         $control = self::control($node, $c);
         if ($control !== null) {
