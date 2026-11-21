@@ -655,11 +655,11 @@ final class Text
      */
     private static function braceTakesNode(string $flat, int $at, Context $c): bool
     {
-        $node = strpos($flat, "\0", $at);
+        $node = self::nextOf($flat, "\0", $at);
         if ($node === false) {
             return false;
         }
-        $line = strpos($flat, "\n", $at);
+        $line = self::nextOf($flat, "\n", $at);
         if ($line !== false && $line < $node) {
             return false;
         }
@@ -691,6 +691,29 @@ final class Text
         }
 
         return false;
+    }
+
+    /**
+     * `strpos($flat, $needle, $at)` for the braces of one leaf in order: the last answer holds for every offset up to it,
+     * or each brace of a long leaf without a node would scan to its end.
+     *
+     * @param string $flat
+     * @param string $needle
+     * @param int $at
+     *
+     * @return int|false
+     */
+    private static function nextOf(string $flat, string $needle, int $at): int|false
+    {
+        static $last = [];
+        [$text, $from, $found] = $last[$needle] ?? ['', PHP_INT_MAX, false];
+        if ($at >= $from && ($found === false || $at <= $found) && $flat === $text) {
+            return $found;
+        }
+        $found = strpos($flat, $needle, $at);
+        $last[$needle] = [$flat, $at, $found];
+
+        return $found;
     }
 
     /**
@@ -894,15 +917,22 @@ final class Text
      */
     private static function run(string $value, int $i, Context $c): ?array
     {
-        $ch = $value[$i];
-        $start = $i;
-        while ($start > 0 && $value[$start - 1] === $ch) {
-            $start--;
-        }
-        $end = $i;
-        $n = strlen($value);
-        while ($end + 1 < $n && $value[$end + 1] === $ch) {
-            $end++;
+        // Every mark of a run asks for the run; the bounds of the last run are kept, or a run of n marks costs n squared.
+        static $last = ['', -1, -1];
+        if ($i >= $last[1] && $i <= $last[2] && $value === $last[0]) {
+            [, $start, $end] = $last;
+        } else {
+            $ch = $value[$i];
+            $start = $i;
+            while ($start > 0 && $value[$start - 1] === $ch) {
+                $start--;
+            }
+            $end = $i;
+            $n = strlen($value);
+            while ($end + 1 < $n && $value[$end + 1] === $ch) {
+                $end++;
+            }
+            $last = [$value, $start, $end];
         }
         if ($start > 0 && $value[$start - 1] === '{' && ($c->escapedAt[$start - 1] ?? true) === false) {
             if ($i === $start) {

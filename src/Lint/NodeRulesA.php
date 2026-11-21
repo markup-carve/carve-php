@@ -100,15 +100,55 @@ final class NodeRulesA
         if (!str_starts_with($id, 'deprecated-bare-')) {
             return true;
         }
-        $after = substr($text, $at + strlen($mark));
+        $after = $at + strlen($mark);
 
-        return !self::joined($text, $at + strlen($mark), $id)
+        return !self::joined($text, $after, $id)
             && !self::escapedAt($text, $at)
             && !($at > 0 && $text[$at - 1] === $mark[0])
-            && $after !== ''
-            && preg_match('/^[\p{Zs}\t\n\r\f\v]/u', $after) !== 1
-            && $after[0] !== $mark[0]
-            && (strlen($mark) === 2 || preg_match('/[\p{L}\p{N}]$/u', substr($text, 0, $at)) !== 1);
+            && $after < strlen($text)
+            && !self::startsWith($text, $after, '[\p{Zs}\t\n\r\f\v]')
+            && $text[$after] !== $mark[0]
+            && (strlen($mark) === 2 || !self::endsWith($text, $at, '[\p{L}\p{N}]'));
+    }
+
+    /**
+     * Whether `/CLASS$/u` matches `substr($text, 0, $at)`, read on the last characters only: the whole prefix made
+     * each test linear, and the pair search quadratic. PCRE `$` also matches before a final line feed.
+     *
+     * @param string $text
+     * @param int $at
+     * @param string $class
+     *
+     * @return bool
+     */
+    private static function endsWith(string $text, int $at, string $class): bool
+    {
+        $from = max(0, $at - 8);
+        while ($from > 0 && (ord($text[$from]) & 0xC0) === 0x80) {
+            $from--;
+        }
+
+        return preg_match('/' . $class . '$/u', substr($text, $from, $at - $from)) === 1;
+    }
+
+    /**
+     * Whether `/^CLASS/u` matches `substr($text, $at)`, read on the character at `$at` only.
+     *
+     * @param string $text
+     * @param int $at
+     * @param string $class
+     *
+     * @return bool
+     */
+    private static function startsWith(string $text, int $at, string $class): bool
+    {
+        if ($at >= strlen($text)) {
+            return false;
+        }
+        $lead = ord($text[$at]);
+        $length = $lead < 0xC0 ? 1 : ($lead < 0xE0 ? 2 : ($lead < 0xF0 ? 3 : 4));
+
+        return preg_match('/^' . $class . '/u', substr($text, $at, $length)) === 1;
     }
 
     /**
@@ -156,7 +196,7 @@ final class NodeRulesA
         $size = strlen($mark);
         while (
             $end !== false && (
-                preg_match('/[\p{Zs}\t\n\r]$/u', substr($text, 0, $end)) === 1 || self::escapedAt($text, $end)
+                self::endsWith($text, $end, '[\p{Zs}\t\n\r]') || self::escapedAt($text, $end)
                 || self::joined($text, $end + $size, $id)
             )
         ) {
@@ -194,8 +234,7 @@ final class NodeRulesA
             return true;
         }
 
-        return preg_match('/[\p{L}\p{N}]$/u', substr($text, 0, $start)) !== 1
-            && preg_match('/^[\p{L}\p{N}]/u', substr($text, $end + strlen($mark))) !== 1;
+        return !self::endsWith($text, $start, '[\p{L}\p{N}]') && !self::startsWith($text, $end + strlen($mark), '[\p{L}\p{N}]');
     }
 
     /**
@@ -323,8 +362,8 @@ final class NodeRulesA
                 && !in_array($inside[0], [' ', "\t", "\n", '}'], true);
         }
 
-        $priorWord = preg_match('/[\p{L}\p{N}_]$/u', substr($text, 0, $start)) === 1;
-        $nextWord = preg_match('/^[\p{L}\p{N}_]/u', substr($text, $end + $size)) === 1;
+        $priorWord = self::endsWith($text, $start, '[\p{L}\p{N}_]');
+        $nextWord = self::startsWith($text, $end + $size, '[\p{L}\p{N}_]');
         if ($mark === '_' && preg_match('/[\p{L}\p{N}]_[\p{L}\p{N}]/u', $inside) === 1) {
             return false;
         }
