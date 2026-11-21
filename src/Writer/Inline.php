@@ -1003,7 +1003,8 @@ final class Inline
     private function text(array $node, Context $c, int $next, mixed $before): string
     {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-        if ($c->lineStart && $c->last === -1 && !$c->inLineBlock && !$c->inCell && strspn($value, " \t") > 0) {
+        if ($c->lineStart && $c->last === -1 && !$c->inLineBlock && !$c->inCell
+            && strspn($value, " \t") > 0 && trim($value, " \t") !== '') {
             $this->w->lose($c->textPath, 'text', 'value');
         }
         $this->loseLineFeed($value, $c);
