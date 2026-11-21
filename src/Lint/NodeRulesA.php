@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\AttributeParser;
+use MarkupCarve\Carve\Attrs;
+
 /**
  * The node rules of carve-js `lint/structure.ts`, first half.
  */
@@ -1484,18 +1487,17 @@ final class NodeRulesA
         if ($range === null) {
             return;
         }
+        $length = strlen($source);
         for ($at = strpos($source, '{'); $at !== false; $at = strpos($source, '{', $at + 1)) {
-            $end = strpos($source, '}', $at + 1);
-            if ($end === false) {
-                break;
-            }
             if ($at < 1 || self::escapedAt($source, $at)) {
                 continue;
             }
-            if (LineRules::isAttributeLine(substr($source, $at, $end + 1 - $at))) {
-                $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $end + 1, $path);
+            // The parser's end, so a quoted `}` stays inside the block; `{}` is no attribute block to report.
+            $end = AttributeParser::read($source, $at, $length, new Attrs());
+            if ($end > $at && !AttributeParser::$lastEmpty) {
+                $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $end, $path);
+                $at = $end - 1;
             }
-            $at = $end;
         }
     }
 

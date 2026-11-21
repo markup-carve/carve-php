@@ -10,7 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * `unattached-inline-attribute` reports every valid attribute block that attaches to nothing in the text of a
- * paragraph, heading, term or cell (carve#6176). Expected findings are the carve-js output.
+ * paragraph, heading, term or cell (carve#6176). Expected findings are the carve-js output, except the quoted brace,
+ * which the row's "valid attribute block" decides.
  */
 final class UnattachedInlineAttributeTest extends TestCase
 {
@@ -26,6 +27,9 @@ final class UnattachedInlineAttributeTest extends TestCase
             'heading' => ["# h {x} y\n", [[4, 7]]],
             'cell' => ["| a {x} b |\n", [[4, 7]]],
             'glued blocks' => ["a {x}{y} b\n", [[2, 5], [5, 8]]],
+            'empty block' => ["a {} b\n", []],
+            'block of spaces' => ["a { } b\n", []],
+            'quoted closing brace' => ["a {k=\"x}y\"} b\n", [[2, 11]]],
         ];
     }
 
