@@ -91,6 +91,19 @@ final class Next2LintRegressionTest extends TestCase
             'ten-digit number after a term mark is not a marker' => [":: 1234567890. x\n", 'definition-term-block-folded', []],
             'tag shape stops at another less-than sign' => ["a <a <b> c\n", 'bare-html-tag', [['bare-html-tag', 5, 8]]],
             'closing slash without a name is not a tag' => ["a </> b\n", 'bare-html-tag', []],
+            'caption on a later quoted paragraph line below an image' => [
+                "> a ![i](p)\n> : x\n", 'caption-looking-paragraph',
+                [['caption-looking-paragraph', 14, 15]],
+            ],
+            'caption on a later quoted paragraph line above a table' => [
+                "> a\n> : x\n> | a |\n", 'caption-looking-paragraph',
+                [['caption-looking-paragraph', 6, 7]],
+            ],
+            'image mark inside a line comment above a caption' => ["%% ![i](p)\n: x\n", 'caption-looking-paragraph', []],
+            'image mark inside a block comment above a caption' => [
+                "%%%\n![i](p)\n%%%\n: x\n", 'caption-looking-paragraph',
+                [['caption-looking-paragraph', 16, 17]],
+            ],
         ];
     }
 

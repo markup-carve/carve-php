@@ -1015,7 +1015,10 @@ final class LineRules
         if (($c->nodeTypes[$line->path] ?? null) !== 'paragraph' || str_contains($line->path, '/caption/')) {
             return;
         }
-        [$text, $start] = self::paragraphContent($line, $c);
+        $first = $c->paragraphStarts[$line->path] ?? null;
+        [$text, $start] = $first !== null && $first >= $line->start && $first < $line->end
+            ? self::paragraphContent($line, $c)
+            : self::lineText($line);
         if (preg_match('/^\*?\s*(?:Caption|Table|Tabelle|Figure|Image)(?:\s+\d+)?\s*:|^:\s+\S/i', $text) !== 1) {
             return;
         }
@@ -1026,11 +1029,46 @@ final class LineRules
             $prev = $c->lines[$line->number - 1 - $distance] ?? null;
             $below = $below || ($next !== null && isset($c->tableRowPaths[$next->number]));
             $above = $above || ($prev !== null && (isset($c->tableRowPaths[$prev->number])
-                || str_contains($prev->text, '![')));
+                || self::visibleImageMark($prev, $c)));
         }
         if ($below || $above) {
             $c->report('caption-looking-paragraph', $start, $start + 1, $line->path, [], $below ? 0 : 1);
         }
+    }
+
+    /**
+     * Whether `![` appears on the line outside a line comment; a block comment's lines keep their text.
+     */
+    private static function visibleImageMark(Line $line, Context $c): bool
+    {
+        $from = 0;
+        while (($at = strpos($line->text, '![', $from)) !== false) {
+            $from = $at + 1;
+            if (!self::inLineComment($c, $line->start + $at)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function inLineComment(Context $c, int $offset): bool
+    {
+        $lo = 0;
+        $hi = count($c->leafMask) - 1;
+        while ($lo <= $hi) {
+            $mid = ($lo + $hi) >> 1;
+            [$from, $to] = $c->leafMask[$mid];
+            if ($offset < $from) {
+                $hi = $mid - 1;
+            } elseif ($offset >= $to) {
+                $lo = $mid + 1;
+            } else {
+                return $c->leafMask[$mid][3] === 'comment' && !str_contains(substr($c->source, $from, $to - $from), "\n");
+            }
+        }
+
+        return false;
     }
 
     private static function descriptionColumn(Line $line, Context $c): void
