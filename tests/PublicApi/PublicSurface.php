@@ -28,6 +28,7 @@ final class PublicSurface
         'MarkupCarve\Carve\LayoutResult' => 'result',
         'MarkupCarve\Carve\Writer\WriteResult' => 'result',
         'MarkupCarve\Carve\Import\ImportResult' => 'result',
+        'MarkupCarve\Carve\Ast\EditorSession' => 'editor',
         'MarkupCarve\Carve\Diagnostics\Diagnostic' => 'result',
         'MarkupCarve\Carve\CarveException' => 'error',
         'MarkupCarve\Carve\OptionError' => 'error',
@@ -86,7 +87,7 @@ final class PublicSurface
         'includes' => 'Includes',
         'output' => 'Output writers',
         'export' => 'Exports',
-        'editor' => 'ProseMirror bridge',
+        'editor' => 'Editor APIs',
         'provisional' => 'Extensions (provisional)',
     ];
 

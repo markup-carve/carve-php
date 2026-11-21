@@ -36,7 +36,9 @@ converter.
 | `$converter->transform($document, ...$transformers)` | gone: a `documentTransform` on an `ExtensionDefinition`, or `Extension\DocumentTransform`s passed to `Carve::renderWithDocumentTransforms()` |
 | `tryRenderHtmlStreaming()` | gone |
 | `getRenderer()`, `getHtmlRenderer()`, `getParser()`, `getHeadingIdTracker()` | gone: internal in 0.2 |
-| `createEditorSession()`, `parseWithNodeIdentity()`, `parseWithProvenance()`, `supportsIncrementalParagraphReuse()` | gone: not part of the 0.2 library contract |
+| `$converter->createEditorSession($source)` | `Carve::createEditorSession($source, $options)`; edit ranges remain UTF-8 byte offsets |
+| `$converter->supportsIncrementalParagraphReuse()` | `Carve::supportsIncrementalParagraphReuse()` |
+| `parseWithNodeIdentity()`, `parseWithProvenance()` | gone |
 
 ## Carve output
 
