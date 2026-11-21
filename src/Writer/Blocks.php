@@ -1552,6 +1552,7 @@ final class Blocks
                 }
                 $inlines = is_array($line) && is_array($line['children'] ?? null) ? $line['children'] : [];
                 $c = $this->context($inlines, true);
+                $c->inLineBlock = true;
                 $text = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
                 if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $text) === 1) {
                     $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
