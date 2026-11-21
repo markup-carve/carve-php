@@ -233,6 +233,12 @@ final class InlineRunner
                 }
             }
         }
+        if ($depth === 0 && count($spans) > 2 && $ctx->abbreviations === []) {
+            $plain = self::plainLines($s, $spans, $mode);
+            if ($plain !== null) {
+                return $plain;
+            }
+        }
         $content = new Content($s, $spans);
         $t = $content->t;
         if ($t === '') {
@@ -248,6 +254,47 @@ final class InlineRunner
         $nodes = (new Finisher($scanner, $ctx))->build($items, -1, true);
 
         return $nodes;
+    }
+
+    /**
+     * Lines with no special character and nothing to replace: the nodes the scanner and finisher make, without them.
+     *
+     * @param string $s
+     * @param array<int> $spans
+     * @param int $mode
+     *
+     * @return array<\MarkupCarve\Carve\Node>|null Null when a line needs the scanner.
+     */
+    private static function plainLines(string $s, array $spans, int $mode): ?array
+    {
+        $type = ($mode & Scanner::HARD_BREAKS) !== 0 ? 'hard_break' : 'soft_break';
+        $out = [];
+        $end = -1;
+        $n = count($spans);
+        for ($k = 0; $k + 1 < $n; $k += 2) {
+            $start = $spans[$k];
+            $length = max(0, $spans[$k + 1] - $start);
+            if (strcspn($s, Scanner::SPECIALS, $start, $length) !== $length) {
+                return null;
+            }
+            $value = rtrim(substr($s, $start, $length), " \t");
+            if ($k > 0) {
+                // The break takes the spaces that open the next line (Scanner::lineBreak).
+                $lead = strspn($value, " \t");
+                $start += $lead;
+                $value = substr($value, $lead);
+            }
+            if ($value === '' || Finisher::replaces($value)) {
+                return null;
+            }
+            if ($k > 0) {
+                $out[] = Node::at($type, $end, $start);
+            }
+            $end = $start + strlen($value);
+            $out[] = Node::text($value, $start, $end);
+        }
+
+        return $out;
     }
 
     /**
