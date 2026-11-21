@@ -768,6 +768,7 @@ final class Inline
     private function text(array $node, Context $c, int $next, mixed $before): string
     {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
+        $this->loseLineFeed($value, $c);
         // C2-W-022: no space or tab of text stands at the end of a line.
         if ($next === 10 && !$c->bareBreaks) {
             $value = rtrim($value, " \t");
@@ -806,6 +807,16 @@ final class Inline
         $this->textValue = $value;
 
         return $prefix . Text::escapePairs($value, $c, $next);
+    }
+
+    /**
+     * C2-W-117: outside a cell a line feed in text reads back as a soft break, so the value does not survive.
+     */
+    private function loseLineFeed(string $value, Context $c): void
+    {
+        if (!$c->inCell && str_contains($value, "\n")) {
+            $this->w->lose($c->textPath, 'text', 'value');
+        }
     }
 
     /**
