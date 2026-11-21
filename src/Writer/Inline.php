@@ -217,10 +217,10 @@ final class Inline
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
             $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
             self::setFollowingTextLine($c, $nodes, $at, $type);
+            $this->loseGluedRun($nodes, $at, $path, $type);
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
-                $this->loseGluedRun($nodes, $at, $path, $type);
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
             $out .= $part;
@@ -599,8 +599,9 @@ final class Inline
 
     /**
      * C2-W-112, C2-W-117, C2-W-124: a backtick run directly behind a code or math span with no attribute block joins its
-     * closer, so the pair reads back as one span: the first node, or the value of a math node and the node behind it,
-     * is lost. Two code spans are written by `codeRun`.
+     * closer, and the joined run goes on through every code span after it and ends at the first raw span or attribute
+     * block. It reads back as one node: a math leader keeps its type and loses its value, a code run that ends in a raw
+     * span reads as that raw span, and every other node of the run is lost.
      *
      * @param array<mixed> $nodes
      * @param int $at
@@ -612,21 +613,37 @@ final class Inline
     private function loseGluedRun(array $nodes, int $at, string $path, string $type): void
     {
         $node = $nodes[$at] ?? null;
-        $following = $nodes[$at + 1] ?? null;
-        if (($type !== 'code' && $type !== 'math') || !is_array($node) || !is_array($following) || BraceBlock::of($node) !== '') {
+        if (($type !== 'code' && $type !== 'math') || !is_array($node) || BraceBlock::of($node) !== '') {
             return;
         }
-        $behind = self::str($following, 'type');
-        if ($behind !== 'raw_inline' && ($behind !== 'code' || $type === 'code')) {
-            return;
-        }
-        if ($type === 'code') {
-            $this->w->lose($path . '/' . $at, 'code', null);
+        $members = [];
+        $raw = false;
+        for ($end = $at + 1; is_array($nodes[$end] ?? null); $end++) {
+            $behind = self::str($nodes[$end], 'type');
+            if ($behind !== 'code' && $behind !== 'raw_inline') {
+                break;
+            }
+            $members[$end] = $behind;
+            if ($behind === 'raw_inline' || BraceBlock::of($nodes[$end]) !== '') {
+                $raw = $behind === 'raw_inline';
 
+                break;
+            }
+        }
+        if ($members === []) {
             return;
         }
-        $this->w->lose($path . '/' . $at, 'math', 'value');
-        $this->w->lose($path . '/' . ($at + 1), $behind, null);
+        if ($type === 'math') {
+            $this->w->lose($path . '/' . $at, 'math', 'value');
+        } elseif ($raw) {
+            $this->w->lose($path . '/' . $at, 'code', null);
+        }
+        foreach ($members as $index => $behind) {
+            if ($type === 'code' && $behind === 'raw_inline') {
+                continue;
+            }
+            $this->w->lose($path . '/' . $index, $behind, null);
+        }
     }
 
     /**
