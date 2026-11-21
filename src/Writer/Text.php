@@ -1195,25 +1195,35 @@ final class Text
     /**
      * C2-W-016: whether a line after the first of a verbatim leaf could end its paragraph or open a block there
      * (C2-B-014 to C2-B-019). The test is the later-line test of C2-W-092 inside an item, the widest owner, since the
-     * leaf does not know its own.
+     * emitted line and the paragraph owner decide whether the mark interrupts the paragraph.
      *
      * @param string $line
+     * @param \MarkupCarve\Carve\Writer\Context|null $context
      *
      * @return bool
      */
-    public static function opensBlock(string $line): bool
+    public static function opensBlock(string $line, ?Context $context = null): bool
     {
         $line = ltrim($line, " \t");
-        if ($line === '' || strspn($line, '`') >= 3) {
+        if ($context !== null && str_starts_with($line, '%%')) {
             return true;
         }
-        $c = new Context();
+        if ($context === null) {
+            if ($line === '' || strspn($line, '`') >= 3) {
+                return true;
+            }
+            $c = new Context();
+            $c->lineStart = true;
+            $c->last = 10;
+            $c->owner = 'body';
+
+            return self::lineStartMark($line . ' ', $c, 0) >= 0;
+        }
+        $c = clone $context;
         $c->lineStart = true;
         $c->last = 10;
-        $c->owner = 'body';
 
-        // The closer of the leaf may follow on the line, after a space for a comment, so the line is tested with content.
-        return self::lineStartMark($line . ' ', $c, 0) >= 0;
+        return $line === '' || self::lineStartMark($line, $c, 10) >= 0;
     }
 
     /**
@@ -1232,8 +1242,10 @@ final class Text
         if (!$c->lineStart) {
             return -1;
         }
-        $eol = in_array($next, [-1, 10], true);
-        $line = $eol ? $value : $value . 'x';
+        $tail = $c->lineTail;
+        $eol = $tail !== null || in_array($next, [-1, 10], true);
+        $line = $tail !== null ? $value . $tail : ($eol ? $value : $value . 'x');
+        $value = $tail !== null ? $line : $value;
         if (self::anyLine($value, $line, $eol, $c->last === -1 && $next === 10)) {
             return 0;
         }

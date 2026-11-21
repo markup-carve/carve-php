@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Test\Support\Held;
 use MarkupCarve\Carve\Test\Support\WriterGate;
 use MarkupCarve\Carve\Writer\CarveWriteError;
@@ -68,6 +69,12 @@ final class WriterClausesTest extends TestCase
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
                 "- a\n\n{footer-rows=0}\n%% c\n| a |\n",
             ],
+            'C2-W-006 a code closer completes the table-looking line' => ["a `x\n|y` b\n", "a `x\n|y` b\n"],
+            'C2-W-006 a code opener follows a bare pipe' => ["|```\n|```\n", "|`\n|`\n"],
+            'C2-W-006 a math closer completes the table-looking line' => ["$`\n|`\n", "$`\n|`\n"],
+            'C2-W-006 a raw closer completes the table-looking line' => ["`\n|`{=l}\n", "`\n|`{=l}\n"],
+            'C2-W-006 a literal closer completes the ordered-looking line' => ["!`\n.`\n", "!`\n.`\n"],
+            'C2-W-006 a list marker stays lazy in a top-level paragraph' => ["a `x\n- y` b\n", "a `x\n- y` b\n"],
         ];
 
         return array_filter($cases, static fn (string $id): bool => !Held::has('writer-clauses/' . $id), ARRAY_FILTER_USE_KEY);
@@ -94,7 +101,6 @@ final class WriterClausesTest extends TestCase
         return [
             'a CR at the end of the input' => ["a\r"],
             'a CR before a soft break' => ["a\r\r\nb"],
-            'a code span line that would open a list' => ["`a\n- b`\n"],
         ];
     }
 
@@ -109,6 +115,53 @@ final class WriterClausesTest extends TestCase
     public function testC2W016LineOfALeafIsReported(string $source): void
     {
         $this->assertSame(['field-unspellable'], Writer::formatWithDiagnostics($source)->codes());
+    }
+
+    public function testC2W006TopLevelSpanLineStaysInParagraph(): void
+    {
+        $source = "`a\n- b`\n";
+        $this->assertSame($source, Carve::format($source));
+        $this->assertSame([], Writer::formatWithDiagnostics($source)->codes());
+    }
+
+    public function testC2W016TestsEmittedSpanLineInItsContainer(): void
+    {
+        $span = ['type' => 'code', 'value' => "x\n- y"];
+        $paragraph = ['type' => 'paragraph', 'children' => [$span]];
+        $top = Writer::writeBlocksWithDiagnostics([$paragraph]);
+        $this->assertSame("`x\n- y`\n", $top->source);
+        $this->assertSame([], $top->codes());
+
+        $item = ['type' => 'list_item', 'children' => [$paragraph]];
+        $list = ['type' => 'list', 'marker' => ['kind' => 'bullet', 'char' => '-'], 'spacing' => 'tight', 'children' => [$item]];
+        $nested = Writer::writeBlocksWithDiagnostics([$list]);
+        $this->assertSame("- `x\n  - y`\n", $nested->source);
+        $this->assertSame(['field-unspellable'], $nested->codes());
+    }
+
+    public function testC2W016LineCommentStillInterruptsAnOpenSpan(): void
+    {
+        $paragraph = ['type' => 'paragraph', 'children' => [['type' => 'code', 'value' => "x\n%% y"]]];
+        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+        $this->assertSame(['field-unspellable'], $result->codes());
+    }
+
+    public function testC2W002SpanReadsBackAsTheSameTree(): void
+    {
+        $paragraph = [
+            'type' => 'paragraph',
+            'children' => [
+                ['type' => 'text', 'value' => 'a '],
+                ['type' => 'code', 'value' => "x\n|y"],
+                ['type' => 'text', 'value' => ' b'],
+            ],
+        ];
+        $tree = ['type' => 'document', 'astVersion' => '2.0', 'children' => [$paragraph]];
+        $result = Writer::writeWithDiagnostics($tree);
+        $this->assertSame([], $result->codes());
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+        $this->assertSame($tree['children'], $read['children']);
+        $this->assertSame($result->source, Carve::format($result->source));
     }
 
     /**

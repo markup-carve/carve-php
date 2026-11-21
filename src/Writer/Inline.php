@@ -214,6 +214,7 @@ final class Inline
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
+            $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
@@ -227,6 +228,33 @@ final class Inline
         }
 
         return $out;
+    }
+
+    /**
+     * The line up to the first break of a following verbatim span, for the opener test of text before it.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function spanLineTail(array $node): ?string
+    {
+        $type = self::str($node, 'type');
+        if (!in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+            return null;
+        }
+        $value = self::str($node, 'value');
+        if (!str_contains($value, "\n")) {
+            return null;
+        }
+        $prefix = match ($type) {
+            'math' => ($node['display'] ?? false) === true ? '$$' : '$',
+            'literal_inline' => '!',
+            default => '',
+        };
+        $spelled = $prefix . self::codeSpan($value);
+
+        return substr($spelled, 0, (int)strpos($spelled, "\n"));
     }
 
     /**
@@ -1333,7 +1361,7 @@ final class Inline
      */
     private function spanValue(array $node, string $path, Context $c, string $prefix): string
     {
-        $value = $this->cellValue($node, $path, $c, self::str($node, 'value'));
+        $value = $this->cellValue($node, $path, $c, self::str($node, 'value'), true);
         if ($value === '') {
             // C2-W-116: an empty run pair reads back as text.
             $this->w->lose($path, self::str($node, 'type'), null);
@@ -1351,26 +1379,30 @@ final class Inline
      * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param string $value
+     * @param bool $span
      *
      * @return string
      */
-    private function cellValue(array $node, string $path, Context $c, string $value): string
+    private function cellValue(array $node, string $path, Context $c, string $value, bool $span = false): string
     {
         if (!str_contains($value, "\n")) {
             return $value;
         }
         if (!$c->inCell) {
-            $lines = array_slice(explode("\n", $value), 1);
+            $lines = array_slice(explode("\n", $span ? self::codeSpan($value) : $value), 1);
             $last = count($lines) - 1;
             foreach ($lines as $at => $line) {
-                // The closing run follows the last line, so an empty last line is no blank line; a pad before the run
-                // would be indent (C2-I-002).
-                if ($at === $last && $line === '') {
+                if ($span && $at === $last && str_starts_with($line, ' ')) {
+                    $this->w->lose($path, self::str($node, 'type'), 'value');
+
+                    break;
+                }
+                if (!$span && $at === $last && $line === '') {
                     $spelled = self::codeSpan($value);
                     $line = substr($spelled, (int)strrpos($spelled, "\n") + 1);
                     $line = str_starts_with($line, ' ') ? '' : $line;
                 }
-                if (Text::opensBlock($line)) {
+                if (Text::opensBlock($line, $span ? $c : null)) {
                     $this->w->lose($path, self::str($node, 'type'), 'value');
 
                     break;

@@ -18,6 +18,11 @@ final class Context
     public bool $lineStart = false;
 
     /**
+     * The rest of this source line when the next inline span crosses a line break.
+     */
+    public ?string $lineTail = null;
+
+    /**
      * A line comment immediately precedes the current continuation line.
      */
     public bool $lineCommentBefore = false;
