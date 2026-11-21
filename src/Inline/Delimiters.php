@@ -239,7 +239,10 @@ final class Delimiters
             throw new LogicException('Invalid scanner frame count');
         }
 
-        return $this->depth + $this->live + max(0, $frames - $this->frameBase);
+        return max(
+            $this->depth + $this->live + max(0, $frames - $this->frameBase),
+            is_int($tok['capDepth'] ?? null) ? $tok['capDepth'] : 0,
+        );
     }
 
     /**

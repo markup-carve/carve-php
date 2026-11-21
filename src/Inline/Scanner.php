@@ -1082,7 +1082,12 @@ final class Scanner
         }
         if ($this->capTracking) {
             $token['frames'] = count($this->frames);
-            $this->trackCapDelimiter($token);
+            // A later failed bracket can flatten this token's list. Its opener
+            // decision still uses the entries open when the scanner read it.
+            $capDepth = $this->depth + count($this->frames) + count($this->capDelims);
+            if (!$this->trackCapDelimiter($token)) {
+                $token['capDepth'] = $capDepth;
+            }
         }
 
         return $this->emit($token);
@@ -1095,7 +1100,7 @@ final class Scanner
      *
      * @throws \LogicException
      */
-    private function trackCapDelimiter(array $token): void
+    private function trackCapDelimiter(array $token): bool
     {
         $mark = $token[4];
         $start = $token[2];
@@ -1106,17 +1111,18 @@ final class Scanner
         if ($token[1] === self::OPENER) {
             $this->openCapDelimiter('{' . $mark, $end);
 
-            return;
+            return false;
         }
         if ($token[1] === self::CLOSER) {
             if ($this->closeCapDelimiter('{' . $mark, $start, false)) {
-                return;
+                return true;
             }
             if ($token[8] !== 1) {
-                return;
+                return false;
             }
         }
-        $this->trackCapBare($token, $mark, $start, $end);
+
+        return $this->trackCapBare($token, $mark, $start, $end);
     }
 
     /**
@@ -1127,19 +1133,21 @@ final class Scanner
      * @param int $start
      * @param int $end
      */
-    private function trackCapBare(array $token, string $mark, int $start, int $end): void
+    private function trackCapBare(array $token, string $mark, int $start, int $end): bool
     {
         if ($token[6] && $this->closeCapDelimiter($mark, $start, true)) {
-            return;
+            return true;
         }
         if ($token[5]) {
             $this->openCapDelimiter($mark, $end);
 
-            return;
+            return false;
         }
         if ($token[1] === self::BARE && $token[7]) {
             $this->capPoison[$mark]++;
         }
+
+        return false;
     }
 
     private function openCapDelimiter(string $kind, int $end): void
