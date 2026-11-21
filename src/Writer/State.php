@@ -101,6 +101,11 @@ final class State
      */
     private ?array $repairGroup = null;
 
+    /**
+     * @var array<mixed>|null
+     */
+    private ?array $repairDocument = null;
+
     private int $repairRead = 0;
 
     private ?int $repairLimit = null;
@@ -120,15 +125,26 @@ final class State
     }
 
     /**
-     * C2-W-133: the outer block is the repair group, including any nested blocks.
+     * C2-W-133: one repair budget for the whole document, sized by its blocks.
+     *
+     * @param array<mixed> $children
+     */
+    public function beginRepairDocument(array $children): void
+    {
+        $this->repairDocument = $children;
+        $this->repairRead = 0;
+        $this->repairLimit = null;
+    }
+
+    /**
+     * C2-W-133: the outer block is the repair group, including any nested blocks. Every group draws on the
+     * document budget.
      *
      * @param array<mixed> $node
      */
     public function beginRepairGroup(array $node): void
     {
         $this->repairGroup = $node;
-        $this->repairRead = 0;
-        $this->repairLimit = null;
         $this->repairStates = [];
     }
 
@@ -140,7 +156,7 @@ final class State
 
     /**
      * Charge the characters a writer reparse is about to read. A repeated parse at the same
-     * node and stage is a repeated repair state. The encoded group is a conservative size
+     * node and stage is a repeated repair state. The encoded document is a conservative size
      * allowance for the source it can spell, including escaped characters and markers.
      *
      * @throws \MarkupCarve\Carve\Writer\RepairRefused
@@ -157,7 +173,7 @@ final class State
         $this->repairStates[$key] = true;
         $this->repairRead += strlen($text);
         if ($this->repairLimit === null) {
-            $encoded = json_encode($this->repairGroup, JSON_INVALID_UTF8_SUBSTITUTE);
+            $encoded = json_encode($this->repairDocument ?? $this->repairGroup, JSON_INVALID_UTF8_SUBSTITUTE);
             $allowance = $encoded === false ? 0 : strlen($encoded) * 4;
             $this->repairLimit = max(self::REPAIR_FLOOR, self::REPAIR_FACTOR * $allowance);
         }

@@ -46,4 +46,30 @@ final class WriterRepairBudgetTest extends TestCase
 
         self::assertSame([], $state->losses);
     }
+
+    public function testLaterGroupsDrawOnTheSpentDocumentBudget(): void
+    {
+        $state = new State([], false, false);
+        $state->beginRepairDocument([['type' => 'paragraph'], ['type' => 'paragraph'], ['type' => 'paragraph']]);
+        $state->beginRepairGroup(['type' => 'paragraph']);
+        $state->chargeRepair('/children/0/children/0', 'first-line', str_repeat('a', 12_000_000));
+        $state->endRepairGroup();
+        $state->beginRepairGroup(['type' => 'paragraph']);
+        $state->chargeRepair('/children/1/children/0', 'first-line', str_repeat('b', 12_000_000));
+        $state->endRepairGroup();
+        $state->beginRepairGroup(['type' => 'paragraph']);
+
+        $this->expectException(RepairRefused::class);
+        $state->chargeRepair('/children/2/children/0', 'first-line', 'c');
+    }
+
+    public function testTheDocumentSizeRaisesTheBudgetOfEveryGroup(): void
+    {
+        $state = new State([], false, false);
+        $state->beginRepairDocument([['type' => 'paragraph', 'value' => str_repeat('a', 10_000)], ['type' => 'paragraph']]);
+        $state->beginRepairGroup(['type' => 'paragraph']);
+        $state->chargeRepair('/children/1/children/0', 'first-line', str_repeat('b', 24_000_001));
+
+        self::assertSame([], $state->losses);
+    }
 }

@@ -32,6 +32,7 @@ final class Writer
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         self::collect($children, $w);
         self::rootLosses($tree, $children, $w);
+        $w->beginRepairDocument($children);
         (new Blocks($w))->blocks($children, '/children', '');
         $w->loseLineEndCarriageReturns();
         while ($w->lines !== [] && end($w->lines) === '') {
