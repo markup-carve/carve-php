@@ -101,6 +101,10 @@ final class HeadingShiftTest extends TestCase
             ], $options);
             self::assertSame($html, $result->html);
             self::assertSame($codes, array_map(static fn ($d) => $d->code, $result->diagnostics));
+            if ($codes !== []) {
+                self::assertSame('/children/0', $result->diagnostics[0]->path);
+                self::assertSame('The heading shift of 1 raises a heading above level 6.', $result->diagnostics[0]->message);
+            }
         }
     }
 

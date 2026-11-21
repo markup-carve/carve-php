@@ -199,6 +199,7 @@ final class Carve
         }
         HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
         $shiftAbove = $opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null;
+        $shiftPath = $shiftAbove !== null ? (Findings::paths($doc)[$shiftAbove] ?? null) : null;
         $transformEntries = [];
         if ($transforms !== []) {
             [$doc, $facts, $transformEntries] = self::applyDocumentTransforms($doc, $source, $opts, $transforms);
@@ -221,7 +222,7 @@ final class Carve
         foreach ($losses->finish($doc) as $i => $loss) {
             $entry = $log->entries[$i];
             $severity = $opts->strictLosses ? 'error' : $entry['severity'];
-            $path = $loss->path;
+            $path = $entry['code'] === HeadingShift::CODE ? $shiftPath : $loss->path;
             if ($source === null && $path !== null && $entry['field'] !== null) {
                 $path .= '/' . str_replace(['~', '/'], ['~0', '~1'], $entry['field']);
             }
