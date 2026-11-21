@@ -37,6 +37,13 @@ final class FuzzProperties
     public const IMPORT_HTML_BYTES = 262144;
 
     /**
+     * JSON bytes per source byte up to which a decoded tree gets the time budget of its source.
+     *
+     * @var int
+     */
+    public const TREE_BYTES_PER_BYTE = 32;
+
+    /**
      * @var array<string>
      */
     private const HUB = ['markdown', 'gfm', 'djot'];
@@ -77,7 +84,9 @@ final class FuzzProperties
         }
         $json = $this->run('json', static fn (): string => Carve::toJson($source));
         if (is_string($json)) {
-            $again = $this->run('json-render', static fn (): string => Carve::render(Carve::decodeTree($json)));
+            // The tree repeats data such as an abbreviation's expansion on every use, so its size sets the budget here.
+            $treeSize = max($this->size, intdiv(strlen($json), self::TREE_BYTES_PER_BYTE));
+            $again = $this->run('json-render', static fn (): string => Carve::render(Carve::decodeTree($json)), $treeSize);
             unset($json);
             if (is_string($again) && $again !== $html) {
                 $this->finds[] = ['json-render', 'json-render: decoded tree renders other HTML', $this->diff($html, $again)];
@@ -118,8 +127,9 @@ final class FuzzProperties
     /**
      * @param string $property
      * @param \Closure(): mixed $call
+     * @param int|null $size The size the time budget grows with, the source size by default.
      */
-    private function run(string $property, Closure $call): mixed
+    private function run(string $property, Closure $call, ?int $size = null): mixed
     {
         if (getenv('CARVE_FUZZ_TRACE')) {
             fwrite(STDERR, $property . "\n");
@@ -140,7 +150,7 @@ final class FuzzProperties
             return null;
         }
         $ms = self::cpuMs() - $start;
-        $budget = self::SLOW_MS * max(1, $this->size / self::SLOW_PER_BYTES) * $this->slowFactor;
+        $budget = self::SLOW_MS * max(1, ($size ?? $this->size) / self::SLOW_PER_BYTES) * $this->slowFactor;
         if ($ms > $budget) {
             // Once more, so a busy machine is no find: a slow input is slow twice.
             $start = self::cpuMs();
