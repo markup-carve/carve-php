@@ -150,6 +150,10 @@ Fields: `string $reason`, `string $pointer`.
 
 Class. C2-M-006: an input the importer refuses; the command line reports it as `import-input-invalid`.
 
+### `MarkupCarve\Carve\Ast\EditorChangeError`
+
+Class. An editor source or change an `EditorSession` refuses: invalid UTF-8, or a change that is malformed, out of order, overlapping or splits a UTF-8 scalar. carve-js throws `EditorChangeError` for the same input.
+
 ## Includes
 
 ### `MarkupCarve\Carve\Include\IncludeResolver`
