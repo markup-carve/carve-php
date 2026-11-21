@@ -53,6 +53,7 @@
         ],
         "cs-check": "phpcs --colors --parallel=16",
         "cs-fix": "phpcbf --colors --parallel=16",
+        "fuzz": "@php -d pcov.enabled=0 scripts/fuzz.php",
         "stan": "phpstan analyze --memory-limit=1G",
         "tables-check": "@php scripts/generate-tables.php --check",
         "test": "@php -d pcov.enabled=0 vendor/bin/phpunit"

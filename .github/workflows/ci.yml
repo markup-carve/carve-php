@@ -54,6 +54,11 @@ jobs:
       - name: Run tests
         run: composer test
 
+      - name: Fuzz smoke (crash, hang, memory and time properties)
+        if: matrix.php == '8.5'
+        timeout-minutes: 10
+        run: composer fuzz -- smoke
+
       - name: Install into a scratch consumer and call every public entry
         if: matrix.php == '8.2'
         run: scripts/consumer-smoke.sh

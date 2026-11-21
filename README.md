@@ -119,10 +119,19 @@ composer stan          PHPStan level 9
 composer cs-check      code style
 composer tables-check  generated tables are current
 php scripts/writer-gates.php tokens N | lines N | random COUNT [SEED] [K/N]
+composer fuzz -- run --seed=N --count=N   property fuzzing (see below)
+composer fuzz -- scale                    every operation at 8 times the size: worse than linear fails
+composer fuzz -- smoke                    the short fixed-seed run CI does
 ```
 
 The writer gates parse each generated input, write it and parse it again. A tree that changes, or a second write that
 gives other bytes, fails unless the writer reported the loss.
+
+`scripts/fuzz.php` runs random bytes, a token soup, generated documents, mutants of the spec examples and nesting 50 to
+5,000 levels deep through parse, render, AST JSON, fmt, lint, the writers and the importers, each input in a worker
+under `memory_limit=128M`. A crash, a hang, a dead worker or an operation over 500 ms of CPU time per 32 KB fails the
+run; other finds (fmt changes the HTML, fmt is not idempotent, a refusal) are listed by cause with the smallest input.
+`composer fuzz -- replay SEED KIND INDEX` prints one input, `minimize SEED KIND INDEX SIGNATURE` shrinks it.
 
 The conformance data in `spec/` is a copy of the specification at the commit named in `spec/PINNED`.
 
