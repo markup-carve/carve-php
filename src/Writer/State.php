@@ -229,11 +229,11 @@ final class State
         }
     }
 
-    public function lastLossUnder(string $path): bool
+    public function lastFieldLossUnder(string $path): bool
     {
         $last = end($this->losses);
 
-        return $last !== false && is_string($last->path)
+        return $last !== false && $last->code === 'field-unspellable' && is_string($last->path)
             && ($last->path === $path || str_starts_with($last->path, $path . '/'));
     }
 

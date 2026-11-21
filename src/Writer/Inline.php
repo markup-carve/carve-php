@@ -815,7 +815,7 @@ final class Inline
         if ($trimmed !== $value) {
             $leafAt = strrpos($path, '/children/');
             $leaf = $leafAt === false ? $path : substr($path, 0, $leafAt);
-            if (!$this->w->lastLossUnder($leaf)) {
+            if (!$this->w->lastFieldLossUnder($leaf)) {
                 $this->w->lose($path, 'text', null);
             }
         }

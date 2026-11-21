@@ -47,6 +47,22 @@ final class TerminalTextLossTest extends TestCase
                 "a\nb\n",
                 ['structure-unspellable /children/0/children/0'],
             ],
+            'spaces on both sides of a soft break' => [
+                [
+
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => 'a '],
+                        ['type' => 'soft_break'],
+                        ['type' => 'text', 'value' => 'b '],
+                    ],
+                ],
+                "a\nb\n",
+                [
+                    'structure-unspellable /children/0/children/0',
+                    'structure-unspellable /children/0/children/2',
+                ],
+            ],
             'interior space stays' => [
                 ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'a b']]],
                 "a b\n",
