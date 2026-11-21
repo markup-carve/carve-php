@@ -145,8 +145,12 @@ final class Writer
         Options::from($options, ['format']);
         $parsed = TableBuilder::compactEmptyParagraphs(static fn () => Carve::parseWithLayout($source));
         $tree = TreeEncoder::decodedForWriter($parsed->tree);
+        $writeLayout = $layout ?? $parsed->layout;
+        // The read-back parser may need the same memory as the initial parse.
+        // Release its object tree before the writer begins that repair work.
+        unset($parsed);
 
-        return self::writeWithDiagnostics($tree, $layout ?? $parsed->layout, $options);
+        return self::writeWithDiagnostics($tree, $writeLayout, $options);
     }
 
     /**
