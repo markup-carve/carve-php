@@ -680,6 +680,11 @@ final class Blocks
         if ($text === '' || !Text::isPunct($text[0]) || str_contains($text, "\n")) {
             return $text;
         }
+        // C2-W-092: a caret opens a caption line only with a following gap.
+        // Its other continuations cannot change the paragraph's block kind.
+        if ($text[0] === '^' && !in_array($text[1] ?? '', [' ', "\t", ''], true)) {
+            return $text;
+        }
         // Definition lines open only at document column zero, never inside a container.
         if ($text[0] === '[' && preg_match('#^/children/[0-9]+$#', $path) !== 1) {
             return $text;
