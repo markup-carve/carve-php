@@ -49,4 +49,13 @@ final class AdapterBacklinkWhitespaceTest extends TestCase
         $this->assertSame("a[^1]\n\n[^1]: N\n", stream_get_contents($out));
         $this->assertSame('', stream_get_contents($err));
     }
+
+    public function testBacklinkInsideRetainedSpanKeepsSpaceAfterPriorProse(): void
+    {
+        $html = '<p>a<a href="#n" id="r">1</a></p>'
+            . '<div><p>Before<span><a href="#r" id="n">1</a> after</span></p></div>';
+        $result = HtmlImporter::import($html, ['adapter' => 'word']);
+        $this->assertSame("a[^1]\n\n[^1]: Before[ after]{}\n", $result->source);
+        $this->assertSame([], $result->diagnostics);
+    }
 }

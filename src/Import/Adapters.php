@@ -628,14 +628,7 @@ final class Adapters
         if ($parent === null) {
             return;
         }
-        $leading = true;
-        for ($before = $this->edits->before($node); $before !== null; $before = $this->edits->before($before)) {
-            if (!$before->isBlank()) {
-                $leading = false;
-
-                break;
-            }
-        }
+        $leading = $this->atLeadingBlockEdge($node);
         $this->edits->detach($node);
         if (!$leading) {
             return;
@@ -649,6 +642,29 @@ final class Adapters
                 break;
             }
             $this->edits->detach($child);
+        }
+    }
+
+    /**
+     * A backlink can start a span without starting its paragraph. Only a block edge gives its following space the role
+     * of export layout; inside a retained span, that space can separate the span from prose before it.
+     */
+    private function atLeadingBlockEdge(HtmlNode $node): bool
+    {
+        while (true) {
+            $parent = $this->edits->parentOf($node);
+            if ($parent === null) {
+                return false;
+            }
+            for ($before = $this->edits->before($node); $before !== null; $before = $this->edits->before($before)) {
+                if (!$before->isBlank()) {
+                    return false;
+                }
+            }
+            if (isset(self::BLOCKS[$parent->name])) {
+                return true;
+            }
+            $node = $parent;
         }
     }
 
