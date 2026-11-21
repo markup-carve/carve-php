@@ -119,6 +119,13 @@ final class ImportClausesTest extends TestCase
         HtmlImporter::import(str_repeat('<blockquote>', 201) . 'a', ['rawHtml' => 'bad']);
     }
 
+    public function testC2M006EmptyListDoesNotIncreaseImportedDepth(): void
+    {
+        $html = str_repeat('<blockquote>', 200) . '<ul></ul>' . str_repeat('</blockquote>', 200);
+
+        $this->assertSame('document', HtmlImporter::import($html)->tree->type);
+    }
+
     public function testC2M013RunOfImagesGivesOneImageParagraphEach(): void
     {
         $image = static fn (string $src): array => [

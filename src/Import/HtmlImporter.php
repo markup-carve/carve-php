@@ -41,9 +41,6 @@ final class HtmlImporter
         'html' => true,
         'body' => true,
         'blockquote' => true,
-        'ul' => true,
-        'ol' => true,
-        'li' => true,
         'section' => true,
         'aside' => true,
     ];
@@ -55,9 +52,6 @@ final class HtmlImporter
      */
     private const DEPTH_HTML_CONTAINERS = [
         'blockquote' => true,
-        'ul' => true,
-        'ol' => true,
-        'li' => true,
     ];
 
     /**
