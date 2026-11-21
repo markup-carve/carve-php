@@ -128,6 +128,16 @@ final class DataRules
      */
     private array $compiledWhen = [];
 
+    /**
+     * @var array<string, array<int|string, \Closure(\stdClass): mixed>> The compiled `when` of each report entry, by rule.
+     */
+    private array $compiledReport = [];
+
+    /**
+     * @var array<string, \Closure(\stdClass): mixed> The compiled key of each lookup, by site.
+     */
+    private array $compiledKeys = [];
+
     private function __construct(private Context $context)
     {
     }
@@ -946,11 +956,12 @@ final class DataRules
         }
         $range = is_array($rule['range'] ?? null) ? $rule['range'] : [];
         $ruleValues = is_array($rule['values'] ?? null) ? $rule['values'] : [];
-        foreach ($entries as $entry) {
+        $key = is_string($rule['key'] ?? null) ? $rule['key'] : '';
+        foreach ($entries as $i => $entry) {
             if (!is_array($entry)) {
                 continue;
             }
-            if (isset($entry['when']) && !$this->value($entry['when'], $record)) {
+            if (isset($entry['when']) && !($this->compiledReport[$key][$i] ??= $this->compile($entry['when'], $this->vars))($record)) {
                 continue;
             }
             $start = $this->value($entry['start'] ?? $range['start'] ?? ['f' => 'start'], $record);
@@ -1438,6 +1449,25 @@ final class DataRules
                 return $this->letValues[$arg] = $value;
             };
         }
+        if ($op === 'match' && is_string($arg)) {
+            $side = ($expr['at'] ?? null) === 'end' ? 1 : 0;
+
+            return fn (stdClass $record): mixed => $this->groups[$arg][$side] ?? null;
+        }
+        if ($op === 'slice' && is_array($arg) && array_key_exists(1, $arg)) {
+            $text = $this->compile($arg[0], $let);
+            $from = $this->compile($arg[1], $let);
+            $to = array_key_exists(2, $arg) ? $this->compile($arg[2], $let) : null;
+
+            return static function (stdClass $record) use ($text, $from, $to): string {
+                $value = $text($record);
+                $start = $from($record);
+
+                $end = $to === null ? null : self::integer($to($record));
+
+                return is_string($value) ? self::slice($value, self::integer($start), $end) : '';
+            };
+        }
         if ($op === 'lookup' && is_array($arg)) {
             $site = json_encode($arg, JSON_THROW_ON_ERROR);
             $value = isset($arg['value']) ? $this->compile($arg['value'], $let) : null;
@@ -1576,10 +1606,6 @@ final class DataRules
 
             return $at === false ? -1 : $at;
         }
-        $more = $this->valueMore($op, $expr, $record);
-        if ($more !== self::NONE) {
-            return $more;
-        }
         if ($op === 'json_escape' && isset($expr['json_escape'])) {
             $encoded = json_encode(
                 self::string($this->value($expr['json_escape'], $record)),
@@ -1697,8 +1723,9 @@ final class DataRules
 
             return rtrim(substr($line, $from - $start), " \t");
         }
+        $more = $this->valueMore($op, $expr, $record);
 
-        return null;
+        return $more === self::NONE ? null : $more;
     }
 
     /**
@@ -1817,6 +1844,7 @@ final class DataRules
         if (!isset($this->lookupIndexes[$site])) {
             $index = [];
             $records = $over === 'line' ? $this->lineRecords() : $this->lookupRecords[$over];
+            $keyOf = isset($expr['key']) ? ($this->compiledKeys[$site] ??= $this->compile($expr['key'], $this->vars)) : null;
             foreach ($records as $candidate) {
                 $type = $candidate->type ?? null;
                 // C2-W-150: a lookup with no types reads every block or every inline node; a text run is no node.
@@ -1827,7 +1855,7 @@ final class DataRules
                 $copy->item = $candidate;
                 $oldGroups = $this->groups;
                 $oldBase = $this->base;
-                $key = isset($expr['key']) ? $this->value($expr['key'], $copy) : null;
+                $key = $keyOf === null ? null : $keyOf($copy);
                 $this->groups = $oldGroups;
                 $this->base = $oldBase;
                 $index[serialize($key)][] = $candidate;
