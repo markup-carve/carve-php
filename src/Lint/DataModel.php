@@ -107,7 +107,7 @@ final class DataModel
     private array $holderByPath = [];
 
     /**
-     * @var array<string, \stdClass>
+     * @var array<int, array<string, \stdClass>> By quote depth, then path.
      */
     private array $containerCache = [];
 
@@ -517,9 +517,8 @@ final class DataModel
 
     private function container(string $path, int $quotes): stdClass
     {
-        $key = $path . ':' . $quotes;
-        if (isset($this->containerCache[$key])) {
-            return $this->containerCache[$key];
+        if (isset($this->containerCache[$quotes][$path])) {
+            return $this->containerCache[$quotes][$path];
         }
         $type = $this->context->nodeTypes[$path] ?? 'document';
         $content = in_array($type, ['document', 'block_quote'], true) ? 0
@@ -539,7 +538,7 @@ final class DataModel
             }
         }
 
-        return $this->containerCache[$key] = (object)[
+        return $this->containerCache[$quotes][$path] = (object)[
             'type' => $type,
             'content_column' => $content,
             'marker_column' => $this->context->layout->markerColumn($path),
@@ -580,7 +579,9 @@ final class DataModel
             }
             $type = self::type($node);
             $start = $pos['startOffset'];
-            $line = $this->lines[$c->lineOf($start) - 1] ?? null;
+            // The encoder counts lines from the same offsets, so a node's own start line is the line of its start.
+            $included = is_array($node['pos'] ?? null) && isset($node['pos']['file']);
+            $line = $this->lines[($included ? $c->lineOf($start) : $pos['startLine']) - 1] ?? null;
             if ($line === null) {
                 continue;
             }
