@@ -953,7 +953,8 @@ final class DataRules
 
                 continue;
             }
-            $end = strpos($text, $mark, $start + $width + 1);
+            // Like `indexOf`, a search that starts past the end finds nothing.
+            $end = $start + $width + 1 <= $length ? strpos($text, $mark, $start + $width + 1) : false;
             while ($end !== false) {
                 [$prior] = self::charBefore($text, $end);
                 if (
