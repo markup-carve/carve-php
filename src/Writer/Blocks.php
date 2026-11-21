@@ -261,7 +261,9 @@ final class Blocks
             return 3;
         }
         if ($list !== null && ($node['type'] ?? null) === 'list' && self::adjacentOrdered($list, $node)) {
-            return 0;
+            // The next list's attribute line would be a lazy line of the open paragraph above it (C2-B-024).
+            return $this->takesLineBelow($list)
+                && $this->listAttributes($node, Lists::markers($node, $this->w, $path)[1]) !== '' ? 1 : 0;
         }
 
         return $nested ? 0 : 1;
