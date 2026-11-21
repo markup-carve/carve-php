@@ -488,7 +488,7 @@ final class LineRules
             return;
         }
         [$leaf, $from] = self::paragraphContent($line, $c);
-        if (str_starts_with(Support::trimStart($leaf), '> ')) {
+        if ($line->content !== $line->start && str_starts_with(Support::trimStart($leaf), '> ')) {
             [$leaf, $from] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
         }
         if (preg_match_all('/\[\^[ \t]+\]|(?<=\])\[[ \t]+\]|^\[[ \t]+\]:/', $leaf, $matches, PREG_OFFSET_CAPTURE) < 1) {
