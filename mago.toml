@@ -1,4 +1,0 @@
-php-version = "8.2"
-
-[source]
-paths = ["src"]

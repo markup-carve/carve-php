@@ -8,8 +8,10 @@
 [![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8892BF.svg?style=flat-square)](https://php.net)
 [![Software License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 
-carve-php parses and renders Carve in PHP. It implements Carve spec 0.1.
-Read the [Carve documentation](https://markup-carve.github.io/carve/) for the language.
+carve-php parses and renders Carve in PHP. It implements Carve spec 0.2: parser, HTML renderer, linter, HTML importer
+and canonical writer. Read the [Carve documentation](https://markup-carve.github.io/carve/) for the language.
+
+PHP 8.2 or later. Import (HTML, Markdown, GFM, Djot) needs `ext-dom`; it uses `Dom\HTMLDocument` from PHP 8.4 on and `DOMDocument` before that.
 
 ## Install
 
@@ -20,26 +22,110 @@ composer require markup-carve/carve-php
 ## Usage
 
 ```php
-use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Carve;
 
-$converter = new CarveConverter();
-$document = $converter->parse('# Hello /Carve/');
-$html = $converter->render($document);
+$html = Carve::render("# Title\n\nSome *strong* text.\n");
+$source = Carve::importDocument('<p>Hi <em>there</em></p>')->source;
+$canonical = Carve::format($source);
 ```
 
-CLI basics:
+All entry points are static methods on `MarkupCarve\Carve\Carve`. `$options` is the option map of the specification
+(`smartTypography`, `rawHtml`, `extensions`, `urlPolicy`, ...); an unknown or malformed option throws `OptionError`.
+Every error a call throws implements `CarveException`.
 
-```sh
-vendor/bin/carve README.crv > README.html
-vendor/bin/carve lint README.crv
-vendor/bin/carve fmt README.crv
-vendor/bin/carve migrate --from html page.html
+| Method | Returns |
+|---|---|
+| `parse($source, $options)` | the tree as a `Node` |
+| `parseWithDiagnostics($source, $options)` | `ParseResult`: tree and parse diagnostics |
+| `parseWithLayout($source, $options)` | `LayoutResult`: tree and the source-layout record |
+| `validateLayout($json, $tree = null)` | the layout record, or `LayoutError` when it is refused |
+| `render($sourceOrTree, $options)` | HTML of source, a `Node` or a decoded tree array |
+| `renderWithDiagnostics($sourceOrTree, $options)` | `RenderResult`: HTML and all diagnostics |
+| `toHtml($source, $options)` | HTML |
+| `toJson($source, $options)` | the tree as AST JSON |
+| `encodeTree($tree)`, `encodeEnvelope($tree)` | the tree as JSON, bare or in its envelope |
+| `decodeTree($json, $options)`, `validateTree($tree, $options)` | the tree of AST JSON, or `TreeError` |
+| `lint($source, $options)` | lint diagnostics |
+| `includeDependencies($sourceOrTree, $options)` | the files the includes of a document read |
+| `positionOf($source, $offset)` | `['line' => ..., 'column' => ...]` of a UTF-8 byte offset, as the command line counts them |
+| `diffTree($a, $b)`, `applyPatch($tree, $patch, $options)` | a JSON Patch (RFC 6902) between two trees, and the tree it gives; `applyPatch` takes `fingerprint` and throws `Json\PatchError` |
+| `sourceFingerprint($source)`, `treeFingerprint($tree)` | `sha256:` and the hash of the source bytes or of `encodeTree($tree)` |
+| `headingId($text, $options)` | the id `headingIds` generates for a heading with that text, or `null` under `off` |
+| `version()`, `SPEC_VERSION`, `NODE_TYPES` | the installed package version, the pinned spec, and the block and inline node types of its schema |
+| `importDocument($html, $options)`, `importHtml($html, $options)` | `ImportResult`: tree, AST array, diagnostics and the Carve source |
+| `write($tree, $layout = null, $options)` | Carve source of a tree; throws `CarveWriteError` on a loss |
+| `writeWithDiagnostics($tree, $layout = null, $options)` | `WriteResult`: source and the loss diagnostics |
+| `format($source, $options, $layout = null)` | the canonical form of a document |
+| `formatWithDiagnostics($source, $options, $layout = null)` | `WriteResult` of the canonical form |
+| `writers()`, `writeTo($target, $tree, $options, $registry = null)` | the output writer registry (`html`, `carve`, `markdown`, `plain`, `ansi`), and a write through it |
+| `plainText($nodes)`, `tableGrid($table)`, `safeCodeFence($content)` | host helpers: plain text of nodes, the table grid with spans filled, a fence the content cannot close |
+
+The Markdown, plain-text and ANSI exports are `Export\MarkdownExporter`, `Export\PlainTextExporter` and
+`Export\AnsiExporter`; each `export($tree, $options)` returns an `Export\ExportResult` with the text and the losses.
+
+Render options of note: `softBreak` (`newline`, `space` or `br`), `allowLosses` (render-loss codes left out of the
+record), `maxLosses` (the cap on kept losses, default 100; the result's `suppressedDiagnostics` counts the rest) and
+`codeBlockRenderer`, a `Closure(Node $node, string $defaultHtml): ?string` that returns trusted HTML for a code block,
+or `null` to keep the default.
+
+Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
+(`html`, `markdown`, `gfm` or `djot`), `rawHtml` (HTML only: keep raw HTML nodes), `adapter` (HTML only: the editor
+that wrote the HTML, `generic` by default; `word` and `google-docs` read exported notes as footnotes, C2-M-102),
+`strictLosses`, `allowLosses` and `maxLosses`, and `labels` (the labels used to render generated accessible names). Markdown, GFM and Djot go through
+the HTML importer: `league/commonmark` (CommonMark 0.31 and the GFM
+extensions) and `php-collective/djot` render HTML, which the HTML importer reads. Includes: an
+`Include\IncludeResolver` such as `Include\FileResolver::forRoot($root)` in the `includes` option, or an array with
+`resolver` and the lowered limits `depth`, `bytes` and `maxDiagnostics` (include failures kept, at most 100).
+
+Extensions (provisional) are passed as `ExtensionDefinition` or `ExtensionProvider` objects in the `extensions` option.
+`Extension\Tabs::extensions()` gives the standard tabs extension. Register `carve.tabs` by name and set
+`renderers['carve.tabs']` to `['standard' => ['mode' => 'aria']]` for accessible tab controls; the default `css`
+mode uses radio controls. `Tabs::extensions(true, 'aria')` registers that renderer directly.
+
+## Command line
+
 ```
+vendor/bin/carve [render] FILE...           HTML
+    --to=html|markdown|plain|ansi             output format
+vendor/bin/carve ast FILE...                AST JSON (also --tree)
+vendor/bin/carve diagnostics FILE...        diagnostics
+vendor/bin/carve lint FILE...               lint findings
+vendor/bin/carve fmt FILE...                canonical form (alias: format)
+    --check  --diff  --write|-w  --normalize  --align-tables  --from-ast
+vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] [--adapter=NAME] FILE...
+```
+
+Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
+`--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br`; `render` and `import` take `--allow-loss CODE`
+(repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`.
+`-` reads standard input.
+
+Exit codes: `0` done; `1` a lint finding, a file that `fmt --check` would change, or a write loss; `2` a usage or
+input error.
 
 ## Documentation
 
 - [Carve documentation](https://markup-carve.github.io/carve/)
-- [Sandbox](https://sandbox.dereuromark.de/sandbox/carve)
-- [Engine guides](docs/README.md)
-- [Security for untrusted input](docs/security.md)
-- [Development and contributing](docs/development.md)
+- [Library guide](docs/README.md)
+- [API reference](docs/api.md)
+- [ProseMirror / Tiptap bridge](docs/prosemirror.md)
+- [Migration guide from 0.1](docs/migration.md)
+
+## Development
+
+```
+composer test          PHPUnit, the corpus and the clause tests
+composer stan          PHPStan level 9
+composer cs-check      code style
+composer tables-check  generated tables are current
+php scripts/writer-gates.php tokens N | lines N | random COUNT [SEED] [K/N]
+```
+
+The writer gates parse each generated input, write it and parse it again. A tree that changes, or a second write that
+gives other bytes, fails unless the writer reported the loss.
+
+The conformance data in `spec/` is a copy of the specification at the commit named in `spec/PINNED`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

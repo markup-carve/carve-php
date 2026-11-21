@@ -1,0 +1,202 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Import;
+
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Cli\Command;
+use MarkupCarve\Carve\OptionError;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Markdown, GFM and Djot import through the HTML hub, as carve-js#5074.
+ */
+final class HubImporterTest extends TestCase
+{
+    private static function source(string $input, string $from): string
+    {
+        return Carve::importDocument($input, ['from' => $from])->source;
+    }
+
+    public function testMarkdownHeadingAtMinimumDependencyVersion(): void
+    {
+        $this->assertSame("= Hi\n", self::source("# Hi\n", 'markdown'));
+    }
+
+    public function testKeepsARawHtmlBlockAndInlineHtmlRaw(): void
+    {
+        $this->assertSame(
+            "```=html\n<div>\n*a*\n</div>\n```\n\nx `<b>`{=html}y`</b>`{=html}\n",
+            self::source("<div>\n*a*\n</div>\n\nx <b>y</b>\n", 'markdown'),
+        );
+    }
+
+    public function testRestoresARawBlockThatATightListItemReadsInline(): void
+    {
+        $this->assertSame("- a\n  `<!--x-->`{=html}\n- b\n", self::source("- a\n  <!--x-->\n- b\n", 'markdown'));
+        $this->assertSame("- a\n  `<div>\n  x`{=html}\n- b\n", self::source("- a\n  <div>\n  x\n- b\n", 'markdown'));
+    }
+
+    public function testKeepsTheNoteOfANonAsciiFootnoteLabel(): void
+    {
+        $this->assertSame("x[^%C3%A9]\n\n[^%C3%A9]: note\n", self::source("x[^é]\n\n[^é]: note\n", 'gfm'));
+        $this->assertSame(
+            "x[^%E6%97%A5%E6%9C%AC]\n\n[^%E6%97%A5%E6%9C%AC]: note word\n",
+            self::source("x[^日本]\n\n[^日本]: note word\n", 'gfm'),
+        );
+    }
+
+    public function testKeepsAScriptBlockOfGfmRawInsteadOfTagFilteredText(): void
+    {
+        $this->assertSame("```=html\n<script>a()</script>\n```\n", self::source("<script>a()</script>\n", 'gfm'));
+    }
+
+    public function testKeepsATightListTightWhenAnItemHoldsASecondBlock(): void
+    {
+        $this->assertSame("- a\n\n  > b\n- c\n", self::source("* a\n  > b\n* c\n", 'markdown'));
+        $this->assertSame("- a\n\n- b\n", self::source("* a\n\n* b\n", 'markdown'));
+    }
+
+    public function testWritesFrontmatterMathAndAnAdmonitionDirective(): void
+    {
+        $this->assertSame(
+            "---\ntitle: a\n---\n\n\$`x` and\n\n\$\$`\\sum`\n\n::: note \"Head\"\nbody\n:::\n",
+            self::source("---\ntitle: a\n---\n\n\$x\$ and\n\n\$\$\n\\sum\n\$\$\n\n:::note[Head]\nbody\n:::\n", 'markdown'),
+        );
+    }
+
+    public function testReadsTomlFrontmatterAndLeavesAnUnclosedFenceToMarkdown(): void
+    {
+        $this->assertSame("---toml\na = 1\n---\n\nx\n", self::source("+++\na = 1\n+++\nx\n", 'markdown'));
+        $this->assertSame("***\n\na\n", self::source("---\na\n", 'markdown'));
+    }
+
+    public function testReadsMathAsMicromarkDoes(): void
+    {
+        $this->assertSame("\$`a b` and \$`c`\n", self::source("\$\$ a b \$\$ and \$c\$\n", 'markdown'));
+        $this->assertSame("\$5\n", self::source("\\\$5\n", 'markdown'));
+        $this->assertSame("a \$ b\n", self::source("a \$ b\n", 'markdown'));
+        $this->assertSame("\$\$`x\ny`\n\nafter\n", self::source("\$\$\nx\ny\n\$\$\$\nafter\n", 'markdown'));
+    }
+
+    public function testReadsNestedContainerDirectivesAndTheirAttributes(): void
+    {
+        $this->assertSame(
+            "{#a .x}\n:::: warning\nout\n\n{.y}\n::: box\nin\n:::\n::::\n",
+            self::source("::::warning{#a .x}\nout\n\n:::box{.y}\nin\n:::\n::::\n", 'markdown'),
+        );
+        // As in micromark, the outer directive is asked first, so the first closing run closes it.
+        $this->assertSame(
+            "{#a .x}\n:::: warning\nout\n\n{.y}\n::: box\nin\n:::\n::::\n\n\\:::\n",
+            self::source(":::warning{#a .x}\nout\n\n:::box{.y}\nin\n:::\n:::\n", 'markdown'),
+        );
+        $this->assertSame(":::name{bad\n", self::source(":::name{bad\n", 'markdown'));
+    }
+
+    public function testReadsAGfmFootnoteWithoutThePointerAtTheNotesLabel(): void
+    {
+        $this->assertSame("x[^1]\n\n[^1]: note\n", self::source("x[^1]\n\n[^1]: note\n", 'gfm'));
+    }
+
+    public function testReadsAGithubAlertAsAnAdmonition(): void
+    {
+        $this->assertSame("::: note\nhi\n:::\n", self::source("> [!NOTE]\n> hi\n", 'gfm'));
+        $this->assertSame("::: danger\nx\n:::\n", self::source("> [!CAUTION]\n> x\n", 'gfm'));
+        $this->assertSame("> [!NOTE]\n> hi\n", self::source("> [!NOTE]\n> hi\n", 'markdown'));
+    }
+
+    public function testKeepsAZeroStartAndRawContentOfDjot(): void
+    {
+        $this->assertSame("{start=0}\n. a\n. b\n", self::source("0. a\n1. b\n", 'djot'));
+        $this->assertSame(
+            "`<a>`{=html} and\n\n```=latex\n\\x\n```\n",
+            self::source("`<a>`{=html} and\n\n``` =latex\n\\x\n```\n", 'djot'),
+        );
+    }
+
+    public function testWritesOnlyAnAuthoredDjotHeadingId(): void
+    {
+        $this->assertSame("= Head\n\ntext\n", self::source("# Head\n\ntext\n", 'djot'));
+        $this->assertSame("{#mine}\n= Head\n", self::source("{#mine}\n# Head\n", 'djot'));
+    }
+
+    public function testReportsNoWhitespaceNormalizationForTheLibrariesLineBreaks(): void
+    {
+        $this->assertSame([], Carve::importDocument("- a\n- b\n", ['from' => 'djot'])->diagnostics);
+        $this->assertSame([], Carve::importDocument("> a\n> b\n", ['from' => 'markdown'])->diagnostics);
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function entries(): array
+    {
+        return [
+            'markdown' => ['markdown', "# Hi *there*\n", "= Hi /there/\n"],
+            'gfm' => ['gfm', "~~gone~~\n", "{-gone-}\n"],
+            'djot' => ['djot', "_hi_ *there*\n", "/hi/ *there*\n"],
+            'html' => ['html', '<p><em>hi</em></p>', "/hi/\n"],
+            'Laravel example' => ['markdown', "**bold**\n", "*bold*\n"],
+        ];
+    }
+
+    #[DataProvider('entries')]
+    public function testImportsAndWritesTheSourceWithTheEngineWriter(string $from, string $input, string $expected): void
+    {
+        $result = Carve::importDocument($input, ['from' => $from]);
+        $this->assertSame($expected, $result->source);
+        $this->assertSame('document', $result->tree->type);
+    }
+
+    public function testRefusesAnUnknownFormatOrOption(): void
+    {
+        $refused = [['from' => 'bbcode'], ['from' => 'markdown', 'adapter' => 'word'], ['from' => 'gfm', 'strictLosses' => 'yes']];
+        foreach ($refused as $options) {
+            try {
+                Carve::importDocument('a', $options);
+                $this->fail('no OptionError for ' . json_encode($options));
+            } catch (OptionError) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    public function testStrictLossesMakesEachLossAnError(): void
+    {
+        $result = Carve::importDocument("[a](javascript:x)\n", ['from' => 'markdown', 'strictLosses' => true]);
+        $this->assertNotSame([], $result->diagnostics);
+        foreach ($result->diagnostics as $entry) {
+            $this->assertSame('error', $entry->severity);
+            $this->assertSame(-1, $entry->startOffset);
+        }
+    }
+
+    public function testAllowLossesAndMaxLossesReachTheHtmlImporter(): void
+    {
+        $input = "[a](javascript:x) [b](javascript:y)\n";
+        $allowed = Carve::importDocument($input, ['from' => 'markdown', 'allowLosses' => ['import-destination-denied']]);
+        $this->assertSame([], $allowed->diagnostics);
+        $capped = Carve::importDocument($input, ['from' => 'markdown', 'maxLosses' => 1]);
+        $this->assertCount(1, $capped->diagnostics);
+        $this->assertSame(1, $capped->suppressedDiagnostics);
+    }
+
+    public function testCommandLineImportsEachHubFormat(): void
+    {
+        foreach (['markdown' => "*a*\n", 'gfm' => "~~a~~\n", 'djot' => "_a_\n"] as $from => $input) {
+            $in = fopen('php://memory', 'r+');
+            $out = fopen('php://memory', 'r+');
+            $err = fopen('php://memory', 'r+');
+            $this->assertNotFalse($in);
+            $this->assertNotFalse($out);
+            $this->assertNotFalse($err);
+            fwrite($in, $input);
+            rewind($in);
+            $this->assertSame(0, Command::main(['import', '--from=' . $from], $in, $out, $err));
+            rewind($out);
+            $this->assertSame($from === 'gfm' ? "{-a-}\n" : "/a/\n", stream_get_contents($out));
+        }
+    }
+}
