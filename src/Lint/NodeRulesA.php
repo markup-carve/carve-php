@@ -75,45 +75,51 @@ final class NodeRulesA
         if (in_array($id, self::WRITER_PAIRS, true)) {
             return self::readPairs($text, $mark, $id);
         }
+        // The Djot pairs, as their rule rows take them: left to right, each opener with the next closer.
         $ranges = [];
-        $at = 0;
         $length = strlen($text);
-        $size = strlen($mark);
-        while ($at < $length) {
-            $start = strpos($text, $mark, $at);
-            if ($start === false || $start + $size + 1 > $length) {
-                break;
-            }
-            // C2-I-050: a bare mark followed by a combining mark, a variation selector or a zero-width joiner opens no pair.
-            if (self::joined($text, $start + $size, $id)) {
-                $at = $start + $size;
-
-                continue;
-            }
-            // These opener failures cannot be repaired by a later closer.
-            if (
-                self::escapedAt($text, $start)
-                || ($mark === '_' && self::endsWith($text, $start, '[\p{L}\p{N}_]'))
-            ) {
-                $at = $start + $size;
-
-                continue;
-            }
-            $end = strpos($text, $mark, $start + $size + 1);
-            while ($end !== false && !self::pairs($text, $mark, $start, $end, $id)) {
-                $next = $end + $size;
-                $end = $next < $length ? strpos($text, $mark, $next) : false;
+        for ($at = 0; ($start = strpos($text, $mark, $at)) !== false;) {
+            $end = $start + 2 <= $length ? strpos($text, $mark, $start + 2) : false;
+            while ($end !== false && (self::endsWith($text, $end, '[\p{Zs}\t\n\r]') || self::escapedAt($text, $end))) {
+                $end = strpos($text, $mark, $end + 1);
             }
             if ($end === false) {
-                $at = $start + $size;
-
-                continue;
+                break;
             }
-            $ranges[] = [$start, $end + $size];
-            $at = $end + $size;
+            if (self::djotReported($text, $mark, $start, $end)) {
+                $ranges[] = [$start, $end + 1];
+            }
+            $at = $end + 1;
         }
 
         return $ranges;
+    }
+
+    /**
+     * The conditions of the Djot pair rows on the pair from `$start` to the closer at `$end`.
+     *
+     * @param string $text
+     * @param string $mark
+     * @param int $start
+     * @param int $end
+     *
+     * @return bool
+     */
+    private static function djotReported(string $text, string $mark, int $start, int $end): bool
+    {
+        $inside = substr($text, $start + 1, $end - $start - 1);
+        if (
+            self::escapedAt($text, $start) || preg_match('/^[\p{Zs}\t\n\r\f\v]|[\p{Zs}\t\n\r\f\v]$/u', $inside) === 1
+            || $inside[0] === $mark || $inside[strlen($inside) - 1] === $mark
+        ) {
+            return false;
+        }
+        if ($mark === '_') {
+            return !self::endsWith($text, $start, '[\p{L}\p{N}]') && !self::startsWith($text, $end + 1, '[\p{L}\p{N}]');
+        }
+        $before = $start > 0 ? $text[$start - 1] : '';
+
+        return $before !== '{' && $before !== $mark && ($text[$end + 1] ?? '') !== '}';
     }
 
     private static function canOpen(string $text, string $mark, string $id, int $at): bool
@@ -362,41 +368,6 @@ final class NodeRulesA
         }
 
         return (int)$owner;
-    }
-
-    /**
-     * @param string $text
-     * @param string $mark
-     * @param int $start
-     * @param int $end
-     * @param string $id
-     *
-     * @return bool
-     */
-    private static function pairs(string $text, string $mark, int $start, int $end, string $id): bool
-    {
-        $size = strlen($mark);
-        $before = $start > 0 ? $text[$start - 1] : null;
-        $inside = substr($text, $start + $size, $end - $start - $size);
-
-        if ($mark === '**') {
-            return $before !== '\\' && $inside !== '' && !str_contains($inside, '*') && !str_contains($inside, "\n\n")
-                && self::jsTrim($inside) === $inside;
-        }
-
-        if ($id === 'djot-subscript-tilde' || $id === 'djot-superscript-caret') {
-            return $before !== '\\' && $before !== '{' && $inside !== '' && self::jsTrimEnd($inside) === $inside
-                && !in_array($inside[0], [' ', "\t", "\n", '}'], true);
-        }
-
-        $priorWord = self::endsWith($text, $start, '[\p{L}\p{N}_]');
-        $nextWord = self::startsWith($text, $end + $size, '[\p{L}\p{N}_]');
-        if ($mark === '_' && preg_match('/[\p{L}\p{N}]_[\p{L}\p{N}]/u', $inside) === 1) {
-            return false;
-        }
-
-        return $before !== '\\' && $inside !== '' && $inside[0] !== $mark[0] && $inside[strlen($inside) - 1] !== $mark[0]
-            && self::jsTrim($inside) === $inside && !$priorWord && !$nextWord;
     }
 
     /**
