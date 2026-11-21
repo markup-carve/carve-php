@@ -21,7 +21,7 @@ final class EditorTokens
     /**
      * @var array<string, array{0: int, 1: int}>
      */
-    private array $textRanges = [];
+    private array $labelRanges = [];
 
     /**
      * @var array<string, list<array{0: int, 1: int}>>
@@ -90,14 +90,15 @@ final class EditorTokens
                 $at = (int)strrpos($node['path'], '/children/');
                 $this->cells[substr($node['path'], 0, $at)][] = [$node['startByte'], $node['endByte']];
             } elseif ($node['type'] === 'link') {
-                // The text inside a link, from its first text node to the end of its last; descendants follow it.
+                // Only direct children mark the label bounds; their types do not matter.
                 $prefix = $node['path'] . '/';
                 for ($j = $i + 1; $j < $count && str_starts_with($nodes[$j]['path'], $prefix); $j++) {
-                    if ($nodes[$j]['type'] !== 'text') {
+                    $relative = substr($nodes[$j]['path'], strlen($prefix));
+                    if (!preg_match('~^children/[0-9]+$~', $relative)) {
                         continue;
                     }
-                    $range = $this->textRanges[$node['path']] ?? null;
-                    $this->textRanges[$node['path']] = $range === null
+                    $range = $this->labelRanges[$node['path']] ?? null;
+                    $this->labelRanges[$node['path']] = $range === null
                         ? [$nodes[$j]['startByte'], $nodes[$j]['endByte']]
                         : [min($range[0], $nodes[$j]['startByte']), max($range[1], $nodes[$j]['endByte'])];
                 }
@@ -274,20 +275,96 @@ final class EditorTokens
      */
     private function link(string $path, int $start, int $end, array &$tokens): void
     {
-        $text = $this->textRanges[$path] ?? null;
-        if ($text === null) {
+        [$from, $to] = $this->labelRanges[$path] ?? [$start + 1, $start + 1];
+        if (($this->source[$start] ?? '') !== '[' || ($this->source[$to] ?? '') !== ']') {
             return;
         }
-        [$from, $to] = $text;
         self::token($tokens, 'open-marker', $start, $from);
         $tail = substr($this->source, $to, $end - $to);
-        if (str_starts_with($tail, '](') && str_ends_with($tail, ')')) {
+        $close = match (true) {
+            str_starts_with($tail, '](') => self::closingParen($tail),
+            str_starts_with($tail, '][') => self::referenceClose($tail),
+            default => -1,
+        };
+        $syntaxEnd = $close < 0 ? $end : $to + $close + 1;
+        if ($close > 0 && ($tail[1] ?? '') === '(') {
             self::token($tokens, 'close-marker', $to, $to + 2);
-            self::token($tokens, 'destination', $to + 2, $to + 2 + self::destinationLength(substr($tail, 2, -1)));
-            self::token($tokens, 'close-marker', $end - 1, $end);
+            $destinationEnd = $to + 2 + self::destinationLength(substr($tail, 2, $close - 2));
+            self::token($tokens, 'destination', $to + 2, $destinationEnd);
+            self::token($tokens, 'close-marker', $syntaxEnd - 1, $syntaxEnd);
         } else {
-            self::token($tokens, 'close-marker', $to, $end);
+            self::token($tokens, 'close-marker', $to, $syntaxEnd);
         }
+        if ($syntaxEnd < $end) {
+            $role = isset($this->attrs[$path]) && ($this->source[$syntaxEnd] ?? '') === '{'
+                ? 'attribute' : 'close-marker';
+            self::token($tokens, $role, $syntaxEnd, $end);
+        }
+    }
+
+    private static function referenceClose(string $tail): int
+    {
+        for ($at = 2, $length = strlen($tail); $at < $length; $at++) {
+            if ($tail[$at] === '\\') {
+                $at++;
+            } elseif ($tail[$at] === ']') {
+                return $at;
+            }
+        }
+
+        return -1;
+    }
+
+    private static function closingParen(string $tail): int
+    {
+        $at = 2;
+        $length = strlen($tail);
+        $angle = ($tail[$at] ?? '') === '<' ? strpos($tail, '>', $at) : false;
+        if ($angle !== false) {
+            $at = $angle + 1;
+        } else {
+            for ($depth = 0; $at < $length; $at++) {
+                $char = $tail[$at];
+                if ($char === '\\') {
+                    $at++;
+                } elseif ($char === '(') {
+                    $depth++;
+                } elseif ($char === ')') {
+                    if ($depth === 0) {
+                        return $at;
+                    }
+                    $depth--;
+                } elseif ($depth === 0 && str_contains(" \t\n\r", $char)) {
+                    break;
+                }
+            }
+        }
+
+        return self::closingParenAfterDestination($tail, $at);
+    }
+
+    private static function closingParenAfterDestination(string $tail, int $at): int
+    {
+        $quote = '';
+        $length = strlen($tail);
+        for (; $at < $length; $at++) {
+            $char = $tail[$at];
+            if ($char === '\\') {
+                $at++;
+            } elseif ($quote !== '') {
+                if ($char === $quote) {
+                    $quote = '';
+                }
+            } elseif ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '(') {
+                $quote = ')';
+            } elseif ($char === ')') {
+                return $at;
+            }
+        }
+
+        return -1;
     }
 
     /**
