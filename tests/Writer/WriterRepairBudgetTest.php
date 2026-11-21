@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Writer;
 
+use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Writer\RepairRefused;
 use MarkupCarve\Carve\Writer\State;
 use PHPUnit\Framework\TestCase;
@@ -71,5 +72,15 @@ final class WriterRepairBudgetTest extends TestCase
         $state->chargeRepair('/children/1/children/0', 'first-line', str_repeat('b', 24_000_001));
 
         self::assertSame([], $state->losses);
+    }
+
+    public function testManyRepairedParagraphsStayUnderTheDocumentBudget(): void
+    {
+        $spec = json_decode((string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'), true, 4096, JSON_THROW_ON_ERROR);
+        $case = array_values(array_filter($spec['cases'], static fn (array $entry): bool => $entry['id'] === 'CC-1492'))[0];
+        $result = Carve::formatWithDiagnostics($case['input'], $case['options']);
+
+        self::assertSame($case['expected']['carve'], $result->source);
+        self::assertNotContains('writer-refused', array_map(static fn ($d): string => $d->code, $result->diagnostics));
     }
 }
