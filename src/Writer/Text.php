@@ -1200,10 +1200,11 @@ final class Text
      *
      * @param string $line
      * @param \MarkupCarve\Carve\Writer\Context|null $context
+     * @param bool $first
      *
      * @return bool
      */
-    public static function opensBlock(string $line, ?Context $context = null): bool
+    public static function opensBlock(string $line, ?Context $context = null, bool $first = false): bool
     {
         $line = ltrim($line, " \t");
         if ($context !== null && str_starts_with($line, '%%')) {
@@ -1222,7 +1223,7 @@ final class Text
         }
         $c = clone $context;
         $c->lineStart = true;
-        $c->last = 10;
+        $c->last = $first ? -1 : 10;
 
         return $line === '' || self::lineStartMark($line, $c, 10) >= 0;
     }

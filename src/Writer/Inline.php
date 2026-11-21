@@ -1474,6 +1474,12 @@ final class Inline
     private function spanValue(array $node, string $path, Context $c, string $prefix): string
     {
         $value = $this->cellValue($node, $path, $c, self::str($node, 'value'), true);
+        $spelling = $prefix . self::codeSpan($value);
+        $break = strpos($spelling, "\n");
+        $firstLine = $break === false ? $spelling : substr($spelling, 0, $break);
+        if ($c->lineStart && strspn($firstLine, '`') >= 3 && Text::opensBlock($firstLine, $c, true)) {
+            $this->w->lose($path, self::str($node, 'type'), 'value');
+        }
         if ($value === '') {
             // C2-W-116: an empty run pair reads back as text.
             $this->w->lose($path, self::str($node, 'type'), null);
@@ -1481,7 +1487,7 @@ final class Inline
             $this->w->lose($path, self::str($node, 'type'), 'value');
         }
 
-        return $prefix . self::codeSpan($value);
+        return $spelling;
     }
 
     /**
