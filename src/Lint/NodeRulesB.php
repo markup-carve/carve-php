@@ -738,12 +738,13 @@ final class NodeRulesB
         if (self::listItemThroughDiv($ownerPath, $ownerType, $c)) {
             return;
         }
+        $quotes = $c->layout->quoteDepth($path);
+        $start = self::openerBehindAttributes($node, $pos['startOffset'], $quotes, $c);
+        // The opener's own line decides, not the attribute line above it.
         $quote = self::ancestorPath($path, $c, 'block_quote');
-        if ($quote !== null && self::quoteOpenerExempt($quote, $pos, $c)) {
+        if ($quote !== null && self::quoteOpenerExempt($quote, ['startLine' => $c->lineOf($start), 'startOffset' => $start], $c)) {
             return;
         }
-        $quotes = $c->layout->quoteDepth($path);
-        $start = self::openerBehindAttributes($node, $pos['startOffset'], $c);
         $column = $c->layout->columnOf($start, $quotes);
         $content = self::ownerContentColumn($ownerPath, $ownerType, $quotes, $c);
         if ($column <= $content) {
@@ -802,34 +803,31 @@ final class NodeRulesB
      * Where the opening mark of a block stands: an attributed block starts at its attribute lines (C2-W-138).
      *
      * @param array<string, mixed> $node
-     * @param \MarkupCarve\Carve\Lint\Context $c
      * @param int $start
+     * @param int $quotes The quote prefixes of the block's container.
+     * @param \MarkupCarve\Carve\Lint\Context $c
      */
-    private static function openerBehindAttributes(array $node, int $start, Context $c): int
+    public static function openerBehindAttributes(array $node, int $start, int $quotes, Context $c): int
     {
         if (!isset($node['attrs'])) {
             return $start;
         }
-        while (true) {
-            $lineStart = strrpos(substr($c->source, 0, $start), "\n");
-            $lineStart = $lineStart === false ? 0 : $lineStart + 1;
-            $end = strpos($c->source, "\n", $start);
+        // As the rule row's opener start: each line below an attribute line, behind its spaces and container quotes.
+        $s = $c->source;
+        $at = $start;
+        while (($s[$at] ?? '') === '{') {
+            $end = strpos($s, "\n", $at);
             if ($end === false) {
                 return $start;
             }
-            $rest = rtrim(substr($c->source, $start, $end - $start), " \t");
-            if (!str_starts_with($rest, '{') || preg_match('/^\{[^{}]*\}$/', $rest) !== 1) {
-                return $start;
+            $at = $end + 1 + strspn($s, " \t", $end + 1);
+            for ($left = $quotes; $left > 0 && ($s[$at] ?? '') === '>'; $left--) {
+                $at++;
+                $at += strspn($s, " \t", $at);
             }
-            // The opener may stand at another indent than its attribute line: find its first character on its own line.
-            $next = substr($c->source, $end + 1, strcspn($c->source, "\n", $end + 1));
-            $at = min($start - $lineStart, strlen($next));
-            $at += strspn($next, " \t", $at);
-            while ($at > 0 && !str_contains(" \t>", $next[$at - 1])) {
-                $at--;
-            }
-            $start = $end + 1 + $at;
         }
+
+        return $at;
     }
 
     /**

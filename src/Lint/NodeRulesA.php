@@ -1099,9 +1099,13 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'heading' || $pos === null || $pos['endLine'] <= $pos['startLine']) {
             return;
         }
-        $first = $c->lines[$pos['startLine'] - 1] ?? null;
+        $quotes = $c->layout->quoteDepth($path);
+        // The marker line stands behind the heading's attribute lines.
+        $marker = NodeRulesB::openerBehindAttributes($node, $pos['startOffset'], $quotes, $c);
+        $markerLine = $c->lineOf($marker);
+        $first = $c->lines[$markerLine - 1] ?? null;
         // C2-B-137: the line that continues the heading may stand below comment-only lines.
-        $next = $pos['startLine'];
+        $next = $markerLine;
         while ($next < $pos['endLine'] && isset($c->lines[$next]) && str_starts_with(self::jsTrimStart($c->lines[$next]->text), '%%')) {
             $next++;
         }
@@ -1109,10 +1113,9 @@ final class NodeRulesA
         if ($first === null || $second === null) {
             return;
         }
-        $quotes = $c->layout->quoteDepth($path);
-        $markerOffset = $pos['startOffset'] - $first->start;
+        $markerOffset = $marker - $first->start;
         $markerColumn = $quotes === 0 && strspn($first->text, ' ') === $markerOffset
-            ? $markerOffset : $c->layout->columnOf($pos['startOffset'], $quotes);
+            ? $markerOffset : $c->layout->columnOf($marker, $quotes);
         $indentOffset = strspn($second->text, " \t>");
         $indent = $quotes === 0 && !str_contains(substr($second->text, 0, $indentOffset), "\t")
             ? $indentOffset : $c->layout->columnOf($second->start + $indentOffset, $quotes);
