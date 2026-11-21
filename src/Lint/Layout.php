@@ -17,9 +17,19 @@ final class Layout
     private const TAB_STOP = 4;
 
     /**
-     * @var array<string, array{0: array<string, mixed>, 1: int, 2: string}> Node, open quotes with marks, parent path.
+     * @var array<string, array<string, mixed>> The nodes by path, in tree order.
      */
     private array $nodes = [];
+
+    /**
+     * @var array<string, int> The open quotes with marks of a node, by path, when there are any.
+     */
+    private array $quotes = [];
+
+    /**
+     * @var array<string, string> The parent path of a node, by path.
+     */
+    private array $parents = [];
 
     /**
      * @var array<string, string> C2-L-022: the `rawRef` of the source-layout record, by path.
@@ -49,17 +59,17 @@ final class Layout
      */
     public function quoteDepth(string $path): int
     {
-        return $this->nodes[$path][1] ?? 0;
+        return $this->quotes[$path] ?? 0;
     }
 
     public function startOffset(string $path): ?int
     {
-        return self::start($this->nodes[$path][0] ?? null);
+        return self::start($this->nodes[$path] ?? null);
     }
 
     public function endOffset(string $path): ?int
     {
-        return self::end($this->nodes[$path][0] ?? null);
+        return self::end($this->nodes[$path] ?? null);
     }
 
     /**
@@ -72,12 +82,27 @@ final class Layout
      */
     public function register(string $path, array $node, int $quotes, string $parent): void
     {
-        $this->nodes[$path] = [$node, $quotes, $parent];
+        $this->nodes[$path] = $node;
+        if ($quotes > 0) {
+            $this->quotes[$path] = $quotes;
+        }
+        $this->parents[$path] = $parent;
+    }
+
+    /**
+     * The registered nodes by path, in the order they were registered.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function nodes(): array
+    {
+        return $this->nodes;
     }
 
     public function markerColumn(string $path): ?int
     {
-        [$node, $quotes] = $this->nodes[$path] ?? [null, 0];
+        $node = $this->nodes[$path] ?? null;
+        $quotes = $this->quotes[$path] ?? 0;
         $start = self::start($node);
         if ($start === null || !in_array($node['type'] ?? '', ['list_item', 'definition_description', 'footnote'], true)) {
             return null;
@@ -88,7 +113,8 @@ final class Layout
 
     public function contentColumn(string $path): ?int
     {
-        [$node, $quotes] = $this->nodes[$path] ?? [null, 0];
+        $node = $this->nodes[$path] ?? null;
+        $quotes = $this->quotes[$path] ?? 0;
         $start = self::start($node);
         if ($start === null) {
             return null;
@@ -118,9 +144,10 @@ final class Layout
      */
     public function blankLinesAfter(string $path): int
     {
-        [$node, $quotes, $parent] = $this->nodes[$path] ?? [null, 0, ''];
+        $node = $this->nodes[$path] ?? null;
+        $quotes = $this->quotes[$path] ?? 0;
         $end = self::end($node);
-        $limit = self::end($this->nodes[$parent][0] ?? null) ?? strlen($this->s);
+        $limit = self::end($this->nodes[$this->parents[$path] ?? ''] ?? null) ?? strlen($this->s);
         if ($end === null) {
             return 0;
         }
@@ -148,7 +175,7 @@ final class Layout
      */
     public function sourceFormat(string $path): ?string
     {
-        $node = $this->nodes[$path][0] ?? null;
+        $node = $this->nodes[$path] ?? null;
         $start = self::start($node);
         if ($start === null || ($node['type'] ?? '') !== 'table') {
             return null;
