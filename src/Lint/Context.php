@@ -44,9 +44,9 @@ final class Context
     public array $dataNodeTypes = [];
 
     /**
-     * @var array<string, array{0: int, 1: int}> The layout span of each node without `pos`, by path (data rules only).
+     * @var array<string, array<string, mixed>> The source layout entry of each node, by path (data rules only).
      */
-    public array $layoutSpans = [];
+    public array $layoutEntries = [];
 
     /**
      * @var array<string, true>

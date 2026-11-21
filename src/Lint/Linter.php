@@ -119,21 +119,21 @@ final class Linter
     /**
      * @param array<mixed> $entries
      *
-     * @return array<string, array{0: int, 1: int}>
+     * @return array<string, array<string, mixed>>
      */
-    private static function layoutSpans(array $entries): array
+    private static function layoutEntries(array $entries): array
     {
-        $spans = [];
+        $byPath = [];
         foreach ($entries as $entry) {
             if (
                 is_array($entry) && is_string($entry['path'] ?? null)
                 && is_int($entry['startByte'] ?? null) && is_int($entry['endByte'] ?? null)
             ) {
-                $spans[$entry['path']] = [$entry['startByte'], $entry['endByte']];
+                $byPath[$entry['path']] = $entry;
             }
         }
 
-        return $spans;
+        return $byPath;
     }
 
     /**
@@ -157,13 +157,13 @@ final class Linter
                 $rawRefs[] = $entry;
             }
         }
-        $spans = DataRules::enabled() ? self::layoutSpans((array)($parsed->layout['nodes'] ?? [])) : [];
+        $entries = DataRules::enabled() ? self::layoutEntries((array)($parsed->layout['nodes'] ?? [])) : [];
         unset($parsed);
         $tree = (new TreeEncoder())->encodeForLint($document, $source);
         unset($document);
         $c = new Context($source, $options, self::catalog());
-        $c->layoutSpans = $spans;
-        unset($spans);
+        $c->layoutEntries = $entries;
+        unset($entries);
         $c->layout->rawRefs($rawRefs);
         /** @var array<int, array<array{0: string, 1: array<string>}>> $controls */
         $controls = [];

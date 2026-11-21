@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve\Lint;
 
 use Closure;
 use Generator;
+use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\LineShapes;
 use stdClass;
 
 /**
@@ -15,6 +17,11 @@ use stdClass;
  */
 final class DataRules
 {
+    /**
+     * @var string The result of `valueMore` for an operator it does not take.
+     */
+    private const NONE = "\0none";
+
     /**
      * @var array<string, true>
      */
@@ -95,6 +102,11 @@ final class DataRules
     private array $vars = [];
 
     /**
+     * @var array<string, mixed> The value of each let the current rule has read, computed once per record as in carve-js.
+     */
+    private array $letValues = [];
+
+    /**
      * @var array<string, array{0: int, 1: int}>
      */
     private array $groups = [];
@@ -102,9 +114,9 @@ final class DataRules
     private int $base = 0;
 
     /**
-     * @var array{block: list<\stdClass>, inline: list<\stdClass>}
+     * @var array{block: list<\stdClass>, inline: list<\stdClass>, id: list<\stdClass>, line: list<\stdClass>}
      */
-    private array $lookupRecords = ['block' => [], 'inline' => []];
+    private array $lookupRecords = ['block' => [], 'inline' => [], 'id' => [], 'line' => []];
 
     /**
      * @var array<string, array<string, list<\stdClass>>>
@@ -216,7 +228,8 @@ final class DataRules
         $field = is_array($left) && !array_is_list($left) && array_key_first($left) === 'f' ? $left['f'] : null;
         $literal = $args[1];
         if (
-            !is_string($field) || str_contains($field, '.') || in_array($field, ['ancestors', 'ancestor_ids', 'node'], true)
+            !is_string($field) || str_contains($field, '.')
+            || in_array($field, ['ancestors', 'ancestor_ids', 'node', 'layout', 'raw_ref'], true)
             || ($field === 'text' && $over === 'block')
             || (is_array($literal) && !array_is_list($literal))
         ) {
@@ -290,9 +303,11 @@ final class DataRules
             return;
         }
         $lookup = $expression['lookup'] ?? null;
-        if (is_array($lookup) && is_array($lookup['types'] ?? null)) {
-            $target = ($lookup['over'] ?? null) === 'block' ? 'block' : 'inline';
-            foreach ($lookup['types'] as $type) {
+        $over = is_array($lookup) ? ($lookup['over'] ?? null) : null;
+        if ($over === 'block' || $over === 'inline') {
+            $target = $over;
+            // C2-W-150: a lookup that names no types reads every block or every inline node.
+            foreach (is_array($lookup['types'] ?? null) ? $lookup['types'] : ['*'] as $type) {
                 if (is_string($type)) {
                     if ($target === 'block') {
                         $blocks[$type] = true;
@@ -434,7 +449,7 @@ final class DataRules
     private static function gatherFields(array $expression, array &$fields): void
     {
         foreach ($expression as $key => $value) {
-            if (($key === 'f' || $key === 'has' || $key === 'in') && is_string($value)) {
+            if (($key === 'f' || $key === 'has' || $key === 'in' || $key === 'field') && is_string($value)) {
                 foreach (['node', 'item'] as $owner) {
                     if (str_starts_with($value, $owner . '.')) {
                         $fields[$owner][substr($value, strlen($owner) + 1)] = true;
@@ -718,6 +733,23 @@ final class DataRules
         $self = self::$interpreter ??= new self($context);
         $self->context = $context;
         $deferredBlocks = [];
+        $deferredInline = [];
+        // The node types whose records a rule that looks records up reads, by kind; `*` for an untyped rule.
+        $deferred = ['inline' => [], 'block' => []];
+        foreach (['inline', 'block'] as $kind) {
+            foreach ($untypedRules[$kind] as $rule) {
+                if ($lookupRules[$rule['id']]) {
+                    $deferred[$kind]['*'] = true;
+                }
+            }
+            foreach ($typedRules[$kind] as $type => $rules) {
+                foreach ($rules as $rule) {
+                    if ($lookupRules[$rule['id']]) {
+                        $deferred[$kind][$type] = true;
+                    }
+                }
+            }
+        }
         $apply = static function (
             stdClass $record,
             string $kind,
@@ -748,7 +780,7 @@ final class DataRules
             $genericBlocks,
             $needBlocks,
         ): bool {
-            if (isset($typedBlocks[$type]) || isset($needBlocks[$type])) {
+            if (isset($typedBlocks[$type]) || isset($needBlocks[$type]) || isset($needBlocks['*'])) {
                 return true;
             }
             foreach ($genericBlocks as $filter) {
@@ -764,32 +796,37 @@ final class DataRules
         };
         $model = new DataModel(
             $context,
-            static function (stdClass $record) use ($apply, $self, $needInline): void {
-                if (isset($needInline[$record->type ?? ''])) {
+            static function (stdClass $record) use ($apply, $self, $needInline, $deferred, &$deferredInline): void {
+                if (isset($needInline[$record->type ?? '']) || isset($needInline['*'])) {
                     $self->lookupRecords['inline'][] = $record;
                 }
                 $apply($record, 'inline');
+                if (isset($deferred['inline']['*']) || isset($deferred['inline'][$record->type ?? ''])) {
+                    $deferredInline[] = $record;
+                }
             },
-            static function (stdClass $record) use ($self, $apply, $needBlocks, $typedRules, $lookupRules, &$deferredBlocks): void {
-                if (isset($needBlocks[$record->type ?? ''])) {
+            static function (stdClass $record) use ($self, $apply, $needBlocks, $deferred, &$deferredBlocks): void {
+                if (isset($needBlocks[$record->type ?? '']) || isset($needBlocks['*'])) {
                     $self->lookupRecords['block'][] = $record;
                 }
                 $apply($record, 'block');
-                foreach ($typedRules['block'][$record->type ?? ''] ?? [] as $rule) {
-                    if ($lookupRules[$rule['id']]) {
-                        $deferredBlocks[] = $record;
-
-                        break;
-                    }
+                if (isset($deferred['block']['*']) || isset($deferred['block'][$record->type ?? ''])) {
+                    $deferredBlocks[] = $record;
                 }
             },
             $acceptBlock,
             isset($typedRules['inline']['text_run']),
         );
+        // The rules that look records up run once the walk has made every record they can find.
+        $self->lookupRecords['line'] = $model->lines;
+        $self->lookupRecords['id'] = $model->ids;
+        foreach ($deferredInline as $record) {
+            $apply($record, 'inline', true);
+        }
         foreach ($deferredBlocks as $record) {
             $apply($record, 'block', true);
         }
-        $deferredBlocks = [];
+        $deferredBlocks = $deferredInline = [];
         foreach ($byKind['line'] as $rule) {
             $filter = $lineFilters[$rule['id']];
             foreach ($model->lines as $record) {
@@ -819,7 +856,7 @@ final class DataRules
         // The line records link to their neighbors: drop the links, so the run leaves no cycles behind for the collector. The
         // shared interpreter keeps its compiled closures but not the document.
         unset($self->context);
-        $self->lookupRecords = ['block' => [], 'inline' => []];
+        $self->lookupRecords = ['block' => [], 'inline' => [], 'id' => [], 'line' => []];
         $self->lookupIndexes = [];
         foreach ($model->lines as $line) {
             $line->prev = $line->prev2 = $line->next = $line->next2 = null;
@@ -834,6 +871,7 @@ final class DataRules
     private function apply(array $rule, stdClass $record): void
     {
         $this->vars = is_array($rule['let'] ?? null) ? $rule['let'] : [];
+        $this->letValues = [];
         $this->groups = [];
         $this->base = 0;
         if (is_array($rule['pre'] ?? null) && $rule['pre'] !== [] && !self::passes($rule['pre'], $record)) {
@@ -1161,6 +1199,9 @@ final class DataRules
             if ($path === 'text' && property_exists($record, 'text') && $record->text === null) {
                 $record->text = substr($this->context->source, $record->start, $record->end - $record->start);
             }
+            if ($path === 'layout' || $path === 'raw_ref') {
+                $this->lateField($record, $path);
+            }
 
             return $record->$path ?? null;
         }
@@ -1176,6 +1217,9 @@ final class DataRules
                 }
                 if ($part === 'node' && $value instanceof stdClass && isset($value->nodeSource) && $value->node === null) {
                     $value->node = $this->compactNode($value->nodeSource);
+                }
+                if (($part === 'layout' || $part === 'raw_ref') && $value instanceof stdClass) {
+                    $this->lateField($value, $part);
                 }
                 if (
                     $value instanceof stdClass && $part === 'text' && property_exists($value, 'text')
@@ -1211,7 +1255,26 @@ final class DataRules
             $types[] = $this->context->nodeTypes[$path] ?? 'document';
         }
         $record->ancestor_ids = $ids;
-        $record->ancestors = $types;
+        if (!property_exists($record, 'ancestors')) {
+            $record->ancestors = $types;
+        }
+    }
+
+    /**
+     * The fields a record makes on first read: the layout entry of a block (C2-L-009) and the reference of a link or
+     * an image (C2-L-022).
+     */
+    private function lateField(stdClass $record, string $part): void
+    {
+        if (property_exists($record, $part)) {
+            return;
+        }
+        if ($part === 'layout' && property_exists($record, 'opener_start')) {
+            $record->layout = $this->context->layoutEntries[$record->path] ?? null;
+        } elseif ($part === 'raw_ref' && property_exists($record, 'leaf') && isset($record->path)) {
+            $raw = $this->context->layoutEntries[$record->path]['rawRef'] ?? null;
+            $record->raw_ref = is_string($raw) ? $raw : $this->field('text', $record);
+        }
     }
 
     private static function integer(mixed $value): int
@@ -1263,7 +1326,7 @@ final class DataRules
         $op = array_key_first($expr);
         $arg = $expr[$op];
         if ($op === 'f' && is_string($arg)) {
-            if (!str_contains($arg, '.') && !in_array($arg, ['ancestors', 'ancestor_ids', 'text', 'node'], true)) {
+            if (!str_contains($arg, '.') && !in_array($arg, ['ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref'], true)) {
                 return static fn (stdClass $record): mixed => $record->$arg ?? null;
             }
 
@@ -1362,6 +1425,9 @@ final class DataRules
             $inner = null;
 
             return function (stdClass $record) use ($arg, $let, &$inner): mixed {
+                if (array_key_exists($arg, $this->letValues)) {
+                    return $this->letValues[$arg];
+                }
                 $inner ??= $this->compile($let[$arg] ?? null, $let);
                 $groups = $this->groups;
                 $base = $this->base;
@@ -1369,13 +1435,14 @@ final class DataRules
                 $this->groups = $groups;
                 $this->base = $base;
 
-                return $value;
+                return $this->letValues[$arg] = $value;
             };
         }
         if ($op === 'lookup' && is_array($arg)) {
             $site = json_encode($arg, JSON_THROW_ON_ERROR);
+            $value = isset($arg['value']) ? $this->compile($arg['value'], $let) : null;
 
-            return fn (stdClass $record): mixed => $this->lookup($arg, $record, $site);
+            return fn (stdClass $record): mixed => $this->lookup($arg, $record, $site, $value);
         }
         if ($op === 'if' && is_array($arg) && array_key_exists(2, $arg)) {
             $test = $this->compile($arg[0], $let);
@@ -1474,11 +1541,14 @@ final class DataRules
         }
         if ($op === 'v' && is_string($expr['v'] ?? null)) {
             $name = $expr['v'];
+            if (array_key_exists($name, $this->letValues)) {
+                return $this->letValues[$name];
+            }
             $original = [$this->groups, $this->base];
             $value = $this->value($this->vars[$name] ?? null, $record);
             [$this->groups, $this->base] = $original;
 
-            return $value;
+            return $this->letValues[$name] = $value;
         }
         if ($op === 'match' && is_string($expr['match'] ?? null)) {
             return $this->groups[$expr['match']][($expr['at'] ?? null) === 'end' ? 1 : 0] ?? null;
@@ -1493,8 +1563,22 @@ final class DataRules
             $parts = $expr['index_of'];
             $haystack = $this->value($parts[0] ?? null, $record);
             $needle = $this->value($parts[1] ?? null, $record);
+            // C2-W-141, C2-W-150: the offset of a text in a text, or the index of an item in a list; -1 where there is none.
+            if (is_array($haystack)) {
+                $at = array_search($needle, $haystack, true);
 
-            return is_string($haystack) && is_string($needle) ? strpos($haystack, $needle) : -1;
+                return is_int($at) ? $at : -1;
+            }
+            if (!is_string($haystack) || !is_string($needle)) {
+                return -1;
+            }
+            $at = strpos($haystack, $needle);
+
+            return $at === false ? -1 : $at;
+        }
+        $more = $this->valueMore($op, $expr, $record);
+        if ($more !== self::NONE) {
+            return $more;
         }
         if ($op === 'json_escape' && isset($expr['json_escape'])) {
             $encoded = json_encode(
@@ -1528,8 +1612,8 @@ final class DataRules
         if ($op === 'if' && is_array($expr['if'] ?? null) && array_key_exists(2, $expr['if'])) {
             return $this->value($expr['if'][$this->value($expr['if'][0], $record) ? 1 : 2], $record);
         }
-        if ($op === 'some' && is_array($expr['some'] ?? null) && is_string($expr['some']['in'] ?? null)) {
-            $list = $this->field($expr['some']['in'], $record);
+        if ($op === 'some' && is_array($expr['some'] ?? null) && isset($expr['some']['in'])) {
+            $list = $this->listOf($expr['some']['in'], $record);
             if (!is_array($list)) {
                 return false;
             }
@@ -1544,8 +1628,8 @@ final class DataRules
 
             return false;
         }
-        if ($op === 'count' && is_array($expr['count'] ?? null) && is_string($expr['count']['in'] ?? null)) {
-            $list = $this->field($expr['count']['in'], $record);
+        if ($op === 'count' && is_array($expr['count'] ?? null) && isset($expr['count']['in'])) {
+            $list = $this->listOf($expr['count']['in'], $record);
             if (!is_array($list)) {
                 return 0;
             }
@@ -1618,23 +1702,125 @@ final class DataRules
     }
 
     /**
+     * The list of `some`, `count` and `find`: a field path, or a value (C2-W-150).
+     */
+    private function listOf(mixed $in, stdClass $record): mixed
+    {
+        return is_string($in) ? $this->field($in, $record) : $this->value($in, $record);
+    }
+
+    /**
+     * The operators of C2-W-150 and C2-B-004 that the main evaluator does not take; NONE for another operator.
+     *
+     * @param string|int|null $op
+     * @param array<mixed> $expr
+     * @param \stdClass $record
+     */
+    private function valueMore(string|int|null $op, array $expr, stdClass $record): mixed
+    {
+        $arg = $expr[$op] ?? null;
+        switch ($op) {
+            case 'lower':
+                return mb_strtolower(self::string($this->value($arg, $record)), 'UTF-8');
+            case 'percent_decode':
+                return self::percentDecode(self::string($this->value($arg, $record)));
+            case 'join':
+                $list = is_array($arg) ? $this->value($arg[0] ?? null, $record) : null;
+                $glue = is_array($arg) ? self::string($this->value($arg[1] ?? null, $record)) : '';
+
+                return is_array($list) ? implode($glue, array_map(self::display(...), $list)) : '';
+            case 'nth':
+                $list = is_array($arg) ? $this->value($arg[0] ?? null, $record) : null;
+                $index = is_array($arg) ? self::integer($this->value($arg[1] ?? null, $record)) : 0;
+                if (!is_array($list)) {
+                    return null;
+                }
+                if ($index < 0 && array_is_list($list)) {
+                    $index += count($list);
+                }
+
+                return $list[$index] ?? null;
+            case 'column':
+                $offset = is_array($arg) ? self::integer($this->value($arg[0] ?? null, $record)) : 0;
+                $quotes = is_array($arg) ? self::integer($this->value($arg[1] ?? null, $record)) : 0;
+
+                return $this->context->layout->columnOf($offset, $quotes);
+            case 'find':
+                if (!is_array($arg) || !isset($arg['in'])) {
+                    return null;
+                }
+                $list = $this->listOf($arg['in'], $record);
+                if (!is_array($list)) {
+                    return null;
+                }
+                foreach ($list as $item) {
+                    $copy = clone $record;
+                    $copy->item = $item;
+                    if ($this->value($arg['where'] ?? null, $copy)) {
+                        return $item;
+                    }
+                }
+
+                return null;
+            case 'run':
+                return $arg === 'extensions' ? ($this->context->options['extensions'] ?? []) : null;
+            case 'attribute_line':
+                $text = self::string($this->value($arg, $record));
+
+                return LineShapes::attributeLine($text, 0, strlen($text), new Attrs());
+        }
+
+        return self::NONE;
+    }
+
+    /**
+     * C2-W-150: `%HH` decoded as UTF-8; a text in which that fails stays as written.
+     */
+    private static function percentDecode(string $text): string
+    {
+        if (preg_match('/%(?![0-9A-Fa-f]{2})/', $text) === 1) {
+            return $text;
+        }
+        $decoded = rawurldecode($text);
+
+        return mb_check_encoding($decoded, 'UTF-8') ? $decoded : $text;
+    }
+
+    /**
+     * An item of a list as `join` writes it.
+     */
+    private static function display(mixed $value): string
+    {
+        return match (true) {
+            $value === null => 'null',
+            is_bool($value) => $value ? 'true' : 'false',
+            is_scalar($value) => (string)$value,
+            default => '',
+        };
+    }
+
+    /**
      * @param array<mixed> $expr
      * @param \stdClass $record
      * @param string|null $site
+     * @param \Closure|null $valueOf The compiled `value` of the lookup.
      */
-    private function lookup(array $expr, stdClass $record, ?string $site = null): mixed
+    private function lookup(array $expr, stdClass $record, ?string $site = null, ?Closure $valueOf = null): mixed
     {
         $over = $expr['over'] ?? null;
-        $types = $expr['types'] ?? null;
-        $field = $expr['field'] ?? null;
-        if (!in_array($over, ['block', 'inline'], true) || !is_array($types) || !is_string($field)) {
+        $types = is_array($expr['types'] ?? null) ? $expr['types'] : null;
+        $field = is_string($expr['field'] ?? null) ? $expr['field'] : '';
+        if (!in_array($over, ['block', 'inline', 'id', 'line'], true)) {
             return null;
         }
         $site ??= json_encode($expr, JSON_THROW_ON_ERROR);
         if (!isset($this->lookupIndexes[$site])) {
             $index = [];
-            foreach ($this->lookupRecords[$over] as $candidate) {
-                if (!in_array($candidate->type ?? null, $types, true)) {
+            $records = $over === 'line' ? $this->lineRecords() : $this->lookupRecords[$over];
+            foreach ($records as $candidate) {
+                $type = $candidate->type ?? null;
+                // C2-W-150: a lookup with no types reads every block or every inline node; a text run is no node.
+                if ($types === null ? $type === 'text_run' : ($over !== 'line' && !in_array($type, $types, true))) {
                     continue;
                 }
                 $copy = clone $candidate;
@@ -1648,15 +1834,20 @@ final class DataRules
             }
             $this->lookupIndexes[$site] = $index;
         }
-        $value = isset($expr['value']) ? $this->value($expr['value'], $record) : null;
+        $value = $valueOf !== null ? $valueOf($record) : (isset($expr['value']) ? $this->value($expr['value'], $record) : null);
         $list = $this->lookupIndexes[$site][serialize($value)] ?? [];
+        // C2-W-150: with all, every record whose key equals the value, in document order.
+        if (($expr['all'] ?? false) === true) {
+            return array_map(fn (stdClass $found): mixed => $this->lookupField($field, $found), $list);
+        }
         if ($list === []) {
             return NAN;
         }
+        $from = isset($expr['from']) ? self::integer($this->value($expr['from'], $record)) : ($record->start ?? 0);
         if (($expr['before'] ?? false) === true) {
             $chosen = null;
             foreach ($list as $candidate) {
-                if ($candidate->start >= ($record->start ?? 0)) {
+                if ($candidate->start >= $from) {
                     break;
                 }
                 $chosen = $candidate;
@@ -1664,7 +1855,7 @@ final class DataRules
         } elseif (($expr['after'] ?? false) === true) {
             $chosen = null;
             foreach ($list as $candidate) {
-                if ($candidate->start > ($record->start ?? 0)) {
+                if ($candidate->start > $from) {
                     $chosen = $candidate;
 
                     break;
@@ -1676,11 +1867,28 @@ final class DataRules
         if ($chosen === null) {
             return NAN;
         }
-        if ($field === 'text' && property_exists($chosen, 'text') && $chosen->text === null) {
-            $chosen->text = substr($this->context->source, $chosen->start, $chosen->end - $chosen->start);
+
+        return $this->lookupField($field, $chosen);
+    }
+
+    private function lookupField(string $field, stdClass $found): mixed
+    {
+        if ($field === '') {
+            return $found;
+        }
+        if ($field === 'text' && property_exists($found, 'text') && $found->text === null) {
+            $found->text = substr($this->context->source, $found->start, $found->end - $found->start);
         }
 
-        return $this->field($field, $chosen);
+        return $this->field($field, $found);
+    }
+
+    /**
+     * @return list<\stdClass>
+     */
+    private function lineRecords(): array
+    {
+        return $this->lookupRecords['line'];
     }
 
     private function matches(mixed $value, mixed $source, string $flags, mixed $textExpr, stdClass $record): bool
