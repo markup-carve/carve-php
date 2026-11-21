@@ -819,7 +819,7 @@ final class BlockParser
             return false;
         }
 
-        return $this->listInterrupts($marker, $owner);
+        return $this->listInterrupts($marker, $owner, $c);
     }
 
     /**
@@ -867,10 +867,11 @@ final class BlockParser
      *
      * @param \MarkupCarve\Carve\Block\Marker $marker
      * @param int $owner
+     * @param int $c
      *
      * @return bool
      */
-    private function listInterrupts(Marker $marker, int $owner): bool
+    private function listInterrupts(Marker $marker, int $owner, int $c): bool
     {
         $candidate = $this->stack[$owner + 1] ?? null;
         $kind = $this->stack[$owner]->kind;
@@ -887,6 +888,12 @@ final class BlockParser
                         return true;
                     }
                 }
+            }
+
+            // C2-B-022 holds at the description list's column; left of it C2-B-015 nests in the body.
+            $leftOfList = $candidate->kind === Frame::DLIST && $c - $this->base < $candidate->markerCol;
+            if ($leftOfList && $body !== null && $body->kind === Frame::DESC) {
+                return $inItem && $this->mayNest($marker) && $this->canNestAt($owner);
             }
 
             // C2-B-021: a marker without the quote mark closes a quote inside an item, when it may open a nested list (C2-B-056).
