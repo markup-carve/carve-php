@@ -155,6 +155,16 @@ final class Context
     public Layout $layout;
 
     /**
+     * @var array<string, bool> The answer of `active()` by rule id; the options do not change during a run.
+     */
+    private array $activeRules = [];
+
+    /**
+     * @var array<string, array<array{0: string, 1: \Closure}>> The active node rules by node type.
+     */
+    public array $nodeRules = [];
+
+    /**
      * @param string $source
      * @param array<string, mixed> $options
      * @param array<string, array{severity: string, default: string|null, status: string|null}> $catalog
@@ -223,6 +233,11 @@ final class Context
      * @return bool
      */
     public function active(string $id): bool
+    {
+        return $this->activeRules[$id] ??= $this->resolveActive($id);
+    }
+
+    private function resolveActive(string $id): bool
     {
         if (($this->catalog[$id]['status'] ?? null) === 'void') {
             return false;

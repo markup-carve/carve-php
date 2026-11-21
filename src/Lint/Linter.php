@@ -60,7 +60,7 @@ final class Linter
     private static ?array $catalog = null;
 
     /**
-     * @var array<string, array<string>>|null
+     * @var array<string, array<array{0: array<string>|null, 1: string}>>|null The field names and path suffix of each slot.
      */
     private static ?array $slots = null;
 
@@ -78,11 +78,10 @@ final class Linter
     public static function lint(string $source, array $options = []): array
     {
         self::validate($options);
-        $own = self::lintSource($source, $options);
+        $parseDiagnostics = [];
+        $own = self::lintSource($source, $options, $parseDiagnostics);
         if (!isset($options['includes'])) {
-            $parsed = Carve::parseWithDiagnostics($source, array_intersect_key($options, ['extensions' => true, 'headingIds' => true]));
-
-            return self::ordered(array_merge($own, $parsed->diagnostics));
+            return self::ordered(array_merge($own, $parseDiagnostics));
         }
         $rest = $options;
         unset($rest['includes']);
@@ -93,15 +92,39 @@ final class Linter
     /**
      * @param string $source
      * @param array<string, mixed> $options Without `includes`.
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $parseDiagnostics Set to the diagnostics of the parse.
      *
      * @return array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
      */
-    public static function lintSource(string $source, array $options): array
+    public static function lintSource(string $source, array $options, array &$parseDiagnostics = []): array
+    {
+        // A lint run builds no cycles, so the collector would only rescan the growing tree.
+        $gc = gc_enabled();
+        gc_disable();
+        try {
+            return self::lintRun($source, $options, $parseDiagnostics);
+        } finally {
+            if ($gc) {
+                gc_enable();
+            }
+        }
+    }
+
+    /**
+     * @param string $source
+     * @param array<string, mixed> $options
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $parseDiagnostics
+     *
+     * @return array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
+     */
+    private static function lintRun(string $source, array $options, array &$parseDiagnostics): array
     {
         $parsed = Carve::parseWithLayout($source, array_intersect_key($options, ['extensions' => true, 'headingIds' => true]));
+        $parseDiagnostics = $parsed->diagnostics;
         $tree = (new TreeEncoder())->encode($parsed->tree, $source);
         $c = new Context($source, $options, self::catalog());
         $c->layout->rawRefs((array)$parsed->layout['nodes']);
+        unset($parsed);
         /** @var array<int, array<array{0: string, 1: array<string>}>> $controls */
         $controls = [];
         $root = Support::node($tree);
@@ -110,7 +133,7 @@ final class Linter
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $maskCursor = 0;
-        $lineRules = LineRules::all();
+        $lineRules = array_values(array_filter(LineRules::all(), static fn (array $rule): bool => $c->active($rule[0])));
         foreach ($c->lines as $line) {
             if ($line->opaque) {
                 if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
@@ -121,10 +144,8 @@ final class Linter
                 continue;
             }
             $scan = self::masked($line, $c, $maskCursor);
-            foreach ($lineRules as [$id, $check]) {
-                if ($c->active($id)) {
-                    $check($scan, $c);
-                }
+            foreach ($lineRules as [, $check]) {
+                $check($scan, $c);
             }
         }
 
@@ -179,10 +200,12 @@ final class Linter
         if ($pos !== null) {
             self::placed($node, $type, $path, $pos, $c, $controls);
         }
-        foreach (self::rulesFor($type) as [$id, $check]) {
-            if ($c->active($id)) {
-                $check($node, $path, $c);
-            }
+        $rules = $c->nodeRules[$type] ??= array_values(array_filter(
+            self::rulesFor($type),
+            static fn (array $rule): bool => $c->active($rule[0]),
+        ));
+        foreach ($rules as [, $check]) {
+            $check($node, $path, $c);
         }
         foreach (self::children($node, $type, $path) as [$child, $childPath]) {
             self::visit($child, $childPath, $c, $controls);
@@ -292,8 +315,8 @@ final class Linter
     private static function children(array $node, string $type, string $path): array
     {
         $out = [];
-        foreach (self::slotsOf($type) as $slot) {
-            if ($slot === 'slots.*') {
+        foreach (self::slotsOf($type) as [$names, $suffix]) {
+            if ($names === null) {
                 foreach (is_array($node['slots'] ?? null) ? $node['slots'] : [] as $name => $value) {
                     self::collect($value, $path . '/slots/' . $name, $out);
                 }
@@ -301,10 +324,10 @@ final class Linter
                 continue;
             }
             $value = $node;
-            foreach (explode('.', $slot) as $name) {
+            foreach ($names as $name) {
                 $value = is_array($value) ? ($value[$name] ?? null) : null;
             }
-            self::collect($value, $path . '/' . str_replace('.', '/', $slot), $out);
+            self::collect($value, $path . $suffix, $out);
         }
 
         return $out;
@@ -565,7 +588,7 @@ final class Linter
      *
      * @param string $type
      *
-     * @return array<string>
+     * @return array<array{0: array<string>|null, 1: string}>
      */
     private static function slotsOf(string $type): array
     {
@@ -582,7 +605,9 @@ final class Linter
                 if (in_array('title', $core, true)) {
                     $core = array_merge(['title'], array_values(array_diff($core, ['title'])));
                 }
-                self::$slots[(string)$name] = $core;
+                self::$slots[(string)$name] = array_map(static fn (string $slot): array => $slot === 'slots.*'
+                    ? [null, '']
+                    : [explode('.', $slot), '/' . str_replace('.', '/', $slot)], $core);
             }
         }
 
