@@ -916,6 +916,13 @@ final class Inline
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         if ($type === 'text') {
+            // A text node has no carrier for these fields. Check each node independently,
+            // including nodes after another text has already lost an edge value.
+            foreach (['dir', 'metadata'] as $field) {
+                if (array_key_exists($field, $node)) {
+                    $this->w->lose($path, 'text', $field);
+                }
+            }
             $points = $c->inCell ? ($this->w->wrapPoints[$path] ?? null) : null;
             $c->here = $points === null ? $c->flatAt[$path] ?? -1 : -1;
             $c->textPath = $path;
@@ -996,6 +1003,9 @@ final class Inline
     private function text(array $node, Context $c, int $next, mixed $before): string
     {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
+        if ($c->lineStart && $c->last === -1 && !$c->inLineBlock && !$c->inCell && strspn($value, " \t") > 0) {
+            $this->w->lose($c->textPath, 'text', 'value');
+        }
         $this->loseLineFeed($value, $c);
         // C2-W-022: no space or tab of text stands at the end of a line.
         if ($next === 10 && !$c->bareBreaks) {
