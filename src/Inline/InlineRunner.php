@@ -98,6 +98,13 @@ final class InlineRunner
         }
         $node->children = self::parse($s, $node->lines ?? [], $ctx, 0, $mode);
         $node->lines = null;
+        if (
+            $type === 'paragraph' && isset($node->f['role'])
+            && (count($node->children) !== 1 || $node->children[0]->type !== $node->f['role'])
+        ) {
+            // C2-A-136: source shape may outlive an inline pair stopped by the depth limit.
+            unset($node->f['role']);
+        }
         if (isset($node->layout['lazyComments'])) {
             self::appendLazyComments($node);
         }
