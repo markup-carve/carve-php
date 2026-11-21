@@ -218,6 +218,13 @@ final class WriterClausesTest extends TestCase
         $this->assertSame(['field-unspellable'], $result->codes());
     }
 
+    public function testC2W016TripleBacktickContinuationReportsLoss(): void
+    {
+        $paragraph = ['type' => 'paragraph', 'children' => [['type' => 'code', 'value' => "x\n```y\nz"]]];
+        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+        $this->assertSame(['field-unspellable'], $result->codes());
+    }
+
     public function testC2W002SpanReadsBackAsTheSameTree(): void
     {
         $paragraph = [

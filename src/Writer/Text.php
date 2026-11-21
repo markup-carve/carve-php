@@ -1194,9 +1194,8 @@ final class Text
     }
 
     /**
-     * C2-W-016: whether a line after the first of a verbatim leaf could end its paragraph or open a block there
-     * (C2-B-014 to C2-B-019). The test is the later-line test of C2-W-092 inside an item, the widest owner, since the
-     * emitted line and the paragraph owner decide whether the mark interrupts the paragraph.
+     * C2-W-016: whether an emitted line of a verbatim leaf opens a block in its paragraph owner. The first-line option
+     * also checks a span whose opening run starts a block at the paragraph's column.
      *
      * @param string $line
      * @param \MarkupCarve\Carve\Writer\Context|null $context
@@ -1207,13 +1206,13 @@ final class Text
     public static function opensBlock(string $line, ?Context $context = null, bool $first = false): bool
     {
         $line = ltrim($line, " \t");
+        if ($line === '' || strspn($line, '`') >= 3) {
+            return true;
+        }
         if ($context !== null && str_starts_with($line, '%%')) {
             return true;
         }
         if ($context === null) {
-            if ($line === '' || strspn($line, '`') >= 3) {
-                return true;
-            }
             $c = new Context();
             $c->lineStart = true;
             $c->last = 10;
@@ -1225,7 +1224,7 @@ final class Text
         $c->lineStart = true;
         $c->last = $first ? -1 : 10;
 
-        return $line === '' || self::lineStartMark($line, $c, 10) >= 0;
+        return self::lineStartMark($line, $c, 10) >= 0;
     }
 
     /**
