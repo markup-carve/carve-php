@@ -171,6 +171,8 @@ final class HtmlRenderer
         if (!$shifted && $opts->headingShift !== 0) {
             $doc = Extensions::copy($doc);
             HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
+            // Facts are keyed by the nodes of the original tree; the copy is resolved again.
+            $resolved = null;
         }
         $max = Profile::maxLength($opts->profile);
         if ($source !== null && $max !== null && strlen($source) > $max) {

@@ -11,7 +11,10 @@ use MarkupCarve\Carve\Export\AnsiExporter;
 use MarkupCarve\Carve\Export\MarkdownExporter;
 use MarkupCarve\Carve\Export\PlainTextExporter;
 use MarkupCarve\Carve\Extension\Navigation;
+use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\OptionError;
+use MarkupCarve\Carve\Options;
+use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Test\Support\Corpus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -86,6 +89,17 @@ final class HeadingShiftTest extends TestCase
         self::assertSame($expected, Carve::render($tree, ['headingShift' => 1]));
         self::assertSame($expected, Carve::renderWithDiagnostics($tree, ['headingShift' => 1])->html);
         self::assertSame(1, $tree->children[0]->f['level'], 'the caller tree keeps its level');
+    }
+
+    public function testRendererShiftsACopyWithItsOwnFacts(): void
+    {
+        $source = "= A\n\nText[^n].\n\n[^n]: Note.\n";
+        $doc = Carve::parse($source);
+        $opts = Options::from(['headingShift' => 1]);
+        $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
+        $html = HtmlRenderer::render($doc, $opts, $source, $facts);
+        self::assertSame(Carve::toHtml($source, ['headingShift' => 1]), $html);
+        self::assertSame(1, $doc->children[0]->f['level']);
     }
 
     public function testCommandLineMarkdownShiftsAndPlainRefuses(): void
