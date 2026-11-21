@@ -5,12 +5,21 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 /**
- * C2-W-021, C2-W-117, C2-W-151: a soft break of a paragraph that ends a line holding nothing, or only spaces and tabs,
- * is written as an empty line or as the end of the paragraph, so the tree that reads back splits the paragraph or
- * loses the break. Each such soft break is reported, and so is one that only spaces and tabs follow.
+ * C2-W-021, C2-W-117, C2-W-151: a soft break of a paragraph, a heading or a line of a line block that ends a line
+ * holding nothing, or only spaces and tabs, is written as an empty line or as the end of the block, so the tree that
+ * reads back splits the block or loses the break. Each such soft break is reported, and so is one that only spaces and
+ * tabs follow.
  */
 final class BlankLines
 {
+    /**
+     * @var array
+     */
+    /**
+     * @var array<string, true>
+     */
+    private const HOLDERS = ['paragraph' => true, 'heading' => true, 'line' => true];
+
     private bool $blank = true;
 
     private ?string $pending = null;
@@ -23,7 +32,7 @@ final class BlankLines
     }
 
     /**
-     * Reports the soft breaks of every paragraph under `nodes`.
+     * Reports the soft breaks of every holder under `nodes`.
      *
      * @param array<mixed> $nodes
      * @param string $path
@@ -49,7 +58,9 @@ final class BlankLines
      */
     private static function node(array $node, string $path, State $w): void
     {
-        if ($node['type'] === 'paragraph') {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        $holder = isset(self::HOLDERS[$type]);
+        if ($holder) {
             $scan = new self($w);
             $scan->inlines(is_array($node['children'] ?? null) ? $node['children'] : [], $path . '/children');
             if ($scan->blank && $scan->pending !== null) {
@@ -63,7 +74,7 @@ final class BlankLines
             $at = $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key);
             if (is_string($value['type'] ?? null)) {
                 self::node($value, $at, $w);
-            } elseif (array_is_list($value) && ($node['type'] !== 'paragraph' || $key !== 'children')) {
+            } elseif (array_is_list($value) && (!$holder || $key !== 'children')) {
                 self::lose($value, $at, $w);
             }
         }

@@ -56,6 +56,23 @@ final class BlankLineSoftBreakTest extends TestCase
     /**
      * @return void
      */
+    public function testHeadingsAndLinesAreHoldersToo(): void
+    {
+        $text = static fn (string $v): array => ['type' => 'text', 'value' => $v];
+        $soft = ['type' => 'soft_break'];
+        $heading = ['type' => 'heading', 'level' => 1, 'children' => [$text('a'), $soft, $soft, $text('b')]];
+        $result = Writer::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => [$heading]]);
+        $this->assertSame("= a\n\n  b\n", $result->source);
+        $this->assertSame(['/children/0/children/2'], array_map(static fn ($d): ?string => $d->path, $result->diagnostics));
+        $line = ['type' => 'line', 'children' => [$text('a'), $soft, $soft, $text('b')]];
+        $block = ['type' => 'line_block', 'children' => [$line]];
+        $result = Writer::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => [$block]]);
+        $this->assertSame(['/children/0/children/0/children/2'], array_map(static fn ($d): ?string => $d->path, $result->diagnostics));
+    }
+
+    /**
+     * @return void
+     */
     public function testAnEmphasisMarkerFillsTheLine(): void
     {
         $tree = [
