@@ -89,6 +89,11 @@ final class Layout
         $this->parents[$path] = $parent;
     }
 
+    public function parent(string $path): string
+    {
+        return $this->parents[$path] ?? '';
+    }
+
     /**
      * The registered nodes by path, in the order they were registered.
      *

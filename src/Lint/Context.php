@@ -30,6 +30,30 @@ final class Context
     public array $nodeTypes = [];
 
     /**
+     * The parsed nodes in source walk order for the shared data rule model.
+     *
+     * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int}>
+     */
+    public array $walked = [];
+
+    public bool $dataRules;
+
+    /**
+     * @var array<string, true>
+     */
+    public array $dataNodeTypes = [];
+
+    /**
+     * @var array<string, array{0: int, 1: int}> The layout span of each node without `pos`, by path (data rules only).
+     */
+    public array $layoutSpans = [];
+
+    /**
+     * @var array<string, true>
+     */
+    private array $dataIds = [];
+
+    /**
      * @var array<string, int> The first line of the node at each path.
      */
     public array $firstLines = [];
@@ -84,7 +108,7 @@ final class Context
     public array $findingLines = [];
 
     /**
-     * @var array<array{0: int, 1: int}> Byte ranges of the opaque leaves.
+     * @var array<array{0: int, 1: int, 2: string, 3: string}> Byte ranges of the opaque leaves, with path and type.
      */
     public array $leafMask = [];
 
@@ -171,6 +195,11 @@ final class Context
      */
     public function __construct(public string $source, public array $options, private array $catalog)
     {
+        $this->dataRules = DataRules::enabled();
+        if ($this->dataRules) {
+            $this->dataIds = DataRules::ids();
+            $this->dataNodeTypes = DataRules::nodeTypes($this);
+        }
         $start = 0;
         $number = 1;
         while (($feed = strpos($source, "\n", $start)) !== false) {
@@ -234,10 +263,10 @@ final class Context
      */
     public function active(string $id): bool
     {
-        return $this->activeRules[$id] ??= $this->resolveActive($id);
+        return $this->activeRules[$id] ??= !isset($this->dataIds[$id]) && $this->activeRule($id);
     }
 
-    private function resolveActive(string $id): bool
+    public function activeRule(string $id): bool
     {
         if (($this->catalog[$id]['status'] ?? null) === 'void') {
             return false;

@@ -117,6 +117,26 @@ final class Linter
     }
 
     /**
+     * @param array<mixed> $entries
+     *
+     * @return array<string, array{0: int, 1: int}>
+     */
+    private static function layoutSpans(array $entries): array
+    {
+        $spans = [];
+        foreach ($entries as $entry) {
+            if (
+                is_array($entry) && is_string($entry['path'] ?? null)
+                && is_int($entry['startByte'] ?? null) && is_int($entry['endByte'] ?? null)
+            ) {
+                $spans[$entry['path']] = [$entry['startByte'], $entry['endByte']];
+            }
+        }
+
+        return $spans;
+    }
+
+    /**
      * @param string $source
      * @param array<string, mixed> $options
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $parseDiagnostics
@@ -137,19 +157,27 @@ final class Linter
                 $rawRefs[] = $entry;
             }
         }
+        $spans = DataRules::enabled() ? self::layoutSpans((array)($parsed->layout['nodes'] ?? [])) : [];
         unset($parsed);
         $tree = (new TreeEncoder())->encodeForLint($document, $source);
         unset($document);
         $c = new Context($source, $options, self::catalog());
+        $c->layoutSpans = $spans;
+        unset($spans);
         $c->layout->rawRefs($rawRefs);
         /** @var array<int, array<array{0: string, 1: array<string>}>> $controls */
         $controls = [];
         $root = Support::node($tree);
         self::measureRoot($root, $c);
         // The measure walk registered every node in tree order, so the visit reads that list instead of walking again.
+        $childCounts = [];
         foreach ($c->layout->nodes() as $path => $node) {
-            self::visit($node, (string)$path, $c, $controls);
+            $path = (string)$path;
+            $parent = $c->layout->parent($path);
+            $index = $path === '' ? 0 : ($childCounts[$parent] = ($childCounts[$parent] ?? -1) + 1);
+            self::visit($node, $path, $c, $controls, $parent, $index);
         }
+        unset($childCounts, $tree, $root);
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $maskCursor = 0;
@@ -169,7 +197,18 @@ final class Linter
             }
         }
 
-        return self::ordered(self::filter($c, $controls));
+        if ($c->dataRules) {
+            DataRules::run($c);
+        }
+
+        $findings = self::ordered(self::filter($c, $controls));
+        $dataRules = $c->dataRules;
+        unset($c);
+        if ($dataRules && memory_get_usage(true) - memory_get_usage(false) > 16 * 1024 * 1024) {
+            gc_mem_caches();
+        }
+
+        return $findings;
     }
 
     /**
@@ -199,13 +238,28 @@ final class Linter
      * @param string $path
      * @param \MarkupCarve\Carve\Lint\Context $c
      * @param array<int, array<array{0: string, 1: array<string>}>> $controls
+     * @param int $index
+     * @param string $parent
      *
      * @return void
      */
-    private static function visit(array $node, string $path, Context $c, array &$controls): void
+    // The parser walk handles facts for all node forms before visiting children.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    private static function visit(array $node, string $path, Context $c, array &$controls, string $parent, int $index): void
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $c->nodeTypes[$path] = $type;
+        if ($type === 'link_reference_definition') {
+            $c->referenceDefinitions[] = [$node, $path];
+        } elseif ($type === 'footnote') {
+            $c->footnoteDefinitions[] = [$node, $path];
+        } elseif ($type === 'footnote_ref') {
+            $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
+        }
+        if ($c->dataRules) {
+            $c->walked[] = ['node' => $node, 'path' => $path, 'parent' => $parent, 'index' => $index];
+        }
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
             $c->ids[$attrs['id']] = true;
@@ -267,7 +321,7 @@ final class Linter
         self::markContent($type, $pos, $c);
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
         if (isset(self::OPAQUE_LEAVES[$type])) {
-            $c->leafMask[] = [$pos['startOffset'], $pos['endOffset']];
+            $c->leafMask[] = [$pos['startOffset'], $pos['endOffset'], $path, $type];
         }
         $control = self::control($node, $c);
         if ($control !== null) {
