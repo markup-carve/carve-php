@@ -1092,12 +1092,18 @@ HELP;
     {
         [$display, $source, $root] = $entry;
         $rows = [];
+        $sources = [$display => $source];
+        $positions = [];
         foreach ($entries as $finding) {
-            [$name, $text] = [$display, $source];
+            $name = $display;
             if ($finding->file !== null && $root !== null && !str_starts_with($finding->file, '/')) {
-                [$name, $text] = [$finding->file, (string)@file_get_contents($root . '/' . $finding->file)];
+                $name = $finding->file;
+                if (!isset($sources[$name])) {
+                    $sources[$name] = (string)@file_get_contents($root . '/' . $name);
+                }
             }
-            [$line, $column] = self::location($text, $finding->startOffset);
+            $positions[$name] ??= ['offset' => 0, 'line' => 1, 'column' => 1];
+            [$line, $column] = self::location($sources[$name], $finding->startOffset, $positions[$name]);
             if ($json) {
                 $rows[] = array_merge($finding->toArray(), ['file' => $name, 'line' => $line, 'column' => $column]);
 
@@ -1113,15 +1119,26 @@ HELP;
     /**
      * @param string $source
      * @param int $offset
+     * @param array{offset: int, line: int, column: int} $position
      *
      * @return array{0: int, 1: int} The line, and the column in characters.
      */
-    private static function location(string $source, int $offset): array
+    private static function location(string $source, int $offset, array &$position): array
     {
-        $prefix = substr($source, 0, max(0, $offset));
-        $start = strrpos($prefix, "\n");
-        $last = $start === false ? $prefix : substr($prefix, $start + 1);
+        $offset = max(0, min($offset, strlen($source)));
+        if ($offset < $position['offset']) {
+            $position = ['offset' => 0, 'line' => 1, 'column' => 1];
+        }
+        $chunk = substr($source, $position['offset'], $offset - $position['offset']);
+        $breaks = substr_count($chunk, "\n");
+        if ($breaks > 0) {
+            $position['line'] += $breaks;
+            $position['column'] = mb_strlen(mb_scrub(substr($chunk, (int)strrpos($chunk, "\n") + 1), 'UTF-8'), 'UTF-8') + 1;
+        } else {
+            $position['column'] += mb_strlen(mb_scrub($chunk, 'UTF-8'), 'UTF-8');
+        }
+        $position['offset'] = $offset;
 
-        return [substr_count($prefix, "\n") + 1, mb_strlen(mb_scrub($last, 'UTF-8'), 'UTF-8') + 1];
+        return [$position['line'], $position['column']];
     }
 }
