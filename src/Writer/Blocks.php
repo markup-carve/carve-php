@@ -1314,6 +1314,21 @@ final class Blocks
         if (count($this->w->lines) === $mark && $blankWhenEmpty) {
             $this->w->emit($prefix, '');
         }
+        // Past the parser's block depth, a refused closer does not interrupt a
+        // lazy paragraph in a quote or list. End that container's paragraph
+        // before writing the fence closer.
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $last = end($children);
+        if (
+            $this->blockDepth >= Tables::BLOCK_DEPTH - 1
+            && is_array($last)
+            && in_array($last['type'] ?? '', ['block_quote', 'list', 'definition_description', 'footnote'], true)
+            && (($last['type'] ?? '') !== 'block_quote'
+                || $this->w->fact($path . '/children/' . array_key_last($children), 'fenced') !== true)
+            && end($this->w->lines) !== ''
+        ) {
+            $this->w->emit($prefix, '');
+        }
         $this->w->emit($prefix, $run);
     }
 
