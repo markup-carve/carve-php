@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Include\Selection;
 use MarkupCarve\Carve\OptionError;
+use MarkupCarve\Carve\Options;
 
 /**
  * C2-N-085 to C2-N-087: every Carve include the expansion accepted is linted over the source it parsed; each finding names
@@ -58,6 +59,21 @@ final class Includes
         }
 
         return $visit->out;
+    }
+
+    /**
+     * Validate the resolver and its limits without parsing a document that has
+     * no include opener.
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    public static function validate(mixed $includes): void
+    {
+        $config = $includes instanceof Closure ? ['resolver' => $includes] : $includes;
+        if (!is_array($config) || !($config['resolver'] ?? null) instanceof Closure) {
+            throw new OptionError('option includes: not a resolver or an object with a resolver');
+        }
+        Options::from(['includes' => $config], ['parse', 'resolve']);
     }
 
     /**

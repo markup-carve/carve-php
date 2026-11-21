@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use MarkupCarve\Carve\Block\LineShapes;
+use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Options;
@@ -92,8 +93,14 @@ final class Writer
     private static function facts(?array $layout): array
     {
         $facts = [];
+        $used = array_fill_keys([
+            'bare', 'fenced', 'hardBreakOpener', 'headerRows', 'sourceFormat', 'wraps', 'rawRef',
+        ], true);
         foreach (is_array($layout['nodes'] ?? null) ? $layout['nodes'] : [] as $entry) {
-            if (is_array($entry) && is_string($entry['path'] ?? null)) {
+            if (
+                is_array($entry) && is_string($entry['path'] ?? null)
+                && array_intersect_key($entry, $used) !== []
+            ) {
                 $facts[$entry['path']] = $entry;
             }
         }
@@ -134,8 +141,8 @@ final class Writer
     public static function formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult
     {
         Options::from($options, ['format']);
-        $parsed = Carve::parseWithLayout($source);
-        $tree = TreeEncoder::decoded($parsed->tree);
+        $parsed = TableBuilder::compactEmptyParagraphs(static fn () => Carve::parseWithLayout($source));
+        $tree = TreeEncoder::decodedForWriter($parsed->tree);
 
         return self::writeWithDiagnostics($tree, $layout ?? $parsed->layout, $options);
     }

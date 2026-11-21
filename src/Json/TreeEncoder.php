@@ -15,6 +15,25 @@ use stdClass;
 final class TreeEncoder
 {
     /**
+     * @var array<string, mixed>
+     */
+    private const EMPTY_TABLE_CELL_FOR_LINT = [
+        'type' => 'table_cell',
+        'header' => false,
+        'children' => [['type' => 'cell_paragraph', 'children' => []]],
+        '__lintEmptyCell' => true,
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    private const EMPTY_TABLE_CELL_FOR_WRITER = [
+        'type' => 'table_cell',
+        'header' => false,
+        'children' => [['type' => 'cell_paragraph', 'children' => []]],
+    ];
+
+    /**
      * C2-A-058: these optional extension fields have no empty encoding.
      *
      * @var array<string, true>
@@ -45,6 +64,8 @@ final class TreeEncoder
 
     private bool $release = false;
 
+    private bool $compactEmptyCells = false;
+
     /**
      * @var array{0: int, 1: int, 2: array<string, int>}|null The last position, which a wrapper of one child repeats.
      */
@@ -71,6 +92,21 @@ final class TreeEncoder
     public static function decoded(Node $root): array
     {
         $encoder = new self();
+
+        return self::decodedArray($encoder->encode($root, null));
+    }
+
+    /**
+     * The writer needs a cell's place in its row, but an empty cell carries no
+     * content or fields that differ from any other empty cell.
+     *
+     * @return array<string, mixed>
+     */
+    public static function decodedForWriter(Node $root): array
+    {
+        $encoder = new self();
+        $encoder->release = true;
+        $encoder->compactEmptyCells = true;
 
         return self::decodedArray($encoder->encode($root, null));
     }
@@ -246,6 +282,20 @@ final class TreeEncoder
     }
 
     /**
+     * Lint only reads an empty, unadorned cell to count its row's columns. Its
+     * four cell rules cannot report on that cell, so share one value for every
+     * such cell and omit it from lint's node walk.
+     *
+     * @return array<string, mixed>
+     */
+    public function encodeForLint(Node $root, string $source): array
+    {
+        $this->compactEmptyCells = true;
+
+        return $this->encodeReleasing($root, $source);
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node $node
      * @param bool $positions
      *
@@ -253,6 +303,11 @@ final class TreeEncoder
      */
     private function node(Node $node, bool $positions): array
     {
+        if ($this->compactEmptyCells && $this->emptyTableCell($node)) {
+            $node->children = [];
+
+            return $positions ? self::EMPTY_TABLE_CELL_FOR_LINT : self::EMPTY_TABLE_CELL_FOR_WRITER;
+        }
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
             if ($value === null || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []) {
@@ -295,6 +350,17 @@ final class TreeEncoder
         }
 
         return $out;
+    }
+
+    private function emptyTableCell(Node $node): bool
+    {
+        if ($node->type !== 'table_cell' || $node->start !== $node->end || $node->f !== ['header' => false]) {
+            return false;
+        }
+        $children = $node->children;
+
+        return count($children ?? []) === 1 && $children[0]->type === 'cell_paragraph'
+            && $children[0]->children === [] && $children[0]->f === [];
     }
 
     private function setSource(string $file): void
