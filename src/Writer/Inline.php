@@ -1533,7 +1533,7 @@ final class Inline
 
                 return $value;
             }
-            if (str_contains($value, "\r\n") || (!$span && preg_match('/[ \t]\n|\n[ \t]/', $value) === 1)) {
+            if (str_contains($value, "\r\n") || (!$span && self::losesLineEdges($value))) {
                 // The reader drops the CR of a line ending and, in a comment, the spaces and tabs around it.
                 $this->w->lose($path, self::str($node, 'type'), 'value');
             }

@@ -87,6 +87,11 @@ final class InlineValueLineFeedLossTest extends TestCase
                 "a{#c\n\td#}\n",
                 ['field-unspellable /children/0/children/1/value'],
             ],
+            'braced comment with two backslashes before the space' => [
+                $paragraph([$text('a'), $braced("c\\\\ \nd")]),
+                "a{% c\\\\ \nd %}\n",
+                ['field-unspellable /children/0/children/1/value'],
+            ],
             'braced comment with a CR LF' => [
                 $paragraph([$text('a'), $braced("c\r\nd")]),
                 "a{% c\r\nd %}\n",
@@ -123,20 +128,37 @@ final class InlineValueLineFeedLossTest extends TestCase
         $this->assertFalse(TreeEquality::equal([$block], $read['children']));
     }
 
-    public function testBracedCommentKeepsItsLineFeedInAParagraph(): void
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function keptLineFeeds(): array
+    {
+        return [
+            'plain' => ["c\nd", "a{% c\nd %}\n"],
+            'escaped space before the line feed' => ["c\\ \nd", "a{% c\\ \nd %}\n"],
+        ];
+    }
+
+    /**
+     * @param string $value
+     * @param string $source
+     *
+     * @return void
+     */
+    #[DataProvider('keptLineFeeds')]
+    public function testBracedCommentKeepsItsLineFeedInAParagraph(string $value, string $source): void
     {
         $block = [
-
             'type' => 'paragraph',
             'children' => [
                 ['type' => 'text', 'value' => 'a'],
-                ['type' => 'comment', 'form' => 'braced', 'value' => "c\nd"],
+                ['type' => 'comment', 'form' => 'braced', 'value' => $value],
             ],
         ];
 
         $result = Writer::writeBlocksWithDiagnostics([$block]);
 
-        $this->assertSame("a{% c\nd %}\n", $result->source);
+        $this->assertSame($source, $result->source);
         $this->assertSame([], $result->codes());
         $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
         $this->assertTrue(TreeEquality::equal([$block], $read['children']));
