@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Import\HtmlImporter;
 use MarkupCarve\Carve\Import\HtmlParser;
 use MarkupCarve\Carve\Import\ImportInputError;
 use MarkupCarve\Carve\Import\ImportResult;
+use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Test\Support\Corpus;
 use PHPUnit\Framework\TestCase;
 
@@ -95,6 +96,27 @@ final class ImportClausesTest extends TestCase
         $this->expectExceptionMessage('The input exceeds the nesting limits of a tree (C2-A-171)');
 
         HtmlImporter::import(str_repeat('<blockquote>', 4000) . 'a' . str_repeat('</blockquote>', 4000));
+    }
+
+    public function testC2M006DeepestBlockTreeStillImports(): void
+    {
+        $html = str_repeat('<blockquote>', 200) . 'a' . str_repeat('</blockquote>', 200);
+
+        $this->assertSame('document', HtmlImporter::import($html)->tree->type);
+    }
+
+    public function testC2M006MixedPlainBlockOpenersAreRefused(): void
+    {
+        $this->expectException(ImportInputError::class);
+
+        HtmlImporter::import(str_repeat('<div><blockquote>', 101) . 'a');
+    }
+
+    public function testC2M006ChecksOptionsBeforeTheDepthFastPath(): void
+    {
+        $this->expectException(OptionError::class);
+
+        HtmlImporter::import(str_repeat('<blockquote>', 201) . 'a', ['rawHtml' => 'bad']);
     }
 
     public function testC2M013RunOfImagesGivesOneImageParagraphEach(): void

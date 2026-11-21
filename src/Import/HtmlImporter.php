@@ -8,6 +8,7 @@ use Closure;
 use JsonException;
 use MarkupCarve\Carve\Diagnostics\Cap;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Node;
@@ -20,6 +21,64 @@ use MarkupCarve\Carve\Writer\Writer;
  */
 final class HtmlImporter
 {
+    /**
+     * Plain opening tags that always add one imported block level in a flow.
+     *
+     * @var array<string, true>
+     */
+    private const PLAIN_BLOCK_OPENERS = [
+        '<blockquote>' => true,
+        '<div>' => true,
+        '<aside>' => true,
+    ];
+
+    /**
+     * HTML flow hosts whose descendants are imported as block children.
+     *
+     * @var array<string, true>
+     */
+    private const DEPTH_FLOW_HOSTS = [
+        'html' => true,
+        'body' => true,
+        'blockquote' => true,
+        'ul' => true,
+        'ol' => true,
+        'li' => true,
+        'section' => true,
+        'aside' => true,
+    ];
+
+    /**
+     * Hosts that contribute at least one imported block level.
+     *
+     * @var array<string, true>
+     */
+    private const DEPTH_HTML_CONTAINERS = [
+        'blockquote' => true,
+        'ul' => true,
+        'ol' => true,
+        'li' => true,
+    ];
+
+    /**
+     * The block containers counted by TreeReader for C2-A-171.
+     *
+     * @var array<string, true>
+     */
+    private const DEPTH_CONTAINERS = [
+        'block_quote' => true,
+        'list' => true,
+        'list_item' => true,
+        'definition_list' => true,
+        'definition_description' => true,
+        'footnote' => true,
+        'div' => true,
+        'admonition' => true,
+        'directive' => true,
+        'figure_group' => true,
+        'section' => true,
+    ];
+
     /**
      * @param string $html
      * @param array<string, mixed> $options `adapter` (C2-M-102), `rawHtml` (C2-M-066), `labels` (C2-M-101), `strictLosses` (C2-M-082),
@@ -49,7 +108,14 @@ final class HtmlImporter
             $options,
             ['adapter' => true, 'rawHtml' => true, 'labels' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
         ));
+        $direct = $opts->adapter === 'generic' && $prepare === null && $finish === null;
+        if ($direct && self::exceedsPlainBlockPrefix($html)) {
+            throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
+        }
         $root = HtmlParser::parse($html, $legacyParser);
+        if ($direct && self::exceedsForeignBlockDepth($root)) {
+            throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
+        }
         SourceLocations::assign($html, $root);
         Adapters::apply($root, $opts->adapter);
         if ($prepare !== null) {
@@ -101,6 +167,65 @@ final class HtmlImporter
     }
 
     /**
+     * A run of plain block openers at the start of the input is nested in every HTML parser.
+     * Stop after that run; all other HTML shapes go through the parsed-tree checks.
+     */
+    private static function exceedsPlainBlockPrefix(string $html): bool
+    {
+        $length = strlen($html);
+        $at = strspn($html, " \t\r\n");
+        $depth = 0;
+        while ($at < $length) {
+            $found = false;
+            foreach (self::PLAIN_BLOCK_OPENERS as $opener => $_) {
+                if (substr_compare($html, $opener, $at, strlen($opener)) !== 0) {
+                    continue;
+                }
+                $at += strlen($opener);
+                $depth++;
+                if ($depth > Tables::BLOCK_DEPTH) {
+                    return true;
+                }
+                $at += strspn($html, " \t\r\n", $at);
+                $found = true;
+
+                break;
+            }
+            if (!$found) {
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Refuse a proven over-deep flow before scanning locations or building a tree.
+     * A host outside the safe flow set leaves the decision to the tree reader.
+     */
+    private static function exceedsForeignBlockDepth(HtmlNode $root): bool
+    {
+        $stack = [[$root, 0]];
+        while ($stack !== []) {
+            [$node, $depth] = array_pop($stack);
+            if ($node->isElement()) {
+                if (!isset(self::DEPTH_FLOW_HOSTS[$node->name])) {
+                    continue;
+                }
+                $depth += isset(self::DEPTH_HTML_CONTAINERS[$node->name]) ? 1 : 0;
+                if ($depth > Tables::BLOCK_DEPTH) {
+                    return true;
+                }
+            }
+            foreach ($node->children as $child) {
+                $stack[] = [$child, $depth];
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * C2-M-001, C2-M-006: the tree passes the reader; one deeper than its limits is refused.
      *
      * @param array<string, mixed> $document
@@ -109,6 +234,9 @@ final class HtmlImporter
      */
     private static function read(array $document): Node
     {
+        if (self::exceedsBlockDepth($document)) {
+            throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
+        }
         $json = json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE, 100000);
         try {
             return TreeReader::read((string)$json);
@@ -122,6 +250,37 @@ final class HtmlImporter
 
             throw $e;
         }
+    }
+
+    /**
+     * Reject an imported block tree before allocating and decoding its JSON form.
+     * The reader still checks the other tree limits and the complete schema.
+     *
+     * @param array<string, mixed> $document
+     */
+    private static function exceedsBlockDepth(array $document): bool
+    {
+        $stack = [[$document, 0]];
+        while ($stack !== []) {
+            [$node, $depth] = array_pop($stack);
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? null;
+            $depth += is_string($type) && isset(self::DEPTH_CONTAINERS[$type]) ? 1 : 0;
+            if ($depth > Tables::BLOCK_DEPTH) {
+                return true;
+            }
+            $children = $node['children'] ?? [];
+            if (!is_array($children)) {
+                continue;
+            }
+            foreach ($children as $child) {
+                $stack[] = [$child, $depth];
+            }
+        }
+
+        return false;
     }
 
     private static function rootLanguage(HtmlNode $root, ImportContext $context): void
