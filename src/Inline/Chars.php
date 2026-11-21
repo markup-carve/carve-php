@@ -88,6 +88,9 @@ final class Chars
             return 0xFFFD;
         }
         $b = ord($t[$i]);
+        if ($len < 2 || $b < 0xC2 || $b > 0xF4) {
+            return 0xFFFD;
+        }
         $cp = $len === 2 ? $b & 0x1F : ($len === 3 ? $b & 0x0F : $b & 0x07);
         for ($k = 1; $k < $len; $k++) {
             $c = ord($t[$i + $k]);
@@ -95,6 +98,11 @@ final class Chars
                 return 0xFFFD;
             }
             $cp = ($cp << 6) | ($c & 0x3F);
+        }
+
+        // C2-B-218: an overlong form, a surrogate or a value past U+10FFFF is malformed and reads as U+FFFD.
+        if ($cp < [2 => 0x80, 3 => 0x800, 4 => 0x10000][$len] || ($cp >= 0xD800 && $cp <= 0xDFFF) || $cp > 0x10FFFF) {
+            return 0xFFFD;
         }
 
         return $cp;
