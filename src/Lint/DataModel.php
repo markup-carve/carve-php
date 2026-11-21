@@ -145,6 +145,17 @@ final class DataModel
         return $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type;
     }
 
+    /**
+     * @param array<string, mixed> $node
+     */
+    public static function imageLine(array $node): bool
+    {
+        $children = $node['children'] ?? null;
+
+        return is_array($children) && count($children) === 1
+            && is_array($children[0] ?? null) && ($children[0]['type'] ?? '') === 'image';
+    }
+
     private static function pathParent(string $path): string
     {
         $at = strrpos($path, '/children/');
@@ -184,6 +195,12 @@ final class DataModel
         return rtrim($text, " \t");
     }
 
+    private static function punctuation(int $code): bool
+    {
+        return ($code >= 33 && $code <= 47) || ($code >= 58 && $code <= 64)
+            || ($code >= 91 && $code <= 96) || ($code >= 123 && $code <= 126);
+    }
+
     private function masked(Line $line): string
     {
         if ($line->opaque) {
@@ -199,19 +216,20 @@ final class DataModel
             [$from, $to] = $masks[$j];
             $a = max(0, $from - $line->start);
             $b = min($length, $to - $line->start);
-            for ($i = $a; $i < $b; $i++) {
-                $text[$i] = "\0";
+            if ($a < $b) {
+                $text = substr_replace($text, str_repeat("\0", $b - $a), $a, $b - $a);
             }
         }
-        $slashes = 0;
-        for ($i = 0; $i < $length; $i++) {
-            $code = ord($line->text[$i]);
-            $punctuation = ($code >= 33 && $code <= 47) || ($code >= 58 && $code <= 64)
-                || ($code >= 91 && $code <= 96) || ($code >= 123 && $code <= 126);
-            if ($punctuation && $slashes % 2 === 1) {
-                $text[$i] = "\0";
+        // ASCII punctuation behind an odd run of backslashes is escaped; a backslash is punctuation itself.
+        $raw = $line->text;
+        for ($at = strpos($raw, '\\'); $at !== false; $at = strpos($raw, '\\', $at + $run)) {
+            $run = strspn($raw, '\\', $at);
+            for ($k = 1; $k < $run; $k += 2) {
+                $text[$at + $k] = "\0";
             }
-            $slashes = $line->text[$i] === '\\' ? $slashes + 1 : 0;
+            if ($run % 2 === 1 && $at + $run < $length && self::punctuation(ord($raw[$at + $run]))) {
+                $text[$at + $run] = "\0";
+            }
         }
 
         return $text;
@@ -275,7 +293,9 @@ final class DataModel
                         'text' => substr($c->source, $pos['startOffset'], $pos['endOffset'] - $pos['startOffset']),
                     ];
                     if (isset($c->dataNodeTypes[$type]) || isset($c->dataNodeTypes['*'])) {
-                        $inline['node'] = $item['node'];
+                        // The rules that read `node` build it from `nodeSource` on first read (DataRules::field).
+                        $inline['node'] = null;
+                        $inline['nodeSource'] = $item['node'];
                     }
                     ($this->onInline)((object)$inline);
                 }
@@ -620,7 +640,7 @@ final class DataModel
                 'parent' => $this->container($item['parent'], $quotes),
                 'index' => $item['index'],
                 'attributed' => isset($node['attrs']),
-                'image_line' => $type === 'paragraph' && ($node['imageLine'] ?? false),
+                'image_line' => $type === 'paragraph' && self::imageLine($node),
                 'after_quote_mark' => str_ends_with(substr($c->source, $line->start, $start - $line->start), '> '),
                 'prev_type' => $prevPath === null ? null : ($c->nodeTypes[$prevPath] ?? null),
             ];
@@ -638,7 +658,8 @@ final class DataModel
                 $record->row_index = (int)substr($rowPath, strrpos($rowPath, '/') + 1);
             }
             if (isset($c->dataNodeTypes[$type]) || isset($c->dataNodeTypes['*'])) {
-                $record->node = $node;
+                $record->node = null;
+                $record->nodeSource = $node;
             }
             ($this->onBlock)($record);
         }

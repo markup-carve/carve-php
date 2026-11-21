@@ -239,21 +239,7 @@ final class Linter
             $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
         }
         if ($c->dataRules) {
-            $children = $node['children'] ?? null;
-            $compact = [
-                'type' => $type,
-                'form' => $node['form'] ?? null,
-                'pos' => $node['pos'] ?? null,
-                'attrs' => $node['attrs'] ?? null,
-                'imageLine' => is_array($children) && count($children) === 1
-                    && is_array($children[0] ?? null) && ($children[0]['type'] ?? '') === 'image',
-            ];
-            if (isset($c->dataNodeTypes[$type]) || isset($c->dataNodeTypes['*'])) {
-                foreach (DataRules::nodeData($node) as $field => $value) {
-                    $compact[$field] = $value;
-                }
-            }
-            $c->walked[] = ['node' => $compact, 'path' => $path, 'parent' => $parent, 'index' => $index];
+            $c->walked[] = ['node' => $node, 'path' => $path, 'parent' => $parent, 'index' => $index];
         }
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {

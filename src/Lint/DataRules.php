@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use Closure;
 use Generator;
 use stdClass;
 
 /**
- * @phpstan-type Rule array{id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null, when: mixed} & array<string, mixed>
+ * @phpstan-type Rule array{
+ *     id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null, when: mixed, pre: array<mixed>, key: string,
+ * } & array<string, mixed>
  */
 final class DataRules
 {
@@ -60,6 +63,16 @@ final class DataRules
     private static array $nodeFieldsByType = [];
 
     /**
+     * @var array<string, list<array{0: bool, 1: list<string>}>> `nodeData` plans: whether a path is the children, and its parts.
+     */
+    private static array $nodePlans = [];
+
+    /**
+     * @var array<string, list<list<string>>> The parts of each item path, by node type.
+     */
+    private static array $itemPlans = [];
+
+    /**
      * @var array<string, mixed>
      */
     private array $vars = [];
@@ -80,6 +93,11 @@ final class DataRules
      * @var array<string, array<string, list<\stdClass>>>
      */
     private array $lookupIndexes = [];
+
+    /**
+     * @var array<string, \Closure(\stdClass): mixed> The compiled `when` of each rule, by rule kind and id.
+     */
+    private array $compiledWhen = [];
 
     private function __construct(private Context $context)
     {
@@ -140,11 +158,88 @@ final class DataRules
                 $rule['verbatim'] = is_array($rule['verbatim'] ?? null) ? $rule['verbatim'] : [];
                 $rule['types'] = is_array($rule['types'] ?? null) ? $rule['types'] : null;
                 $rule['when'] = $rule['when'] ?? null;
+                $over = (string)$rule['over'];
+                $rule['pre'] = self::prefilter($rule['when'], $over);
+                $rule['key'] = $over . ' ' . $rule['id'];
                 $rules[] = $rule;
             }
         }
 
         return self::$rulesCache = $rules;
+    }
+
+    /**
+     * The terms of a `when` that compare a plain record field with a literal: they read nothing lazily and set no match
+     * groups, so a record that fails one fails the rule.
+     *
+     * @param mixed $when
+     * @param string $over
+     *
+     * @return list<array{0: string, 1: string, 2: mixed}> Operator, field, literal.
+     */
+    private static function prefilter(mixed $when, string $over): array
+    {
+        if (!is_array($when) || array_is_list($when)) {
+            return [];
+        }
+        $op = array_key_first($when);
+        if ($op === 'all' && is_array($when['all'])) {
+            $out = [];
+            foreach ($when['all'] as $term) {
+                array_push($out, ...self::prefilter($term, $over));
+            }
+
+            return $out;
+        }
+        $args = $when[$op];
+        if (!in_array($op, ['eq', 'in', 'starts', 'contains'], true) || !is_array($args) || !array_key_exists(1, $args)) {
+            return [];
+        }
+        $left = $args[0];
+        $field = is_array($left) && !array_is_list($left) && array_key_first($left) === 'f' ? $left['f'] : null;
+        $literal = $args[1];
+        if (
+            !is_string($field) || str_contains($field, '.') || in_array($field, ['ancestors', 'ancestor_ids', 'node'], true)
+            || ($field === 'text' && $over === 'block')
+            || (is_array($literal) && !array_is_list($literal))
+        ) {
+            return [];
+        }
+        if ($op === 'in') {
+            return is_array($literal) || is_string($literal) ? [['in', $field, self::set($literal)]] : [];
+        }
+        if ($op !== 'eq' && !is_string($literal)) {
+            return [];
+        }
+
+        return is_array($literal) ? [] : [[$op, $field, $literal]];
+    }
+
+    /**
+     * @param array<mixed> $terms The terms of `prefilter()`.
+     * @param \stdClass $record
+     */
+    private static function passes(array $terms, stdClass $record): bool
+    {
+        foreach ($terms as $term) {
+            if (!is_array($term) || !is_string($term[1] ?? null)) {
+                continue;
+            }
+            [$op, $field, $literal] = $term;
+            $value = $record->$field ?? null;
+            $ok = match ($op) {
+                'eq' => $value === $literal,
+                'in' => is_array($literal) && in_array($value, $literal, true),
+                'starts' => is_string($value) && is_string($literal) && str_starts_with($value, $literal),
+                default => is_array($value) ? in_array($literal, $value, true)
+                    : (is_string($value) && is_string($literal) && str_contains($value, $literal)),
+            };
+            if (!$ok) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static function readsNode(mixed $expression): bool
@@ -279,6 +374,8 @@ final class DataRules
         }
         self::$nodeFields = $fields;
         self::$nodeFieldsByType = $byType;
+        self::$nodePlans = [];
+        self::$itemPlans = [];
         foreach ($lookupTypes as $type => $_) {
             self::$nodeFieldsByType[$type] = $fields;
         }
@@ -313,20 +410,25 @@ final class DataRules
      */
     private static function copyField(array $source, array $parts, array &$target): void
     {
-        $key = array_shift($parts);
-        if ($key === null || !array_key_exists($key, $source)) {
-            return;
-        }
-        if ($parts === []) {
-            $target[$key] = $source[$key];
-
-            return;
-        }
-        if (is_array($source[$key])) {
-            if (!is_array($target[$key] ?? null)) {
-                $target[$key] = [];
+        $last = count($parts) - 1;
+        $into = &$target;
+        foreach ($parts as $depth => $key) {
+            if (!array_key_exists($key, $source)) {
+                return;
             }
-            self::copyField($source[$key], $parts, $target[$key]);
+            if ($depth === $last) {
+                $into[$key] = $source[$key];
+
+                return;
+            }
+            if (!is_array($source[$key])) {
+                return;
+            }
+            if (!is_array($into[$key] ?? null)) {
+                $into[$key] = [];
+            }
+            $source = $source[$key];
+            $into = &$into[$key];
         }
     }
 
@@ -338,6 +440,38 @@ final class DataRules
     public static function nodeData(array $node): array
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        $plan = self::$nodePlans[$type] ?? self::nodePlan($type);
+        $out = [];
+        foreach ($plan as [$children, $parts]) {
+            if ($children) {
+                $out['children'] = [];
+                foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+                    $item = [];
+                    if (is_array($child)) {
+                        foreach (self::$itemPlans[$type] as $itemParts) {
+                            self::copyField($child, $itemParts, $item);
+                        }
+                    }
+                    $out['children'][] = $item;
+                }
+
+                continue;
+            }
+            self::copyField($node, $parts, $out);
+        }
+
+        return $out;
+    }
+
+    /**
+     * The node and item paths of a node type, split into their parts.
+     *
+     * @param string $type
+     *
+     * @return list<array{0: bool, 1: list<string>}>
+     */
+    private static function nodePlan(string $type): array
+    {
         $fields = self::$nodeFieldsByType[$type] ?? self::$nodeFields;
         if ($fields === null) {
             $fields = ['node' => [], 'item' => []];
@@ -346,26 +480,18 @@ final class DataRules
             }
             self::$nodeFields = $fields;
         }
-        $out = [];
+        $plan = [];
         foreach ($fields['node'] as $path => $_) {
-            if ($path === 'children') {
-                $out['children'] = [];
-                foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
-                    $item = [];
-                    if (is_array($child)) {
-                        foreach ($fields['item'] as $itemPath => $unused) {
-                            self::copyField($child, explode('.', (string)$itemPath), $item);
-                        }
-                    }
-                    $out['children'][] = $item;
-                }
-
-                continue;
-            }
-            self::copyField($node, explode('.', $path), $out);
+            $plan[] = [$path === 'children', explode('.', (string)$path)];
         }
+        self::$nodePlans[$type] = $plan;
+        $items = [];
+        foreach ($fields['item'] as $itemPath => $_) {
+            $items[] = explode('.', (string)$itemPath);
+        }
+        self::$itemPlans[$type] = $items;
 
-        return $out;
+        return $plan;
     }
 
     // Read only unconditional literal predicates for safe prefiltering.
@@ -581,6 +707,12 @@ final class DataRules
             $apply($record, 'block', true);
         }
         $deferredBlocks = [];
+        $verbatimLeaves = [];
+        foreach (is_array($data['verbatim_leaves'] ?? null) ? $data['verbatim_leaves'] : [] as $leaf) {
+            if (is_string($leaf) || is_int($leaf)) {
+                $verbatimLeaves[$leaf] = true;
+            }
+        }
         foreach ($byKind['line'] as $rule) {
             $filter = $lineFilters[$rule['id']];
             foreach ($model->lines as $record) {
@@ -601,10 +733,7 @@ final class DataRules
                         continue 2;
                     }
                 }
-                if (
-                    in_array($record->leaf, is_array($data['verbatim_leaves'] ?? null) ? $data['verbatim_leaves'] : [], true)
-                    && !in_array($record->leaf, $rule['verbatim'], true)
-                ) {
+                if (isset($verbatimLeaves[$record->leaf]) && !in_array($record->leaf, $rule['verbatim'], true)) {
                     continue;
                 }
                 $self->apply($rule, $record);
@@ -621,7 +750,14 @@ final class DataRules
         $this->vars = is_array($rule['let'] ?? null) ? $rule['let'] : [];
         $this->groups = [];
         $this->base = 0;
-        if (isset($rule['when']) && !$this->value($rule['when'], $record)) {
+        if (is_array($rule['pre'] ?? null) && $rule['pre'] !== [] && !self::passes($rule['pre'], $record)) {
+            return;
+        }
+        if (
+            isset($rule['when'])
+            && !($this->compiledWhen[is_string($rule['key'] ?? null) ? $rule['key'] : '']
+                ??= $this->compile($rule['when'], $this->vars))($record)
+        ) {
             return;
         }
         if (!isset($rule['each'])) {
@@ -715,7 +851,9 @@ final class DataRules
     {
         static $cache = [];
         $key = $flags . "\0" . $source;
-
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
         if (str_contains($source, '\\u{')) {
             $source = str_replace('\\u{', '\\x{', $source);
         }
@@ -734,7 +872,7 @@ final class DataRules
             $slashes = $char === '\\' ? $slashes + 1 : 0;
         }
 
-        return $cache[$key] ??= '~' . $escaped . '~' . $flags;
+        return $cache[$key] = '~' . $escaped . '~' . $flags;
     }
 
     /**
@@ -898,9 +1036,38 @@ final class DataRules
         return 0;
     }
 
+    /**
+     * The part of a node the rules read: its kind, position and attributes, and the node fields the active rules name.
+     *
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private function compactNode(array $node): array
+    {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        $compact = [
+            'type' => $type,
+            'form' => $node['form'] ?? null,
+            'pos' => $node['pos'] ?? null,
+            'attrs' => $node['attrs'] ?? null,
+            'imageLine' => DataModel::imageLine($node),
+        ];
+        if (isset($this->context->dataNodeTypes[$type]) || isset($this->context->dataNodeTypes['*'])) {
+            foreach (self::nodeData($node) as $field => $value) {
+                $compact[$field] = $value;
+            }
+        }
+
+        return $compact;
+    }
+
     private function field(string $path, stdClass $record): mixed
     {
         if (!str_contains($path, '.')) {
+            if ($path === 'node' && isset($record->nodeSource) && $record->node === null) {
+                $record->node = $this->compactNode($record->nodeSource);
+            }
             if (($path === 'ancestors' || $path === 'ancestor_ids') && !property_exists($record, $path)) {
                 $this->populateAncestors($record);
             }
@@ -919,6 +1086,9 @@ final class DataRules
                     && !property_exists($value, $part)
                 ) {
                     $this->populateAncestors($value);
+                }
+                if ($part === 'node' && $value instanceof stdClass && isset($value->nodeSource) && $value->node === null) {
+                    $value->node = $this->compactNode($value->nodeSource);
                 }
                 if (
                     $value instanceof stdClass && $part === 'text' && property_exists($value, 'text')
@@ -987,6 +1157,220 @@ final class DataRules
         }
 
         return [];
+    }
+
+    /**
+     * `value()` as a closure for the operators a predicate mostly uses, with the same order of evaluation and the same
+     * results; any other expression is left to `value()`.
+     *
+     * @param mixed $expr
+     * @param array<mixed> $let The `let` of the rule the expression belongs to.
+     *
+     * @return \Closure(\stdClass): mixed
+     */
+    private function compile(mixed $expr, array $let): Closure
+    {
+        if (!is_array($expr) || array_is_list($expr)) {
+            return static fn (stdClass $record): mixed => $expr;
+        }
+        $op = array_key_first($expr);
+        $arg = $expr[$op];
+        if ($op === 'f' && is_string($arg)) {
+            if (!str_contains($arg, '.') && !in_array($arg, ['ancestors', 'ancestor_ids', 'text', 'node'], true)) {
+                return static fn (stdClass $record): mixed => $record->$arg ?? null;
+            }
+
+            return fn (stdClass $record): mixed => $this->field($arg, $record);
+        }
+        if ($op === 'has' && is_string($arg)) {
+            return fn (stdClass $record): bool => $this->field($arg, $record) !== null;
+        }
+        if (($op === 'all' || $op === 'any') && is_array($arg)) {
+            $items = array_map(fn (mixed $item): Closure => $this->compile($item, $let), array_values($arg));
+            $all = $op === 'all';
+
+            return static function (stdClass $record) use ($items, $all): bool {
+                foreach ($items as $item) {
+                    if (!$item($record) === $all) {
+                        return !$all;
+                    }
+                }
+
+                return $all;
+            };
+        }
+        if ($op === 'not' && $arg !== null) {
+            $inner = $this->compile($arg, $let);
+
+            return static fn (stdClass $record): bool => !$inner($record);
+        }
+        if (
+            in_array($op, ['eq', 'ne', 'in', 'matches', 'starts', 'contains'], true)
+            && is_array($arg) && array_key_exists(1, $arg)
+        ) {
+            $left = $this->compile($arg[0], $let);
+            $right = $this->compile($arg[1], $let);
+            if ($op === 'eq') {
+                return static fn (stdClass $record): bool => $left($record) === $right($record);
+            }
+            if ($op === 'ne') {
+                return static fn (stdClass $record): bool => $left($record) !== $right($record);
+            }
+            if ($op === 'starts') {
+                return static function (stdClass $record) use ($left, $right): bool {
+                    $a = $left($record);
+                    $b = $right($record);
+
+                    return is_string($a) && is_string($b) && str_starts_with($a, $b);
+                };
+            }
+            if ($op === 'contains') {
+                return static function (stdClass $record) use ($left, $right): bool {
+                    $a = $left($record);
+                    $b = $right($record);
+
+                    return is_array($a) ? in_array($b, $a, true) : (is_string($a) && is_string($b) && str_contains($a, $b));
+                };
+            }
+            if ($op === 'in') {
+                return static fn (stdClass $record): bool => in_array($left($record), self::set($right($record)), true);
+            }
+            $flags = is_string($arg[2] ?? null) ? $arg[2] : '';
+            $textExpr = $arg[0];
+            if (is_string($arg[1])) {
+                // A literal pattern: a test without captures settles the common miss.
+                $pattern = self::pattern($arg[1], $flags);
+
+                return function (stdClass $record) use ($left, $pattern, $textExpr): bool {
+                    $value = $left($record);
+                    if (!is_string($value) || preg_match($pattern, $value) !== 1) {
+                        return false;
+                    }
+                    preg_match($pattern, $value, $parts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
+                    $this->saveGroups($parts, $this->textBase($textExpr, $record));
+
+                    return true;
+                };
+            }
+
+            return fn (stdClass $record): bool => $this->matches($left($record), $right($record), $flags, $textExpr, $record);
+        }
+
+        return $this->compileMore($op, $arg, $expr, $let);
+    }
+
+    /**
+     * The rest of `compile()`: variables, lookups, lists, conditions and arithmetic.
+     *
+     * @param string|int $op
+     * @param mixed $arg
+     * @param array<mixed> $expr
+     * @param array<mixed> $let
+     *
+     * @return \Closure(\stdClass): mixed
+     */
+    private function compileMore(string|int $op, mixed $arg, array $expr, array $let): Closure
+    {
+        if ($op === 'v' && is_string($arg)) {
+            $inner = null;
+
+            return function (stdClass $record) use ($arg, $let, &$inner): mixed {
+                $inner ??= $this->compile($let[$arg] ?? null, $let);
+                $groups = $this->groups;
+                $base = $this->base;
+                $value = $inner($record);
+                $this->groups = $groups;
+                $this->base = $base;
+
+                return $value;
+            };
+        }
+        if ($op === 'lookup' && is_array($arg)) {
+            $site = json_encode($arg, JSON_THROW_ON_ERROR);
+
+            return fn (stdClass $record): mixed => $this->lookup($arg, $record, $site);
+        }
+        if ($op === 'if' && is_array($arg) && array_key_exists(2, $arg)) {
+            $test = $this->compile($arg[0], $let);
+            $then = $this->compile($arg[1], $let);
+            $else = $this->compile($arg[2], $let);
+
+            return static fn (stdClass $record): mixed => $test($record) ? $then($record) : $else($record);
+        }
+        if (($op === 'some' || $op === 'count') && is_array($arg) && is_string($arg['in'] ?? null)) {
+            $in = $arg['in'];
+            $from = is_int($arg['from'] ?? null) ? $arg['from'] : 0;
+            $where = $this->compile($arg['where'] ?? null, $let);
+            $some = $op === 'some';
+
+            return function (stdClass $record) use ($in, $from, $where, $some): mixed {
+                $list = $this->field($in, $record);
+                if (!is_array($list)) {
+                    return $some ? false : 0;
+                }
+                $found = 0;
+                foreach (array_slice($list, $from) as $item) {
+                    $copy = clone $record;
+                    $copy->item = $item;
+                    if ($where($copy)) {
+                        if ($some) {
+                            return true;
+                        }
+                        $found++;
+                    }
+                }
+
+                return $some ? false : $found;
+            };
+        }
+        if (
+            in_array($op, ['lt', 'le', 'gt', 'ge', 'sub', 'add'], true)
+            && is_array($arg) && array_key_exists(1, $arg)
+        ) {
+            $left = $this->compile($arg[0], $let);
+            $right = $this->compile($arg[1], $let);
+            if ($op === 'add') {
+                $parts = array_map(fn (mixed $part): Closure => $this->compile($part, $let), array_values($arg));
+
+                return static function (stdClass $record) use ($left, $right, $parts): int|float {
+                    $a = $left($record);
+                    $b = $right($record);
+                    if ((is_float($a) && is_nan($a)) || (is_float($b) && is_nan($b))) {
+                        return NAN;
+                    }
+                    $sum = 0;
+                    foreach ($parts as $part) {
+                        $sum += self::integer($part($record));
+                    }
+
+                    return $sum;
+                };
+            }
+
+            return static function (stdClass $record) use ($op, $left, $right): mixed {
+                $a = $left($record);
+                $b = $right($record);
+
+                return match ($op) {
+                    'lt' => $a !== null && $b !== null && $a < $b,
+                    'le' => $a !== null && $b !== null && $a <= $b,
+                    'gt' => $a !== null && $b !== null && $a > $b,
+                    'ge' => $a !== null && $b !== null && $a >= $b,
+                    default => self::integer($a) - self::integer($b),
+                };
+            };
+        }
+        if ($op === 'len' && $arg !== null) {
+            $inner = $this->compile($arg, $let);
+
+            return static function (stdClass $record) use ($inner): int {
+                $value = $inner($record);
+
+                return is_string($value) ? strlen($value) : (is_array($value) ? count($value) : 0);
+            };
+        }
+
+        return fn (stdClass $record): mixed => $this->value($expr, $record);
     }
 
     // The JSON expression grammar intentionally has one branch per supported operator.
@@ -1149,8 +1533,9 @@ final class DataRules
     /**
      * @param array<mixed> $expr
      * @param \stdClass $record
+     * @param string|null $site
      */
-    private function lookup(array $expr, stdClass $record): mixed
+    private function lookup(array $expr, stdClass $record, ?string $site = null): mixed
     {
         $over = $expr['over'] ?? null;
         $types = $expr['types'] ?? null;
@@ -1158,7 +1543,7 @@ final class DataRules
         if (!in_array($over, ['block', 'inline'], true) || !is_array($types) || !is_string($field)) {
             return null;
         }
-        $site = json_encode($expr, JSON_THROW_ON_ERROR);
+        $site ??= json_encode($expr, JSON_THROW_ON_ERROR);
         if (!isset($this->lookupIndexes[$site])) {
             $index = [];
             foreach ($this->lookupRecords[$over] as $candidate) {
