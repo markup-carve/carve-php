@@ -23,6 +23,11 @@ final class ClauseHost
         foreach ($case['host']['documentTransforms'] ?? [] as $registration) {
             $transforms[] = new DocumentTransform($registration['name'], static function ($document) use ($registration) {
                 $index = (int)substr($registration['after'], strrpos($registration['after'], '/') + 1) + 1;
+                if (isset($registration['setLevel'])) {
+                    $document->children[$index - 1]->f['level'] = $registration['setLevel'];
+
+                    return $document;
+                }
                 $insert = $registration['insert'];
                 unset($insert['slots']);
                 $node = TreeDecoder::fromArray($insert);

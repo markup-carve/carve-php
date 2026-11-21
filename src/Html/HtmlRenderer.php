@@ -158,6 +158,8 @@ final class HtmlRenderer
      * @param string|null $source
      * @param \MarkupCarve\Carve\Resolve\Facts|null $resolved
      * @param bool $shifted The caller applied `headingShift` before its document transforms (C2-H-208).
+     * @param \MarkupCarve\Carve\Node|null $shiftAbove The first heading the shift itself raised above 6.
+     * @param bool $shiftFactKnown Whether the caller captured the shift fact before transforms.
      *
      * @return array{0: string, 1: \MarkupCarve\Carve\Html\RenderLog} C2-H-130: no output under `strictLosses` when a loss occurred.
      */
@@ -167,6 +169,8 @@ final class HtmlRenderer
         ?string $source = null,
         ?Facts $resolved = null,
         bool $shifted = false,
+        ?Node $shiftAbove = null,
+        bool $shiftFactKnown = false,
     ): array {
         if (!$shifted && $opts->headingShift !== 0) {
             $doc = Extensions::copy($doc);
@@ -191,9 +195,11 @@ final class HtmlRenderer
             $resolved ??= Resolver::resolve($doc, $source, $opts, true)->facts;
             $r = new self($doc, $opts, $source, $resolved);
             $html = $r->document();
-            $above = $opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null;
+            $above = $shiftFactKnown ? $shiftAbove : ($opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null);
             if ($above !== null) {
                 $r->log->loss(HeadingShift::CODE, 'warning', ['shift' => $opts->headingShift], $above->file, node: $above);
+                $r->log->entries[array_key_last($r->log->entries)]['message'] =
+                    'The heading shift of ' . $opts->headingShift . ' raises a heading above level 6.';
             }
         } finally {
             if ($r !== null) {
@@ -1127,13 +1133,13 @@ final class HtmlRenderer
     }
 
     /**
-     * C2-H-208: under `roundtrip` a shifted heading carries its level before the shift.
+     * C2-H-208: under `roundtrip` a heading carries its rendered element level minus N.
      */
     private function sourceLevel(int $level): ?int
     {
         $source = $level - $this->o->headingShift;
 
-        return $this->o->roundtrip && $this->o->headingShift !== 0 && $source >= 1 ? $source : null;
+        return $this->o->roundtrip && $this->o->headingShift !== 0 ? $source : null;
     }
 
     /**

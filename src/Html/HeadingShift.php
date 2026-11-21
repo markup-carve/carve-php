@@ -24,17 +24,18 @@ final class HeadingShift
      * @param int $shift
      * @param array<string, mixed> $rendered The registered renderers, which decide the render view (C2-X-032).
      *
-     * @return void
+     * @return \MarkupCarve\Carve\Node|null The first heading raised above 6, before later transforms.
      */
-    public static function apply(Node $doc, int $shift, array $rendered): void
+    public static function apply(Node $doc, int $shift, array $rendered): ?Node
     {
         if ($shift === 0) {
-            return;
+            return null;
         }
         Walk::$rendered = $rendered;
         // A node can sit in more than one slot (an abbreviation expansion); it shifts once.
         $seen = new SplObjectStorage();
         $pending = [$doc];
+        $firstAbove = null;
         while ($pending !== []) {
             $node = array_pop($pending);
             if ($seen->offsetExists($node)) {
@@ -43,11 +44,16 @@ final class HeadingShift
             $seen->offsetSet($node);
             if ($node->type === 'heading' && is_int($node->f['level'] ?? null)) {
                 $node->f['level'] += $shift;
+                if ($firstAbove === null && $node->f['level'] > 6) {
+                    $firstAbove = $node;
+                }
             }
-            foreach (Walk::kids($node) as $child) {
+            foreach (array_reverse(Walk::kids($node)) as $child) {
                 $pending[] = $child;
             }
         }
+
+        return $firstAbove;
     }
 
     /**
