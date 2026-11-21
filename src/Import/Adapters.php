@@ -601,7 +601,7 @@ final class Adapters
         }
         foreach ($backlinks as $backlink) {
             $parent = $this->edits->parentOf($backlink);
-            $this->edits->detach($backlink);
+            $this->detachNavigation($backlink);
             if ($parent !== null && ($parent->isElement('sup') || $parent->isElement('span'))) {
                 $blank = true;
                 foreach ($this->edits->children($parent) as $child) {
@@ -612,9 +612,43 @@ final class Adapters
                     }
                 }
                 if ($blank) {
-                    $this->edits->detach($parent);
+                    $this->detachNavigation($parent);
                 }
             }
+        }
+    }
+
+    /**
+     * C2-M-106 and C2-M-110: a backlink and the whitespace it exposes at the start of its block are export navigation.
+     * Remove that layout in the note pass, before the generic mapper can report a whitespace normalization for it.
+     */
+    private function detachNavigation(HtmlNode $node): void
+    {
+        $parent = $this->edits->parentOf($node);
+        if ($parent === null) {
+            return;
+        }
+        $leading = true;
+        for ($before = $this->edits->before($node); $before !== null; $before = $this->edits->before($before)) {
+            if (!$before->isBlank()) {
+                $leading = false;
+
+                break;
+            }
+        }
+        $this->edits->detach($node);
+        if (!$leading) {
+            return;
+        }
+        foreach ($this->edits->children($parent) as $child) {
+            if (!$child->isText()) {
+                break;
+            }
+            $child->name = ltrim($child->name, " \t\n\f\r");
+            if ($child->name !== '') {
+                break;
+            }
+            $this->edits->detach($child);
         }
     }
 
