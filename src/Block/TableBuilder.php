@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Block;
 
+use Closure;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Generated\Tables;
@@ -16,6 +17,29 @@ use MarkupCarve\Carve\Node;
  */
 final class TableBuilder
 {
+    private static ?Node $sharedEmptyParagraph = null;
+
+    /**
+     * Lint and fmt only encode a parsed tree. Their empty paragraphs can share
+     * one immutable node while parsing; public parse trees keep unique nodes.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $build
+     *
+     * @return T
+     */
+    public static function compactEmptyParagraphs(Closure $build): mixed
+    {
+        $previous = self::$sharedEmptyParagraph;
+        self::$sharedEmptyParagraph = new Node('cell_paragraph');
+        try {
+            return $build();
+        } finally {
+            self::$sharedEmptyParagraph = $previous;
+        }
+    }
+
     /**
      * Splits a table row (C2-B-166, C2-B-167, C2-B-169). Returns the separator offsets up to the
      * closing pipe, the row end and the row attributes, or null when the line is no row.
@@ -309,13 +333,7 @@ final class TableBuilder
         $foot = self::count($f->attrs, 'footer-rows');
         $footStart = $foot === null || $foot <= 0 ? count($rows) : max($head, count($rows) - $foot);
         $plan = self::bodyPlan($f->attrs, $footStart - $head);
-        $grid = self::spans($rows, $head, $footStart, self::bodyStarts($plan, $head));
-        $width = 0;
-        $rowNodes = [];
-        foreach ($grid as $r => $cells) {
-            $width = max($width, count($cells));
-            $rowNodes[] = self::rowNode($rows[$r], $cells);
-        }
+        [$rowNodes, $width] = self::spans($rows, $head, $footStart, self::bodyStarts($plan, $head));
         $table = Node::at('table', $f->start, $f->end);
         $table->layout['sourceFormat'] = 'pipe';
         $attrs = $f->attrs;
@@ -384,32 +402,31 @@ final class TableBuilder
 
     /**
      * C2-B-172 to C2-B-174, C2-B-183, C2-B-184: resolves the span marks, then joins the fragments of
-     * continuation rows. Returns the cells of each row.
+     * continuation rows. Keeps only the preceding row's cover for vertical
+     * spans, then emits nodes after later span marks have updated their targets.
      *
      * @param array<\MarkupCarve\Carve\Block\TableItem> $rows
      * @param int $head
      * @param int $footStart
      * @param array<int, true> $bodyStarts
      *
-     * @return array<int, array<int, \MarkupCarve\Carve\Block\TableCell>>
+     * @return array{0: array<\MarkupCarve\Carve\Node>, 1: int}
      */
     private static function spans(array $rows, int $head, int $footStart, array $bodyStarts): array
     {
-        $grid = [];
-        $cover = [];
+        $width = 0;
+        $previous = [];
         foreach ($rows as $r => $row) {
-            $grid[$r] = [];
-            $cover[$r] = [];
+            $current = [];
             foreach ($row->cells as $c => $cell) {
                 $cell->row = $r;
                 $cell->col = $c;
                 $cell->lines = $cell->ce > $cell->cs ? [$cell->cs, $cell->ce] : [];
-                $grid[$r][$c] = $cell;
-                $cover[$r][$c] = $cell;
+                $current[$c] = $cell;
                 if ($cell->mark === '') {
                     continue;
                 }
-                $target = self::spanTarget($cell, $cover, $head, $footStart, $bodyStarts);
+                $target = self::spanTarget($cell, [$r - 1 => $previous, $r => $current], $head, $footStart, $bodyStarts);
                 if ($target === null) {
                     // C2-B-173: a blocked mark is ordinary cell text, with its authored prefix.
                     $cell->mark = '';
@@ -423,14 +440,22 @@ final class TableBuilder
                     $target->rowspan++;
                     $cell->span = 'rowspan';
                 }
-                $cover[$r][$c] = $target;
+                $current[$c] = $target;
             }
             foreach ($row->cont as $n => $fragments) {
-                self::join($grid[$r], $cover[$r], [$r, $n + 1, $row->contSlots[$n] ?? []], $fragments);
+                self::join($row->cells, $current, [$r, $n + 1, $row->contSlots[$n] ?? []], $fragments);
             }
+            $width = max($width, count($row->cells));
+            $previous = $current;
         }
 
-        return $grid;
+        $rowNodes = [];
+        foreach ($rows as $row) {
+            $rowNodes[] = self::rowNode($row, $row->cells);
+            $row->cells = [];
+        }
+
+        return [$rowNodes, $width];
     }
 
     /**
@@ -581,7 +606,9 @@ final class TableBuilder
             $node->f['valign'] = $cell->valign;
         }
         $lines = $cell->lines;
-        $para = $cell->joined || $lines === [] ? new Node('cell_paragraph') : Node::at('cell_paragraph', $lines[0], $lines[1]);
+        $para = $cell->joined || $lines === []
+            ? ($lines === [] && self::$sharedEmptyParagraph !== null ? self::$sharedEmptyParagraph : new Node('cell_paragraph'))
+            : Node::at('cell_paragraph', $lines[0], $lines[1]);
         $para->lines = $lines;
         if ($cell->joined) {
             $para->layout['wrapAt'] = $cell->wrapAt;

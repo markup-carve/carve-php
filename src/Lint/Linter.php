@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\OptionError;
@@ -80,7 +81,8 @@ final class Linter
         self::validate($options);
         $parseDiagnostics = [];
         $own = self::lintSource($source, $options, $parseDiagnostics);
-        if (!isset($options['includes'])) {
+        // A second parse is needed only when an include opener can exist.
+        if (!isset($options['includes']) || !str_contains($source, '{{ ')) {
             return self::ordered(array_merge($own, $parseDiagnostics));
         }
         $rest = $options;
@@ -119,12 +121,23 @@ final class Linter
      */
     private static function lintRun(string $source, array $options, array &$parseDiagnostics): array
     {
-        $parsed = Carve::parseWithLayout($source, array_intersect_key($options, ['extensions' => true, 'headingIds' => true]));
+        $parsed = TableBuilder::compactEmptyParagraphs(static fn () => Carve::parseWithLayout(
+            $source,
+            array_intersect_key($options, ['extensions' => true, 'headingIds' => true]),
+        ));
         $parseDiagnostics = $parsed->diagnostics;
-        $tree = (new TreeEncoder())->encodeReleasing($parsed->tree, $source);
-        $c = new Context($source, $options, self::catalog());
-        $c->layout->rawRefs((array)$parsed->layout['nodes']);
+        $document = $parsed->tree;
+        $rawRefs = [];
+        foreach ((array)($parsed->layout['nodes'] ?? []) as $entry) {
+            if (is_array($entry) && isset($entry['rawRef'])) {
+                $rawRefs[] = $entry;
+            }
+        }
         unset($parsed);
+        $tree = (new TreeEncoder())->encodeForLint($document, $source);
+        unset($document);
+        $c = new Context($source, $options, self::catalog());
+        $c->layout->rawRefs($rawRefs);
         /** @var array<int, array<array{0: string, 1: array<string>}>> $controls */
         $controls = [];
         $root = Support::node($tree);
@@ -354,7 +367,10 @@ final class Linter
             return;
         }
         foreach ($value as $i => $child) {
-            if (is_int($i) && is_array($child) && is_string($child['type'] ?? null)) {
+            if (
+                is_int($i) && is_array($child) && is_string($child['type'] ?? null)
+                && !isset($child['__lintEmptyCell']) && $child['type'] !== 'table_column'
+            ) {
                 $out[] = [Support::node($child), $path . '/' . $i];
             }
         }

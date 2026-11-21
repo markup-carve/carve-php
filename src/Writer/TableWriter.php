@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use Generator;
 use MarkupCarve\Carve\Json\TreeDecoder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\TableGrid;
@@ -331,6 +332,9 @@ final class TableWriter
 
             return;
         }
+        if (!self::hasSpanFields($node)) {
+            return;
+        }
         $table = TreeDecoder::fromArray(['type' => 'table'] + $node);
         if ($table === null) {
             return;
@@ -347,6 +351,36 @@ final class TableWriter
                 }
             }
         }
+    }
+
+    /**
+     * Without a mark or a count there is no span to compare and no tree copy is
+     * needed. Plain wide tables otherwise duplicate every cell in JSON form.
+     *
+     * @param array<mixed> $table
+     */
+    private static function hasSpanFields(array $table): bool
+    {
+        foreach (is_array($table['children'] ?? null) ? $table['children'] : [] as $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+            foreach (is_array($group['children'] ?? null) ? $group['children'] : [] as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
+                    if (
+                        is_array($cell) && (isset($cell['span']) || ($cell['colspan'] ?? 1) > 1
+                        || ($cell['rowspan'] ?? 1) > 1)
+                    ) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -464,27 +498,34 @@ final class TableWriter
      */
     private function row(array $row, string $path, bool $head, bool $bodyHeader): array
     {
-        $cells = [];
+        $first = [];
+        $continued = [];
         $height = 1;
         foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
             [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader);
-            $cells[] = [$prefix, $fragments];
-            $height = max($height, count($fragments) === 0 ? 1 : max(array_keys($fragments)) + 1);
+            $text = $fragments[0] ?? '';
+            $first[] = $text === '' ? $prefix . ' ' : $prefix . ' ' . $text . ' ';
+            if (count($fragments) > 1) {
+                $continued[count($first) - 1] = $fragments;
+                $height = max($height, max(array_keys($fragments)) + 1);
+            }
         }
-        if ($cells === []) {
+        if ($first === []) {
             // C2-W-057: a row with no cell has no spelling, `||` is a row of one empty cell.
             $this->w->lose($path, 'table_row', null);
         }
         $tail = $this->rowAttributes($row, $path);
         $lines = [];
-        for ($line = 0; $line < $height; $line++) {
-            $segments = [];
-            foreach ($cells as [$prefix, $fragments]) {
+        $lines[] = ['lead' => '|', 'segments' => $first, 'tail' => $tail];
+        for ($line = 1; $line < $height; $line++) {
+            $segments = array_fill(0, count($first), ' ');
+            foreach ($continued as $at => $fragments) {
                 $text = $fragments[$line] ?? '';
-                $mark = $line === 0 ? $prefix : '';
-                $segments[] = $text === '' ? $mark . ' ' : $mark . ' ' . $text . ' ';
+                if ($text !== '') {
+                    $segments[$at] = ' ' . $text . ' ';
+                }
             }
-            $lines[] = ['lead' => $line === 0 ? '|' : '+', 'segments' => $segments, 'tail' => $line === 0 ? $tail : ''];
+            $lines[] = ['lead' => '+', 'segments' => $segments, 'tail' => ''];
         }
 
         return $lines;
@@ -494,18 +535,15 @@ final class TableWriter
      * @param array<mixed> $row
      * @param string $path
      *
-     * @return array<array{0: array<mixed>, 1: string}> Each cell of the row and its path.
+     * @return \Generator<int, array{0: array<mixed>, 1: string}> Each cell and its path.
      */
-    private static function rowCells(array $row, string $path): array
+    private static function rowCells(array $row, string $path): Generator
     {
-        $out = [];
         foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $at => $cell) {
             if (is_array($cell)) {
-                $out[] = [$cell, $path . '/children/' . $at];
+                yield [$cell, $path . '/children/' . $at];
             }
         }
-
-        return $out;
     }
 
     /**
