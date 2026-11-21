@@ -1570,10 +1570,8 @@ final class Inline
 
     private static function spellableFinalSpanLine(string $line, Context $c): bool
     {
-        if (
-            str_starts_with($line, ' ') || ($c->lineAfterSpanEnds
-                && $c->lineAfterSpan !== rtrim($c->lineAfterSpan, " \t"))
-        ) {
+        // C2-W-151: spaces and tabs that end the line after the span are dropped from the text, not lost by the span.
+        if (str_starts_with($line, ' ')) {
             return false;
         }
         if (!$c->lineAfterSpanEnds && str_starts_with(ltrim($line, " \t"), '|')) {

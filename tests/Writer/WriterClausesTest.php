@@ -164,7 +164,7 @@ final class WriterClausesTest extends TestCase
         }
     }
 
-    public function testC2W016FollowingTextLineWithLostTrailingSpaceIsReported(): void
+    public function testC2W151FollowingTextLineTrailingSpaceIsNoLoss(): void
     {
         $paragraph = [
             'type' => 'paragraph',
@@ -175,7 +175,8 @@ final class WriterClausesTest extends TestCase
             ],
         ];
         $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
-        $this->assertSame(['field-unspellable'], $result->codes());
+        $this->assertSame('a `x' . "\n" . '|`|a' . "\n", $result->source);
+        $this->assertSame([], $result->codes());
     }
 
     public function testC2W006FollowingBackslashAndPipeReadBack(): void

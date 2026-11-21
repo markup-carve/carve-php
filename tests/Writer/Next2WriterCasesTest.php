@@ -32,6 +32,51 @@ final class Next2WriterCasesTest extends TestCase
         self::assertCount(count($ids), $seen);
     }
 
+    /**
+     * C2-W-151: spaces and tabs at a line end of text are dropped without a report; verbatim values keep theirs.
+     */
+    public function testLineEndSpacesOfTextAreNoLoss(): void
+    {
+        $spec = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
+            true,
+            4096,
+            JSON_THROW_ON_ERROR,
+        );
+        $seen = 0;
+        foreach ($spec['cases'] as $case) {
+            if (!in_array('C2-W-151', $case['clauses'], true)) {
+                continue;
+            }
+            $seen++;
+            // carve-php#5541: a soft break on an empty line is not reported yet.
+            if ($case['id'] === 'CC-1504') {
+                continue;
+            }
+            $expected = $case['expected'];
+            $result = Carve::writeWithDiagnostics($case['tree'], null, $case['options'] ?? []);
+            if (isset($expected['carve'])) {
+                self::assertSame($expected['carve'], $result->source, $case['id']);
+            }
+            $codes = array_map(static fn ($entry): string => $entry->code, $result->diagnostics);
+            foreach ($expected['notReported'] ?? [] as $code) {
+                self::assertNotContains($code, $codes, $case['id']);
+            }
+            foreach ($expected['diagnostics'] as $entry) {
+                $code = is_array($entry) ? $entry['code'] : $entry;
+                self::assertContains($code, $codes, $case['id']);
+                if (is_array($entry) && isset($entry['path'])) {
+                    $paths = array_map(static fn ($e): ?string => $e->path, $result->diagnostics);
+                    self::assertContains($entry['path'], $paths, $case['id']);
+                }
+            }
+            if (($expected['diagnosticsComplete'] ?? false) === true) {
+                self::assertCount(count($expected['diagnostics']), $result->diagnostics, $case['id']);
+            }
+        }
+        self::assertSame(11, $seen);
+    }
+
     public function testDecorativeImageIsAWriterLoss(): void
     {
         $spec = json_decode(
