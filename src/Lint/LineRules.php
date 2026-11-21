@@ -382,7 +382,8 @@ final class LineRules
         if (!$first && !str_contains($line->text, '{')) {
             return;
         }
-        [$text, $start] = self::paragraphContent($line, $c);
+        // A later line is read behind its quote marks, literal or not, as the shared rule row reads it.
+        [$text, $start] = $first ? self::paragraphContent($line, $c) : self::afterQuote($line);
         if ($first && str_starts_with($text, ':::') && strspn($text, ':') >= 3) {
             $c->report('block-marker-as-text', $start, $start + strlen($text), $line->path, ['what' => 'a div opener']);
 

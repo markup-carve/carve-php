@@ -315,7 +315,8 @@ final class Linter
         if ($type === 'paragraph' || $type === 'definition_term') {
             $c->paragraphStarts[$path] = $pos['startOffset'];
         }
-        if ($type === 'underline') {
+        // Only an underline of a paragraph keeps its line from reading as an attribute line.
+        if ($type === 'underline' && ($c->nodeTypes[substr($path, 0, (int)strrpos($path, '/children/'))] ?? null) === 'paragraph') {
             $c->underlineStarts[$pos['startOffset']] = true;
         }
         self::markContent($type, $pos, $c);
