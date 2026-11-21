@@ -85,11 +85,13 @@ final class HeadingShiftTest extends TestCase
     public function testShiftWarningIsRecordedBeforeHostLevelEdits(): void
     {
         $options = ['headingShift' => 1, 'roundtrip' => true, 'sections' => false, 'headingIds' => 'off'];
-        foreach ([
-            ["====== A\n", 2, '<h2 data-carve-source-level="1">A</h2>', ['heading-shift-above-6']],
-            ["= A\n", 7, '<div data-carve-source-level="6" role="heading" aria-level="7">A</div>', []],
-            ["= A\n", 1, '<h1 data-carve-source-level="0">A</h1>', []],
-        ] as [$source, $level, $html, $codes]) {
+        foreach (
+            [
+                ["====== A\n", 2, '<h2 data-carve-source-level="1">A</h2>', ['heading-shift-above-6']],
+                ["= A\n", 7, '<div data-carve-source-level="6" role="heading" aria-level="7">A</div>', []],
+                ["= A\n", 1, '<h1 data-carve-source-level="0">A</h1>', []],
+            ] as [$source, $level, $html, $codes]
+        ) {
             $result = Carve::renderWithDocumentTransforms($source, [
                 new DocumentTransform('sample.level', static function ($view) use ($level) {
                     $view->children[0]->f['level'] = $level;

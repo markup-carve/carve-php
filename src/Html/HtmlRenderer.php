@@ -158,6 +158,8 @@ final class HtmlRenderer
      * @param string|null $source
      * @param \MarkupCarve\Carve\Resolve\Facts|null $resolved
      * @param bool $shifted The caller applied `headingShift` before its document transforms (C2-H-208).
+     * @param \MarkupCarve\Carve\Node|null $shiftAbove The first heading the shift itself raised above 6.
+     * @param bool $shiftFactKnown Whether the caller captured the shift fact before transforms.
      *
      * @return array{0: string, 1: \MarkupCarve\Carve\Html\RenderLog} C2-H-130: no output under `strictLosses` when a loss occurred.
      */
