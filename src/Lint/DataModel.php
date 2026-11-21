@@ -108,6 +108,11 @@ final class DataModel
     public array $blocks = [];
 
     /**
+     * @var list<\stdClass> One record per distinct id of the tree, in order of first occurrence (C2-W-150).
+     */
+    public array $ids = [];
+
+    /**
      * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int}>
      */
     private array $blockWalked = [];
@@ -281,9 +286,26 @@ final class DataModel
         $c = $this->context;
         $runs = [];
         $openRuns = [];
+        $seenIds = [];
         foreach ($c->walked as $item) {
             $parentHolder = $this->holderByPath[$item['parent']] ?? null;
             $type = self::type($item['node']);
+            // An authored id, then the id generated for a heading.
+            $attrs = $item['node']['attrs'] ?? null;
+            $authored = is_array($attrs) ? ($attrs['id'] ?? null) : null;
+            $generated = $type === 'heading' ? ($item['node']['generatedId'] ?? null) : null;
+            foreach ([$authored, $generated] as $id) {
+                if (is_string($id) && !isset($seenIds[$id])) {
+                    $seenIds[$id] = true;
+                    $this->ids[] = (object)[
+                        'type' => 'id',
+                        'id' => $id,
+                        'owner' => $type,
+                        'index' => count($this->ids),
+                        'start' => Support::pos($item['node'])['startOffset'] ?? 0,
+                    ];
+                }
+            }
             if ($this->textRuns) {
                 $parentType = $c->nodeTypes[$item['parent']] ?? 'document';
                 if (isset(self::INLINE_PARENTS[$parentType])) {
@@ -620,7 +642,10 @@ final class DataModel
             }
             $pos = Support::pos($node);
             // C2-W-140: every block has a record; a row a continuation joined has no `pos` (C2-A-158), so its layout gives the span.
-            $span = $pos === null ? ($c->layoutSpans[$item['path']] ?? null) : null;
+            $entry = $pos === null ? ($c->layoutEntries[$item['path']] ?? null) : null;
+            /** @var array{0: int, 1: int}|null $span */
+            $span = is_int($entry['startByte'] ?? null) && is_int($entry['endByte'] ?? null)
+                ? [$entry['startByte'], $entry['endByte']] : null;
             if ($pos === null && $span === null) {
                 continue;
             }
@@ -675,6 +700,7 @@ final class DataModel
             $record = (object)[
                 'type' => $type,
                 'path' => $item['path'],
+                'identity' => $item['path'],
                 'start' => $start,
                 'end' => $end,
                 'text' => null,

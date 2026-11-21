@@ -18,7 +18,7 @@ final class DataRuleModelReadingsTest extends TestCase
         return [
             // C2-W-140, C2-A-158: a row a continuation joined has no pos; its layout gives the record's span.
             'joined first row' => ["| beta | %% x\n+ beta2 |\n| z | q |\n", 'table-row-cell-count', [[24, 33]]],
-            'joined later row' => ["| A | B |\n| x | y | z |\n+|\n", 'table-row-cell-count', [[10, 26]]],
+            'joined later row' => ["| A | B |\n| x | y | z |\n+|\n", 'table-row-cell-count', [[24, 26]]],
             // C2-B-027: the quote marks before a later line of a code span are no span characters.
             'quoted span line' => ["> >>```=html\n>> >```\n", 'blockquote-marker-without-space', [[13, 20]]],
             // C2-B-109: the run that closed the inner div does not close the admonition around it.
