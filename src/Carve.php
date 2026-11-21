@@ -197,8 +197,7 @@ final class Carve
             [$doc, $source, $facts] = self::resolvedTree($input, $opts);
             $findings = new Findings();
         }
-        HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
-        $shiftAbove = $opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null;
+        $shiftAbove = HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
         $shiftPath = $shiftAbove !== null ? (Findings::paths($doc)[$shiftAbove] ?? null) : null;
         $transformEntries = [];
         if ($transforms !== []) {
