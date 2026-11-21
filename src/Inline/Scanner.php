@@ -1071,7 +1071,10 @@ final class Scanner
         } elseif ($token[1] === self::CLOSER) {
             for ($i = count($this->openBraces) - 1; $i >= 0; $i--) {
                 if ($this->openBraces[$i][0] === $token[4]) {
-                    $this->openBraces = array_slice($this->openBraces, 0, $i);
+                    // Pops, not a slice: a copy of the stack at each closer made deep nesting quadratic.
+                    for ($drop = count($this->openBraces) - $i; $drop > 0; $drop--) {
+                        array_pop($this->openBraces);
+                    }
 
                     break;
                 }
