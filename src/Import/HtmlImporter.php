@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Import;
 
 use Closure;
+use JsonException;
 use MarkupCarve\Carve\Diagnostics\Cap;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeError;
@@ -112,12 +113,29 @@ final class HtmlImporter
         try {
             return TreeReader::read((string)$json);
         } catch (TreeError $e) {
-            if ($e->reason === 'depth' || $json === false) {
+            if (
+                $e->reason === 'depth' || $json === false
+                || ($e->reason === 'schema' && $e->pointer === '' && self::decoderRefused($json))
+            ) {
                 throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
             }
 
             throw $e;
         }
+    }
+
+    /**
+     * PHP can report a syntax error for JSON that its own encoder produced once nesting exhausts the decoder stack.
+     */
+    private static function decoderRefused(string $json): bool
+    {
+        try {
+            json_decode($json, false, 100000, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return true;
+        }
+
+        return false;
     }
 
     private static function rootLanguage(HtmlNode $root, ImportContext $context): void

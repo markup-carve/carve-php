@@ -89,6 +89,14 @@ final class ImportClausesTest extends TestCase
         HtmlImporter::import(str_repeat('<blockquote>', 300) . 'x');
     }
 
+    public function testC2M006JsonDecoderDepthIsAnImportError(): void
+    {
+        $this->expectException(ImportInputError::class);
+        $this->expectExceptionMessage('The input exceeds the nesting limits of a tree (C2-A-171)');
+
+        HtmlImporter::import(str_repeat('<blockquote>', 4000) . 'a' . str_repeat('</blockquote>', 4000));
+    }
+
     public function testC2M013RunOfImagesGivesOneImageParagraphEach(): void
     {
         $image = static fn (string $src): array => [

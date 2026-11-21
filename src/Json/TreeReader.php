@@ -113,8 +113,8 @@ final class TreeReader
     {
         try {
             $value = json_decode($json, false, self::JSON_DEPTH, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new TreeError('schema', '');
+        } catch (JsonException $e) {
+            throw new TreeError($e->getCode() === JSON_ERROR_DEPTH ? 'depth' : 'schema', '');
         }
 
         // Decoded JSON holds no invalid UTF-8 or non-finite number, so the tree is built from it directly.
@@ -154,8 +154,8 @@ final class TreeReader
     {
         try {
             $value = json_decode($json, false, self::JSON_DEPTH, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new TreeError('schema', '');
+        } catch (JsonException $e) {
+            throw new TreeError($e->getCode() === JSON_ERROR_DEPTH ? 'depth' : 'schema', '');
         }
         self::checked($value, $options);
     }
