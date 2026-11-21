@@ -12,15 +12,18 @@ final class LossBehindTextLossTest extends TestCase
     public function testInsignificantSpaceOnlyTextNeedsNoValueLoss(): void
     {
         $tree = [
-            'type' => 'document', 'astVersion' => '2.0',
-            'children' => [[
-                'type' => 'paragraph',
-                'children' => [
-                    ['type' => 'text', 'value' => ' '],
-                    ['type' => 'soft_break'],
-                    ['type' => 'text', 'value' => 'x'],
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => ' '],
+                        ['type' => 'soft_break'],
+                        ['type' => 'text', 'value' => 'x'],
+                    ],
                 ],
-            ]],
+            ],
         ];
 
         $written = Writer::writeWithDiagnostics($tree);
@@ -33,14 +36,17 @@ final class LossBehindTextLossTest extends TestCase
     public function testLaterTextStillReportsItsUnspellableFields(): void
     {
         $tree = [
-            'type' => 'document', 'astVersion' => '2.0',
-            'children' => [[
-                'type' => 'paragraph',
-                'children' => [
-                    ['type' => 'text', 'value' => ' w'],
-                    ['type' => 'text', 'value' => 'a *b*', 'dir' => 'rtl', 'metadata' => ['note' => 'later']],
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => ' w'],
+                        ['type' => 'text', 'value' => 'a *b*', 'dir' => 'rtl', 'metadata' => ['note' => 'later']],
+                    ],
                 ],
-            ]],
+            ],
         ];
         $written = Writer::writeWithDiagnostics($tree);
 
