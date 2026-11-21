@@ -15,6 +15,11 @@ use stdClass;
 final class TreeEncoder
 {
     /**
+     * @var int Bytes between two column checkpoints of a line.
+     */
+    private const CHECKPOINT = 1024;
+
+    /**
      * @var array<string, mixed>
      */
     private const EMPTY_TABLE_CELL_FOR_LINT = [
@@ -54,6 +59,11 @@ final class TreeEncoder
     private int $cacheOffset = 0;
 
     private int $cacheCol = 0;
+
+    /**
+     * @var array<int, list<array{0: int, 1: int}>> By line: byte offset and column at about every 1 KB, at code point starts.
+     */
+    private array $checkpoints = [];
 
     /**
      * @var array<string, string>
@@ -488,6 +498,7 @@ final class TreeEncoder
             $pos = $nl + 1;
         }
         $this->cacheLine = -1;
+        $this->checkpoints = [];
         $this->lastPos = null;
     }
 
@@ -576,16 +587,47 @@ final class TreeEncoder
         if ($lo === 0 && $this->bom > 0 && $offset >= $this->bom) {
             $lineStart = $this->bom;
         }
-        // Columns are counted incrementally along a line, so a long line costs linear time in total.
+        // Columns are counted incrementally along a line, and an offset behind the last one is counted from a checkpoint,
+        // so a long line costs linear time in total.
         if ($this->cacheLine === $lo && $offset >= $this->cacheOffset) {
             $col = $this->cacheCol + mb_strlen(substr($this->s, $this->cacheOffset, $offset - $this->cacheOffset), 'UTF-8');
+        } elseif ($offset <= $lineStart) {
+            $col = 0;
         } else {
-            $col = mb_strlen(substr($this->s, $lineStart, max(0, $offset - $lineStart)), 'UTF-8');
+            [$from, $base] = $this->checkpoint($lo, $lineStart, $offset);
+            $col = $base + mb_strlen(substr($this->s, $from, $offset - $from), 'UTF-8');
         }
         $this->cacheLine = $lo;
         $this->cacheOffset = max($offset, $lineStart);
         $this->cacheCol = $col;
 
         return [$lo + 1, $col + 1];
+    }
+
+    /**
+     * The last checkpoint of a line at or before `$offset`, made forward as needed.
+     *
+     * @param int $line
+     * @param int $lineStart
+     * @param int $offset
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function checkpoint(int $line, int $lineStart, int $offset): array
+    {
+        $this->checkpoints[$line] ??= [[$lineStart, 0]];
+        $points = &$this->checkpoints[$line];
+        $want = intdiv($offset - $lineStart, self::CHECKPOINT);
+        for ($k = count($points); $k <= $want; $k++) {
+            [$from, $col] = $points[$k - 1];
+            $at = $lineStart + $k * self::CHECKPOINT;
+            // A checkpoint stands at the start of a code point, so the counts on both sides add up.
+            while ($at > $from && (ord($this->s[$at] ?? "\0") & 0xC0) === 0x80) {
+                $at--;
+            }
+            $points[] = [$at, $col + mb_strlen(substr($this->s, $from, $at - $from), 'UTF-8')];
+        }
+
+        return $points[$want];
     }
 }
