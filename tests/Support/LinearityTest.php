@@ -10,9 +10,17 @@ final class LinearityTest extends TestCase
 {
     public function testLinearWorkPasses(): void
     {
-        $small = str_repeat('a b ', 20000);
-        $large = str_repeat('a b ', 160000);
-        $excess = Linearity::excess(static fn () => count(explode(' ', $small)), static fn () => count(explode(' ', $large)), 8);
+        // A loop that allocates nothing: `explode()` at 640 KB builds an array past the 2 MB huge-block size and pays
+        // allocation the small input does not, which read up to 3.74 on PHP 8.2.
+        $linear = static function (int $n): int {
+            $sum = 0;
+            for ($i = 0; $i < $n; $i++) {
+                $sum += $i;
+            }
+
+            return $sum;
+        };
+        $excess = Linearity::excess(static fn () => $linear(60000), static fn () => $linear(480000), 8);
         $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
     }
 
