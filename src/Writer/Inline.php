@@ -272,6 +272,11 @@ final class Inline
         // A letter and a space first, so a long backtick run opens no fence and the spans stand mid-line.
         $read = Carve::parse('x ' . substr($out, $base) . "\n")->children ?? [];
         if (count($read) !== 1 || $read[0]->type !== 'paragraph') {
+            // Later content opens another block, so the run is predicted from the spans alone.
+            foreach ($parts as [, $first]) {
+                $this->loseGluedRun($nodes, $first, $path, self::str((array)$nodes[$first], 'type'));
+            }
+
             return;
         }
         $children = $read[0]->children ?? [];

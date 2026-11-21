@@ -44,6 +44,11 @@ final class GluedRunReadBackTest extends TestCase
                 "`a``` ` ` ``{=html}\$`r`\$`` ` ``\$`r`\$`r`\n",
                 ['field-unspellable 0/value', 'structure-unspellable 1', 'structure-unspellable 2', 'structure-unspellable 3'],
             ],
+            'a blank line behind the run' => [
+                [$code('a'), $raw('r'), ['type' => 'soft_break'], ['type' => 'soft_break'], ['type' => 'text', 'value' => 'z']],
+                "`a``r`{=html}\n\nz\n",
+                ['structure-unspellable 0', 'structure-unspellable 3'],
+            ],
         ];
     }
 
