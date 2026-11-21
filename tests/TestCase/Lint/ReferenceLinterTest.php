@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Lint;
 
+use Dom\HTMLDocument;
+use DOMDocument;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\AsciiHeadingIdsExtension;
 use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
@@ -181,7 +183,6 @@ class ReferenceLinterTest extends TestCase
             'an id inside template contents' => ["``` =html\n<template><div id=\"hidden\"></div></template>\n```\n\n[x](#hidden)"],
             'an id quoted in a code block' => ["``` html\n<div id=\"raw\"></div>\n```\n\n[x](#raw)"],
             'raw HTML ids decoded the way a browser reads them' => ["``` =html\n<div title=\">\" id=\"r&amp;d\"></div><p id=\"&#1114112;\"></p>\n```\n\n[x](#r&d) [y](#nope)"],
-            'deeply nested raw HTML' => ["``` =html\n" . str_repeat('<div>', 10000) . "<p id=\"deep\"></p>\n```\n\n[x](#deep) [y](#nope)"],
         ];
     }
 
@@ -189,6 +190,37 @@ class ReferenceLinterTest extends TestCase
     public function testBrokenFragmentLinkIsReportedOnce(string $source): void
     {
         $this->assertSame(['broken-fragment-link'], array_column((new ReferenceLinter())->lint($source), 'rule'));
+    }
+
+    public function testDeeplyNestedRawHtmlIsReadPastLibxmlsDepthCapOrNotAtAll(): void
+    {
+        $source = "``` =html\n" . str_repeat('<div>', 10000) . "<p id=\"deep\"></p>\n```\n\n[x](#deep) [y](#nope)";
+        // Past its depth cap, libxml drops the ids and links, so the rule cannot tell.
+        $expected = self::libxmlStopsAtDepth() ? [] : ['broken-fragment-link'];
+
+        $this->assertSame($expected, array_column((new ReferenceLinter())->lint($source), 'rule'));
+    }
+
+    private static function libxmlStopsAtDepth(): bool
+    {
+        if (class_exists(HTMLDocument::class)) {
+            return false;
+        }
+        $document = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $document->loadHTML(str_repeat('<div>', 3000), LIBXML_PARSEHUGE | LIBXML_NONET);
+            foreach (libxml_get_errors() as $error) {
+                if (str_contains($error->message, 'Excessive depth')) {
+                    return true;
+                }
+            }
+
+            return false;
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
     }
 
     public function testFragmentLinkDifferingOnlyInCaseNamesTheRealId(): void
