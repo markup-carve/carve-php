@@ -593,7 +593,11 @@ class ReferenceLinter
         }
         // The document the caller renders, not a core one: an extension drops an
         // unused definition and every id and link inside it.
-        [$ids, $linked] = $this->renderedIds((new CarveConverter())->addExtensions($rendered)->convert($source));
+        $read = $this->renderedIds((new CarveConverter())->addExtensions($rendered)->convert($source));
+        if ($read === null) {
+            return [];
+        }
+        [$ids, $linked] = $read;
         $idsByFold = [];
         foreach ($ids as $id => $_) {
             $idsByFold[$this->foldId((string)$id)] ??= (string)$id;
@@ -636,11 +640,12 @@ class ReferenceLinter
     /**
      * The ids the rendered HTML carries, read the way a browser parses them so
      * an id quoted in a comment or another attribute's value does not count,
-     * and the fragments of the links that render.
+     * and the fragments of the links that render; null when libxml stopped
+     * at its depth cap, which hides every id and link past it.
      *
-     * @return array{0: array<string, true>, 1: array<string, true>}
+     * @return array{0: array<string, true>, 1: array<string, true>}|null
      */
-    private function renderedIds(string $html): array
+    private function renderedIds(string $html): ?array
     {
         $values = [];
         /** @var list<string|null> $hrefs */
@@ -659,6 +664,12 @@ class ReferenceLinter
             $previous = libxml_use_internal_errors(true);
             try {
                 $document->loadHTML('<?xml encoding="UTF-8"><body>' . $html, LIBXML_PARSEHUGE | LIBXML_NONET);
+                foreach (libxml_get_errors() as $error) {
+                    // libxml 2.14 and later stop the tree at depth 2048, even with PARSEHUGE.
+                    if (str_contains($error->message, 'Excessive depth')) {
+                        return null;
+                    }
+                }
             } finally {
                 libxml_clear_errors();
                 libxml_use_internal_errors($previous);

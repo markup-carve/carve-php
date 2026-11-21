@@ -19,8 +19,8 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     public static function instructionProvider(): array
     {
         return [
-            'double hyphen' => ['<p>x<?a--b>y</p>', DomLoader::usesHtml5() ? "x{% ?a--b %}y\n" : "xy\n"],
-            'trailing hyphen' => ['<p>x<?a->y</p>', DomLoader::usesHtml5() ? "x{% ?a- %}y\n" : "xy\n"],
+            'double hyphen' => ['<p>x<?a--b>y</p>', "x{% ?a--b %}y\n"],
+            'trailing hyphen' => ['<p>x<?a->y</p>', "x{% ?a- %}y\n"],
             'unclosed instruction' => ['<p>x<?foo', DomLoader::usesHtml5() ? "x{% ?foo %}\n" : "x{% ?foo</carve-import-root %}\n"],
             'empty instruction' => ['<p>HTML<?></p>', "HTML{% ? %}\n"],
             'named instruction' => ['<p>x <?foo bar?> y</p>', "x {% ?foo bar? %} y\n"],

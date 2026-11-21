@@ -1522,6 +1522,7 @@ class DjotToCarve
         $block = '/^(?:[#>|{]|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|:[ \t]|:{2,}|\([0-9a-zA-Z]+\)[ \t]|[`~]{3,}|\^[ \t]|\[[^\]\n]*\]:|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$)/';
         $container = '/\G([ \t]*)(>(?:[ \t]|$)|\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]+|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]+)/';
         $result = [];
+        /** @var array<int, int> $definitionHosts */
         $definitionHosts = [];
         $count = count($lines);
         for ($i = 0; $i < $count; $i++) {
@@ -5941,7 +5942,7 @@ class DjotToCarve
                 }
             }
             if ($source[$at] === '[') {
-                $labels[] = ['at' => $at, 'parens' => 0];
+                $labels[] = ['at' => $at, 'parens' => 0, 'target' => -1];
 
                 continue;
             }

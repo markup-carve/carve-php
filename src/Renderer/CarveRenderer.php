@@ -7643,8 +7643,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // renders that change are the ones where the escape is structural: `!`
         // was already in the conservative class and is new to the minimal one,
         // and `$` was in neither.
+        // Cells are cut before inline parsing, so a bare `|` in cell text always splits the cell.
+        $cellPipe = $this->tableCellDepth > 0 ? '|' : '';
         $pattern = $minimal
-            ? ($structural === [] && $closers === [] ? '/([\\\\`"\'^!$])/' : '/([\\\\`"\'^!$\[\](])/')
+            ? ($structural === [] && $closers === [] ? '/([\\\\`"\'^!$' . $cellPipe . '])/' : '/([\\\\`"\'^!$\[\](' . $cellPipe . '])/')
             : '/([\\\\`*_{}\[\]()#+\-.!~^\/<>@%|=:;"\'$])/';
         $insideNote = $this->inlineNoteDepth > 0;
         // The LAST braced-superscript closer in this text, found once.
@@ -7702,8 +7704,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $call,
             $structural,
             $closers,
+            $cellPipe,
         ): string {
-            if (isset($structural[$offset])) {
+            if (isset($structural[$offset]) || ($char === '|' && $cellPipe !== '')) {
                 return '\\' . $char;
             }
             // A paired closer follows its opener, which may sit in another unit.
