@@ -38,6 +38,7 @@ final class PublicSurface
         'MarkupCarve\Carve\Json\TreeError' => 'error',
         'MarkupCarve\Carve\Layout\LayoutError' => 'error',
         'MarkupCarve\Carve\Import\ImportInputError' => 'error',
+        'MarkupCarve\Carve\Ast\EditorChangeError' => 'error',
         'MarkupCarve\Carve\Include\IncludeResolver' => 'includes',
         'MarkupCarve\Carve\Include\FileResolver' => 'includes',
         'MarkupCarve\Carve\Output\OutputWriter' => 'output',

@@ -69,14 +69,14 @@ final class EditorSession
      *
      * @param array<mixed> $changes
      *
-     * @throws \InvalidArgumentException
+     * @throws \MarkupCarve\Carve\Ast\EditorChangeError
      *
      * @return array<string, mixed>
      */
     public function update(array $changes): array
     {
         if (!array_is_list($changes)) {
-            throw new InvalidArgumentException('Editor changes must be a list.');
+            throw new EditorChangeError('Editor changes must be a list.');
         }
         $before = $this->current;
         $old = $before['source'];
@@ -89,11 +89,11 @@ final class EditorSession
                 || !is_string($change['insert'] ?? null) || $change['from'] < $cursor
                 || $change['to'] < $change['from'] || $change['to'] > strlen($old)
             ) {
-                throw new InvalidArgumentException('Invalid or overlapping editor change.');
+                throw new EditorChangeError('Invalid or overlapping editor change.');
             }
             foreach ([$change['from'], $change['to']] as $at) {
                 if ($at < strlen($old) && (ord($old[$at]) & 0xc0) === 0x80) {
-                    throw new InvalidArgumentException('Editor change splits a UTF-8 scalar.');
+                    throw new EditorChangeError('Editor change splits a UTF-8 scalar.');
                 }
             }
             self::validUtf8($change['insert']);
@@ -562,7 +562,7 @@ final class EditorSession
     private static function validUtf8(string $source): void
     {
         if (preg_match('//u', $source) !== 1) {
-            throw new InvalidArgumentException('Editor source must be valid UTF-8.');
+            throw new EditorChangeError('Editor source must be valid UTF-8.');
         }
     }
 }
