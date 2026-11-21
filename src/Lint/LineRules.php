@@ -488,10 +488,16 @@ final class LineRules
             return;
         }
         [$leaf, $from] = self::paragraphContent($line, $c);
-        if (str_starts_with(Support::trimStart($leaf), '> ')) {
+        $explicitQuote = $line->content !== null && $line->content > $line->start
+            && str_starts_with(Support::trimStart($line->text), '> ');
+        if ($explicitQuote && str_starts_with(Support::trimStart($leaf), '> ')) {
             [$leaf, $from] = self::afterQuotes($line, $c->layout->quoteDepth($line->path));
         }
-        if (preg_match_all('/\[\^[ \t]+\]|(?<=\])\[[ \t]+\]|^\[[ \t]+\]:/', $leaf, $matches, PREG_OFFSET_CAPTURE) < 1) {
+        $definitionStart = ($c->firstLines[$line->path] ?? null) === $line->number || $explicitQuote;
+        $pattern = $definitionStart
+            ? '/\[\^[ \t]+\]|(?<=\])\[[ \t]+\]|^\[[ \t]+\]:/'
+            : '/\[\^[ \t]+\]|(?<=\])\[[ \t]+\]/';
+        if (preg_match_all($pattern, $leaf, $matches, PREG_OFFSET_CAPTURE) < 1) {
             return;
         }
         foreach ($matches[0] as [$text, $at]) {

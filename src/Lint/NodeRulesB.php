@@ -1652,7 +1652,7 @@ final class NodeRulesB
             if ($type !== 'list' && $type !== 'comment' && $pos !== null) {
                 $line = $c->lines[$pos['startLine'] - 1] ?? null;
                 if (
-                    $line !== null && $pos['startLine'] !== $itemLine
+                    $line !== null && ($pos['startLine'] !== $itemLine || in_array($type, ['div', 'admonition', 'directive'], true))
                     && ($type !== 'paragraph' || ($child['role'] ?? null) === 'image' || isset($child['attrs']))
                 ) {
                     $quotes = $c->layout->quoteDepth($childPath);
