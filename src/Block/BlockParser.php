@@ -791,8 +791,17 @@ final class BlockParser
     {
         $s = $this->s;
         $ch = $s[$j];
-        if (($ch === '`' || $ch === ':' || $ch === '%') && LineShapes::isFenceLine($s, $j, $this->le)) {
-            return true;
+        if ($ch === '`' || $ch === ':' || $ch === '%') {
+            $div = $ch === ':' ? LineShapes::div($s, $j, $this->le) : null;
+            if ($div !== null && $div->bare) {
+                $top = $this->stack[count($this->stack) - 1] ?? null;
+                if ($top !== null && $top->kind === Frame::DIV && $top->level <= $div->run) {
+                    return true;
+                }
+            }
+            if ($this->depth + 1 <= Tables::BLOCK_DEPTH && LineShapes::isFenceLine($s, $j, $this->le)) {
+                return true;
+            }
         }
         if ($ch === '|') {
             return TableBuilder::split($s, $j, $this->le) !== null;
