@@ -178,7 +178,15 @@ final class Linter
             DataRules::run($c);
         }
 
-        return self::ordered(self::filter($c, $controls));
+        $findings = self::ordered(self::filter($c, $controls));
+        $dataRules = $c->dataRules;
+        unset($c);
+        // The line records link to their neighbors; the collector is off during the run, so free those cycles here.
+        if ($dataRules && gc_status()['roots'] >= 1000) {
+            gc_collect_cycles();
+        }
+
+        return $findings;
     }
 
     /**
