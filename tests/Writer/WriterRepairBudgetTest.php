@@ -76,7 +76,12 @@ final class WriterRepairBudgetTest extends TestCase
 
     public function testManyRepairedParagraphsStayUnderTheDocumentBudget(): void
     {
-        $spec = json_decode((string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'), true, 4096, JSON_THROW_ON_ERROR);
+        $spec = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
+            true,
+            4096,
+            JSON_THROW_ON_ERROR,
+        );
         $case = array_values(array_filter($spec['cases'], static fn (array $entry): bool => $entry['id'] === 'CC-1492'))[0];
         $result = Carve::formatWithDiagnostics($case['input'], $case['options']);
 
