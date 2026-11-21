@@ -86,6 +86,7 @@ final class Blocks
         // The last block that is no comment: comments do not keep two lists apart (C2-B-053).
         $list = null;
         $count = count($nodes);
+        $followingAt = 0;
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -104,7 +105,8 @@ final class Blocks
             $starts = count($this->w->starts);
             $losses = count($this->w->losses);
             try {
-                $this->beforeSibling($nodes, $at, $before, $list, $path, $prefix, $layout);
+                $followingAt = self::followingAfter($nodes, $at, $followingAt);
+                $this->beforeSibling($nodes, $at, $followingAt, $before, $list, $path, $prefix, $layout);
                 $next = $nodes[$at + 1] ?? null;
                 $this->markFenceBeforeComment($node, $path . '/' . $at, is_array($next) ? $next : null);
                 $written = count($this->w->lines);
@@ -150,6 +152,7 @@ final class Blocks
     /**
      * @param array<mixed> $nodes
      * @param int $at
+     * @param int $followingAt
      * @param array<mixed>|null $before
      * @param array<mixed>|null $list
      * @param string $path
@@ -158,10 +161,17 @@ final class Blocks
      *
      * @return void
      */
-    private function beforeSibling(array $nodes, int $at, ?array $before, ?array $list, string $path, string $prefix, int $layout): void
-    {
+    private function beforeSibling(
+        array $nodes,
+        int $at,
+        int $followingAt,
+        ?array $before,
+        ?array $list,
+        string $path,
+        string $prefix,
+        int $layout,
+    ): void {
         $node = is_array($nodes[$at]) ? $nodes[$at] : [];
-        $followingAt = self::afterComments($nodes, $at);
         $following = is_array($nodes[$followingAt] ?? null) ? $nodes[$followingAt] : null;
         $followingPath = $path . '/' . $followingAt;
         $attributes = '';
@@ -183,6 +193,18 @@ final class Blocks
             $this->w->emit($prefix, $attributes);
             $this->w->prewritten = $followingPath;
         }
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param int $previous
+     *
+     * @return int
+     */
+    private static function followingAfter(array $nodes, int $at, int $previous): int
+    {
+        return $previous > $at ? $previous : self::afterComments($nodes, $at);
     }
 
     /**
