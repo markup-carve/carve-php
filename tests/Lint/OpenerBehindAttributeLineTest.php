@@ -25,6 +25,7 @@ final class OpenerBehindAttributeLineTest extends TestCase
             'nested quote below an indented attribute line' => ["   {#i}\n> > [l](u) {=m=}a\n", []],
             'indented heading marker in a quote' => ["> {.a #b}\n>   # h\n", [['block-opener-overindented', 14, 15]]],
             'indented heading marker' => ["{.a}\n  # h\n", [['block-opener-overindented', 7, 8]]],
+            'comment line between the attribute line and an indented heading' => ["{.a}\n%% x\n  # h\n", []],
             'indented continuation of an attributed heading' => [
                 "{.a}\n# h\n  more\n",
                 [['deprecated-indented-line-under-heading', 9, 15]],
