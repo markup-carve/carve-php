@@ -695,6 +695,23 @@ final class Carve
     }
 
     /**
+     * Render the complete document before delivering it to the sink. A failed render never calls the sink.
+     *
+     * @param string $source
+     * @param callable(string): void $sink
+     * @param array<string, mixed> $options
+     *
+     * @return 'complete'
+     */
+    public static function tryRenderHtmlStreaming(string $source, callable $sink, array $options = []): string
+    {
+        $html = self::render($source, $options);
+        $sink($html);
+
+        return 'complete';
+    }
+
+    /**
      * C2-T-005 `importDocument`: the importer for `from`: `html` (the default), or `markdown`, `gfm` and `djot` through the
      * HTML hub. `rawHtml` applies to HTML only; a hub import always keeps the raw content of its input.
      *
