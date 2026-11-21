@@ -39,13 +39,14 @@ final class NodeRulesA
             return;
         }
         $range = Support::bounds($node);
-        if ($range === null) {
-            return;
-        }
-        $text = substr($c->source, $range[0], $range[1] - $range[0]);
         // A pair finding names the inline parent of the text, the holder of its text run (C2-W-140).
         $at = strrpos($path, '/children/');
         $parent = $at === false ? $path : substr($path, 0, $at);
+        // An inline host reads its pairs on whole text runs, so a pair may join two lines' text.
+        if ($range === null || isset(DataModel::INLINE_PARENTS[$c->nodeTypes[$parent] ?? ''])) {
+            return;
+        }
+        $text = substr($c->source, $range[0], $range[1] - $range[0]);
         foreach (self::pairRanges($text, $mark, $id) as [$start, $end]) {
             $c->report($id, $range[0] + $start, $range[0] + $end, $parent);
         }
@@ -125,7 +126,7 @@ final class NodeRulesA
 
     /**
      * Whether `/CLASS$/u` matches `substr($text, 0, $at)`, read on the last characters only: the whole prefix made
-     * each test linear, and the pair search quadratic. PCRE `$` also matches before a final line feed.
+     * each test linear, and the pair search quadratic. `\z`, not `$`: PCRE `$` also matches before a final line feed.
      *
      * @param string $text
      * @param int $at
@@ -140,7 +141,7 @@ final class NodeRulesA
             $from--;
         }
 
-        return preg_match('/' . $class . '$/u', substr($text, $from, $at - $from)) === 1;
+        return preg_match('/' . $class . '\z/u', substr($text, $from, $at - $from)) === 1;
     }
 
     /**
@@ -263,21 +264,7 @@ final class NodeRulesA
     }
 
     /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
-    public static function multilineMarkdownStrong(array $node, string $path, Context $c): void
-    {
-        foreach (self::runRanges($node, $c, '**', 'markdown-strong-double-star') as [$start, $end]) {
-            $c->report('markdown-strong-double-star', $start, $end, $path);
-        }
-    }
-
-    /**
-     * A pair that crosses a line of a paragraph, read on each run of text and soft breaks as carve-js reads it.
+     * The pairs of an inline host, read on each run of text and soft breaks as carve-js reads it.
      *
      * @param array<string, mixed> $node
      * @param string $path
@@ -295,7 +282,7 @@ final class NodeRulesA
     }
 
     /**
-     * The pairs of a paragraph that cross a line, in its runs of text and soft breaks: each range in the source and the
+     * The pairs of an inline host, in its runs of text and soft breaks: each range in the source and the
      * index of the child it starts in.
      *
      * @param array<string, mixed> $node
@@ -307,9 +294,6 @@ final class NodeRulesA
      */
     private static function runRanges(array $node, Context $c, string $mark, string $id): array
     {
-        if (($node['type'] ?? null) !== 'paragraph') {
-            return [];
-        }
         // The open run is extended in place: copying a run per child made a paragraph quadratic in its lines.
         $runs = [];
         $current = null;
@@ -339,9 +323,6 @@ final class NodeRulesA
         foreach ($runs as [$from, $to, $children]) {
             $text = substr($c->source, $from, $to - $from);
             foreach (self::pairRanges($text, $mark, $id) as [$start, $end]) {
-                if (!str_contains(substr($text, $start, $end - $start), "\n")) {
-                    continue;
-                }
                 $found[] = [$from + $start, $from + $end, self::ownerAt($children, $from + $start)];
             }
         }

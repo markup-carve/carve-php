@@ -74,7 +74,7 @@ final class DataModel
     /**
      * @var array<string, true>
      */
-    private const INLINE_PARENTS = [
+    public const INLINE_PARENTS = [
         'paragraph' => true,
         'heading' => true,
         'definition_term' => true,
