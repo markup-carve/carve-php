@@ -83,6 +83,10 @@ final class Linter
         $own = self::lintSource($source, $options, $parseDiagnostics);
         // A second parse is needed only when an include opener can exist.
         if (!isset($options['includes']) || !str_contains($source, '{{ ')) {
+            if (isset($options['includes'])) {
+                Includes::validate($options['includes']);
+            }
+
             return self::ordered(array_merge($own, $parseDiagnostics));
         }
         $rest = $options;
