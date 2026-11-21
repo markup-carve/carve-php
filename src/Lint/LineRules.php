@@ -358,7 +358,7 @@ final class LineRules
      *
      * @return bool
      */
-    private static function isAttributeLine(string $text): bool
+    public static function isAttributeLine(string $text): bool
     {
         $n = strlen($text);
         $p = 0;

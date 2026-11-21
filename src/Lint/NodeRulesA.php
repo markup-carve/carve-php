@@ -10,6 +10,11 @@ namespace MarkupCarve\Carve\Lint;
 final class NodeRulesA
 {
     /**
+     * @var array<string, true>
+     */
+    private const ATTRIBUTE_HOSTS = ['paragraph' => true, 'heading' => true, 'definition_term' => true, 'cell_paragraph' => true];
+
+    /**
      * @var array<string>
      */
     private const WRITER_PAIRS = [
@@ -1469,16 +1474,28 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'text') {
             return;
         }
-        $source = Support::raw($node, $c);
-        $range = Support::bounds($node);
-        if ($range === null || preg_match_all('/(?<!\\\\)\{[ ]*[.#][^{}]*\}/', $source, $matches, PREG_OFFSET_CAPTURE) === 0) {
+        // carve#6176: the text of a paragraph, heading, term or cell; a description's through its paragraphs.
+        $parent = substr($path, 0, (int)strrpos($path, '/children/'));
+        if (!isset(self::ATTRIBUTE_HOSTS[$c->nodeTypes[$parent] ?? ''])) {
             return;
         }
-        foreach ($matches[0] as [$block, $at]) {
-            if ($at < 1) {
+        $source = Support::raw($node, $c);
+        $range = Support::bounds($node);
+        if ($range === null) {
+            return;
+        }
+        for ($at = strpos($source, '{'); $at !== false; $at = strpos($source, '{', $at + 1)) {
+            $end = strpos($source, '}', $at + 1);
+            if ($end === false) {
+                break;
+            }
+            if ($at < 1 || self::escapedAt($source, $at)) {
                 continue;
             }
-            $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $at + strlen($block), $path);
+            if (LineRules::isAttributeLine(substr($source, $at, $end + 1 - $at))) {
+                $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $end + 1, $path);
+            }
+            $at = $end;
         }
     }
 
