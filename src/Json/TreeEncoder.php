@@ -621,13 +621,21 @@ final class TreeEncoder
         for ($k = count($points); $k <= $want; $k++) {
             [$from, $col] = $points[$k - 1];
             $at = $lineStart + $k * self::CHECKPOINT;
-            // A checkpoint stands at the start of a code point, so the counts on both sides add up.
-            while ($at > $from && (ord($this->s[$at] ?? "\0") & 0xC0) === 0x80) {
-                $at--;
+            // A checkpoint stands at the start of a code point, so the counts on both sides add up. A sequence has at most
+            // three continuation bytes: behind a longer run the byte is a code point of its own.
+            for ($back = 0; $back < 3 && $at - $back > $from && self::continuation($this->s, $at - $back); $back++) {
+            }
+            if (!self::continuation($this->s, $at - $back)) {
+                $at -= $back;
             }
             $points[] = [$at, $col + mb_strlen(substr($this->s, $from, $at - $from), 'UTF-8')];
         }
 
         return $points[$want];
+    }
+
+    private static function continuation(string $s, int $at): bool
+    {
+        return (ord($s[$at] ?? "\0") & 0xC0) === 0x80;
     }
 }

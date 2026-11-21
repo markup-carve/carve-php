@@ -21,7 +21,12 @@ final class TreeEncoderLongLineTest extends TestCase
      */
     public static function units(): array
     {
-        return ['ascii' => [str_repeat('a', 30) . ' *a* '], 'multibyte' => [str_repeat('é', 15) . ' *é* ']];
+        return [
+            'ascii' => [str_repeat('a', 30) . ' *a* '],
+            'multibyte' => [str_repeat('é', 15) . ' *é* '],
+            // A checkpoint backs up over at most three continuation bytes, not over a whole run of them.
+            'continuation bytes' => [str_repeat("\x80", 30) . ' *a* '],
+        ];
     }
 
     #[DataProvider('units')]
