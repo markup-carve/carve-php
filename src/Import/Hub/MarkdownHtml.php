@@ -18,6 +18,7 @@ use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
 use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\Extension\TaskList\TaskListExtension;
 use League\CommonMark\MarkdownConverter;
+use MarkupCarve\Carve\Generated\Tables;
 
 /**
  * Markdown (CommonMark 0.31) and GFM to HTML with `league/commonmark`, with the hub's carriers for raw HTML, math,
@@ -30,10 +31,19 @@ final class MarkdownHtml
      */
     private const PRIORITY = 100;
 
+    /**
+     * @var int
+     */
+    private const UNCOUNTED_LEVELS = 8;
+
     public static function html(string $input, bool $gfm, Sink $sink): string
     {
         $input = self::frontmatter($input, $sink);
         $environment = new Environment([
+            // league/commonmark opens a run of containers on one line in quadratic time (8,000 `> - ` took 5 s). A tree
+            // past BLOCK_DEPTH containers is refused anyway (C2-A-171); the margin covers the levels that count none
+            // (table section, row and cell, paragraph, footnote container).
+            'max_nesting_level' => Tables::BLOCK_DEPTH + self::UNCOUNTED_LEVELS,
             'html_input' => 'allow',
             'allow_unsafe_links' => true,
             ...($gfm ? ['footnote' => ['container_add_hr' => false, 'enable_inline_footnotes' => false]] : []),
