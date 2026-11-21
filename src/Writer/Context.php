@@ -160,6 +160,12 @@ final class Context
 
     public string $textPath = '';
 
+    /**
+     * @var array<string, array{0: string, 1: bool, 2: bool}> The text children of braced and paired spans, by path: the
+     * mark of the span, and whether a sibling node stands behind and before the text.
+     */
+    public array $spanTexts = [];
+
     public ?State $writerState = null;
 
     /**

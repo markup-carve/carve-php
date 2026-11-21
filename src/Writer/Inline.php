@@ -1000,12 +1000,35 @@ final class Inline
         $marks = $c->marks;
         $c->open[$type] = ($c->open[$type] ?? 0) + 1;
         $c->marks .= $mark;
+        $spanTexts = $c->spanTexts;
+        self::noteSpanTexts($children, $path . '/children', $mark, $c);
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
+        $c->spanTexts = $spanTexts;
         $c->open = $open;
         $c->marks = $marks;
         $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($inner, $mark, $prev, $next);
 
         return $bare ? $mark . $inner . $mark : '{' . $mark . $inner . $mark . '}';
+    }
+
+    /**
+     * The facts the escape of `{` reads in the text children of a span, which have no place in the flattened leaf.
+     *
+     * @param array<mixed> $children
+     * @param string $path
+     * @param string $mark
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return void
+     */
+    private static function noteSpanTexts(array $children, string $path, string $mark, Context $c): void
+    {
+        $last = count($children) - 1;
+        foreach ($children as $k => $child) {
+            if (is_array($child) && ($child['type'] ?? '') === 'text') {
+                $c->spanTexts[$path . '/' . $k] = [$mark, $k < $last, $k > 0];
+            }
+        }
     }
 
     /**
@@ -1082,7 +1105,10 @@ final class Inline
         $c->lineStart = false;
         $marks = $c->marks;
         $c->marks .= $mark;
+        $spanTexts = $c->spanTexts;
+        self::noteSpanTexts($children, $path . '/children', $mark, $c);
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
+        $c->spanTexts = $spanTexts;
         $c->marks = $marks;
 
         return '{' . $mark . $inner . $mark . '}';
