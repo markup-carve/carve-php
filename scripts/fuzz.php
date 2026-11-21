@@ -112,6 +112,7 @@ function drive(int $seed, string $kind, int $count, string $dir, float $timeout)
             (string)($count - $start), $status, $findsFile]);
         $proc = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['pipe', 'w']], $pipes);
         $code = -1;
+        $launched = microtime(true);
         stream_set_blocking($pipes[2], false);
         $stderr = '';
         $hung = false;
@@ -125,7 +126,9 @@ function drive(int $seed, string $kind, int $count, string $dir, float $timeout)
                 break;
             }
             $line = (string)@file_get_contents($status);
-            if (preg_match('/^(\d+) ([\d.]+)$/', $line, $m) && microtime(true) - (float)$m[2] > $timeout) {
+            // Before its first input a worker regenerates the inputs it skips; that start gets a minute more.
+            $since = preg_match('/^(\d+) ([\d.]+)$/', $line, $m) ? (float)$m[2] : $launched + 60;
+            if (microtime(true) - $since > $timeout) {
                 $hung = true;
                 proc_terminate($proc, 9);
                 break;
@@ -246,7 +249,9 @@ function scale(array $opts): int
         'import-html' => static fn (string $s) => Carve::importHtml(Carve::toHtml($s)),
         'import-md' => static fn (string $s) => Carve::importDocument($s, ['from' => 'markdown']),
         // The source as one text node: the writer escapes what a parse would have read as nodes.
-        'write-text' => static fn (string $s) => Carve::importHtml('<p>' . htmlspecialchars($s) . '</p>'),
+        'write-text' => static fn (string $s) => Carve::write(['type' => 'document', 'children' => [
+            ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => trim($s)]]],
+        ]]),
         'import-djot' => static fn (string $s) => Carve::importDocument($s, ['from' => 'djot']),
     ];
     $shapes = [];
@@ -272,7 +277,11 @@ function scale(array $opts): int
         $row = [];
         foreach ($ops as $op => $call) {
             $excess = excess(static fn () => $call($small), static fn () => $call($large));
-            $row[] = $excess < 0 ? $op . ' refused' : sprintf('%s %.1f%s', $op, $excess, $excess > 3 ? '!' : '');
+            $row[] = match (true) {
+                $excess < 0 => $op . ' refused',
+                is_infinite($excess) => $op . ' THROWS-LARGE!',
+                default => sprintf('%s %.1f%s', $op, $excess, $excess > 3 ? '!' : ''),
+            };
             $failed += $excess > 3 ? 1 : 0;
         }
         printf("%-10s %7d B  %s\n", $name, strlen($large), implode('  ', $row));
@@ -291,20 +300,27 @@ function cpu(): float
 
 function excess(Closure $small, Closure $large): float
 {
+    try {
+        $small();
+    } catch (Throwable) {
+        // Refused at both sizes, or only at the small one: no timing to compare.
+        return -1.0;
+    }
     $best = INF;
     for ($attempt = 0; $attempt < 2; $attempt++) {
-        try {
-            $t = cpu();
-            for ($i = 0; $i < 8; $i++) {
-                $small();
-            }
-            $batch = cpu() - $t;
-            $t = cpu();
-            $large();
-            $best = min($best, (cpu() - $t) / max(1000.0, $batch));
-        } catch (Throwable) {
-            return -1.0;
+        $t = cpu();
+        for ($i = 0; $i < 8; $i++) {
+            $small();
         }
+        $batch = cpu() - $t;
+        $t = cpu();
+        try {
+            $large();
+        } catch (Throwable) {
+            // The small input passes and the large one throws: a failure of size, counted as worse than linear.
+            return INF;
+        }
+        $best = min($best, (cpu() - $t) / max(1000.0, $batch));
         if ($best <= 3) {
             break;
         }
@@ -319,7 +335,17 @@ function excess(Closure $small, Closure $large): float
 function minimize(string $input, string $prefix, string $detail = ''): string
 {
     $props = new FuzzProperties();
-    $keeps = static function (string $candidate) use ($props, $prefix, $detail): bool {
+    $worker = (bool)preg_match('/^(hang|signal|memory|stack|fatal|worker)/', $prefix);
+    $keeps = static function (string $candidate) use ($props, $prefix, $detail, $worker): bool {
+        if ($worker) {
+            // A hang or a dead worker is tested as it was found: in a process of its own, under the worker's limits.
+            $file = tempnam(sys_get_temp_dir(), 'carve-fuzz-min');
+            file_put_contents((string)$file, $candidate);
+            $cmd = array_merge(['timeout', '30', PHP_BINARY], PHP_FLAGS, [__FILE__, 'check', (string)$file]);
+            $proc = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+
+            return is_resource($proc) && proc_close($proc) !== 0;
+        }
         foreach ($props->check($candidate) as [, $signature, $found]) {
             if (str_starts_with($signature, $prefix) && str_contains($found, $detail)) {
                 return true;
