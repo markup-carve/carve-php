@@ -482,22 +482,26 @@ final class DataRules
         $last = count($parts) - 1;
         $into = &$target;
         foreach ($parts as $depth => $key) {
-            if (!array_key_exists($key, $source)) {
+            // A negative index counts from the end of a list, as `field` reads it (`children.-1`). The copy keeps the
+            // real index, so the copied list keeps its length.
+            $at = str_starts_with($key, '-') && ctype_digit(substr($key, 1)) && array_is_list($source)
+                ? count($source) + (int)$key : $key;
+            if (!array_key_exists($at, $source)) {
                 return;
             }
             if ($depth === $last) {
-                $into[$key] = $source[$key];
+                $into[$at] = $source[$at];
 
                 return;
             }
-            if (!is_array($source[$key])) {
+            if (!is_array($source[$at])) {
                 return;
             }
-            if (!is_array($into[$key] ?? null)) {
-                $into[$key] = [];
+            if (!is_array($into[$at] ?? null)) {
+                $into[$at] = [];
             }
-            $source = $source[$key];
-            $into = &$into[$key];
+            $source = $source[$at];
+            $into = &$into[$at];
         }
     }
 
@@ -549,9 +553,20 @@ final class DataRules
             }
             self::$nodeFields = $fields;
         }
+        // The children list is built first; a deeper copy such as `children.-1.attrs` then adds to its items.
         $plan = [];
+        $children = false;
         foreach ($fields['node'] as $path => $_) {
-            $plan[] = [$path === 'children', explode('.', (string)$path)];
+            $path = (string)$path;
+            if ($path === 'children' || str_starts_with($path, 'children.')) {
+                $children = true;
+            }
+            if ($path !== 'children') {
+                $plan[] = [false, explode('.', $path)];
+            }
+        }
+        if ($children) {
+            array_unshift($plan, [true, ['children']]);
         }
         self::$nodePlans[$type] = $plan;
         $items = [];
@@ -930,7 +945,7 @@ final class DataRules
             return;
         }
         $base = $this->textBase($text, $record);
-        preg_match_all(self::pattern($pattern), $value, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
+        self::matchAll(self::pattern($pattern), $value, $matches);
         $predicateGroups = $this->groups;
         $predicateBase = $this->base;
         foreach ($matches as $match) {
@@ -980,7 +995,7 @@ final class DataRules
             // A line finding names the source line's own path or its pipe table (C2-W-138), as carve-js does; a comment
             // fence closer names its comment, the block that covers the line.
             if (($rule['over'] ?? null) === 'line' && isset($record->number) && $rule['id'] !== 'comment-fence-closer-with-text') {
-                $path = ($this->context->lines[$record->number - 1]->path ?? '') ?: ($record->table_path ?? '');
+                $path = ($this->context->lines[$record->number - 1]->path ?? '') ?: ($record->row_path ?? $record->table_path ?? '');
             }
             // The line's own block is a child of the item; the finding names the item, as the handwritten rule and carve-js do.
             if ($rule['id'] === 'list-item-body-below-content-column') {
@@ -991,6 +1006,68 @@ final class DataRules
 
             return;
         }
+    }
+
+    /**
+     * `preg_match` of a rule pattern. A pattern that runs out of JIT stack on a long line runs again without JIT,
+     * which keeps its backtracking on the heap.
+     *
+     * @param-out array<array<int, int|string|null>|string|null> $parts
+     *
+     * @phpstan-param 0|256|512|768 $flags
+     *
+     * @param string $pattern
+     * @param string $value
+     * @param mixed $parts
+     * @param int $flags
+     *
+     * @return int|false
+     */
+    private static function matchOne(string $pattern, string $value, mixed &$parts, int $flags): int|false
+    {
+        $found = preg_match($pattern, $value, $parts, $flags);
+        if ($found === false && preg_last_error() === PREG_JIT_STACKLIMIT_ERROR) {
+            $jit = ini_set('pcre.jit', '0');
+            $found = preg_match(self::withoutJit($pattern), $value, $parts, $flags);
+            ini_set('pcre.jit', $jit === false ? '1' : $jit);
+        }
+
+        return $found;
+    }
+
+    /**
+     * `preg_match_all` of a rule pattern, with the fallback of `matchOne`.
+     *
+     * @param-out array<int, array<array<int, int|string|null>>> $matches
+     *
+     * @param string $pattern
+     * @param string $value
+     * @param mixed $matches
+     *
+     * @return void
+     */
+    private static function matchAll(string $pattern, string $value, mixed &$matches): void
+    {
+        $flags = PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL;
+        if (preg_match_all($pattern, $value, $matches, $flags) === false && preg_last_error() === PREG_JIT_STACKLIMIT_ERROR) {
+            $jit = ini_set('pcre.jit', '0');
+            preg_match_all(self::withoutJit($pattern), $value, $matches, $flags);
+            ini_set('pcre.jit', $jit === false ? '1' : $jit);
+        }
+    }
+
+    /**
+     * The pattern with a comment that gives it its own compiled entry, compiled while JIT is off.
+     *
+     * @param string $pattern
+     *
+     * @return string
+     */
+    private static function withoutJit(string $pattern): string
+    {
+        $end = (int)strrpos($pattern, '~');
+
+        return substr($pattern, 0, $end) . '(?#no-jit)' . substr($pattern, $end);
     }
 
     private static function pattern(string $source, string $flags = ''): string
@@ -1415,10 +1492,10 @@ final class DataRules
 
                 return function (stdClass $record) use ($left, $pattern, $textExpr): bool {
                     $value = $left($record);
-                    if (!is_string($value) || preg_match($pattern, $value) !== 1) {
+                    if (!is_string($value) || self::matchOne($pattern, $value, $parts, 0) !== 1) {
                         return false;
                     }
-                    preg_match($pattern, $value, $parts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
+                    self::matchOne($pattern, $value, $parts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
                     $this->saveGroups($parts, $this->textBase($textExpr, $record));
 
                     return true;
@@ -1935,7 +2012,7 @@ final class DataRules
         if (!is_string($value) || !is_string($source)) {
             return false;
         }
-        $found = preg_match(self::pattern($source, $flags), $value, $parts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
+        $found = self::matchOne(self::pattern($source, $flags), $value, $parts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
         if ($found !== 1) {
             return false;
         }
