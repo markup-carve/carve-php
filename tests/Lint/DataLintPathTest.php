@@ -28,6 +28,9 @@ final class DataLintPathTest extends TestCase
             'quote mark without space' => [">a\n", 'blockquote-marker-without-space', '/children/0'],
             'item body below the content column' => ["- a\n\n b\n", 'list-item-body-below-content-column', '/children/0/children/0'],
             'comment inside a table row' => ["| a |\n%% x\n+ b |\n", 'comment-splits-table-row', '/children/0'],
+            // carve-php#5562: a line of a line block owns its source line.
+            'quote mark in an unclosed line block' => ["::: |\n>|\n", 'blockquote-marker-without-space', '/children/0/children/0'],
+            'quote mark in a closed line block' => ["::: |\na\n>|\n:::\n", 'blockquote-marker-without-space', '/children/0/children/1'],
         ];
         foreach (['hand', 'data'] as $mode) {
             foreach ($cases as $name => [$source, $rule, $path]) {

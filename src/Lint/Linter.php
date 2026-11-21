@@ -462,11 +462,12 @@ final class Linter
     {
         $paragraph = $type === 'paragraph' || $type === 'caption' || $type === 'definition_term';
         $opaque = in_array($type, ['code_block', 'raw_block', 'frontmatter', 'comment_block'], true);
-        if (!$paragraph && !$opaque && $type !== 'heading') {
+        $leaf = $paragraph || $type === 'heading' || $type === 'line';
+        if (!$leaf && !$opaque) {
             return;
         }
         for ($i = $pos['startLine'] - 1; $i < $pos['endLine'] && isset($c->lines[$i]); $i++) {
-            if ($paragraph || $type === 'heading') {
+            if ($leaf) {
                 $c->lines[$i]->path = $path;
             }
             if ($paragraph) {
