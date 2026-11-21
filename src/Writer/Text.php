@@ -1278,6 +1278,17 @@ final class Text
         $eol = $tail !== null || in_array($next, [-1, 10], true);
         $line = $tail !== null ? $value . $tail : ($eol ? $value : $value . 'x');
         $value = $tail !== null ? $line : $value;
+        // C2-B-190: a fence-shaped line inside a quote at the block cap
+        // cannot open another block and therefore remains paragraph text.
+        if (
+            $c->blockDepth >= Tables::BLOCK_DEPTH
+            && $c->owner === 'quote'
+            && !$c->hasFencedAncestor
+            && in_array($line[0], [':', '%', '`'], true)
+            && LineShapes::isFenceLine($line, 0, strlen($line))
+        ) {
+            return -1;
+        }
         if (self::anyLine($value, $line, $eol, $c->last === -1 && $next === 10)) {
             return 0;
         }

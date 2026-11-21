@@ -33,12 +33,12 @@ final class RefusedFenceAtDepthCapTest extends TestCase
         self::assertSame('paragraph', $node->children[1]->type);
         self::assertCount(7, $node->children[0]->children);
         self::assertStringContainsString(
-            "\\::::::\n\\:::::\n\\::::\n\\+\n\n\\::::\n\\:::::\n\\::::::\n",
+            "\\::::::\n\\:::::\n\\::::\n+\n\n\\::::\n\\:::::\n\\::::::\n",
             Carve::formatWithDiagnostics($source)->source,
         );
     }
 
-    public function testFenceCloserEndsLazyQuotedParagraphAtTheDepthCap(): void
+    public function testAncestorDivCloserInterruptsQuoteAtTheDepthCap(): void
     {
         $source = '';
         for ($run = 202; $run >= 7; $run--) {
@@ -51,7 +51,39 @@ final class RefusedFenceAtDepthCapTest extends TestCase
 
         $written = Carve::formatWithDiagnostics($source);
         self::assertSame([], $written->diagnostics);
-        self::assertStringContainsString("> x\n\n:::\n", $written->source);
+        self::assertStringContainsString("> x\n:::\n", $written->source);
+
+        $original = TreeEncoder::decodedForWriter(Carve::parse($source));
+        $readBack = TreeEncoder::decodedForWriter(Carve::parse($written->source));
+        unset($original['srcByteLength'], $readBack['srcByteLength']);
+        self::assertSame($original, $readBack);
+    }
+
+    public function testRefusedFenceInsideTwoHundredQuotesNeedsNoEscape(): void
+    {
+        $prefix = str_repeat('> ', 200);
+        $source = $prefix . "x\n" . $prefix . "::::\n" . $prefix . "tail\n";
+
+        $written = Carve::formatWithDiagnostics($source);
+        self::assertSame([], $written->diagnostics);
+        self::assertSame($source, $written->source);
+    }
+
+    public function testFenceTextInsideCappedQuoteKeepsAncestorFenceEscapes(): void
+    {
+        $lines = [];
+        for ($run = 204; $run >= 7; $run--) {
+            $lines[] = '> ' . str_repeat(':', $run);
+        }
+        array_push($lines, '> ::::::', '> ::::', '> :::', '> +', '', '> ::::', '> :::::', '> ::::::');
+        for ($run = 7; $run <= 204; $run++) {
+            $lines[] = '> ' . str_repeat(':', $run);
+        }
+        $source = implode("\n", $lines) . "\n";
+
+        $written = Carve::formatWithDiagnostics($source);
+        self::assertSame([], $written->diagnostics);
+        self::assertStringContainsString("> \\::::\n> \\:::\n", $written->source);
 
         $original = TreeEncoder::decodedForWriter(Carve::parse($source));
         $readBack = TreeEncoder::decodedForWriter(Carve::parse($written->source));

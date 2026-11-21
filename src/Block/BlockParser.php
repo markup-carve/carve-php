@@ -794,12 +794,12 @@ final class BlockParser
         if ($ch === '`' || $ch === ':' || $ch === '%') {
             $div = $ch === ':' ? LineShapes::div($s, $j, $this->le) : null;
             if ($div !== null && $div->bare) {
-                $top = $this->stack[count($this->stack) - 1] ?? null;
-                if ($top !== null && $top->kind === Frame::DIV && $top->level <= $div->run) {
+                $owned = $this->stack[$owner] ?? null;
+                if ($owned !== null && $owned->kind === Frame::DIV && $owned->level <= $div->run) {
                     return true;
                 }
             }
-            if ($this->depth + 1 <= Tables::BLOCK_DEPTH && LineShapes::isFenceLine($s, $j, $this->le)) {
+            if ($this->depthAt($owner) + 1 <= Tables::BLOCK_DEPTH && LineShapes::isFenceLine($s, $j, $this->le)) {
                 return true;
             }
         }
@@ -921,6 +921,15 @@ final class BlockParser
      */
     private function canNestAt(int $owner): bool
     {
+        return $this->depthAt($owner) + 2 <= Tables::BLOCK_DEPTH;
+    }
+
+    /**
+     * Count the open containers that own this line. Unowned quote or item
+     * frames close before a new block is read at the line's column.
+     */
+    private function depthAt(int $owner): int
+    {
         $depth = $this->depth;
         for ($k = count($this->stack) - 1; $k > $owner; $k--) {
             if (isset(self::COUNTED[$this->stack[$k]->kind])) {
@@ -928,7 +937,7 @@ final class BlockParser
             }
         }
 
-        return $depth + 2 <= Tables::BLOCK_DEPTH;
+        return $depth;
     }
 
     /**

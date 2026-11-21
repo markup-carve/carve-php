@@ -58,6 +58,8 @@ final class Blocks
 
     private int $blockDepth = 0;
 
+    private int $fencedAncestors = 0;
+
     public function __construct(private State $w)
     {
         $this->inline = new Inline($w);
@@ -615,6 +617,8 @@ final class Blocks
         $c->bareBreaks = $this->bareBreaks;
         $c->counts = Inline::counts($nodes);
         $c->lineStart = $lineStart;
+        $c->blockDepth = $this->blockDepth - 1;
+        $c->hasFencedAncestor = $this->fencedAncestors > 0;
         $c->afterDescriptions = $this->w->afterDescriptions;
         $c->boxLead = $this->w->lead !== null && $this->w->lead === $this->w->boxLead;
         $c->owner = $prefix === '' && $this->blockDepth === 1 ? 'top'
@@ -1305,23 +1309,13 @@ final class Blocks
         $run = str_repeat(':', max(3, $this->runsBelow($node, $path) + 1));
         $this->w->emit($prefix, $run . $opener);
         $mark = count($this->w->lines);
-        $write();
-        if (count($this->w->lines) === $mark && $blankWhenEmpty) {
-            $this->w->emit($prefix, '');
+        $this->fencedAncestors++;
+        try {
+            $write();
+        } finally {
+            $this->fencedAncestors--;
         }
-        // Past the parser's block depth, a refused closer does not interrupt a
-        // lazy paragraph in a quote or list. End that container's paragraph
-        // before writing the fence closer.
-        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        $last = end($children);
-        if (
-            $this->blockDepth >= Tables::BLOCK_DEPTH - 1
-            && is_array($last)
-            && in_array($last['type'] ?? '', ['block_quote', 'list', 'definition_description', 'footnote'], true)
-            && (($last['type'] ?? '') !== 'block_quote'
-                || $this->w->fact($path . '/children/' . array_key_last($children), 'fenced') !== true)
-            && end($this->w->lines) !== ''
-        ) {
+        if (count($this->w->lines) === $mark && $blankWhenEmpty) {
             $this->w->emit($prefix, '');
         }
         $this->w->emit($prefix, $run);

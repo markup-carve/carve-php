@@ -18,6 +18,13 @@ final class Context
     public bool $lineStart = false;
 
     /**
+     * Open block containers around this text leaf.
+     */
+    public int $blockDepth = 0;
+
+    public bool $hasFencedAncestor = false;
+
+    /**
      * The rest of this source line when the next inline span crosses a line break.
      */
     public ?string $lineTail = null;
