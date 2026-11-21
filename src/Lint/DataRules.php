@@ -72,6 +72,23 @@ final class DataRules
      */
     private static array $itemPlans = [];
 
+    private static ?string $nodeTypesKey = null;
+
+    /**
+     * @var array<string, true>
+     */
+    private static array $nodeTypes = [];
+
+    /**
+     * @var array<string, array<int, mixed>> The plan of `run` for each set of active rules (`activeKey`).
+     */
+    private static array $plans = [];
+
+    /**
+     * One interpreter for every run, so the compiled `when` closures, which hold it, are made once per process.
+     */
+    private static ?self $interpreter = null;
+
     /**
      * @var array<string, mixed>
      */
@@ -335,6 +352,33 @@ final class DataRules
      */
     public static function nodeTypes(Context $context): array
     {
+        $key = self::activeKey($context);
+        if ($key !== self::$nodeTypesKey) {
+            self::$nodeTypesKey = $key;
+            self::$nodeTypes = self::collectNodeTypes($context);
+        }
+
+        return self::$nodeTypes;
+    }
+
+    /**
+     * The ids of the active data rules, which decide every plan derived from the rule data.
+     */
+    private static function activeKey(Context $context): string
+    {
+        $key = '';
+        foreach (self::rules() as $rule) {
+            $key .= $context->activeRule($rule['id']) ? '1' : '0';
+        }
+
+        return $key;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private static function collectNodeTypes(Context $context): array
+    {
         $types = [];
         $fields = ['node' => [], 'item' => []];
         $byType = self::fieldsByNodeType($context);
@@ -541,6 +585,81 @@ final class DataRules
     }
 
     /**
+     * The rules of each kind and the prefilters derived from them, for the active rules of a run.
+     *
+     * @return array<int, mixed>
+     */
+    private static function plan(Context $context): array
+    {
+        $data = self::data();
+        $byKind = ['line' => [], 'block' => [], 'inline' => []];
+        $lineFilters = [];
+        foreach (self::rules() as $rule) {
+            if ($context->activeRule($rule['id'])) {
+                $byKind[$rule['over']][] = $rule;
+                if ($rule['over'] === 'line') {
+                    $lineFilters[$rule['id']] = [
+                        'leafs' => self::requiredValues($rule['when'], 'leaf'),
+                        'shapes' => self::requiredValues($rule['when'], 'shape'),
+                        'texts' => self::requiredTexts($rule['when']),
+                    ];
+                }
+            }
+        }
+        $needBlocks = [];
+        $needInline = [];
+        $lookupRules = [];
+        foreach (array_merge($byKind['line'], $byKind['block'], $byKind['inline']) as $rule) {
+            self::lookupTypes($rule, $needBlocks, $needInline);
+            $lookupRules[$rule['id']] = self::readsLookup($rule);
+        }
+        $typedRules = ['inline' => [], 'block' => []];
+        $untypedRules = ['inline' => [], 'block' => []];
+        foreach (['inline', 'block'] as $kind) {
+            foreach ($byKind[$kind] as $rule) {
+                if ($rule['types'] === null) {
+                    $untypedRules[$kind][] = $rule;
+
+                    continue;
+                }
+                foreach ($rule['types'] as $type) {
+                    if (is_string($type)) {
+                        $typedRules[$kind][$type][] = $rule;
+                    }
+                }
+            }
+        }
+        $typedBlocks = [];
+        $genericBlocks = [];
+        foreach ($byKind['block'] as $rule) {
+            if ($rule['types'] !== null) {
+                foreach ($rule['types'] as $type) {
+                    if (is_string($type)) {
+                        $typedBlocks[$type] = true;
+                    }
+                }
+
+                continue;
+            }
+            $genericBlocks[] = [
+                'parents' => self::requiredValues($rule['when'], 'parent.type'),
+                'itemOwners' => self::requiredValues($rule['when'], 'item_owner.type'),
+            ];
+        }
+        $verbatimLeaves = [];
+        foreach (is_array($data['verbatim_leaves'] ?? null) ? $data['verbatim_leaves'] : [] as $leaf) {
+            if (is_string($leaf) || is_int($leaf)) {
+                $verbatimLeaves[$leaf] = true;
+            }
+        }
+
+        return [
+            $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
+            $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves,
+        ];
+    }
+
+    /**
      * @return list<array{0: string, 1: string, 2: string}>
      */
     private static function requiredTexts(mixed $when): array
@@ -575,49 +694,30 @@ final class DataRules
 
     public static function run(Context $context): void
     {
-        $data = self::data();
         if (self::rules() === []) {
             return;
         }
-        $self = new self($context);
-        $byKind = ['line' => [], 'block' => [], 'inline' => []];
-        $lineFilters = [];
-        foreach (self::rules() as $rule) {
-            if ($context->activeRule($rule['id'])) {
-                $byKind[$rule['over']][] = $rule;
-                if ($rule['over'] === 'line') {
-                    $lineFilters[$rule['id']] = [
-                        'leafs' => self::requiredValues($rule['when'], 'leaf'),
-                        'shapes' => self::requiredValues($rule['when'], 'shape'),
-                        'texts' => self::requiredTexts($rule['when']),
-                    ];
-                }
-            }
-        }
-        $needBlocks = [];
-        $needInline = [];
-        $lookupRules = [];
-        foreach (array_merge($byKind['line'], $byKind['block'], $byKind['inline']) as $rule) {
-            self::lookupTypes($rule, $needBlocks, $needInline);
-            $lookupRules[$rule['id']] = self::readsLookup($rule);
-        }
+        /**
+         * @var array{line: list<Rule>, block: list<Rule>, inline: list<Rule>} $byKind
+         * @var array<string, array{
+         *     leafs: array<string, true>|null, shapes: array<string, true>|null, texts: list<array{0: string, 1: string, 2: string}>,
+         * }> $lineFilters
+         * @var array<string, true> $needBlocks
+         * @var array<string, true> $needInline
+         * @var array<string, bool> $lookupRules
+         * @var array{inline: array<string, list<Rule>>, block: array<string, list<Rule>>} $typedRules
+         * @var array{inline: list<Rule>, block: list<Rule>} $untypedRules
+         * @var array<string, true> $typedBlocks
+         * @var list<array{parents: array<string, true>|null, itemOwners: array<string, true>|null}> $genericBlocks
+         * @var array<int|string, true> $verbatimLeaves
+         */
+        [
+            $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
+            $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves,
+        ] = self::$plans[self::activeKey($context)] ??= self::plan($context);
+        $self = self::$interpreter ??= new self($context);
+        $self->context = $context;
         $deferredBlocks = [];
-        $typedRules = ['inline' => [], 'block' => []];
-        $untypedRules = ['inline' => [], 'block' => []];
-        foreach (['inline', 'block'] as $kind) {
-            foreach ($byKind[$kind] as $rule) {
-                if ($rule['types'] === null) {
-                    $untypedRules[$kind][] = $rule;
-
-                    continue;
-                }
-                foreach ($rule['types'] as $type) {
-                    if (is_string($type)) {
-                        $typedRules[$kind][$type][] = $rule;
-                    }
-                }
-            }
-        }
         $apply = static function (
             stdClass $record,
             string $kind,
@@ -639,23 +739,6 @@ final class DataRules
                 }
             }
         };
-        $typedBlocks = [];
-        $genericBlocks = [];
-        foreach ($byKind['block'] as $rule) {
-            if ($rule['types'] !== null) {
-                foreach ($rule['types'] as $type) {
-                    if (is_string($type)) {
-                        $typedBlocks[$type] = true;
-                    }
-                }
-
-                continue;
-            }
-            $genericBlocks[] = [
-                'parents' => self::requiredValues($rule['when'], 'parent.type'),
-                'itemOwners' => self::requiredValues($rule['when'], 'item_owner.type'),
-            ];
-        }
         $acceptBlock = static function (
             string $type,
             string $parentType,
@@ -707,12 +790,6 @@ final class DataRules
             $apply($record, 'block', true);
         }
         $deferredBlocks = [];
-        $verbatimLeaves = [];
-        foreach (is_array($data['verbatim_leaves'] ?? null) ? $data['verbatim_leaves'] : [] as $leaf) {
-            if (is_string($leaf) || is_int($leaf)) {
-                $verbatimLeaves[$leaf] = true;
-            }
-        }
         foreach ($byKind['line'] as $rule) {
             $filter = $lineFilters[$rule['id']];
             foreach ($model->lines as $record) {
@@ -739,9 +816,9 @@ final class DataRules
                 $self->apply($rule, $record);
             }
         }
-        // The compiled closures hold this interpreter and the line records link to their neighbors: drop both, so the run
-        // leaves no cycles behind for the collector.
-        $self->compiledWhen = [];
+        // The line records link to their neighbors: drop the links, so the run leaves no cycles behind for the collector. The
+        // shared interpreter keeps its compiled closures but not the document.
+        unset($self->context);
         $self->lookupRecords = ['block' => [], 'inline' => []];
         $self->lookupIndexes = [];
         foreach ($model->lines as $line) {
