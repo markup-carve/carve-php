@@ -43,6 +43,11 @@ final class Context
     public bool $inBracket = false;
 
     /**
+     * Whether this leaf has a backtick in a neighboring nonverbatim inline node.
+     */
+    public ?bool $neighborTick = null;
+
+    /**
      * C2-W-080: a hard break is the bare line ending.
      */
     public bool $bareBreaks = false;

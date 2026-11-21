@@ -270,6 +270,8 @@ final class Inline
         $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
         if ($redo !== null && str_starts_with($part, '{')) {
             [$from, $length, $text] = $redo;
+            // The replay revisits the same first-line lookahead with the next node now known.
+            $text->writerState = null;
             $again = $this->node((array)$nodes[$at - 1], $path . '/' . ($at - 1), $text, 0x7B, $nodes[$at - 2] ?? null);
             $out = substr_replace($out, $again, $from, $length);
         }

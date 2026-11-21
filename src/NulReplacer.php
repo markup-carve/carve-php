@@ -28,6 +28,9 @@ final class NulReplacer
         $repaired = [];
         while ($stack !== []) {
             $node = array_pop($stack);
+            if (is_array($node->layout['cellWraps'] ?? null)) {
+                self::repairWraps($node);
+            }
             foreach ($node->f as $key => $value) {
                 $node->f[$key] = self::value($value, $stack, $repaired);
             }
@@ -35,6 +38,46 @@ final class NulReplacer
                 $stack[] = $child;
             }
         }
+    }
+
+    /**
+     * Cell continuation offsets precede text repair. Translate them through each repaired fragment once, so many
+     * continuation rows do not repeatedly scan the same prefix of their text node.
+     */
+    private static function repairWraps(Node $node): void
+    {
+        $wraps = $node->layout['cellWraps'] ?? null;
+        if (!is_array($wraps)) {
+            return;
+        }
+        $byChild = [];
+        foreach ($wraps as $index => $wrap) {
+            if (is_int($index) && is_array($wrap) && is_int($wrap['child'] ?? null) && is_int($wrap['offset'] ?? null)) {
+                $byChild[$wrap['child']][] = ['index' => $index, 'offset' => $wrap['offset']];
+            }
+        }
+        foreach ($byChild as $childIndex => $entries) {
+            $child = $node->children[$childIndex] ?? null;
+            $value = $child instanceof Node ? ($child->f['value'] ?? null) : null;
+            if (!is_string($value)) {
+                continue;
+            }
+            usort($entries, static fn (array $a, array $b): int => $a['offset'] <=> $b['offset']);
+            $from = 0;
+            $written = 0;
+            foreach ($entries as $entry) {
+                $to = $entry['offset'];
+                $written += strlen(Utf8::repair(substr($value, $from, $to - $from)));
+                $wrap = $wraps[$entry['index']];
+                if (!is_array($wrap)) {
+                    continue;
+                }
+                $wrap['offset'] = $written;
+                $wraps[$entry['index']] = $wrap;
+                $from = $to;
+            }
+        }
+        $node->layout['cellWraps'] = $wraps;
     }
 
     /**
