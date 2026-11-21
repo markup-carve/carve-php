@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Diagnostics\Message;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Html\HeadingShift;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Html\RenderState;
 use MarkupCarve\Carve\Html\UrlPolicy;
@@ -136,7 +137,11 @@ final class Exporter
     public static function start(string $target, Node|array $tree, array $options): self
     {
         foreach ($options as $name => $value) {
-            if (!in_array($name, ['smartTypography', 'strictLosses', 'urlPolicy', 'extensions'], true)) {
+            // C2-H-209: the Markdown export reads `headingShift`; the plain-text and ANSI exports refuse it.
+            if ($name === 'headingShift' && $target !== 'markdown') {
+                throw new OptionError('option headingShift: not read by the ' . $target . ' export', path: '/headingShift');
+            }
+            if (!in_array($name, ['smartTypography', 'strictLosses', 'urlPolicy', 'extensions', 'headingShift'], true)) {
                 throw new OptionError('unknown option ' . $name);
             }
         }
@@ -154,8 +159,14 @@ final class Exporter
         $opts = Options::from($options);
         $resolve = Closure::bind(static fn (Node|array $t, Options $o): array => Carve::resolvedTree($t, $o), null, Carve::class);
         [$document, , $facts] = $resolve($tree, $opts);
+        HeadingShift::apply($document, $opts->headingShift, $opts->rendered);
+        $x = new self($target, $document, $opts, $facts);
+        $above = $opts->headingShift !== 0 ? HeadingShift::firstAboveSix($document) : null;
+        if ($above !== null) {
+            $x->loss($above, HeadingShift::CODE, Message::fill(HeadingShift::CODE, ['shift' => $opts->headingShift]));
+        }
 
-        return new self($target, $document, $opts, $facts);
+        return $x;
     }
 
     /**

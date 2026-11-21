@@ -131,6 +131,11 @@ final class Options
     public int $maxLosses = 100;
 
     /**
+     * C2-H-208: the levels every heading of the render view moves down.
+     */
+    public int $headingShift = 0;
+
+    /**
      * C2-H-206: host HTML for a code block, or null to keep the default.
      *
      * @var \Closure(\MarkupCarve\Carve\Node, string): mixed|null
@@ -251,6 +256,7 @@ final class Options
         match ($name) {
             'allowLosses' => $this->setAllowLosses($value),
             'maxLosses' => $this->setMaxLosses($value),
+            'headingShift' => $this->headingShift = self::count($name, $value),
             'codeBlockRenderer' => $this->setCodeBlockRenderer($value),
             default => $this->includes($value),
         };
@@ -373,6 +379,29 @@ final class Options
             throw new OptionError('option maxLosses: not a count');
         }
         $this->maxLosses = $value;
+    }
+
+    /**
+     * A count up to the maximum of its options.json row, if it has one.
+     *
+     * @param string $name
+     * @param mixed $value
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return int
+     */
+    private static function count(string $name, mixed $value): int
+    {
+        if (!is_int($value) || $value < 0) {
+            throw new OptionError('option ' . $name . ': not a count');
+        }
+        $maximum = Tables::COUNT_MAXIMA[$name] ?? null;
+        if ($maximum !== null && $value > $maximum) {
+            throw new OptionError('option ' . $name . ': above its maximum ' . $maximum);
+        }
+
+        return $value;
     }
 
     /**

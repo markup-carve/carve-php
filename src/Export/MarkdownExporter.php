@@ -18,7 +18,7 @@ final class MarkdownExporter implements OutputWriter
      *
      * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree A tree of `Carve::parse()` or `Carve::decodeTree()`, or decoded AST JSON
      *   as `Carve::render()` takes it; it is not changed.
-     * @param array<string, mixed> $options `smartTypography`, `strictLosses`, `urlPolicy`, `extensions`.
+     * @param array<string, mixed> $options `smartTypography`, `strictLosses`, `urlPolicy`, `extensions`, `headingShift` (C2-H-209).
      *
      * @return \MarkupCarve\Carve\Export\ExportResult
      */

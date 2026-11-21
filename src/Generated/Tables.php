@@ -5726,7 +5726,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => 'c2a9b1f7ed46a93c703897b147f7f060435c9d64',
+        'commit' => '46bdae0c3584ea787f90010cc00a3edb78e9f7b8',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6410,6 +6410,16 @@ final class Tables
             ],
             'default' => 'keep-case',
         ],
+        'headingShift' => [
+            'kind' => 'render',
+            'readBy' => [
+                'export-markdown',
+                'render',
+            ],
+            'type' => 'count',
+            'values' => null,
+            'default' => 0,
+        ],
         'includes' => [
             'kind' => 'parse',
             'readBy' => 'parse',
@@ -6610,6 +6620,11 @@ final class Tables
                 ],
             ],
         ],
+    ];
+
+    /** options.json: the largest value of a count option that has one */
+    public const COUNT_MAXIMA = [
+        'headingShift' => 5,
     ];
 
     /** C2-B-182 table-marks.json */
@@ -6977,6 +6992,9 @@ final class Tables
         ],
         'heading-marker-mixed' => [
             'This document mixes the two heading markers. carve fmt rewrites the hash to the equals sign.',
+        ],
+        'heading-shift-above-6' => [
+            'The heading shift of ${shift} raises a heading above level 6: the render writes it as a div with the role heading, the Markdown export at level 6.',
         ],
         'heading-trailing-attribute' => [
             'Trailing "${block}" on a heading is literal text in Carve, not an attribute block. Move it to a "${block}" line directly above the heading.',
@@ -7387,6 +7405,11 @@ final class Tables
             'warning',
             'render-loss',
             'Carve source cannot spell ${what}',
+        ],
+        'heading-shift-above-6' => [
+            'warning',
+            'render-loss',
+            'The heading shift of ${shift} raises a heading above level 6: the render writes it as a div with the role heading, the Markdown export at level 6.',
         ],
         'import-attribute-dropped' => [
             'warning',

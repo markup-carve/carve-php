@@ -68,7 +68,12 @@ The Markdown, plain-text and ANSI exports are `Export\MarkdownExporter`, `Export
 Render options of note: `softBreak` (`newline`, `space` or `br`), `allowLosses` (render-loss codes left out of the
 record), `maxLosses` (the cap on kept losses, default 100; the result's `suppressedDiagnostics` counts the rest) and
 `codeBlockRenderer`, a `Closure(Node $node, string $defaultHtml): ?string` that returns trusted HTML for a code block,
-or `null` to keep the default.
+or `null` to keep the default, and `headingShift` (0 to 5, default 0), which moves every heading down by that many levels
+for a page that writes its own title as `<h1>`. The shift runs before every document transform, so options that name
+heading levels (`tableOfContents`, `headingPermalinks`, `headingNumbers`) name the shifted levels. A level above 6 is
+written as `<div role="heading" aria-level="N">` and reported once as `heading-shift-above-6`; under `roundtrip` each
+heading carries `data-carve-source-level`, which the HTML importer reads back. `MarkdownExporter` takes `headingShift`
+too and writes a level above 6 as 6; the plain-text and ANSI exports refuse it.
 
 Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe tables). Import options: `from`
 (`html`, `markdown`, `gfm` or `djot`), `rawHtml` (HTML only: keep raw HTML nodes), `adapter` (HTML only: the editor
@@ -98,7 +103,7 @@ vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] [--adapter=NA
 ```
 
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
-`--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br`; `render` and `import` take `--allow-loss CODE`
+`--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br` and `--heading-shift N` (also with `--to markdown`); `render` and `import` take `--allow-loss CODE`
 (repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`.
 `-` reads standard input.
 

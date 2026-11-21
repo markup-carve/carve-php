@@ -23,6 +23,13 @@ use Throwable;
 final class TypedCoreClauseTest extends TestCase
 {
     /**
+     * The files of the running case, for the positions of an entry in an included file.
+     *
+     * @var array<string, mixed>
+     */
+    private array $files = [];
+
+    /**
      * @return array<string, array{0: array<string, mixed>}>
      */
     public static function cases(): array
@@ -84,6 +91,7 @@ final class TypedCoreClauseTest extends TestCase
             }
         }
         if (isset($expected['diagnostics']) || isset($expected['notReported'])) {
+            $this->files = $case['files'] ?? [];
             $this->diagnostics($source, $expected, self::actualDiagnostics($case, $source, $options));
         }
     }
@@ -208,6 +216,9 @@ final class TypedCoreClauseTest extends TestCase
         }
         if (isset($item['messageWhen']) && !self::messageMatchesVariant($item['messageWhen'], $entry)) {
             return false;
+        }
+        if ($entry->file !== null && is_string($this->files[$entry->file]['text'] ?? null)) {
+            $source = $this->files[$entry->file]['text'];
         }
         if (
             isset($item['line'], $item['column']) && ($entry->startOffset < 0

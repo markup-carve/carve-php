@@ -194,29 +194,6 @@ final class Navigation
     }
 
     /**
-     * Moves every heading down by `$shift` levels (clamped to 0-5), to at most 6, for a page whose `<h1>` is its title.
-     */
-    public static function headingLevelShift(int $shift = 1): ExtensionDefinition
-    {
-        $shift = max(0, min($shift, 5));
-        $run = static function (Node $view) use ($shift): Node {
-            if ($shift === 0) {
-                return $view;
-            }
-            NavTree::visit($view, static function (Node $node) use ($shift): void {
-                if ($node->type === 'heading') {
-                    $level = $node->f['level'] ?? 1;
-                    $node->f['level'] = min(6, (is_int($level) ? $level : 1) + $shift);
-                }
-            }, true);
-
-            return $view;
-        };
-
-        return new ExtensionDefinition('carve.headingLevelShift', '1', documentTransform: $run);
-    }
-
-    /**
      * Gives the class `heading-ref` to each reference link a heading resolves (`[Heading][]`, `[text][Heading]`,
      * C2-H-083). The 0.1 `[[Heading]]` spelling is gone: 0.2 adds no delimiter for it (C2-X-013, C2-X-057).
      */

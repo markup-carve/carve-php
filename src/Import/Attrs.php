@@ -82,6 +82,10 @@ final class Attrs
                 continue;
             }
             if (in_array($name, $omit, true) || $name === 'lang' || $name === 'dir' || self::isCarrier($name)) {
+                if ($name === 'data-carve-source-level' && !in_array($name, $omit, true)) {
+                    $context?->ignoredCarrier($node, $name, 'the element is no heading');
+                }
+
                 continue;
             }
             if (self::dropped($name, $value) !== null) {

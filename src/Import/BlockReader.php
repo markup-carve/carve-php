@@ -342,12 +342,37 @@ final class BlockReader
     {
         [$authored] = $id ?? $this->headingId($node);
         $omit = $level > 6 ? ['id', 'role', 'aria-level'] : ['id'];
+        $omit[] = 'data-carve-source-level';
+        $level = $this->sourceLevel($node, $level);
         $mapped = Attrs::of($node, $omit, true, $this->context);
         if ($authored !== null) {
             $mapped['attrs'] = ['id' => $authored] + J::attrs($mapped);
         }
 
         return ['type' => 'heading', 'level' => $level, 'children' => $this->inline->children($node)] + $mapped;
+    }
+
+    /**
+     * C2-H-186, C2-H-208: `data-carve-source-level`, the level of a heading before `headingShift`.
+     */
+    private function sourceLevel(HtmlNode $node, int $level): int
+    {
+        $value = $node->attr('data-carve-source-level');
+        if ($value === null) {
+            return $level;
+        }
+        if (preg_match('/\A[1-9][0-9]*\z/', $value) !== 1) {
+            $this->context->ignoredCarrier($node, 'data-carve-source-level', 'the value is no decimal level');
+
+            return $level;
+        }
+        if (strlen($value) > strlen((string)$level) || (int)$value >= $level) {
+            $this->context->ignoredCarrier($node, 'data-carve-source-level', 'the value is not below the level of the element');
+
+            return $level;
+        }
+
+        return (int)$value;
     }
 
     /**

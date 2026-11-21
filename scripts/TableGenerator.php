@@ -422,7 +422,11 @@ final class TableGenerator
     private static function optionTables(Closure $load, array &$consts): void
     {
         $options = [];
+        $maxima = [];
         foreach ($load('options')['options'] as $row) {
+            if (isset($row['maximum'])) {
+                $maxima[$row['name']] = $row['maximum'];
+            }
             $options[$row['name']] = [
                 'kind' => $row['kind'],
                 'readBy' => $row['read_by'],
@@ -432,6 +436,7 @@ final class TableGenerator
             ];
         }
         $consts['OPTIONS'] = ['C2-H-137 options.json', $options];
+        $consts['COUNT_MAXIMA'] = ['options.json: the largest value of a count option that has one', $maxima];
     }
 
     /**

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Html;
 
 use Generator;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Include\Expander;
@@ -156,11 +157,21 @@ final class HtmlRenderer
      * @param \MarkupCarve\Carve\Options $opts
      * @param string|null $source
      * @param \MarkupCarve\Carve\Resolve\Facts|null $resolved
+     * @param bool $shifted The caller applied `headingShift` before its document transforms (C2-H-208).
      *
      * @return array{0: string, 1: \MarkupCarve\Carve\Html\RenderLog} C2-H-130: no output under `strictLosses` when a loss occurred.
      */
-    public static function renderWithLog(Node $doc, Options $opts, ?string $source = null, ?Facts $resolved = null): array
-    {
+    public static function renderWithLog(
+        Node $doc,
+        Options $opts,
+        ?string $source = null,
+        ?Facts $resolved = null,
+        bool $shifted = false,
+    ): array {
+        if (!$shifted && $opts->headingShift !== 0) {
+            $doc = Extensions::copy($doc);
+            HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
+        }
         $max = Profile::maxLength($opts->profile);
         if ($source !== null && $max !== null && strlen($source) > $max) {
             $log = new RenderLog();
@@ -178,6 +189,10 @@ final class HtmlRenderer
             $resolved ??= Resolver::resolve($doc, $source, $opts, true)->facts;
             $r = new self($doc, $opts, $source, $resolved);
             $html = $r->document();
+            $above = $opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null;
+            if ($above !== null) {
+                $r->log->loss(HeadingShift::CODE, 'warning', ['shift' => $opts->headingShift], $above->file, node: $above);
+            }
         } finally {
             if ($r !== null) {
                 // The table and note writers and the inline writer's host callback point back at the renderer; left in
@@ -1081,9 +1096,10 @@ final class HtmlRenderer
     {
         $f = $node->f;
         $level = is_int($f['level'] ?? null) ? max(1, $f['level']) : 1;
+        $sourceLevel = $this->sourceLevel($level);
         if (
             $level <= 6 && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['dir'])
-            && ($inSection || !$this->o->roundtrip)
+            && ($inSection || !$this->o->roundtrip) && $sourceLevel === null
         ) {
             return $this->plainHeading($node, $level, $depth, $inSection);
         }
@@ -1093,15 +1109,29 @@ final class HtmlRenderer
         $id = $inSection ? '' : $this->headingId($node) ?? '';
         $structural = $inSection ? [] : $this->idCarriers($node);
         $tag = 'h' . $level;
+        $element = $level > 6 ? [['role', 'heading'], ['aria-level', (string)$level]] : [];
         if ($level > 6) {
             $tag = 'div';
-            $structural = array_merge([['role', 'heading'], ['aria-level', (string)$level]], $structural);
         }
+        // C2-H-208: the source level follows the id carrier and stands before the role.
+        $structural = $sourceLevel === null
+            ? array_merge($element, $structural)
+            : array_merge($structural, [['data-carve-source-level', (string)$sourceLevel]], $element);
         $line = $this->line($node);
         $dir = AttrWriter::dirOf($node);
         $attr = $this->aw->build($structural, $id, $attrs, $lang, style: ['align' => true], sourceLine: $line, dir: $dir);
 
         return self::pad($depth) . '<' . $tag . $attr . '>' . $this->inline->leaf($node->children ?? [], $depth + 1) . '</' . $tag . '>';
+    }
+
+    /**
+     * C2-H-208: under `roundtrip` a shifted heading carries its level before the shift.
+     */
+    private function sourceLevel(int $level): ?int
+    {
+        $source = $level - $this->o->headingShift;
+
+        return $this->o->roundtrip && $this->o->headingShift !== 0 && $source >= 1 ? $source : null;
     }
 
     /**

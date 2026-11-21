@@ -173,6 +173,7 @@ final class ImportTables
         'data-carve-ref' => true,
         'data-carve-ref-collapsed' => true,
         'data-carve-ref-shortcut' => true,
+        'data-carve-source-level' => true,
         'data-carve-src' => true,
         'data-carve-tight' => true,
         'data-carve-xref' => true,
