@@ -23,9 +23,18 @@ final class Context
     public ?string $lineTail = null;
 
     /**
-     * Text written after a multiline span, through the next line break or non-text node.
+     * Source written after a multiline span, through the next line break or unknown inline node.
      */
     public string $lineAfterSpan = '';
+
+    public int $lineAfterSpanPipeSource = -1;
+
+    public int $lineAfterSpanPipeText = -1;
+
+    /**
+     * Whether the following text reaches the end of its source line without another inline node.
+     */
+    public bool $lineAfterSpanEnds = false;
 
     /**
      * Offset of the pipe in following text that must be escaped to keep the span's final line out of a table.

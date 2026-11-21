@@ -164,6 +164,53 @@ final class WriterClausesTest extends TestCase
         }
     }
 
+    public function testC2W016FollowingTextLineWithLostTrailingSpaceIsReported(): void
+    {
+        $paragraph = [
+            'type' => 'paragraph',
+            'children' => [
+                ['type' => 'text', 'value' => 'a '],
+                ['type' => 'code', 'value' => "x\n|"],
+                ['type' => 'text', 'value' => '|a '],
+            ],
+        ];
+        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+        $this->assertSame(['field-unspellable'], $result->codes());
+    }
+
+    public function testC2W006FollowingBackslashAndPipeReadBack(): void
+    {
+        $paragraph = [
+            'type' => 'paragraph',
+            'children' => [
+                ['type' => 'text', 'value' => 'a '],
+                ['type' => 'code', 'value' => "x\n|"],
+                ['type' => 'text', 'value' => '\\|'],
+            ],
+        ];
+        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+        $this->assertSame([], $result->codes());
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+        $this->assertSame([$paragraph], $read['children']);
+    }
+
+    public function testC2W006FollowingInlineSpanAndPipeReadBack(): void
+    {
+        $paragraph = [
+            'type' => 'paragraph',
+            'children' => [
+                ['type' => 'text', 'value' => 'a '],
+                ['type' => 'code', 'value' => "x\n|"],
+                ['type' => 'math', 'value' => 'y', 'display' => false],
+                ['type' => 'text', 'value' => '|'],
+            ],
+        ];
+        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+        $this->assertSame([], $result->codes());
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+        $this->assertEquals([$paragraph], $read['children']);
+    }
+
     public function testC2W002SpanReadsBackAsTheSameTree(): void
     {
         $paragraph = [

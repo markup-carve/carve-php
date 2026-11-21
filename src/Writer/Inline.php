@@ -216,8 +216,7 @@ final class Inline
             $this->visibleLast = $visible;
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
             $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
-            $c->lineAfterSpan = in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)
-                ? self::followingTextLine($nodes, $at) : '';
+            self::setFollowingTextLine($c, $nodes, $at, $type);
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
@@ -236,7 +235,7 @@ final class Inline
 
     private static function resetFollowingPipe(Context $c, string $type): void
     {
-        if ($type !== 'text') {
+        if ($type !== 'text' && !in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
             $c->escapeFollowingPipeAt = -1;
         }
     }
@@ -286,30 +285,88 @@ final class Inline
     }
 
     /**
-     * The text that shares the final emitted line with a span.
-     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
      * @param array<mixed> $nodes
      * @param int $at
+     * @param string $type
      *
-     * @return string
+     * @return void
      */
-    private static function followingTextLine(array $nodes, int $at): string
+    private static function setFollowingTextLine(Context $c, array $nodes, int $at, string $type): void
     {
-        $tail = '';
+        $c->lineAfterSpan = '';
+        $c->lineAfterSpanEnds = false;
+        $c->lineAfterSpanPipeSource = -1;
+        $c->lineAfterSpanPipeText = -1;
+        if (!in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+            return;
+        }
+        $c->lineAfterSpanEnds = true;
+        $textOffset = 0;
+        $probe = clone $c;
+        $probe->lineStart = false;
+        $probe->last = 0x60;
+        $probe->here = -1;
+        $probe->writerState = null;
+        $probe->escapeFollowingPipeAt = -1;
         for ($i = $at + 1, $n = count($nodes); $i < $n; $i++) {
             $node = $nodes[$i];
-            if (!is_array($node) || self::str($node, 'type') !== 'text') {
+            $nextType = is_array($node) ? self::str($node, 'type') : '';
+            $spanSpelling = is_array($node) ? self::simpleSpanSpelling($node) : null;
+            if (in_array($nextType, ['soft_break', 'hard_break'], true)) {
                 break;
             }
-            $value = self::str($node, 'value');
-            $break = strpos($value, "\n");
-            $tail .= $break === false ? $value : substr($value, 0, $break);
+            if ($nextType === 'text') {
+                $value = self::str($node, 'value');
+                $break = strpos($value, "\n");
+                $fragment = $break === false ? $value : substr($value, 0, $break);
+                $spelled = Text::escape($fragment, $probe, $break === false ? -1 : 10);
+                $pipe = strrpos($fragment, '|');
+                if ($pipe !== false) {
+                    $c->lineAfterSpanPipeSource = strlen($c->lineAfterSpan) + (int)strrpos($spelled, '|');
+                    $c->lineAfterSpanPipeText = $textOffset + $pipe;
+                }
+                $textOffset += strlen($value);
+            } elseif ($spanSpelling !== null) {
+                $spelled = $spanSpelling;
+                $break = strpos($spelled, "\n");
+                if ($break !== false) {
+                    $spelled = substr($spelled, 0, $break);
+                }
+            } else {
+                $c->lineAfterSpanEnds = false;
+
+                break;
+            }
+            $c->lineAfterSpan .= $spelled;
+            if ($spelled !== '') {
+                $probe->last = Chars::before($spelled, strlen($spelled));
+            }
             if ($break !== false) {
                 break;
             }
         }
+    }
 
-        return $tail;
+    /**
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function simpleSpanSpelling(array $node): ?string
+    {
+        $type = self::str($node, 'type');
+        if (!in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+            return null;
+        }
+        $prefix = match ($type) {
+            'math' => ($node['display'] ?? false) === true ? '$$' : '$',
+            'literal_inline' => '!',
+            default => '',
+        };
+
+        return $prefix . self::codeSpan(self::str($node, 'value'))
+            . ($type === 'raw_inline' ? '{=' . self::str($node, 'format') . '}' : '');
     }
 
     /**
@@ -1447,30 +1504,21 @@ final class Inline
             $lines = array_slice(explode("\n", $span ? self::codeSpan($value) : $value), 1);
             $last = count($lines) - 1;
             foreach ($lines as $at => $line) {
-                if ($span && $at === $last && str_starts_with($line, ' ')) {
-                    $this->w->lose($path, self::str($node, 'type'), 'value');
+                if ($span && $at === $last) {
+                    if (!self::spellableFinalSpanLine($line, $c)) {
+                        $this->w->lose($path, self::str($node, 'type'), 'value');
 
-                    break;
+                        break;
+                    }
+
+                    continue;
                 }
                 if (!$span && $at === $last && $line === '') {
                     $spelled = self::codeSpan($value);
                     $line = substr($spelled, (int)strrpos($spelled, "\n") + 1);
                     $line = str_starts_with($line, ' ') ? '' : $line;
                 }
-                $emittedLine = $span && $at === $last ? $line . $c->lineAfterSpan : $line;
-                if ($span && $at === $last && Text::opensBlock($emittedLine, $c)) {
-                    $pipe = strrpos($c->lineAfterSpan, '|');
-                    if ($pipe !== false) {
-                        $escapedLine = $line . substr($c->lineAfterSpan, 0, $pipe) . '\\'
-                            . substr($c->lineAfterSpan, $pipe);
-                        if (!Text::opensBlock($escapedLine, $c)) {
-                            $c->escapeFollowingPipeAt = $pipe;
-
-                            continue;
-                        }
-                    }
-                }
-                if (Text::opensBlock($emittedLine, $span ? $c : null)) {
+                if (Text::opensBlock($line, $span ? $c : null)) {
                     $this->w->lose($path, self::str($node, 'type'), 'value');
 
                     break;
@@ -1482,6 +1530,33 @@ final class Inline
         $this->w->lose($path, self::str($node, 'type'), 'value');
 
         return str_replace("\n", ' ', $value);
+    }
+
+    private static function spellableFinalSpanLine(string $line, Context $c): bool
+    {
+        if (
+            str_starts_with($line, ' ') || ($c->lineAfterSpanEnds
+                && $c->lineAfterSpan !== rtrim($c->lineAfterSpan, " \t"))
+        ) {
+            return false;
+        }
+        if (!$c->lineAfterSpanEnds && str_starts_with(ltrim($line, " \t"), '|')) {
+            return false;
+        }
+        $emittedLine = $line . $c->lineAfterSpan;
+        if (!Text::opensBlock($emittedLine, $c)) {
+            return true;
+        }
+        $pipe = $c->lineAfterSpanPipeSource;
+        if (
+            $pipe < 0 || Text::opensBlock($line . substr($c->lineAfterSpan, 0, $pipe) . '\\'
+                . substr($c->lineAfterSpan, $pipe), $c)
+        ) {
+            return false;
+        }
+        $c->escapeFollowingPipeAt = $c->lineAfterSpanPipeText;
+
+        return true;
     }
 
     /**
