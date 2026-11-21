@@ -183,14 +183,9 @@ final class Text
         }
         if (count($runs) < 2) {
             // A tick in a neighboring nonverbatim inline node can be another, differently sized run in the leaf.
-            foreach ($c->flatNodes as $node) {
-                $type = $node['type'] ?? null;
-                if (is_string($type) && !isset(self::WHOLE[$type]) && str_contains(Inline::strings($node), '`')) {
-                    return [];
-                }
-            }
+            $c->neighborTick ??= self::hasNeighborTick($c);
 
-            return null;
+            return $c->neighborTick ? [] : null;
         }
         $later = [];
         $escaped = [];
@@ -207,6 +202,18 @@ final class Text
         }
 
         return $escaped;
+    }
+
+    private static function hasNeighborTick(Context $c): bool
+    {
+        foreach ($c->flatNodes as $node) {
+            $type = $node['type'] ?? null;
+            if (is_string($type) && !isset(self::WHOLE[$type]) && str_contains(Inline::strings($node), '`')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
