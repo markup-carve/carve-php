@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\Standard;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Html\HtmlRenderer;
+use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Node;
 
 /**
@@ -53,6 +56,8 @@ final class Blocks
 
     private string $bodyOwner = 'body';
 
+    private int $blockDepth = 0;
+
     public function __construct(private State $w)
     {
         $this->inline = new Inline($w);
@@ -69,7 +74,12 @@ final class Blocks
      */
     public function blocks(array $nodes, string $path, string $prefix, bool $tight = false): void
     {
-        $this->siblings($nodes, $path, $prefix, $tight ? self::TIGHT_ITEM : self::BLOCKS);
+        $this->blockDepth++;
+        try {
+            $this->siblings($nodes, $path, $prefix, $tight ? self::TIGHT_ITEM : self::BLOCKS);
+        } finally {
+            $this->blockDepth--;
+        }
     }
 
     /**
@@ -605,7 +615,8 @@ final class Blocks
         $c->lineStart = $lineStart;
         $c->afterDescriptions = $this->w->afterDescriptions;
         $c->boxLead = $this->w->lead !== null && $this->w->lead === $this->w->boxLead;
-        $c->owner = $prefix === '' ? 'top' : (str_ends_with($prefix, '> ') || str_ends_with($prefix, '>') ? 'quote' : $this->bodyOwner);
+        $c->owner = $prefix === '' && $this->blockDepth === 1 ? 'top'
+            : (str_ends_with($prefix, '> ') || str_ends_with($prefix, '>') ? 'quote' : $this->bodyOwner);
         $c->writerState = $this->w;
 
         return $c;
@@ -645,7 +656,76 @@ final class Blocks
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $c = $this->context($children, $mark === '', $prefix);
         $text = $this->inline->content($children, $path . '/children', $c, -1);
+        if ($mark === '') {
+            $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
+        }
         $this->w->emitLines($prefix, $indent, self::endContent($text, $children, $c));
+    }
+
+    /**
+     * A block opener can form across inline nodes, after their individual escape decisions. Try the earliest text
+     * punctuation that keeps the whole emitted line a paragraph with the same children.
+     *
+     * @param string $text
+     * @param array<mixed> $children
+     * @param string|null $head
+     * @param string $path
+     *
+     * @return string
+     */
+    private static function protectParagraphLead(string $text, array $children, ?string $head, string $path): string
+    {
+        if ($text === '' || !Text::isPunct($text[0]) || str_contains($text, "\n")) {
+            return $text;
+        }
+        // Definition lines open only at document column zero, never inside a container.
+        if ($text[0] === '[' && preg_match('#^/children/[0-9]+$#', $path) !== 1) {
+            return $text;
+        }
+        $head ??= '';
+        $first = is_array($children[0] ?? null) ? $children[0] : [];
+        $referenceLead = in_array($first['type'] ?? '', ['footnote_ref', 'link'], true)
+            && str_starts_with($text, '[') && str_contains($text, ']');
+        $afterReference = $referenceLead ? (int)strpos($text, ']') + 1 : 0;
+        $nested = $head !== '';
+        if (self::readsAsParagraph($head . $text, $children, true, $nested)) {
+            return $text;
+        }
+        for ($i = 0, $n = strlen($text); $i < $n; $i++) {
+            if ($i < $afterReference || !Text::isPunct($text[$i]) || ($i > 0 && $text[$i - 1] === '\\')) {
+                continue;
+            }
+            $candidate = substr($text, 0, $i) . '\\' . substr($text, $i);
+            if (self::readsAsParagraph($head . $candidate, $children, $referenceLead, $nested)) {
+                return $candidate;
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * @param string $line
+     * @param array<mixed> $children
+     * @param bool $allowUnresolvedReference
+     * @param bool $allowNested
+     */
+    private static function readsAsParagraph(
+        string $line,
+        array $children,
+        bool $allowUnresolvedReference = false,
+        bool $allowNested = false,
+    ): bool {
+        $tree = TreeEncoder::decoded(Carve::parse($line . "\n"));
+        $rootChildren = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        $node = $rootChildren[0] ?? null;
+        while ($allowNested && is_array($node) && in_array($node['type'] ?? '', ['list', 'list_item', 'block_quote'], true)) {
+            $nested = is_array($node['children'] ?? null) ? $node['children'] : [];
+            $node = $nested[0] ?? null;
+        }
+
+        return is_array($node) && ($node['type'] ?? '') === 'paragraph'
+            && ($allowUnresolvedReference || TreeEquality::equal($node['children'] ?? [], $children));
     }
 
     /**
@@ -714,7 +794,12 @@ final class Blocks
         foreach ($blocks as $at => $block) {
             $inlines = is_array($block) && is_array($block['children'] ?? null) ? $block['children'] : [];
             $c = $this->context($inlines, false);
-            $parts[] = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
+            $part = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
+            // A text number mark at the caption lead would read back as caption_number.
+            if (str_starts_with($part, '#') && is_array($inlines[0] ?? null) && ($inlines[0]['type'] ?? '') === 'text') {
+                $part = '\\' . $part;
+            }
+            $parts[] = $part;
         }
         $this->w->lead = ($this->w->lead ?? $prefix) . '^ ';
         $this->w->emitLines($prefix, '  ', implode(' ', $parts));
@@ -1460,9 +1545,18 @@ final class Blocks
         $this->fenced($node, $path, $prefix, ' |', false, function () use ($lines, $path, $prefix): void {
             $this->bareBreaks = true;
             foreach ($lines as $at => $line) {
+                if (is_array($line) && ($line['type'] ?? '') === 'comment') {
+                    $this->comment($line, $path . '/children/' . $at, $prefix);
+
+                    continue;
+                }
                 $inlines = is_array($line) && is_array($line['children'] ?? null) ? $line['children'] : [];
                 $c = $this->context($inlines, true);
                 $text = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
+                if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $text) === 1) {
+                    $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
+                    $this->w->lose('', 'document', null);
+                }
                 $this->w->emit($prefix, self::endContent($text, $inlines, $c));
             }
             $this->bareBreaks = false;

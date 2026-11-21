@@ -547,7 +547,12 @@ final class TableWriter
             $content = '\\' . $content;
         }
 
-        return [$prefix, $this->fragments($content, $lines, $path)];
+        $first = is_array($blocks[0] ?? null) ? $blocks[0] : [];
+        $inlines = is_array($first['children'] ?? null) ? $first['children'] : [];
+        $last = end($inlines);
+        $terminalHardBreak = is_array($last) && ($last['type'] ?? '') === 'hard_break';
+
+        return [$prefix, $this->fragments($content, $lines, $path, $terminalHardBreak)];
     }
 
     /**
@@ -614,10 +619,11 @@ final class TableWriter
      * @param string $content
      * @param array<int> $lines
      * @param string $path
+     * @param bool $terminalHardBreak
      *
      * @return array<int, string>
      */
-    private function fragments(string $content, array $lines, string $path): array
+    private function fragments(string $content, array $lines, string $path, bool $terminalHardBreak): array
     {
         if ($lines !== []) {
             $fragments = [];
@@ -628,7 +634,9 @@ final class TableWriter
             return $fragments;
         }
         if (str_contains($content, "\n")) {
-            $this->w->lose($path, 'table_cell', 'children');
+            if (!$terminalHardBreak || !str_ends_with($content, "\\\n") || substr_count($content, "\n") !== 1) {
+                $this->w->lose($path, 'table_cell', 'children');
+            }
             $content = str_replace("\n", ' ', $content);
         }
 

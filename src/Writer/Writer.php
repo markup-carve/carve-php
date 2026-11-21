@@ -47,6 +47,10 @@ final class Writer
         if ($opener && ($first['type'] ?? '') !== 'frontmatter') {
             $source = "\n" . $source;
         }
+        // A text U+FEFF is a byte order mark only at byte zero. Keep it behind one blank line there.
+        if (str_starts_with($source, "\u{FEFF}")) {
+            $source = "\n" . $source;
+        }
 
         return new WriteResult($source, $w->losses);
     }
