@@ -408,7 +408,7 @@ final class Text
 
         return match ($ch) {
             '[' => self::bracket($i, $c),
-            '{' => self::brace($i, $c, $after, self::markEscaped($value, $i, $c, $next)),
+            '{' => self::brace($value, $i, $c, $after, self::markEscaped($value, $i, $c, $next)),
             // C2-W-097: a backslash before ASCII punctuation, a space or a line end.
             '\\' => $after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && self::isPunct(chr($after))),
             ']' => $c->inBracket,
@@ -508,9 +508,10 @@ final class Text
 
     /**
      * C2-W-096, C2-I-043: an opening brace forms an attribute block glued to the node before it, a braced comment or an
-     * editorial comment whose closer follows, or a braced opener whose closer follows (C2-I-055). Inside another node
-     * every brace takes the backslash.
+     * editorial comment whose closer follows, or a braced opener whose closer follows (C2-I-055). Inside a span the
+     * text has no place in the flattened leaf, and `braceInSpan` decides.
      *
+     * @param string $value
      * @param int $i
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $after The first character written behind the brace.
@@ -518,11 +519,14 @@ final class Text
      *
      * @return bool
      */
-    private static function brace(int $i, Context $c, int $after, bool $markEscaped): bool
+    private static function brace(string $value, int $i, Context $c, int $after, bool $markEscaped): bool
     {
         $flat = (string)$c->flat;
         $at = $c->here + $i;
-        if ($c->here < 0 || ($flat[$at] ?? '') !== '{') {
+        if ($c->here < 0) {
+            return self::braceInSpan($value, $i, $c);
+        }
+        if (($flat[$at] ?? '') !== '{') {
             return true;
         }
         // C2-I-036: a valid attribute block glued to the end of a host attaches to it.
@@ -550,6 +554,33 @@ final class Text
         }
 
         return self::closerFollows($flat, $at + 1, $mark, $c);
+    }
+
+    /**
+     * C2-W-088: a `{` in the text of a span is bare only where it opens nothing: no mark, brace or quote behind it, no
+     * node before it to take an attribute block (C2-I-036), and no `}` or node behind it in the span, so that the rest
+     * of the text with the span's closer reads as no attribute block either.
+     *
+     * @param string $value
+     * @param int $i
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function braceInSpan(string $value, int $i, Context $c): bool
+    {
+        $span = $c->spanTexts[$c->textPath] ?? null;
+        if ($span === null || $c->inBracket || ($i === 0 && $span[2]) || $span[1]) {
+            return true;
+        }
+        $next = $value[$i + 1] ?? '';
+        $rest = substr($value, $i);
+        if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
+            return true;
+        }
+        $probe = $rest . $span[0] . '}';
+
+        return AttributeParser::readRun($probe, 0, strlen($probe), new Attrs()) >= 0;
     }
 
     /**
