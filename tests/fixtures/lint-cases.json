@@ -1109,15 +1109,7 @@
    "trigger": "[a <x]> b](u)\n",
    "near": "[a  b](u)\n",
    "options": {},
-   "findings": [
-    [
-     "bare-html-tag",
-     "/children/0",
-     3,
-     7,
-     "This bare HTML tag is escaped as text; use a raw HTML block if markup is intended."
-    ]
-   ]
+   "findings": []
   },
   "bidi-control-in-source": {
    "trigger": "a‮b\n",
@@ -2182,7 +2174,7 @@
      "/children/0",
      0,
      1,
-     "A blockquote marker must be bare `>` or followed by a space. This line is literal text; write `> \t` to quote it."
+     "A blockquote marker must be bare `>` or followed by a space. This line is literal text; write `> ` to quote it."
     ]
    ]
   },

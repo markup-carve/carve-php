@@ -447,14 +447,13 @@ final class LineRules
             if (($at > 0 && $line->text[$at - 1] === '\\') || substr_compare($line->text, '<!--', $at, 4) === 0) {
                 continue;
             }
-            $after = $line->text[$at + 1] ?? '';
-            if ($after === '' || !(ctype_alpha($after) || $after === '/')) {
+            // A tag holds no second `<`; matching only up to it keeps the scan linear.
+            $next = strpos($line->text, '<', $at + 1);
+            $segment = substr($line->text, $at, $next === false ? null : $next - $at);
+            if (preg_match('~^</?[A-Za-z][A-Za-z0-9_:-]*(?:\s[^<>]*)?/?>~', $segment, $tag) !== 1) {
                 continue;
             }
-            $end = strpos($line->text, '>', $at + 2);
-            if ($end === false) {
-                continue;
-            }
+            $end = $at + strlen($tag[0]) - 1;
             $inside = substr($line->text, $at + 1, $end - $at - 1);
             if (str_contains($inside, '://') || str_contains($inside, '@') || str_starts_with($inside, '/#')) {
                 continue;
@@ -528,11 +527,9 @@ final class LineRules
         if (!str_starts_with($text, '>') || strlen($text) < 2 || $text[1] === ' ') {
             return;
         }
-        $value = substr($text, 1);
-        $end = $start + strlen(rtrim($text, " \t"));
-        if ($end === $start + 1 && $text[1] === "\t") {
-            $value = "\t";
-        }
+        $body = rtrim($text, " \t");
+        $value = substr($body, 1);
+        $end = $start + strlen($body);
         $c->report('blockquote-marker-without-space', $start, $end, $line->path, ['text' => $value]);
     }
 
@@ -541,8 +538,9 @@ final class LineRules
         if (($line->text[0] ?? '') !== '>' || strlen($line->text) < 2 || $line->text[1] === ' ') {
             return;
         }
-        $value = substr($line->text, 1);
-        $end = $line->start + strlen(rtrim($line->text, " \t"));
+        $body = rtrim($line->text, " \t");
+        $value = substr($body, 1);
+        $end = $line->start + strlen($body);
         $c->report('blockquote-marker-without-space', $line->start, $end, $line->path, ['text' => $value], 1);
     }
 
@@ -924,37 +922,27 @@ final class LineRules
             return;
         }
         [$text, $start] = self::trimmed($line);
-        if (!str_starts_with($text, ':: ')) {
-            return;
-        }
-        $term = substr($text, 3);
-        if (str_starts_with($term, '> ') || self::isListMarker($term)) {
-            $c->report('definition-term-block-folded', $start + 3, $start + 4, $line->path);
+        if (preg_match('/^::?[ \t]+(>|[-*]|[0-9]{1,9}[.)])[ \t]/', $text, $m, PREG_OFFSET_CAPTURE) === 1) {
+            $at = $start + $m[1][1];
+            $c->report('definition-term-block-folded', $at, $at + strlen($m[1][0]), $line->path);
         }
     }
 
     private static function githubAlert(Line $line, Context $c): void
     {
-        if (!in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'heading', 'table_row'], true)) {
+        if (!in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'heading', 'table_row', 'table_cell'], true)) {
             return;
         }
-        if (!str_contains($line->text, '[!')) {
+        if (!str_contains($line->text, '[!') || preg_match('/^[ \t]*>(?:[^ \t\[]|\[[^!])/', $line->text) === 1) {
             return;
         }
-        if (preg_match('/^[ \t]*>:/', $line->text) === 1) {
+        $pattern = '/^[ \t]*(?:>[ \t]*)+(?:(?:[-*]|[0-9]+[.)]|[A-Za-z][.)])[ \t]*>[ \t]*)?(?:\[[^\]]+\]:[ \t]*>[ \t]*)?'
+            . '(\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])/';
+        if (preg_match($pattern, $line->text, $m, PREG_OFFSET_CAPTURE) !== 1) {
             return;
         }
-        if (preg_match('/^[ \t]*>(?: |\[!)/', $line->text) !== 1) {
-            return;
-        }
-        $at = strpos($line->text, '[!');
-        if ($at === false || !str_contains(substr($line->text, $at), ']') || !str_starts_with(Support::trimStart($line->text), '>')) {
-            return;
-        }
-        if (preg_match('/^\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/', substr($line->text, $at)) !== 1) {
-            return;
-        }
-        $c->report('github-alert-marker', $line->start + $at, $line->end, $line->path);
+        $at = $line->start + $m[1][1];
+        $c->report('github-alert-marker', $at, $at + strlen($m[1][0]), $line->path);
     }
 
     private static function djotHeadingContinuation(Line $line, Context $c): void
@@ -1024,10 +1012,13 @@ final class LineRules
 
     private static function captionLooking(Line $line, Context $c): void
     {
-        if (!$line->paragraph || str_contains($line->path, '/caption/')) {
+        if (($c->nodeTypes[$line->path] ?? null) !== 'paragraph' || str_contains($line->path, '/caption/')) {
             return;
         }
-        [$text, $start] = self::paragraphContent($line, $c);
+        $first = $c->paragraphStarts[$line->path] ?? null;
+        [$text, $start] = $first !== null && $first >= $line->start && $first < $line->end
+            ? self::paragraphContent($line, $c)
+            : self::lineText($line);
         if (preg_match('/^\*?\s*(?:Caption|Table|Tabelle|Figure|Image)(?:\s+\d+)?\s*:|^:\s+\S/i', $text) !== 1) {
             return;
         }
@@ -1038,11 +1029,46 @@ final class LineRules
             $prev = $c->lines[$line->number - 1 - $distance] ?? null;
             $below = $below || ($next !== null && isset($c->tableRowPaths[$next->number]));
             $above = $above || ($prev !== null && (isset($c->tableRowPaths[$prev->number])
-                || str_contains($prev->text, '![')));
+                || self::visibleImageMark($prev, $c)));
         }
         if ($below || $above) {
             $c->report('caption-looking-paragraph', $start, $start + 1, $line->path, [], $below ? 0 : 1);
         }
+    }
+
+    /**
+     * Whether `![` appears on the line outside a line comment; a block comment's lines keep their text.
+     */
+    private static function visibleImageMark(Line $line, Context $c): bool
+    {
+        $from = 0;
+        while (($at = strpos($line->text, '![', $from)) !== false) {
+            $from = $at + 1;
+            if (!self::inLineComment($c, $line->start + $at)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function inLineComment(Context $c, int $offset): bool
+    {
+        $lo = 0;
+        $hi = count($c->leafMask) - 1;
+        while ($lo <= $hi) {
+            $mid = ($lo + $hi) >> 1;
+            [$from, $to] = $c->leafMask[$mid];
+            if ($offset < $from) {
+                $hi = $mid - 1;
+            } elseif ($offset >= $to) {
+                $lo = $mid + 1;
+            } else {
+                return $c->leafMask[$mid][3] === 'comment' && !str_contains(substr($c->source, $from, $to - $from), "\n");
+            }
+        }
+
+        return false;
     }
 
     private static function descriptionColumn(Line $line, Context $c): void

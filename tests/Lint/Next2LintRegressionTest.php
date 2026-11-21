@@ -37,16 +37,12 @@ final class Next2LintRegressionTest extends TestCase
             'caption on a term continuation line' => [
                 " :: term\n: | A | B |\n  | x | y |",
                 'caption-looking-paragraph',
-                [
-                    ['caption-looking-paragraph', 9, 10],
-                ],
+                [],
             ],
             'caption on a term continuation line below a tab' => [
                 "\t:: t\n: ## H #\n | 1 | 2 |",
                 'caption-looking-paragraph',
-                [
-                    ['caption-looking-paragraph', 6, 7],
-                ],
+                [],
             ],
             'caption not on a nested term marker line' => [
                 ":: term\n: :: term\n |",
@@ -81,6 +77,32 @@ final class Next2LintRegressionTest extends TestCase
                 [
                     ['unattached-block-attribute', 2, 6],
                 ],
+            ],
+            'alert behind a list marker glued to a quote mark' => ["> >- [!NOTE]\n", 'github-alert-marker', []],
+            'alert after other text on a quote line' => ["> <a <b>[[!NOTE]\n", 'github-alert-marker', []],
+            'alert range is the mark alone' => ["> >\t[!NOTE]*\n", 'github-alert-marker', [['github-alert-marker', 4, 11]]],
+            'alert behind a list marker and a quote mark' => ["> - > [!TIP]\n", 'github-alert-marker', [['github-alert-marker', 6, 12]]],
+            'alert behind a reference definition and a quote mark' => [
+                "> [x]: > [!NOTE]\n", 'github-alert-marker',
+                [['github-alert-marker', 9, 16]],
+            ],
+            'plus after a term mark is not a folded marker' => [":: + x\n", 'definition-term-block-folded', []],
+            'folded ordered marker range' => [":: 12. a\n", 'definition-term-block-folded', [['definition-term-block-folded', 3, 6]]],
+            'ten-digit number after a term mark is not a marker' => [":: 1234567890. x\n", 'definition-term-block-folded', []],
+            'tag shape stops at another less-than sign' => ["a <a <b> c\n", 'bare-html-tag', [['bare-html-tag', 5, 8]]],
+            'closing slash without a name is not a tag' => ["a </> b\n", 'bare-html-tag', []],
+            'caption on a later quoted paragraph line below an image' => [
+                "> a ![i](p)\n> : x\n", 'caption-looking-paragraph',
+                [['caption-looking-paragraph', 14, 15]],
+            ],
+            'caption on a later quoted paragraph line above a table' => [
+                "> a\n> : x\n> | a |\n", 'caption-looking-paragraph',
+                [['caption-looking-paragraph', 6, 7]],
+            ],
+            'image mark inside a line comment above a caption' => ["%% ![i](p)\n: x\n", 'caption-looking-paragraph', []],
+            'image mark inside a block comment above a caption' => [
+                "%%%\n![i](p)\n%%%\n: x\n", 'caption-looking-paragraph',
+                [['caption-looking-paragraph', 16, 17]],
             ],
         ];
     }
