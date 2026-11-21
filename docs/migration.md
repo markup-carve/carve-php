@@ -34,7 +34,7 @@ converter.
 | `$converter->on($event, $listener)`, `RenderEvent` | gone: no render events; use an extension renderer or walk the tree |
 | `$converter->addOutputTransformer($fn)` | gone: post-process the HTML string |
 | `$converter->transform($document, ...$transformers)` | gone: a `documentTransform` on an `ExtensionDefinition`, or `Extension\DocumentTransform`s passed to `Carve::renderWithDocumentTransforms()` |
-| `tryRenderHtmlStreaming()` | gone |
+| `$converter->tryRenderHtmlStreaming($source, $sink)` | `Carve::tryRenderHtmlStreaming($source, $sink, $options)`; the sink receives the full HTML in one call |
 | `getRenderer()`, `getHtmlRenderer()`, `getParser()`, `getHeadingIdTracker()` | gone: internal in 0.2 |
 | `$converter->createEditorSession($source)` | `Carve::createEditorSession($source, $options)`; edit ranges remain UTF-8 byte offsets |
 | `$converter->supportsIncrementalParagraphReuse()` | `Carve::supportsIncrementalParagraphReuse()` |
