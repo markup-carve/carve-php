@@ -105,7 +105,7 @@ final class EditorSession
         $parts[] = substr($old, $cursor);
         $source = implode('', $parts);
         $fast = count($validated) === 1 ? $this->reparseParagraph($source, $validated[0]) : null;
-        $next = $this->build($source, $before['revision'] + 1, $fast);
+        $next = $this->build($source, $before['revision'] + 1, $fast, $validated);
         $oldIds = array_column($before['identity']['nodes'], 'id', 'path');
         $newIds = array_column($next['identity']['nodes'], 'id', 'path');
         $changed = [];
@@ -126,12 +126,13 @@ final class EditorSession
      * @param string $source
      * @param int $revision
      * @param array{ast: array<string, mixed>, layout: array<string, mixed>, parsedBytes: int}|null $fast
+     * @param list<array{from: int, to: int, insert: string}> $changes
      *
      * @throws \InvalidArgumentException
      *
      * @return array<string, mixed>
      */
-    private function build(string $source, int $revision, ?array $fast): array
+    private function build(string $source, int $revision, ?array $fast, array $changes = []): array
     {
         if ($fast === null) {
             $parsed = Carve::parseWithLayout($source, $this->options);
@@ -147,9 +148,43 @@ final class EditorSession
         $nodes = [];
         $signatures = [];
         self::nodes($ast, '', $nodes, $signatures);
-        $previousBySignature = [];
-        foreach ($this->signatures as $oldPath => $signature) {
-            $previousBySignature[$signature][] = $oldPath;
+        $previousNodes = $revision === 0 ? [] : $this->current['nodes'];
+        $identity = $this->identityFor($nodes, $signatures, $previousNodes, $changes);
+
+        return [
+            'parsedSourceBytes' => $fast['parsedBytes'] ?? strlen($source),
+            'reusedPreviousTree' => $fast !== null,
+            'revision' => $revision,
+            'encoding' => 'utf-8',
+            'source' => $source,
+            'ast' => $ast,
+            'layout' => $layout,
+            'nodes' => $nodes,
+            'identity' => ['version' => 1, 'session' => $this->session, 'nodes' => $identity],
+        ];
+    }
+
+    /**
+     * @param list<MappedNode> $nodes
+     * @param array<string, string> $signatures
+     * @param list<MappedNode> $previousNodes
+     * @param list<array{from: int, to: int, insert: string}> $changes
+     *
+     * @return list<array{id: string, path: string}>
+     */
+    private function identityFor(array $nodes, array $signatures, array $previousNodes, array $changes): array
+    {
+        $previousByRange = [];
+        foreach ($previousNodes as $old) {
+            if ($old['path'] === '') {
+                continue;
+            }
+            $range = self::shiftedRange($old['startByte'], $old['endByte'], $changes);
+            if ($range !== null) {
+                $signature = $this->signatures[$old['path']] ?? '';
+                $key = $signature . ':' . $range[0] . ':' . $range[1];
+                $previousByRange[$key][] = $old['path'];
+            }
         }
         $identity = [];
         $ids = [];
@@ -157,10 +192,11 @@ final class EditorSession
         foreach ($nodes as $node) {
             $path = $node['path'];
             $id = null;
-            if ($path === '' || ($this->signatures[$path] ?? null) === $signatures[$path]) {
+            if ($path === '') {
                 $id = $this->ids[$path] ?? null;
             }
-            $candidates = $previousBySignature[$signatures[$path]] ?? [];
+            $key = $signatures[$path] . ':' . $node['startByte'] . ':' . $node['endByte'];
+            $candidates = $previousByRange[$key] ?? [];
             if ($id === null && count($candidates) === 1) {
                 $id = $this->ids[$candidates[0]] ?? null;
             }
@@ -174,17 +210,32 @@ final class EditorSession
         $this->ids = $ids;
         $this->signatures = $signatures;
 
-        return [
-            'parsedSourceBytes' => $fast['parsedBytes'] ?? strlen($source),
-            'reusedPreviousTree' => $fast !== null,
-            'revision' => $revision,
-            'encoding' => 'utf-8',
-            'source' => $source,
-            'ast' => $ast,
-            'layout' => $layout,
-            'nodes' => $nodes,
-            'identity' => ['version' => 1, 'session' => $this->session, 'nodes' => $identity],
-        ];
+        return $identity;
+    }
+
+    /**
+     * @param int $start
+     * @param int $end
+     * @param list<array{from: int, to: int, insert: string}> $changes
+     *
+     * @return array{int, int}|null
+     */
+    private static function shiftedRange(int $start, int $end, array $changes): ?array
+    {
+        $delta = 0;
+        foreach ($changes as $change) {
+            if (
+                ($change['from'] < $end && $change['to'] > $start)
+                || ($change['from'] === $change['to'] && $change['from'] > $start && $change['from'] < $end)
+            ) {
+                return null;
+            }
+            if ($change['to'] <= $start) {
+                $delta += strlen($change['insert']) - ($change['to'] - $change['from']);
+            }
+        }
+
+        return [$start + $delta, $end + $delta];
     }
 
     /**

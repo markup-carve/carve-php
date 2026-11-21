@@ -65,6 +65,16 @@ final class EditorSessionTest extends TestCase
         self::assertSame($before[''], $ids['']);
     }
 
+    public function testDeletingAnIdenticalParagraphKeepsTheSurvivorsIdentity(): void
+    {
+        $session = Carve::createEditorSession("same\n\nsame\n");
+        $before = array_column($session->snapshot()['identity']['nodes'], 'id', 'path');
+        $after = $session->update([['from' => 0, 'to' => 6, 'insert' => '']]);
+        $ids = array_column($after['identity']['nodes'], 'id', 'path');
+        self::assertSame($before['/children/1'], $ids['/children/0']);
+        self::assertSame($before['/children/1/children/0'], $ids['/children/0/children/0']);
+    }
+
     public function testClauseCasesMatchFreshParseAtEveryByteOffset(): void
     {
         foreach (ClauseCasesTest::cases() as [$row]) {
