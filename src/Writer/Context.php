@@ -64,6 +64,11 @@ final class Context
 
     public bool $inCell = false;
 
+    /**
+     * C2-A-069: the content is one line of a line block, so every line ending in it ends the line.
+     */
+    public bool $inLineBlock = false;
+
     public bool $inBracket = false;
 
     /**

@@ -1492,6 +1492,9 @@ final class Inline
     {
         $value = $this->cellValue($node, $path, $c, self::str($node, 'value'), true);
         $spelling = $prefix . self::codeSpan($value);
+        if ($c->inLineBlock && !$c->inCell && str_contains($value, "\n")) {
+            return $spelling;
+        }
         $break = strpos($spelling, "\n");
         $firstLine = $break === false ? $spelling : substr($spelling, 0, $break);
         if ($c->lineStart && strspn($firstLine, '`') >= 3 && Text::opensBlock($firstLine, $c, true)) {
@@ -1524,6 +1527,16 @@ final class Inline
             return $value;
         }
         if (!$c->inCell) {
+            if ($c->inLineBlock) {
+                // C2-W-124: the line ending ends the line, so the node reads back as text.
+                $this->w->lose($path, self::str($node, 'type'), null);
+
+                return $value;
+            }
+            if (str_contains($value, "\r\n") || (!$span && preg_match('/[ \t]\n|\n[ \t]/', $value) === 1)) {
+                // The reader drops the CR of a line ending and, in a comment, the spaces and tabs around it.
+                $this->w->lose($path, self::str($node, 'type'), 'value');
+            }
             $lines = array_slice(explode("\n", $span ? self::codeSpan($value) : $value), 1);
             $last = count($lines) - 1;
             foreach ($lines as $at => $line) {
@@ -1725,8 +1738,10 @@ final class Inline
      */
     private function comment(array $node, string $path, Context $c): string
     {
-        $value = $this->cellValue($node, $path, $c, self::str($node, 'value'));
-        if (($node['form'] ?? '') === 'braced') {
+        $braced = ($node['form'] ?? '') === 'braced';
+        // A line comment outside a cell writes its line feeds as spaces below, so it reads back as a comment.
+        $value = $braced || $c->inCell ? $this->cellValue($node, $path, $c, self::str($node, 'value')) : self::str($node, 'value');
+        if ($braced) {
             return $value === '' ? '{%%}' : '{% ' . $value . ' %}';
         }
         $kept = rtrim($value, " \t");
