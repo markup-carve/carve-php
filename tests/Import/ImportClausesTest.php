@@ -126,6 +126,14 @@ final class ImportClausesTest extends TestCase
         $this->assertSame('document', HtmlImporter::import($html)->tree->type);
     }
 
+    public function testC2M006DroppedFootnotesSectionDoesNotIncreaseDepth(): void
+    {
+        $html = '<section class="footnotes">' . str_repeat('<blockquote>', 201) . 'a'
+            . str_repeat('</blockquote>', 201) . '</section>';
+
+        $this->assertSame('document', HtmlImporter::import($html)->tree->type);
+    }
+
     public function testC2M013RunOfImagesGivesOneImageParagraphEach(): void
     {
         $image = static fn (string $src): array => [

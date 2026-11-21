@@ -41,8 +41,6 @@ final class HtmlImporter
         'html' => true,
         'body' => true,
         'blockquote' => true,
-        'section' => true,
-        'aside' => true,
     ];
 
     /**
@@ -203,7 +201,7 @@ final class HtmlImporter
         while ($stack !== []) {
             [$node, $depth] = array_pop($stack);
             if ($node->isElement()) {
-                if (!isset(self::DEPTH_FLOW_HOSTS[$node->name])) {
+                if (!isset(self::DEPTH_FLOW_HOSTS[$node->name]) || ($node->name === 'blockquote' && $node->attrs !== [])) {
                     continue;
                 }
                 $depth += isset(self::DEPTH_HTML_CONTAINERS[$node->name]) ? 1 : 0;
