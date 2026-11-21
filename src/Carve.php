@@ -198,11 +198,12 @@ final class Carve
             $findings = new Findings();
         }
         HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
+        $shiftAbove = $opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null;
         $transformEntries = [];
         if ($transforms !== []) {
             [$doc, $facts, $transformEntries] = self::applyDocumentTransforms($doc, $source, $opts, $transforms);
         }
-        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts, true);
+        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts, true, $shiftAbove, true);
         $entries = $findings->finish($doc);
         array_push($entries, ...$transformEntries);
         $losses = new Findings();

@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Cli\Command;
 use MarkupCarve\Carve\Export\AnsiExporter;
 use MarkupCarve\Carve\Export\MarkdownExporter;
 use MarkupCarve\Carve\Export\PlainTextExporter;
+use MarkupCarve\Carve\Extension\DocumentTransform;
 use MarkupCarve\Carve\Extension\Navigation;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\OptionError;
@@ -79,6 +80,38 @@ final class HeadingShiftTest extends TestCase
         $html = Carve::toHtml("= A\n\n== B\n", $options);
         self::assertStringContainsString('<h2>A <a', $html);
         self::assertStringNotContainsString('<h3>B <a', $html);
+    }
+
+    public function testShiftWarningIsRecordedBeforeHostLevelEdits(): void
+    {
+        $options = ['headingShift' => 1, 'roundtrip' => true, 'sections' => false, 'headingIds' => 'off'];
+        foreach ([
+            ["====== A\n", 2, '<h2 data-carve-source-level="1">A</h2>', ['heading-shift-above-6']],
+            ["= A\n", 7, '<div data-carve-source-level="6" role="heading" aria-level="7">A</div>', []],
+            ["= A\n", 1, '<h1 data-carve-source-level="0">A</h1>', []],
+        ] as [$source, $level, $html, $codes]) {
+            $result = Carve::renderWithDocumentTransforms($source, [
+                new DocumentTransform('sample.level', static function ($view) use ($level) {
+                    $view->children[0]->f['level'] = $level;
+
+                    return $view;
+                }),
+            ], $options);
+            self::assertSame($html, $result->html);
+            self::assertSame($codes, array_map(static fn ($d) => $d->code, $result->diagnostics));
+        }
+    }
+
+    public function testInsertedHeadingCarriesFinalLevelMinusShift(): void
+    {
+        $result = Carve::renderWithDocumentTransforms("= A\n", [
+            new DocumentTransform('sample.add', static function ($view) {
+                $view->children[] = Carve::parse("=== B\n", ['headingIds' => 'off'])->children[0];
+
+                return $view;
+            }),
+        ], ['headingShift' => 1, 'roundtrip' => true, 'sections' => false, 'headingIds' => 'off']);
+        self::assertSame('<h2 data-carve-source-level="1">A</h2>' . "\n" . '<h3 data-carve-source-level="2">B</h3>', $result->html);
     }
 
     public function testEveryRenderEntryShiftsOnce(): void
