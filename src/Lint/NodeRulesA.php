@@ -271,8 +271,8 @@ final class NodeRulesA
      */
     public static function multilineMarkdownStrong(array $node, string $path, Context $c): void
     {
-        foreach (self::runRanges($node, $c, '**', 'markdown-strong-double-star') as [$start, $end, $owner]) {
-            $c->report('markdown-strong-double-star', $start, $end, $path . '/children/' . $owner);
+        foreach (self::runRanges($node, $c, '**', 'markdown-strong-double-star') as [$start, $end]) {
+            $c->report('markdown-strong-double-star', $start, $end, $path);
         }
     }
 
