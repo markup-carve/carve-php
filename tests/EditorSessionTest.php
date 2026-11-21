@@ -10,6 +10,34 @@ use PHPUnit\Framework\TestCase;
 
 final class EditorSessionTest extends TestCase
 {
+    public function testSyntaxTokensUseByteRanges(): void
+    {
+        $source = "😀\n\n{#hero}\n### Head\n\n[label](https://example.com)\n";
+        $nodes = Carve::createEditorSession($source)->snapshot()['nodes'];
+        $tokens = [];
+        foreach ($nodes as $node) {
+            foreach ($node['tokens'] as $token) {
+                $tokens[] = [$token['role'], substr($source, $token['startByte'], $token['endByte'] - $token['startByte'])];
+            }
+        }
+        self::assertContains(['attribute', '{#hero}'], $tokens);
+        self::assertContains(['block-marker', '### '], $tokens);
+        self::assertContains(['destination', 'https://example.com'], $tokens);
+    }
+
+    public function testAttributeTokensAcrossLineEndings(): void
+    {
+        foreach (["\n", "\r\n"] as $ending) {
+            $source = '{.a}' . $ending . '# Head' . $ending;
+            $nodes = Carve::createEditorSession($source)->snapshot()['nodes'];
+            $tokens = [];
+            foreach ($nodes as $node) {
+                $tokens = array_merge($tokens, $node['tokens']);
+            }
+            self::assertContains(['role' => 'attribute', 'startByte' => 0, 'endByte' => 4], $tokens);
+        }
+    }
+
     public function testUtf8ByteChangesAndStructuralFallbackMatchFreshParse(): void
     {
         $session = Carve::createEditorSession('😀 one');
@@ -73,6 +101,20 @@ final class EditorSessionTest extends TestCase
         $ids = array_column($after['identity']['nodes'], 'id', 'path');
         self::assertSame($before['/children/1'], $ids['/children/0']);
         self::assertSame($before['/children/1/children/0'], $ids['/children/0/children/0']);
+    }
+
+    public function testRepeatedPlainEditsStayFresh(): void
+    {
+        $session = Carve::createEditorSession("first\n\ntext\n\nlast");
+        for ($index = 0; $index < 20; $index++) {
+            $source = $session->snapshot()['source'];
+            $end = strpos($source, "\n", 7);
+            self::assertNotFalse($end);
+            $after = $session->update([['from' => 7, 'to' => $end, 'insert' => 'paragraph ' . $index]]);
+            self::assertTrue($after['reusedPreviousTree']);
+            self::assertSame(json_decode(Carve::toJson($after['source']), true), $after['ast']);
+            self::assertSame(Carve::parseWithLayout($after['source'])->layout, $after['layout']);
+        }
     }
 
     public function testClauseCasesMatchFreshParseAtEveryByteOffset(): void

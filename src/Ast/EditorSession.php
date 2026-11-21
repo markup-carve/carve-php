@@ -147,7 +147,7 @@ final class EditorSession
         }
         $nodes = [];
         $signatures = [];
-        self::nodes($ast, '', $nodes, $signatures);
+        self::nodes($ast, '', $nodes, $signatures, $source);
         $previousNodes = $revision === 0 ? [] : $this->current['nodes'];
         $identity = $this->identityFor($nodes, $signatures, $previousNodes, $changes);
 
@@ -243,8 +243,9 @@ final class EditorSession
      * @param string $path
      * @param list<MappedNode> $out
      * @param array<string, string> $signatures
+     * @param string $source
      */
-    private static function nodes(array $node, string $path, array &$out, array &$signatures): void
+    private static function nodes(array $node, string $path, array &$out, array &$signatures, string $source): void
     {
         if (!is_string($node['type'] ?? null)) {
             return;
@@ -257,11 +258,11 @@ final class EditorSession
             'startByte' => is_array($pos) && is_int($pos['startOffset'] ?? null) ? $pos['startOffset'] : 0,
             'endByte' => is_array($pos) && is_int($pos['endOffset'] ?? null) ? $pos['endOffset'] : 0,
             'type' => $node['type'],
-            'tokens' => [],
+            'tokens' => self::tokens($node, $source),
         ];
         foreach (['title', 'children', 'caption', 'short', 'slots'] as $field) {
             if (is_array($node[$field] ?? null)) {
-                self::childNodes($node[$field], $path . '/' . $field, $out, $signatures);
+                self::childNodes($node[$field], $path . '/' . $field, $out, $signatures, $source);
             }
         }
     }
@@ -271,19 +272,80 @@ final class EditorSession
      * @param string $path
      * @param list<MappedNode> $out
      * @param array<string, string> $signatures
+     * @param string $source
      */
-    private static function childNodes(array $value, string $path, array &$out, array &$signatures): void
+    private static function childNodes(array $value, string $path, array &$out, array &$signatures, string $source): void
     {
         if (is_string($value['type'] ?? null)) {
-            self::nodes($value, $path, $out, $signatures);
+            self::nodes($value, $path, $out, $signatures, $source);
 
             return;
         }
         foreach ($value as $key => $child) {
             if (is_array($child)) {
-                self::childNodes($child, $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key), $out, $signatures);
+                self::childNodes($child, $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key), $out, $signatures, $source);
             }
         }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $source
+     *
+     * @return list<array{role: string, startByte: int, endByte: int}>
+     */
+    private static function tokens(array $node, string $source): array
+    {
+        $type = $node['type'] ?? null;
+        if (!in_array($type, ['heading', 'link', 'code_block', 'table_row'], true)) {
+            return [];
+        }
+        $pos = $node['pos'] ?? null;
+        if (!is_array($pos) || !is_int($pos['startOffset'] ?? null) || !is_int($pos['endOffset'] ?? null)) {
+            return [];
+        }
+        $start = $pos['startOffset'];
+        $authored = substr($source, $start, $pos['endOffset'] - $start);
+        $tokens = [];
+        if ($type === 'heading') {
+            if (preg_match('/\A(\{[^\r\n]+\})(?:\r\n|\r|\n)/', $authored, $m) === 1) {
+                $tokens[] = ['role' => 'attribute', 'startByte' => $start, 'endByte' => $start + strlen($m[1])];
+            }
+            if (preg_match('/(?:\A|\r\n|\r|\n)(#{1,6}[ \t]+)/', $authored, $m, PREG_OFFSET_CAPTURE) === 1) {
+                $at = $start + $m[1][1];
+                $tokens[] = ['role' => 'block-marker', 'startByte' => $at, 'endByte' => $at + strlen($m[1][0])];
+            }
+        } elseif ($type === 'link' && preg_match('/\]\(([^)]*)\)\z/', $authored, $m, PREG_OFFSET_CAPTURE) === 1) {
+            $at = $start + $m[1][1];
+            $tokens[] = ['role' => 'destination', 'startByte' => $at, 'endByte' => $at + strlen($m[1][0])];
+        } elseif ($type === 'code_block') {
+            $tokens = self::codeFenceTokens($authored, $start, $pos['endOffset']);
+        } elseif ($type === 'table_row') {
+            for ($at = 0, $end = strlen($authored); $at < $end; $at++) {
+                if ($authored[$at] === '|') {
+                    $tokens[] = ['role' => 'table-marker', 'startByte' => $start + $at, 'endByte' => $start + $at + 1];
+                }
+            }
+        }
+
+        return $tokens;
+    }
+
+    /**
+     * @return list<array{role: string, startByte: int, endByte: int}>
+     */
+    private static function codeFenceTokens(string $authored, int $start, int $end): array
+    {
+        $first = strpos($authored, "\n");
+        $last = strrpos($authored, "\n");
+        if ($first === false || $last === false || $last <= $first) {
+            return [];
+        }
+
+        return [
+            ['role' => 'fence-open', 'startByte' => $start, 'endByte' => $start + $first + 1],
+            ['role' => 'fence-close', 'startByte' => $start + $last, 'endByte' => $end],
+        ];
     }
 
     /**
