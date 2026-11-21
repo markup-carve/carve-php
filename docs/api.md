@@ -14,6 +14,8 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static parse(string $source, array $options = []): Node`: Parse and resolve: the tree of a source.
 - `static parseWithDiagnostics(string $source, array $options = []): ParseResult`: Parse and resolve, with the entries of the parse channel (C2-A-173).
 - `static parseWithLayout(string $source, array $options = []): LayoutResult`: Parse and resolve, with the source-layout record of the input (C2-L-001, C2-L-003: the tree is the same).
+- `static supportsIncrementalParagraphReuse(): bool`
+- `static createEditorSession(string $source, array $options = []): EditorSession`: Start a source-authoritative editor session with byte-range edits.
 - `static validateLayout(string $json, ?array $tree = null): array`: Reads a source-layout record as JSON, refusing what C2-L-008 and C2-L-058 refuse.
 - `static renderWithDiagnostics(Node|array|string $input, array $options = []): RenderResult`: Render, with the entries of the parse and the render-loss channels (C2-A-173). A tree has no parse entries.
 - `static renderWithDocumentTransforms(Node|array|string $input, array $transforms, array $options = []): RenderResult`: C2-X-053 to C2-X-055: run named host passes on a copied resolved view before HTML rendering.
@@ -235,7 +237,14 @@ Class. Thrown under `strictLosses` when an export lost something.
 
 Fields: `array $diagnostics`.
 
-## ProseMirror bridge
+## Editor APIs
+
+### `MarkupCarve\Carve\Ast\EditorSession`
+
+Class. Source-authoritative UTF-8 editor state. Edit ranges are byte offsets.
+
+- `snapshot(): array`
+- `update(array $changes): array`: Apply sorted, non-overlapping changes in the previous snapshot.
 
 ### `MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer`
 

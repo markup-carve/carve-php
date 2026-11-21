@@ -20,10 +20,12 @@ final class PublicSurfaceTest extends TestCase
         $names = array_map(static fn (ReflectionMethod $m): string => $m->getName(), $methods);
         sort($names);
         $this->assertSame([
-            'applyPatch', 'decodeTree', 'diffTree', 'encodeEnvelope', 'encodeTree', 'format', 'formatWithDiagnostics',
+            'applyPatch', 'createEditorSession', 'decodeTree', 'diffTree', 'encodeEnvelope', 'encodeTree', 'format',
+            'formatWithDiagnostics',
             'headingId', 'importDocument', 'importHtml', 'includeDependencies', 'lint', 'migrateTree', 'parse', 'parseWithDiagnostics',
             'parseWithLayout', 'plainText', 'positionOf', 'render', 'renderWithDiagnostics', 'renderWithDocumentTransforms',
-            'safeCodeFence', 'sourceFingerprint', 'tableGrid', 'toHtml', 'toJson', 'treeFingerprint', 'validateLayout',
+            'safeCodeFence', 'sourceFingerprint', 'supportsIncrementalParagraphReuse', 'tableGrid', 'toHtml', 'toJson',
+            'treeFingerprint', 'validateLayout',
             'validateTree', 'version', 'write', 'writeTo', 'writeWithDiagnostics', 'writers',
         ], $names);
     }

@@ -38,6 +38,8 @@ Every error a call throws implements `CarveException`.
 | `parse($source, $options)` | the tree as a `Node` |
 | `parseWithDiagnostics($source, $options)` | `ParseResult`: tree and parse diagnostics |
 | `parseWithLayout($source, $options)` | `LayoutResult`: tree and the source-layout record |
+| `createEditorSession($source, $options)` | `Ast\EditorSession`: UTF-8 byte-range edits, snapshots and 0.2 AST JSON |
+| `supportsIncrementalParagraphReuse()` | whether a plain paragraph edit can reuse the other parsed paragraphs |
 | `validateLayout($json, $tree = null)` | the layout record, or `LayoutError` when it is refused |
 | `render($sourceOrTree, $options)` | HTML of source, a `Node` or a decoded tree array |
 | `renderWithDiagnostics($sourceOrTree, $options)` | `RenderResult`: HTML and all diagnostics |

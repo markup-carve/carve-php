@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve;
 
 use Composer\InstalledVersions;
+use MarkupCarve\Carve\Ast\EditorSession;
 use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Diagnostics\Cap;
@@ -122,6 +123,22 @@ final class Carve
         [$entries, $suppressed] = Cap::apply($findings->finish($doc), $opts, false);
 
         return new LayoutResult(self::remember($doc, $source), LayoutBuilder::build($source, $doc), $entries, $suppressed);
+    }
+
+    public static function supportsIncrementalParagraphReuse(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Start a source-authoritative editor session with byte-range edits.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     */
+    public static function createEditorSession(string $source, array $options = []): EditorSession
+    {
+        return new EditorSession($source, $options);
     }
 
     /**
