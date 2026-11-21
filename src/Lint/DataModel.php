@@ -376,7 +376,16 @@ final class DataModel
             ($this->onInline)($run);
         }
         $pipeTables = [];
+        $rows = [];
         foreach ($c->walked as $item) {
+            if (self::type($item['node']) === 'table_row') {
+                $rowPos = Support::pos($item['node']);
+                if ($rowPos !== null) {
+                    $rows[] = [$rowPos['startLine'] - 1, $rowPos['endLine'] - 1, $item['path']];
+                }
+
+                continue;
+            }
             if (self::type($item['node']) !== 'table' || $c->layout->sourceFormat($item['path']) !== 'pipe') {
                 continue;
             }
@@ -442,6 +451,7 @@ final class DataModel
                 'table_above' => null,
                 'table_below' => null,
                 'table_path' => null,
+                'row_path' => null,
                 'attached_here' => isset($c->attachedLines[$i + 1]),
                 'closes_container' => false,
                 'ancestors' => $this->ancestors($linePath),
@@ -470,6 +480,12 @@ final class DataModel
             }
             $record->quote_marks = $this->quoteMarks($record->text);
             $record->lazy = $this->lazy($record);
+        }
+        // A table row's lines name the row, as carve-js marks them (C2-W-138).
+        foreach ($rows as [$first, $last, $rowPath]) {
+            for ($i = $first; $i <= $last && isset($this->lines[$i]); $i++) {
+                $this->lines[$i]->row_path = $rowPath;
+            }
         }
         foreach ($pipeTables as [$first, $last, $tablePath]) {
             $seen = null;
