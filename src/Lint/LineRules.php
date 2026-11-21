@@ -186,7 +186,7 @@ final class LineRules
             return [Support::trimEnd(substr($line->text, $start - $line->start)), $start];
         }
 
-        return self::trimmed($line);
+        return self::lineText($line);
     }
 
     /**

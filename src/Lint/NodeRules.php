@@ -21,6 +21,16 @@ final class NodeRules
         return static fn (array $node, string $path, Context $c) => NodeRulesA::textPair($node, $path, $c, $mark, $id);
     }
 
+    /**
+     * Pairs are read on the text runs of every inline host, as data mode reads them.
+     *
+     * @return array<string>
+     */
+    private static function hosts(): array
+    {
+        return array_keys(DataModel::INLINE_PARENTS);
+    }
+
     private static function multilinePair(string $mark, string $id): Closure
     {
         return static fn (array $node, string $path, Context $c) => NodeRulesA::multilineBarePair($node, $path, $c, $mark, $id);
@@ -37,16 +47,19 @@ final class NodeRules
             ['deprecated-bare-underline', ['text'], self::pair('_', 'deprecated-bare-underline')],
             ['deprecated-bare-strike', ['text'], self::pair('~', 'deprecated-bare-strike')],
             ['deprecated-bare-highlight', ['text'], self::pair('=', 'deprecated-bare-highlight')],
-            ['deprecated-bare-underline', ['paragraph'], self::multilinePair('_', 'deprecated-bare-underline')],
-            ['deprecated-bare-strike', ['paragraph'], self::multilinePair('~', 'deprecated-bare-strike')],
-            ['deprecated-bare-highlight', ['paragraph'], self::multilinePair('=', 'deprecated-bare-highlight')],
+            ['deprecated-bare-underline', self::hosts(), self::multilinePair('_', 'deprecated-bare-underline')],
+            ['deprecated-bare-strike', self::hosts(), self::multilinePair('~', 'deprecated-bare-strike')],
+            ['deprecated-bare-highlight', self::hosts(), self::multilinePair('=', 'deprecated-bare-highlight')],
             ['markdown-strong-double-star', ['text'], self::pair('**', 'markdown-strong-double-star')],
-            ['markdown-strong-double-star', ['paragraph'], NodeRulesA::multilineMarkdownStrong(...)],
+            ['markdown-strong-double-star', self::hosts(), self::multilinePair('**', 'markdown-strong-double-star')],
             ['markdown-strikethrough-double-tilde', ['text'], self::pair('~~', 'markdown-strikethrough-double-tilde')],
-            ['markdown-strikethrough-double-tilde', ['paragraph'], self::multilinePair('~~', 'markdown-strikethrough-double-tilde')],
+            ['markdown-strikethrough-double-tilde', self::hosts(), self::multilinePair('~~', 'markdown-strikethrough-double-tilde')],
             ['djot-emphasis-underscore', ['text'], self::pair('_', 'djot-emphasis-underscore')],
+            ['djot-emphasis-underscore', self::hosts(), self::multilinePair('_', 'djot-emphasis-underscore')],
             ['djot-subscript-tilde', ['text'], self::pair('~', 'djot-subscript-tilde')],
+            ['djot-subscript-tilde', self::hosts(), self::multilinePair('~', 'djot-subscript-tilde')],
             ['djot-superscript-caret', ['text'], self::pair('^', 'djot-superscript-caret')],
+            ['djot-superscript-caret', self::hosts(), self::multilinePair('^', 'djot-superscript-caret')],
             ['a11y/image-alt', ['image'], NodeRulesA::imageAlt(...)],
             ['empty-link-destination', ['link'], NodeRulesA::emptyDestination(...)],
             ['deprecated-loose-attribute', ['list'], NodeRulesA::looseAttribute(...)],
