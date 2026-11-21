@@ -942,13 +942,6 @@ final class Inline
     private function bracketed(string $open, array $node, string $path, Context $c): string
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        // An empty span reads back only with its attributes behind it, as `[]{.c}`.
-        if ($children === [] && ($node['type'] ?? '') === 'span' && ($node['attrs'] ?? []) === []) {
-            $this->w->lose($path, 'span', null);
-
-            return '';
-        }
-
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of span text would read as a footnote reference.
         if ($open === '[' && str_starts_with($inner, '^')) {
@@ -1433,7 +1426,8 @@ final class Inline
         $before = match ($prevType) {
             '', 'soft_break', 'hard_break', 'non_breaking_space' => -1,
             'text' => $this->visibleLast,
-            'smart_punctuation' => str_starts_with(self::str($prev, 'kind'), 'left_') ? 0x201C : 0x61,
+            'smart_punctuation' => in_array(self::str($prev, 'kind'), ['left_single_quote', 'left_double_quote'], true)
+                ? 0x201C : 0x61,
             default => 0x61,
         };
         $opens = Chars::isSpace($before) || ($before >= 0 && $before < 0x80

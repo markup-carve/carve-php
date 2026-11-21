@@ -984,7 +984,8 @@ final class Text
     }
 
     /**
-     * C2-I-114: three dots read as an ellipsis, so every third dot of a run takes a backslash, starting with the first.
+     * C2-I-114: three bare dots read as an ellipsis. Short runs keep the writer's simple spelling; long runs use the
+     * compact spelling of one escape per three dots. The tail also needs escapes until at most two bare dots remain.
      *
      * @param string $value
      * @param int $i
@@ -994,8 +995,14 @@ final class Text
     private static function dot(string $value, int $i): bool
     {
         [$start, $end] = self::bounds($value, $i);
+        $length = $end - $start + 1;
+        $offset = $i - $start;
+        if ($length < 15) {
+            return $end - $i >= 2;
+        }
+        $last = intdiv($length - 3, 3) * 3;
 
-        return $end - $start >= 2 && ($i - $start) % 3 === 0 && $end - $i >= 2;
+        return $offset <= $length - 3 && ($offset % 3 === 0 || $offset > $last);
     }
 
     /**
