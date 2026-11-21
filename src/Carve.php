@@ -390,6 +390,9 @@ final class Carve
             self::expand($doc, $findings, $opts, $hasInclude);
             Extensions::apply($doc, $opts->extensions, self::divBody(...));
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
+            if (!$keep) {
+                TreeEncoder::limitParsedExpansions($doc, strlen($source));
+            }
 
             return [$doc, $findings, $facts];
         } finally {

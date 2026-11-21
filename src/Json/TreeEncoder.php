@@ -67,6 +67,16 @@ final class TreeEncoder
     private bool $compactEmptyCells = false;
 
     /**
+     * @var array<int, array<bool>>
+     */
+    private array $omittedAbbreviationExpansions = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $abbreviationExpansionIndexes = [];
+
+    /**
      * @var array{0: int, 1: int, 2: array<string, int>}|null The last position, which a wrapper of one child repeats.
      */
     private ?array $lastPos = null;
@@ -253,6 +263,10 @@ final class TreeEncoder
      */
     public function encode(Node $root, ?string $source): array
     {
+        $length = $source !== null ? strlen($source) : ($root->f['srcByteLength'] ?? 0);
+        $length = is_int($length) && $length > 0 ? $length : 0;
+        [, $this->omittedAbbreviationExpansions] = self::expansionDecisions($root, $length);
+        $this->abbreviationExpansionIndexes = [];
         $this->sources = $root->includeSources;
         if ($source !== null) {
             $this->sources[''] = $source;
@@ -260,6 +274,74 @@ final class TreeEncoder
         }
 
         return $this->node($root, $source !== null);
+    }
+
+    public static function limitParsedExpansions(Node $root, int $sourceLength): void
+    {
+        [$nodes, $omitted] = self::expansionDecisions($root, $sourceLength);
+        foreach ($omitted as $id => $decisions) {
+            if (in_array(true, $decisions, true)) {
+                unset($nodes[$id]->f['expansion']);
+            }
+        }
+    }
+
+    /**
+     * @return array{array<int, \MarkupCarve\Carve\Node>, array<int, array<bool>>}
+     */
+    private static function expansionDecisions(Node $root, int $sourceLength): array
+    {
+        $remaining = max(1000000, min($sourceLength, intdiv(PHP_INT_MAX, 8)) * 8);
+        $omitted = [];
+        $nodes = [];
+        $stack = [$root];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $id = spl_object_id($node);
+            if ($node->type === 'abbreviation' && is_string($node->f['expansion'] ?? null)) {
+                $nodes[$id] = $node;
+                $cost = strlen($node->f['expansion']);
+                if ($cost > $remaining) {
+                    $omitted[$id][] = true;
+                } else {
+                    $remaining -= $cost;
+                    $omitted[$id][] = false;
+                }
+            }
+            $children = [];
+            self::appendNodes($node->f['title'] ?? null, $children);
+            foreach ($node->children ?? [] as $child) {
+                $children[] = $child;
+            }
+            foreach ($node->f as $key => $value) {
+                if ($key !== 'title') {
+                    self::appendNodes($value, $children);
+                }
+            }
+            for ($i = count($children) - 1; $i >= 0; $i--) {
+                $stack[] = $children[$i];
+            }
+        }
+
+        return [$nodes, $omitted];
+    }
+
+    /**
+     * @param mixed $value
+     * @param array<\MarkupCarve\Carve\Node> $out
+     */
+    private static function appendNodes(mixed $value, array &$out): void
+    {
+        if ($value instanceof Node) {
+            $out[] = $value;
+
+            return;
+        }
+        if (is_array($value)) {
+            foreach ($value as $child) {
+                self::appendNodes($child, $out);
+            }
+        }
     }
 
     /**
@@ -308,9 +390,16 @@ final class TreeEncoder
 
             return $positions ? self::EMPTY_TABLE_CELL_FOR_LINT : self::EMPTY_TABLE_CELL_FOR_WRITER;
         }
+        // Resolve nested nodes in document order while keeping the wire's field order.
+        $title = isset($node->f['title']) ? $this->value($node->f['title'], $positions) : null;
+        $children = $this->encodedChildren($node, $positions);
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
-            if ($value === null || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []) {
+            if (
+                $this->omitsExpansion($node, $key)
+                || $value === null
+                || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []
+            ) {
                 continue;
             }
             if (
@@ -319,21 +408,9 @@ final class TreeEncoder
             ) {
                 continue;
             }
-            $out[$key] = $this->value($value, $positions);
+            $out[$key] = $key === 'title' ? $title : $this->value($value, $positions);
         }
-        if ($node->children !== null) {
-            $children = [];
-            if ($this->release) {
-                $kids = array_reverse($node->children);
-                $node->children = [];
-                while (($child = array_pop($kids)) !== null) {
-                    $children[] = $this->node($child, $positions);
-                }
-            } else {
-                foreach ($node->children as $child) {
-                    $children[] = $this->node($child, $positions);
-                }
-            }
+        if ($children !== null) {
             $out['children'] = $children;
         }
         if ($positions && $node->start >= 0 && $node->type !== 'document') {
@@ -350,6 +427,42 @@ final class TreeEncoder
         }
 
         return $out;
+    }
+
+    /**
+     * @return array<array<string, mixed>>|null
+     */
+    private function encodedChildren(Node $node, bool $positions): ?array
+    {
+        if ($node->children === null) {
+            return null;
+        }
+        $children = [];
+        if ($this->release) {
+            $kids = array_reverse($node->children);
+            $node->children = [];
+            while (($child = array_pop($kids)) !== null) {
+                $children[] = $this->node($child, $positions);
+            }
+        } else {
+            foreach ($node->children as $child) {
+                $children[] = $this->node($child, $positions);
+            }
+        }
+
+        return $children;
+    }
+
+    private function omitsExpansion(Node $node, string $key): bool
+    {
+        if ($key !== 'expansion' || $node->type !== 'abbreviation') {
+            return false;
+        }
+        $id = spl_object_id($node);
+        $index = $this->abbreviationExpansionIndexes[$id] ?? 0;
+        $this->abbreviationExpansionIndexes[$id] = $index + 1;
+
+        return $this->omittedAbbreviationExpansions[$id][$index] ?? false;
     }
 
     private function emptyTableCell(Node $node): bool
