@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use MarkupCarve\Carve\Node;
 
 /**
  * The inline nodes as Carve source (C2-W-069 to C2-W-080, C2-W-116). A line break of the content is a line feed in the
@@ -203,6 +205,7 @@ final class Inline
         $visible = $c->lineStart ? -1 : $c->last;
         $visibleNode = null;
         $redo = null;
+        $parts = [];
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -217,12 +220,16 @@ final class Inline
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
             $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
             self::setFollowingTextLine($c, $nodes, $at, $type);
-            $this->loseGluedRun($nodes, $at, $path, $type);
+            if ($c->inCell) {
+                $this->loseGluedRun($nodes, $at, $path, $type);
+            }
+            $first = $at;
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
+            $parts[] = [strlen($out), $first, $at];
             $out .= $part;
             self::advanceFollowingPipe($c, $node, $type);
             if (!self::isBracedComment($node)) {
@@ -230,8 +237,124 @@ final class Inline
                 $visibleNode = $node;
             }
         }
+        if (!$c->inCell) {
+            $this->readBack($nodes, $parts, $out, $path);
+        }
 
         return $out;
+    }
+
+    /**
+     * @var array<string, true>
+     */
+    private const VERBATIM = ['code' => true, 'math' => true, 'raw_inline' => true, 'literal_inline' => true];
+
+    /**
+     * C2-W-112, C2-W-117, C2-W-124: a backtick run glued to the closer of a span joins it, so the span reads on to the
+     * next run of its own width, which may lie past several nodes (carve#6341). The content is read back from the
+     * first glued closer on; a verbatim span that ends elsewhere than its spelling loses its value, or the node when it
+     * reads as another type, and every node that starts inside such a span is lost.
+     *
+     * @param array<mixed> $nodes
+     * @param array<array{0: int, 1: int, 2: int}> $parts Each written part: its offset in `$out`, its first and last node.
+     * @param string $out
+     * @param string $path
+     *
+     * @return void
+     */
+    private function readBack(array $nodes, array $parts, string $out, string $path): void
+    {
+        $glued = self::gluedPart($parts, $out);
+        if ($glued === null) {
+            return;
+        }
+        $base = $parts[$glued][0];
+        // A letter and a space first, so a long backtick run opens no fence and the spans stand mid-line.
+        $read = Carve::parse('x ' . substr($out, $base) . "\n")->children ?? [];
+        if (count($read) !== 1 || $read[0]->type !== 'paragraph') {
+            return;
+        }
+        $children = $read[0]->children ?? [];
+        $c = 0;
+        $lead = '';
+        $count = count($parts);
+        for ($k = $glued; $k < $count; $k++) {
+            [$start, $first, $last] = $parts[$k];
+            while (isset($children[$c]) && $base + $children[$c]->end - 2 <= $start) {
+                $c++;
+                $lead = '';
+            }
+            $type = self::str((array)$nodes[$first], 'type');
+            $child = $children[$c] ?? null;
+            $field = $child === null ? (isset(self::VERBATIM[$type]) ? null : false) : self::taken(
+                $type,
+                $child,
+                $start - $base + 2,
+                ($parts[$k + 1][0] ?? strlen($out)) - $base + 2,
+                $lead,
+            );
+            if ($field === false) {
+                continue;
+            }
+            $this->w->lose($path . '/' . $first, $type, $field);
+            for ($member = $first + 1; $member <= $last; $member++) {
+                $this->w->lose($path . '/' . $member, self::str((array)$nodes[$member], 'type'), null);
+            }
+        }
+    }
+
+    /**
+     * The first part whose closing backtick the part behind it joins.
+     *
+     * @param array<array{0: int, 1: int, 2: int}> $parts
+     * @param string $out
+     *
+     * @return int|null
+     */
+    private static function gluedPart(array $parts, string $out): ?int
+    {
+        foreach ($parts as $k => [$start]) {
+            if ($k > 0 && ($out[$start] ?? '') === '`' && $out[$start - 1] === '`') {
+                return $k - 1;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * What a written part from `$start` to `$end` loses when the reader puts its start in `$child`: false for nothing,
+     * else the field it loses, or null for the node. `$lead` is the type of the part the child starts with.
+     *
+     * @param string $type
+     * @param \MarkupCarve\Carve\Node $child
+     * @param int $start
+     * @param int $end
+     * @param string $lead
+     *
+     * @return string|false|null
+     */
+    private static function taken(string $type, Node $child, int $start, int $end, string &$lead): string|false|null
+    {
+        $read = $child->start <= $start && isset(self::VERBATIM[$child->type]) ? $child->type : null;
+        if ($read !== null && $child->start === $start) {
+            $lead = $type;
+            if ($child->end === $end && $read === $type) {
+                return false;
+            }
+
+            return $read === $type ? 'value' : null;
+        }
+        if ($read !== null) {
+            // A code run that ends in a raw span reads as that raw span.
+            if ($read === 'raw_inline' && $type === 'raw_inline' && $child->end === $end && $lead === 'code') {
+                return false;
+            }
+
+            return $type === 'text' ? 'value' : null;
+        }
+
+        return isset(self::VERBATIM[$type]) ? null : false;
     }
 
     private static function resetFollowingPipe(Context $c, string $type): void
@@ -602,7 +725,8 @@ final class Inline
      * closer. When the span behind opens with as many backticks as that closer, its own closer ends the joined span, so
      * the run goes on through every such span and ends at the first raw span or attribute block. It reads back as one
      * node: a math leader keeps its type and loses its value, a code run that ends in a raw span reads as that raw span,
-     * and every other node of the run is lost. Runs of unequal width are reported pairwise only (carve#6341).
+     * and every other node of the run is lost. Only a table cell, whose pipes keep it from being read back on its own,
+     * predicts the run here; other content is read back by `readBack`.
      *
      * @param array<mixed> $nodes
      * @param int $at
