@@ -43,6 +43,24 @@ final class HandwrittenRunPairsTest extends TestCase
                 "b c **a\n  {#i} **x**\n",
                 [['block-marker-as-text', '/children/0', 10, 20]],
             ],
+            'literal quote marks on a later line of a list paragraph' => [
+                "- ~~s_e_\n> > {a=}\n",
+                [
+                    ['block-opener-without-blank-line', '/children/0/children/0/children/0', 9, 10],
+                    ['block-marker-as-text', '/children/0/children/0/children/0', 13, 17],
+                ],
+            ],
+            'underline span on a later line of a term' => [
+                ":: t\n  {_u_} b\n",
+                [
+                    ['description-term-multi-line', '/children/0/children/0', 7, 14],
+                    ['block-marker-as-text', '/children/0/children/0', 7, 14],
+                ],
+            ],
+            'underline span on a later line of a paragraph' => [
+                "a\n{_u_} b\n",
+                [],
+            ],
             'underscore pair after a letter that ends the line above' => [
                 "b c\n_e_ x\n",
                 [['deprecated-bare-underline', '/children/0', 4, 7]],

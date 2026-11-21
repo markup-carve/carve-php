@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\AttributeParser;
+use MarkupCarve\Carve\Attrs;
+
 /**
  * The node rules of carve-js `lint/structure.ts`, first half.
  */
 final class NodeRulesA
 {
+    /**
+     * @var array<string, true>
+     */
+    private const ATTRIBUTE_HOSTS = ['paragraph' => true, 'heading' => true, 'definition_term' => true, 'cell_paragraph' => true];
+
     /**
      * @var array<string>
      */
@@ -1469,16 +1477,27 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'text') {
             return;
         }
-        $source = Support::raw($node, $c);
-        $range = Support::bounds($node);
-        if ($range === null || preg_match_all('/(?<!\\\\)\{[ ]*[.#][^{}]*\}/', $source, $matches, PREG_OFFSET_CAPTURE) === 0) {
+        // carve#6176: the text of a paragraph, heading, term or cell; a description's through its paragraphs.
+        $parent = substr($path, 0, (int)strrpos($path, '/children/'));
+        if (!isset(self::ATTRIBUTE_HOSTS[$c->nodeTypes[$parent] ?? ''])) {
             return;
         }
-        foreach ($matches[0] as [$block, $at]) {
-            if ($at < 1) {
+        $source = Support::raw($node, $c);
+        $range = Support::bounds($node);
+        if ($range === null) {
+            return;
+        }
+        $length = strlen($source);
+        for ($at = strpos($source, '{'); $at !== false; $at = strpos($source, '{', $at + 1)) {
+            if ($at < 1 || self::escapedAt($source, $at)) {
                 continue;
             }
-            $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $at + strlen($block), $path);
+            // The parser's end, so a quoted `}` stays inside the block; `{}` is no attribute block to report.
+            $end = AttributeParser::read($source, $at, $length, new Attrs());
+            if ($end > $at && !AttributeParser::$lastEmpty) {
+                $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $end, $path);
+                $at = $end - 1;
+            }
         }
     }
 
