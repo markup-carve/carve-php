@@ -148,18 +148,20 @@ final class WriterClausesTest extends TestCase
 
     public function testC2W016FollowingTextCanCompleteATableRow(): void
     {
-        $paragraph = [
-            'type' => 'paragraph',
-            'children' => [
-                ['type' => 'text', 'value' => 'a '],
-                ['type' => 'code', 'value' => "x\n|"],
-                ['type' => 'text', 'value' => '|'],
-            ],
-        ];
-        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
-        $this->assertSame("a `x\n|`\\|\n", $result->source);
-        $this->assertSame([], $result->codes());
-        $this->assertSame($result->source, Carve::format($result->source));
+        foreach (['|', ' |', 'a|', '|a|', ' a|', '||', ' x|'] as $after) {
+            $paragraph = [
+                'type' => 'paragraph',
+                'children' => [
+                    ['type' => 'text', 'value' => 'a '],
+                    ['type' => 'code', 'value' => "x\n|"],
+                    ['type' => 'text', 'value' => $after],
+                ],
+            ];
+            $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+            $this->assertSame([], $result->codes(), $after);
+            $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+            $this->assertSame([$paragraph], $read['children'], $after);
+        }
     }
 
     public function testC2W002SpanReadsBackAsTheSameTree(): void

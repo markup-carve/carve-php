@@ -209,6 +209,7 @@ final class Inline
                 continue;
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+            self::resetFollowingPipe($c, $type);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
             $following = $nodes[$at + 1] ?? null;
             $this->before = $visibleNode;
@@ -223,9 +224,7 @@ final class Inline
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
             $out .= $part;
-            if ($type === 'text') {
-                $c->escapeFollowingPipe = false;
-            }
+            self::advanceFollowingPipe($c, $node, $type);
             if (!self::isBracedComment($node)) {
                 $visible = $c->lineStart ? -1 : $c->last;
                 $visibleNode = $node;
@@ -233,6 +232,30 @@ final class Inline
         }
 
         return $out;
+    }
+
+    private static function resetFollowingPipe(Context $c, string $type): void
+    {
+        if ($type !== 'text') {
+            $c->escapeFollowingPipeAt = -1;
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param array<mixed> $node
+     * @param string $type
+     *
+     * @return void
+     */
+    private static function advanceFollowingPipe(Context $c, array $node, string $type): void
+    {
+        if ($type !== 'text') {
+            return;
+        }
+        $length = strlen(self::str($node, 'value'));
+        $c->escapeFollowingPipeAt = $c->escapeFollowingPipeAt >= $length
+            ? $c->escapeFollowingPipeAt - $length : -1;
     }
 
     /**
@@ -1435,14 +1458,16 @@ final class Inline
                     $line = str_starts_with($line, ' ') ? '' : $line;
                 }
                 $emittedLine = $span && $at === $last ? $line . $c->lineAfterSpan : $line;
-                if (
-                    $span && $at === $last && str_starts_with($c->lineAfterSpan, '|')
-                    && Text::opensBlock($emittedLine, $c)
-                ) {
-                    $escapedLine = $line . '\\' . $c->lineAfterSpan;
-                    $c->escapeFollowingPipe = true;
-                    if (!Text::opensBlock($escapedLine, $c)) {
-                        continue;
+                if ($span && $at === $last && Text::opensBlock($emittedLine, $c)) {
+                    $pipe = strrpos($c->lineAfterSpan, '|');
+                    if ($pipe !== false) {
+                        $escapedLine = $line . substr($c->lineAfterSpan, 0, $pipe) . '\\'
+                            . substr($c->lineAfterSpan, $pipe);
+                        if (!Text::opensBlock($escapedLine, $c)) {
+                            $c->escapeFollowingPipeAt = $pipe;
+
+                            continue;
+                        }
                     }
                 }
                 if (Text::opensBlock($emittedLine, $span ? $c : null)) {

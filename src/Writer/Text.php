@@ -154,7 +154,7 @@ final class Text
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
-            $escape = ($i === 0 && $ch === '|' && $c->escapeFollowingPipe)
+            $escape = ($i === $c->escapeFollowingPipeAt && $ch === '|')
                 || $i === $marks || isset($c->pairEscapes[$i]) || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next));

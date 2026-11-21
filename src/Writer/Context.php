@@ -28,9 +28,9 @@ final class Context
     public string $lineAfterSpan = '';
 
     /**
-     * The first pipe in the next text node must be escaped to keep the span's final line out of a table.
+     * Offset of the pipe in following text that must be escaped to keep the span's final line out of a table.
      */
-    public bool $escapeFollowingPipe = false;
+    public int $escapeFollowingPipeAt = -1;
 
     /**
      * A line comment immediately precedes the current continuation line.
