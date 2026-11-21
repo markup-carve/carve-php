@@ -198,10 +198,8 @@ final class HtmlRenderer
             $above = $shiftFactKnown ? $shiftAbove : ($opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null);
             if ($above !== null) {
                 $r->log->loss(HeadingShift::CODE, 'warning', ['shift' => $opts->headingShift], $above->file, node: $above);
-                if ($shiftFactKnown) {
-                    $r->log->entries[array_key_last($r->log->entries)]['message'] =
-                        'The heading shift of ' . $opts->headingShift . ' raises a heading above level 6.';
-                }
+                $r->log->entries[array_key_last($r->log->entries)]['message'] =
+                    'The heading shift of ' . $opts->headingShift . ' raises a heading above level 6.';
             }
         } finally {
             if ($r !== null) {
