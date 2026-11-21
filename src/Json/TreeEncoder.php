@@ -43,6 +43,13 @@ final class TreeEncoder
 
     private ?string $currentFile = null;
 
+    private bool $release = false;
+
+    /**
+     * @var array{0: int, 1: int, 2: array<string, int>}|null The last position, which a wrapper of one child repeats.
+     */
+    private ?array $lastPos = null;
+
     /**
      * @param \MarkupCarve\Carve\Node $root
      * @param string|null $source Null for a tree without positions.
@@ -220,6 +227,25 @@ final class TreeEncoder
     }
 
     /**
+     * `encode()` for a caller that drops the tree afterward: each child list is emptied as it is encoded, so the parsed
+     * tree and its encoding are not both held whole.
+     *
+     * @param \MarkupCarve\Carve\Node $root
+     * @param string $source
+     *
+     * @return array<string, mixed>
+     */
+    public function encodeReleasing(Node $root, string $source): array
+    {
+        $this->release = true;
+        try {
+            return $this->encode($root, $source);
+        } finally {
+            $this->release = false;
+        }
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node $node
      * @param bool $positions
      *
@@ -242,8 +268,16 @@ final class TreeEncoder
         }
         if ($node->children !== null) {
             $children = [];
-            foreach ($node->children as $child) {
-                $children[] = $this->node($child, $positions);
+            if ($this->release) {
+                $kids = array_reverse($node->children);
+                $node->children = [];
+                while (($child = array_pop($kids)) !== null) {
+                    $children[] = $this->node($child, $positions);
+                }
+            } else {
+                foreach ($node->children as $child) {
+                    $children[] = $this->node($child, $positions);
+                }
             }
             $out['children'] = $children;
         }
@@ -275,6 +309,7 @@ final class TreeEncoder
             $pos = $nl + 1;
         }
         $this->cacheLine = -1;
+        $this->lastPos = null;
     }
 
     /**
@@ -322,11 +357,12 @@ final class TreeEncoder
      */
     private function pos(int $start, int $end): array
     {
+        if ($this->lastPos !== null && $this->lastPos[0] === $start && $this->lastPos[1] === $end) {
+            return $this->lastPos[2];
+        }
         [$sl, $sc] = $this->lineColumn($start);
         [$el, $ec] = $this->lineColumn($end);
-
-        return [
-
+        $pos = [
             'startLine' => $sl,
             'endLine' => $el,
             'startColumn' => $sc,
@@ -334,6 +370,9 @@ final class TreeEncoder
             'startOffset' => $start,
             'endOffset' => $end,
         ];
+        $this->lastPos = [$start, $end, $pos];
+
+        return $pos;
     }
 
     /**

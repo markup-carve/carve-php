@@ -121,7 +121,7 @@ final class Linter
     {
         $parsed = Carve::parseWithLayout($source, array_intersect_key($options, ['extensions' => true, 'headingIds' => true]));
         $parseDiagnostics = $parsed->diagnostics;
-        $tree = (new TreeEncoder())->encode($parsed->tree, $source);
+        $tree = (new TreeEncoder())->encodeReleasing($parsed->tree, $source);
         $c = new Context($source, $options, self::catalog());
         $c->layout->rawRefs((array)$parsed->layout['nodes']);
         unset($parsed);
@@ -129,7 +129,10 @@ final class Linter
         $controls = [];
         $root = Support::node($tree);
         self::measureRoot($root, $c);
-        self::visit($root, '', $c, $controls);
+        // The measure walk registered every node in tree order, so the visit reads that list instead of walking again.
+        foreach ($c->layout->nodes() as $path => $node) {
+            self::visit($node, (string)$path, $c, $controls);
+        }
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $maskCursor = 0;
@@ -207,9 +210,6 @@ final class Linter
         foreach ($rules as [, $check]) {
             $check($node, $path, $c);
         }
-        foreach (self::children($node, $type, $path) as [$child, $childPath]) {
-            self::visit($child, $childPath, $c, $controls);
-        }
     }
 
     /**
@@ -226,7 +226,10 @@ final class Linter
      */
     private static function placed(array $node, string $type, string $path, array $pos, Context $c, array &$controls): void
     {
-        $c->firstLines[$path] = $pos['startLine'];
+        // Only a line's paragraph, caption, term or heading path is ever looked up.
+        if ($type === 'paragraph' || $type === 'caption' || $type === 'definition_term' || $type === 'heading') {
+            $c->firstLines[$path] = $pos['startLine'];
+        }
         if ($type === 'definition_description') {
             $c->descriptionEntryLines[$pos['startLine']] = true;
         }
