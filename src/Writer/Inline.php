@@ -220,6 +220,7 @@ final class Inline
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
+                $this->loseGluedRun($nodes, $at, $path, $type);
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
             $out .= $part;
@@ -594,6 +595,38 @@ final class Inline
         $this->moved($c, $out);
 
         return [$out, $end - 1];
+    }
+
+    /**
+     * C2-W-112, C2-W-117, C2-W-124: a backtick run directly behind a code or math span with no attribute block joins its
+     * closer, so the pair reads back as one span: the first node, or the value of a math node and the node behind it,
+     * is lost. Two code spans are written by `codeRun`.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param string $path
+     * @param string $type
+     *
+     * @return void
+     */
+    private function loseGluedRun(array $nodes, int $at, string $path, string $type): void
+    {
+        $node = $nodes[$at] ?? null;
+        $following = $nodes[$at + 1] ?? null;
+        if (($type !== 'code' && $type !== 'math') || !is_array($node) || !is_array($following) || BraceBlock::of($node) !== '') {
+            return;
+        }
+        $behind = self::str($following, 'type');
+        if ($behind !== 'raw_inline' && ($behind !== 'code' || $type === 'code')) {
+            return;
+        }
+        if ($type === 'code') {
+            $this->w->lose($path . '/' . $at, 'code', null);
+
+            return;
+        }
+        $this->w->lose($path . '/' . $at, 'math', 'value');
+        $this->w->lose($path . '/' . ($at + 1), $behind, null);
     }
 
     /**
