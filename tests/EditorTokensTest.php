@@ -19,6 +19,24 @@ final class EditorTokensTest extends TestCase
     public static function cases(): array
     {
         return [
+            'empty link label' => ['[](url)', ['open-marker 0-1', 'close-marker 1-3', 'destination 3-6', 'close-marker 6-7']],
+            'code link label' => [
+                '[`x`](url)', ['open-marker 0-1', 'close-marker 4-6', 'destination 6-9', 'close-marker 9-10'],
+            ],
+            'smart punctuation link label' => [
+                '[---](url)', ['open-marker 0-1', 'close-marker 4-6', 'destination 6-9', 'close-marker 9-10'],
+            ],
+            'link attribute' => [
+                '[x](url){.foo}',
+                ['open-marker 0-1', 'close-marker 2-4', 'destination 4-7', 'close-marker 7-8', 'attribute 8-14'],
+            ],
+            'nested label' => ['[*a*](u)', ['open-marker 0-1', 'close-marker 4-6', 'destination 6-7', 'close-marker 7-8']],
+            'title parenthesis and attribute' => [
+                '[x](u "a)b"){.c}',
+                ['open-marker 0-1', 'close-marker 2-4', 'destination 4-5', 'close-marker 11-12', 'attribute 12-16'],
+            ],
+            'reference attribute' => ['[x][r]{.a}', ['open-marker 0-1', 'close-marker 2-6', 'attribute 6-10']],
+            'escaped reference bracket' => ['[x][a\\]b]{.a}', ['open-marker 0-1', 'close-marker 2-9', 'attribute 9-13']],
             'link with a title' => [
                 "[x](url \"title\")\n",
                 ['open-marker 0-1', 'close-marker 2-4', 'destination 4-7', 'close-marker 15-16'],
