@@ -34,6 +34,7 @@ final class Writer
         self::rootLosses($tree, $children, $w);
         $w->beginRepairDocument($children);
         (new Blocks($w))->blocks($children, '/children', '');
+        BlankLines::lose($children, '/children', $w);
         $w->loseLineEndCarriageReturns();
         while ($w->lines !== [] && end($w->lines) === '') {
             array_pop($w->lines);

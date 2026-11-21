@@ -49,10 +49,6 @@ final class Next2WriterCasesTest extends TestCase
                 continue;
             }
             $seen++;
-            // carve-php#5541: a soft break on an empty line is not reported yet.
-            if ($case['id'] === 'CC-1504') {
-                continue;
-            }
             $expected = $case['expected'];
             $result = Carve::writeWithDiagnostics($case['tree'], null, $case['options'] ?? []);
             if (isset($expected['carve'])) {
