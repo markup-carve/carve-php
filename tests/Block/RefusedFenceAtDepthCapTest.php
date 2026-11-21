@@ -31,5 +31,9 @@ final class RefusedFenceAtDepthCapTest extends TestCase
         self::assertSame('paragraph', $node->children[0]->type);
         self::assertSame('paragraph', $node->children[1]->type);
         self::assertCount(7, $node->children[0]->children);
+        self::assertStringContainsString(
+            "\\::::::\n\\:::::\n\\::::\n\\+\n\n\\::::\n\\:::::\n\\::::::\n",
+            Carve::formatWithDiagnostics($source)->source,
+        );
     }
 }
