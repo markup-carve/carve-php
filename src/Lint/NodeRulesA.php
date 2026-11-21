@@ -259,24 +259,30 @@ final class NodeRulesA
         if (($node['type'] ?? null) !== 'paragraph') {
             return [];
         }
+        // The open run is extended in place: copying a run per child made a paragraph quadratic in its lines.
         $runs = [];
-        $open = false;
+        $current = null;
         foreach (Support::kids($node) as $at => $child) {
             $type = $child['type'] ?? null;
             $range = Support::bounds($child);
             if (($type !== 'text' && $type !== 'soft_break') || $range === null) {
-                $open = false;
+                if ($current !== null) {
+                    $runs[] = $current;
+                    $current = null;
+                }
 
                 continue;
             }
-            if ($open) {
-                $last = count($runs) - 1;
-                $runs[$last] = [$runs[$last][0], $range[1], [...$runs[$last][2], [$at, $range[0]]]];
+            if ($current !== null) {
+                $current[1] = $range[1];
+                $current[2][] = [$at, $range[0]];
 
                 continue;
             }
-            $runs[] = [$range[0], $range[1], [[$at, $range[0]]]];
-            $open = true;
+            $current = [$range[0], $range[1], [[$at, $range[0]]]];
+        }
+        if ($current !== null) {
+            $runs[] = $current;
         }
         $found = [];
         foreach ($runs as [$from, $to, $children]) {
@@ -285,17 +291,37 @@ final class NodeRulesA
                 if (!str_contains(substr($text, $start, $end - $start), "\n")) {
                     continue;
                 }
-                $owner = $children[0][0];
-                foreach ($children as [$index, $begin]) {
-                    if ($begin <= $from + $start) {
-                        $owner = $index;
-                    }
-                }
-                $found[] = [$from + $start, $from + $end, (int)$owner];
+                $found[] = [$from + $start, $from + $end, self::ownerAt($children, $from + $start)];
             }
         }
 
         return $found;
+    }
+
+    /**
+     * The index of the last child that begins at or before `$offset`, or the first child: the begins ascend.
+     *
+     * @param array<array{0: int, 1: int}> $children
+     * @param int $offset
+     *
+     * @return int
+     */
+    private static function ownerAt(array $children, int $offset): int
+    {
+        $low = 0;
+        $high = count($children) - 1;
+        $owner = $children[0][0];
+        while ($low <= $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($children[$mid][1] <= $offset) {
+                $owner = $children[$mid][0];
+                $low = $mid + 1;
+            } else {
+                $high = $mid - 1;
+            }
+        }
+
+        return (int)$owner;
     }
 
     /**
