@@ -30,6 +30,10 @@ final class Lpfix4ParityTest extends TestCase
                 "[ ]: u\n", 'blank-reference-label',
                 [['blank-reference-label', 0, 4]],
             ],
+            'unprefixed label on a later paragraph line' => [
+                "a\n[ ]: u\n", 'blank-reference-label',
+                [['blank-reference-label', 2, 6]],
+            ],
             'inline blank label on a later paragraph line' => [
                 "a\nb [x][ ]\n", 'blank-reference-label',
                 [['blank-reference-label', 7, 10]],
