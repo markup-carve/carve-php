@@ -53,6 +53,20 @@ final class AbbreviationExpansionBudgetTest extends TestCase
         self::assertArrayNotHasKey('expansion', $uses[1]);
     }
 
+    public function testEncoderChargesRepeatedReferencesToOneNode(): void
+    {
+        $abbreviation = new Node('abbreviation');
+        $abbreviation->f = ['key' => 'A', 'namespace' => 'abbr', 'expansion' => str_repeat('x', 600000)];
+        $document = new Node('document', [$abbreviation, $abbreviation]);
+        $document->f['astVersion'] = '2.0';
+        $encoded = TreeEncoder::decoded($document);
+        self::assertIsArray($encoded['children'] ?? null);
+        self::assertIsArray($encoded['children'][0] ?? null);
+        self::assertIsArray($encoded['children'][1] ?? null);
+        self::assertArrayHasKey('expansion', $encoded['children'][0]);
+        self::assertArrayNotHasKey('expansion', $encoded['children'][1]);
+    }
+
     public function testRepeatedExpansionKeepsTreeSizeLinearInSource(): void
     {
         foreach ([8, 16, 32] as $kilobytes) {

@@ -67,9 +67,14 @@ final class TreeEncoder
     private bool $compactEmptyCells = false;
 
     /**
-     * @var array<int, \MarkupCarve\Carve\Node>
+     * @var array<int, array<bool>>
      */
     private array $omittedAbbreviationExpansions = [];
+
+    /**
+     * @var array<int, int>
+     */
+    private array $abbreviationExpansionIndexes = [];
 
     /**
      * @var array{0: int, 1: int, 2: array<string, int>}|null The last position, which a wrapper of one child repeats.
@@ -260,7 +265,8 @@ final class TreeEncoder
     {
         $length = $source !== null ? strlen($source) : ($root->f['srcByteLength'] ?? 0);
         $length = is_int($length) && $length > 0 ? $length : 0;
-        $this->omittedAbbreviationExpansions = self::omittedExpansions($root, $length);
+        [, $this->omittedAbbreviationExpansions] = self::expansionDecisions($root, $length);
+        $this->abbreviationExpansionIndexes = [];
         $this->sources = $root->includeSources;
         if ($source !== null) {
             $this->sources[''] = $source;
@@ -272,33 +278,34 @@ final class TreeEncoder
 
     public static function limitParsedExpansions(Node $root, int $sourceLength): void
     {
-        foreach (self::omittedExpansions($root, $sourceLength) as $node) {
-            unset($node->f['expansion']);
+        [$nodes, $omitted] = self::expansionDecisions($root, $sourceLength);
+        foreach ($omitted as $id => $decisions) {
+            if (in_array(true, $decisions, true)) {
+                unset($nodes[$id]->f['expansion']);
+            }
         }
     }
 
     /**
-     * @return array<int, \MarkupCarve\Carve\Node>
+     * @return array{array<int, \MarkupCarve\Carve\Node>, array<int, array<bool>>}
      */
-    private static function omittedExpansions(Node $root, int $sourceLength): array
+    private static function expansionDecisions(Node $root, int $sourceLength): array
     {
         $remaining = max(1000000, min($sourceLength, intdiv(PHP_INT_MAX, 8)) * 8);
         $omitted = [];
-        $seen = [];
+        $nodes = [];
         $stack = [$root];
         while ($stack !== []) {
             $node = array_pop($stack);
             $id = spl_object_id($node);
-            if (isset($seen[$id])) {
-                continue;
-            }
-            $seen[$id] = true;
             if ($node->type === 'abbreviation' && is_string($node->f['expansion'] ?? null)) {
+                $nodes[$id] = $node;
                 $cost = strlen($node->f['expansion']);
                 if ($cost > $remaining) {
-                    $omitted[$id] = $node;
+                    $omitted[$id][] = true;
                 } else {
                     $remaining -= $cost;
+                    $omitted[$id][] = false;
                 }
             }
             $children = [];
@@ -316,7 +323,7 @@ final class TreeEncoder
             }
         }
 
-        return $omitted;
+        return [$nodes, $omitted];
     }
 
     /**
@@ -433,8 +440,14 @@ final class TreeEncoder
 
     private function omitsExpansion(Node $node, string $key): bool
     {
-        return $key === 'expansion' && $node->type === 'abbreviation'
-            && isset($this->omittedAbbreviationExpansions[spl_object_id($node)]);
+        if ($key !== 'expansion' || $node->type !== 'abbreviation') {
+            return false;
+        }
+        $id = spl_object_id($node);
+        $index = $this->abbreviationExpansionIndexes[$id] ?? 0;
+        $this->abbreviationExpansionIndexes[$id] = $index + 1;
+
+        return $this->omittedAbbreviationExpansions[$id][$index] ?? false;
     }
 
     private function emptyTableCell(Node $node): bool
