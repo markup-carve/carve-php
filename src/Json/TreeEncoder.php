@@ -6,9 +6,7 @@ namespace MarkupCarve\Carve\Json;
 
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Node;
-use MarkupCarve\Carve\Resolve\Walk;
 use stdClass;
-use WeakMap;
 
 /**
  * Encodes a tree to the JSON of ast-schema.json. Positions are derived here from the byte
@@ -69,9 +67,9 @@ final class TreeEncoder
     private bool $compactEmptyCells = false;
 
     /**
-     * @var \WeakMap<\MarkupCarve\Carve\Node, true>
+     * @var array<int, \MarkupCarve\Carve\Node>
      */
-    private WeakMap $omittedAbbreviationExpansions;
+    private array $omittedAbbreviationExpansions = [];
 
     /**
      * @var array{0: int, 1: int, 2: array<string, int>}|null The last position, which a wrapper of one child repeats.
@@ -262,24 +260,7 @@ final class TreeEncoder
     {
         $length = $source !== null ? strlen($source) : ($root->f['srcByteLength'] ?? 0);
         $length = is_int($length) && $length > 0 ? $length : 0;
-        $remaining = max(1000000, min($length, intdiv(PHP_INT_MAX, 8)) * 8);
-        $this->omittedAbbreviationExpansions = new WeakMap();
-        $stack = [$root];
-        while ($stack !== []) {
-            $node = array_pop($stack);
-            if ($node->type === 'abbreviation' && is_string($node->f['expansion'] ?? null)) {
-                $cost = strlen($node->f['expansion']);
-                if ($cost > $remaining) {
-                    $this->omittedAbbreviationExpansions[$node] = true;
-                } else {
-                    $remaining -= $cost;
-                }
-            }
-            $children = Walk::kids($node);
-            for ($i = count($children) - 1; $i >= 0; $i--) {
-                $stack[] = $children[$i];
-            }
-        }
+        $this->omittedAbbreviationExpansions = self::omittedExpansions($root, $length);
         $this->sources = $root->includeSources;
         if ($source !== null) {
             $this->sources[''] = $source;
@@ -287,6 +268,73 @@ final class TreeEncoder
         }
 
         return $this->node($root, $source !== null);
+    }
+
+    public static function limitParsedExpansions(Node $root, int $sourceLength): void
+    {
+        foreach (self::omittedExpansions($root, $sourceLength) as $node) {
+            unset($node->f['expansion']);
+        }
+    }
+
+    /**
+     * @return array<int, \MarkupCarve\Carve\Node>
+     */
+    private static function omittedExpansions(Node $root, int $sourceLength): array
+    {
+        $remaining = max(1000000, min($sourceLength, intdiv(PHP_INT_MAX, 8)) * 8);
+        $omitted = [];
+        $seen = [];
+        $stack = [$root];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $id = spl_object_id($node);
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            if ($node->type === 'abbreviation' && is_string($node->f['expansion'] ?? null)) {
+                $cost = strlen($node->f['expansion']);
+                if ($cost > $remaining) {
+                    $omitted[$id] = $node;
+                } else {
+                    $remaining -= $cost;
+                }
+            }
+            $children = [];
+            self::appendNodes($node->f['title'] ?? null, $children);
+            foreach ($node->children ?? [] as $child) {
+                $children[] = $child;
+            }
+            foreach ($node->f as $key => $value) {
+                if ($key !== 'title') {
+                    self::appendNodes($value, $children);
+                }
+            }
+            for ($i = count($children) - 1; $i >= 0; $i--) {
+                $stack[] = $children[$i];
+            }
+        }
+
+        return $omitted;
+    }
+
+    /**
+     * @param mixed $value
+     * @param array<\MarkupCarve\Carve\Node> $out
+     */
+    private static function appendNodes(mixed $value, array &$out): void
+    {
+        if ($value instanceof Node) {
+            $out[] = $value;
+
+            return;
+        }
+        if (is_array($value)) {
+            foreach ($value as $child) {
+                self::appendNodes($child, $out);
+            }
+        }
     }
 
     /**
@@ -386,7 +434,7 @@ final class TreeEncoder
     private function omitsExpansion(Node $node, string $key): bool
     {
         return $key === 'expansion' && $node->type === 'abbreviation'
-            && isset($this->omittedAbbreviationExpansions[$node]);
+            && isset($this->omittedAbbreviationExpansions[spl_object_id($node)]);
     }
 
     private function emptyTableCell(Node $node): bool
