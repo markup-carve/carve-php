@@ -274,7 +274,7 @@
    "findings": [
     [
      "deprecated-bare-underline",
-     "/children/0/children/0",
+     "/children/0",
      2,
      5,
      "A bare underscore pair is text in 0.2. Write the braced underline, or the slash pair for emphasis."
@@ -288,7 +288,7 @@
    "findings": [
     [
      "deprecated-bare-strike",
-     "/children/0/children/0",
+     "/children/0",
      2,
      5,
      "A bare tilde pair is text in 0.2. Write the braced strike."
@@ -302,7 +302,7 @@
    "findings": [
     [
      "deprecated-bare-highlight",
-     "/children/0/children/0",
+     "/children/0",
      2,
      5,
      "A bare equals pair is text in 0.2. Write the braced highlight."
@@ -316,7 +316,7 @@
    "findings": [
     [
      "markdown-strong-double-star",
-     "/children/0/children/0",
+     "/children/0",
      0,
      8,
      "Markdown `**strong**` is literal text in Carve, asterisks included. Carve strong is a single `*`."
@@ -330,7 +330,7 @@
    "findings": [
     [
      "markdown-strikethrough-double-tilde",
-     "/children/0/children/0",
+     "/children/0",
      0,
      5,
      "Markdown `~~strikethrough~~` is literal text in Carve. Carve strikethrough is the braced `{~x~}`."
@@ -748,7 +748,7 @@
    "findings": [
     [
      "djot-emphasis-underscore",
-     "/children/0/children/0",
+     "/children/0",
      2,
      5,
      "Djot emphasis `_x_` is literal text in Carve. Carve emphasis is `/x/`."
@@ -838,7 +838,7 @@
    "findings": [
     [
      "djot-subscript-tilde",
-     "/children/0/children/0",
+     "/children/0",
      2,
      5,
      "Djot subscript `~x~` is literal text in Carve. Carve subscript is the braced `{,x,}`."
@@ -874,7 +874,7 @@
    "findings": [
     [
      "djot-superscript-caret",
-     "/children/0/children/0",
+     "/children/0",
      2,
      5,
      "Djot superscript `^x^` is literal text in Carve — Carve superscript is the braced `{^x^}` only."
@@ -1238,7 +1238,7 @@
    "findings": [
     [
      "colon-fence-length-mismatch",
-     "/children/0/children/0/children/0",
+     "",
      15,
      19,
      "Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the container."
@@ -1336,7 +1336,7 @@
    "findings": [
     [
      "deprecated-bare-highlight",
-     "/children/0/children/2",
+     "/children/0",
      5,
      8,
      "A bare equals pair is text in 0.2. Write the braced highlight."
@@ -1350,7 +1350,7 @@
    "findings": [
     [
      "deprecated-bare-strike",
-     "/children/0/children/0",
+     "/children/0",
      0,
      8,
      "A bare tilde pair is text in 0.2. Write the braced strike."
@@ -1364,7 +1364,7 @@
    "findings": [
     [
      "deprecated-bare-underline",
-     "/children/0/children/0",
+     "/children/0",
      2,
      5,
      "A bare underscore pair is text in 0.2. Write the braced underline, or the slash pair for emphasis."
@@ -1853,7 +1853,7 @@
    "findings": [
     [
      "markdown-strikethrough-double-tilde",
-     "/children/0/children/0",
+     "/children/0",
      6,
      11,
      "Markdown `~~strikethrough~~` is literal text in Carve. Carve strikethrough is the braced `{~x~}`."
@@ -1867,7 +1867,7 @@
    "findings": [
     [
      "markdown-strong-double-star",
-     "/children/0/children/0",
+     "/children/0",
      0,
      5,
      "Markdown `**strong**` is literal text in Carve, asterisks included. Carve strong is a single `*`."

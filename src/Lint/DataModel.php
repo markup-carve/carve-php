@@ -321,7 +321,7 @@ final class DataModel
                             } else {
                                 $run = (object)[
                                     'type' => 'text_run',
-                                    'path' => $item['path'],
+                                    'path' => $key,
                                     'parent' => $parentType,
                                     'leaf' => $parentHolder['type'] ?? $parentType,
                                     'start' => $pos['startOffset'],
@@ -382,7 +382,7 @@ final class DataModel
             }
             $tablePos = Support::pos($item['node']);
             if ($tablePos !== null) {
-                $pipeTables[] = [$tablePos['startLine'] - 1, $tablePos['endLine'] - 1];
+                $pipeTables[] = [$tablePos['startLine'] - 1, $tablePos['endLine'] - 1, $item['path']];
             }
         }
         unset($runs, $openRuns);
@@ -441,6 +441,7 @@ final class DataModel
                 'leaf_next' => null,
                 'table_above' => null,
                 'table_below' => null,
+                'table_path' => null,
                 'attached_here' => isset($c->attachedLines[$i + 1]),
                 'closes_container' => false,
                 'ancestors' => $this->ancestors($linePath),
@@ -470,11 +471,12 @@ final class DataModel
             $record->quote_marks = $this->quoteMarks($record->text);
             $record->lazy = $this->lazy($record);
         }
-        foreach ($pipeTables as [$first, $last]) {
+        foreach ($pipeTables as [$first, $last, $tablePath]) {
             $seen = null;
             for ($i = $first; $i <= $last && isset($this->lines[$i]); $i++) {
                 $line = $this->lines[$i];
                 $line->table_above = $seen;
+                $line->table_path ??= $tablePath;
                 if (!str_starts_with($line->raw_body, '%%')) {
                     $seen = $line;
                 }

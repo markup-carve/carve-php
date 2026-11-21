@@ -977,6 +977,11 @@ final class DataRules
             }
             $message = is_int($entry['message'] ?? null) ? $entry['message'] : 0;
             $path = $record->path ?? '';
+            // A line finding names the source line's own path or its pipe table (C2-W-138), as carve-js does; a comment
+            // fence closer names its comment, the block that covers the line.
+            if (($rule['over'] ?? null) === 'line' && isset($record->number) && $rule['id'] !== 'comment-fence-closer-with-text') {
+                $path = ($this->context->lines[$record->number - 1]->path ?? '') ?: ($record->table_path ?? '');
+            }
             // The line's own block is a child of the item; the finding names the item, as the handwritten rule and carve-js do.
             if ($rule['id'] === 'list-item-body-below-content-column') {
                 $at = strrpos($path, '/children/');

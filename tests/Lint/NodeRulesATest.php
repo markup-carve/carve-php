@@ -29,7 +29,7 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'deprecated-bare-underline',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     5,
                     'A bare underscore pair is text in 0.2. Write the braced underline, or the slash pair for emphasis.',
@@ -39,7 +39,7 @@ final class NodeRulesATest extends TestCase
                 'a ~x~ b',
                 'a {~x~} b',
                 [],
-                ['deprecated-bare-strike', '/children/0/children/0', 2, 5, 'A bare tilde pair is text in 0.2. Write the braced strike.'],
+                ['deprecated-bare-strike', '/children/0', 2, 5, 'A bare tilde pair is text in 0.2. Write the braced strike.'],
             ],
             'deprecated-bare-highlight' => [
                 'a =x= b',
@@ -47,7 +47,7 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'deprecated-bare-highlight',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     5,
                     'A bare equals pair is text in 0.2. Write the braced highlight.',
@@ -59,7 +59,7 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'markdown-strong-double-star',
-                    '/children/0/children/0',
+                    '/children/0',
                     0,
                     8,
                     'Markdown `**strong**` is literal text in Carve, asterisks included. Carve strong is a single `*`.',
@@ -71,7 +71,7 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'markdown-strikethrough-double-tilde',
-                    '/children/0/children/0',
+                    '/children/0',
                     0,
                     5,
                     'Markdown `~~strikethrough~~` is literal text in Carve. Carve strikethrough is the braced `{~x~}`.',
@@ -83,7 +83,7 @@ final class NodeRulesATest extends TestCase
                 ['rules' => ['djot-emphasis-underscore' => 'on']],
                 [
                     'djot-emphasis-underscore',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     5,
                     'Djot emphasis `_x_` is literal text in Carve. Carve emphasis is `/x/`.',
@@ -95,7 +95,7 @@ final class NodeRulesATest extends TestCase
                 ['rules' => ['djot-subscript-tilde' => 'on']],
                 [
                     'djot-subscript-tilde',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     5,
                     'Djot subscript `~x~` is literal text in Carve. Carve subscript is the braced `{,x,}`.',
@@ -107,7 +107,7 @@ final class NodeRulesATest extends TestCase
                 ['rules' => ['djot-superscript-caret' => 'on']],
                 [
                     'djot-superscript-caret',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     5,
                     'Djot superscript `^x^` is literal text in Carve — Carve superscript is the braced `{^x^}` only.',
