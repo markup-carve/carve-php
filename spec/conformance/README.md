@@ -68,6 +68,8 @@ Each entry has `id` (`CC-nnn`), `clauses`, `why`, `summary`, `options`, `expecte
 
 `inputBytes` is the input as bytes in hex, for a source that is not well-formed UTF-8 (C2-B-218). `files` holds the files a resolver serves, as for an include example; a case with `files` is parsed with that resolver and one without `files` with none (see "Options"). A file entry with `{"error":"outside_root"}` or `{"error":"unreadable"}` makes the resolver return that cause for the path, so include failure cases do not depend on filesystem permissions or the runner's directory.
 
+`expected.children` and `expected.tree` are compared field by field, unlike the tree equality of C2-A-162: the resolution fields of `data/ast-results.json` count too, so a case pins a field such as `abbreviation.expansion` by stating it and pins its absence by leaving it out. Only `pos` and `segments` are skipped where the expected value holds no `pos`, `srcByteLength` where it states none, and the `children` and `file` of an `include`.
+
 ### Diagnostics
 
 `expected.diagnostics` lists entries of the record the call returns. An entry is a code, or an object with `code` and any of `line`, `column`, `endLine`, `endColumn`, `severity`, `channel`, `path` and `file`. `line` and `column` are the start of the entry's `range`, counted as `pos` counts them (C2-A-141): lines from 1 at each line feed, columns in code points from 1. They are counted in the file the entry names (`file`, C2-N-063) and in the input otherwise; the end is exclusive, as in `pos`. A field the object does not state is not compared. `messageWhen`, when present, is the exact `when` text of the selected message variant in `data/lint-rules.json`; the runner compares that variant, and the corpus check verifies that the row lists it.
@@ -89,6 +91,8 @@ Each entry has `id` (`CC-nnn`), `clauses`, `why`, `summary`, `options`, `expecte
 The check fails a code that `data/lint-rules.json` does not list or lists as obsolete or void, a `channel` or `severity` that differs from the catalog, a position outside the text it is counted in, and a code that is both expected and excluded.
 
 ### Layout and writing
+
+A `tree` case may give `annotations` beside its tree. The reader checks the supplied annotation-range sidecar under C2-A-203, C2-A-207 and C2-A-214; without it, only the tree checks run.
 
 A `layout` case compares the sidecar that `parseWithLayout` returns with `expected.layout`. Each root field the expected sidecar states is equal, and each node entry it states is an entry of the result with the same `path`, compared as C2-L-059 says: a required fact must be present and equal, and an optional fact the case states is compared only where the result records it. The result may hold more entries and more facts; `expected.layoutAbsent` names, for a path, the facts its entry must not hold. A `write` case gives the writer a `tree` and, where it has one, the sidecar `layout`, and compares the source with `expected.carve` and the losses of the record with `expected.diagnostics`.
 

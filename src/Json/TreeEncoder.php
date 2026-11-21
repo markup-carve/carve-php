@@ -6,7 +6,9 @@ namespace MarkupCarve\Carve\Json;
 
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Resolve\Walk;
 use stdClass;
+use WeakMap;
 
 /**
  * Encodes a tree to the JSON of ast-schema.json. Positions are derived here from the byte
@@ -65,6 +67,11 @@ final class TreeEncoder
     private bool $release = false;
 
     private bool $compactEmptyCells = false;
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node, true>
+     */
+    private WeakMap $omittedAbbreviationExpansions;
 
     /**
      * @var array{0: int, 1: int, 2: array<string, int>}|null The last position, which a wrapper of one child repeats.
@@ -253,6 +260,26 @@ final class TreeEncoder
      */
     public function encode(Node $root, ?string $source): array
     {
+        $length = $source !== null ? strlen($source) : ($root->f['srcByteLength'] ?? 0);
+        $length = is_int($length) && $length > 0 ? $length : 0;
+        $remaining = max(1000000, min($length, intdiv(PHP_INT_MAX, 8)) * 8);
+        $this->omittedAbbreviationExpansions = new WeakMap();
+        $stack = [$root];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node->type === 'abbreviation' && is_string($node->f['expansion'] ?? null)) {
+                $cost = strlen($node->f['expansion']);
+                if ($cost > $remaining) {
+                    $this->omittedAbbreviationExpansions[$node] = true;
+                } else {
+                    $remaining -= $cost;
+                }
+            }
+            $children = Walk::kids($node);
+            for ($i = count($children) - 1; $i >= 0; $i--) {
+                $stack[] = $children[$i];
+            }
+        }
         $this->sources = $root->includeSources;
         if ($source !== null) {
             $this->sources[''] = $source;
@@ -310,7 +337,11 @@ final class TreeEncoder
         }
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
-            if ($value === null || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []) {
+            if (
+                $this->omitsExpansion($node, $key)
+                || $value === null
+                || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []
+            ) {
                 continue;
             }
             if (
@@ -350,6 +381,12 @@ final class TreeEncoder
         }
 
         return $out;
+    }
+
+    private function omitsExpansion(Node $node, string $key): bool
+    {
+        return $key === 'expansion' && $node->type === 'abbreviation'
+            && isset($this->omittedAbbreviationExpansions[$node]);
     }
 
     private function emptyTableCell(Node $node): bool
