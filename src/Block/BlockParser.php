@@ -280,8 +280,8 @@ final class BlockParser
     private function lazyLineBlock(Frame $leaf): bool
     {
         $n = count($leaf->spans);
-        if ($n >= 2 && $leaf->spans[$n - 2] === $leaf->spans[$n - 1]) {
-            // C2-B-024: a blank line ended the open stanza; no later unowned line is lazy.
+        if ($n === 0 || $n >= 2 && $leaf->spans[$n - 2] === $leaf->spans[$n - 1]) {
+            // C2-B-024: only an open stanza takes a lazy line.
             return false;
         }
         $j = $this->i + strspn($this->s, " \t", $this->i, $this->le - $this->i);
