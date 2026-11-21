@@ -75,6 +75,15 @@ function options(array $argv): array
     return $out;
 }
 
+/**
+ * The driver polls the status file, so it is replaced whole: a plain write is seen empty between truncate and write.
+ */
+function writeStatus(string $status, string $line): void
+{
+    file_put_contents($status . '.tmp', $line);
+    rename($status . '.tmp', $status);
+}
+
 function worker(int $seed, string $kind, int $start, int $count, string $status, string $findsFile): void
 {
     FuzzProperties::install();
@@ -86,13 +95,17 @@ function worker(int $seed, string $kind, int $start, int $count, string $status,
     $out = fopen($findsFile, 'ab');
     for ($i = $start; $i < $start + $count; $i++) {
         $input = $gen->next($kind);
-        file_put_contents($status, $i . ' ' . microtime(true));
+        writeStatus($status, $i . ' ' . microtime(true));
         foreach ($props->check($input) as [$property, $signature, $detail]) {
             fwrite($out, json_encode(['seed' => $seed, 'kind' => $kind, 'index' => $i, 'property' => $property,
                 'signature' => $signature, 'detail' => $detail, 'size' => strlen($input)], JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
         }
+        // memory_limit counts the chunks the allocator keeps after earlier inputs: after 75 deep inputs a worker held
+        // 124 MB of them for 7 MB in use, and the next input died at 128M although it needs 35 MB alone.
+        gc_collect_cycles();
+        gc_mem_caches();
     }
-    file_put_contents($status, 'done ' . ($start + $count));
+    writeStatus($status, 'done ' . ($start + $count));
 }
 
 /**
@@ -112,7 +125,7 @@ function drive(int $seed, string $kind, int $count, string $dir, float $timeout)
             (string)($count - $start), $status, $findsFile]);
         $proc = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['pipe', 'w']], $pipes);
         $code = -1;
-        $launched = microtime(true);
+        $since = microtime(true) + 60;
         stream_set_blocking($pipes[2], false);
         $stderr = '';
         $hung = false;
@@ -127,7 +140,7 @@ function drive(int $seed, string $kind, int $count, string $dir, float $timeout)
             }
             $line = (string)@file_get_contents($status);
             // Before its first input a worker regenerates the inputs it skips; that start gets a minute more.
-            $since = preg_match('/^(\d+) ([\d.]+)$/', $line, $m) ? (float)$m[2] : $launched + 60;
+            $since = preg_match('/^(\d+) ([\d.]+)$/', $line, $m) ? (float)$m[2] : $since;
             if (microtime(true) - $since > $timeout) {
                 $hung = true;
                 proc_terminate($proc, 9);
