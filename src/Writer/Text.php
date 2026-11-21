@@ -141,6 +141,7 @@ final class Text
         $prev = $c->last;
         $balanced = $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [];
         $c->localPartners = $c->here < 0 ? self::pairedMarks($value) : null;
+        $ticks = !$c->inCell ? self::tickEscapes($value, $c) : null;
         for ($i = 0; $i < $n; $i++) {
             $ch = $value[$i];
             $byte = ord($ch);
@@ -154,6 +155,7 @@ final class Text
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
             $escape = $i === $marks || isset($c->pairEscapes[$i]) || (str_contains(self::PUNCT, $ch)
+                && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next));
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
@@ -161,6 +163,50 @@ final class Text
         }
 
         return $out;
+    }
+
+    /**
+     * Bare text runs with different lengths do not close each other. Plan escapes from right to left so an escaped
+     * prefix cannot make an earlier run acquire a closer (C2-W-088, C2-W-091).
+     *
+     * @return array<int, true>|null Null keeps the established spelling of a single isolated run.
+     */
+    private static function tickEscapes(string $value, Context $c): ?array
+    {
+        if (!str_contains($value, '`')) {
+            return null;
+        }
+        $runs = [];
+        preg_match_all('/`+/', $value, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as [$run, $at]) {
+            $runs[] = [$at, strlen($run)];
+        }
+        if (count($runs) < 2) {
+            // A tick in a neighboring nonverbatim inline node can be another, differently sized run in the leaf.
+            foreach ($c->flatNodes as $node) {
+                $type = $node['type'] ?? null;
+                if (is_string($type) && !isset(self::WHOLE[$type]) && str_contains(Inline::strings($node), '`')) {
+                    return [];
+                }
+            }
+
+            return null;
+        }
+        $later = [];
+        $escaped = [];
+        for ($r = count($runs) - 1; $r >= 0; $r--) {
+            [$at, $length] = $runs[$r];
+            $count = 0;
+            while ($count < $length && isset($later[$length - $count])) {
+                $escaped[$at + $count++] = true;
+            }
+            if ($count > 1) {
+                $later[1] = true;
+            }
+            $later[$count === 0 ? $length : $length - $count + 1] = true;
+        }
+
+        return $escaped;
     }
 
     /**
@@ -730,7 +776,8 @@ final class Text
 
     private static function gluedSigil(string $ch, int $next): bool
     {
-        return ($next === 0x60 && ($ch === '!' || $ch === '$')) || ($next === 0x5B && ($ch === '!' || $ch === '^'));
+        return ($next === 0x60 && ($ch === '!' || $ch === '$')) || ($next === 0x5B && ($ch === '!' || $ch === '^'))
+            || ($next === 0x24 && $ch === '$');
     }
 
     /**
@@ -778,7 +825,7 @@ final class Text
         if (($c->counts[$ch] ?? 0) < 2) {
             return false;
         }
-        if ($i > 1 && $value[$i - 1] === $ch && $value[$i - 2] === '{') {
+        if ($i > 1 && $value[$i - 1] === $ch && $value[$i - 2] === '{' && ($value[$i + 1] ?? '') !== $ch) {
             return true;
         }
         // C2-I-049: a run of two or more is text, counted without the mark a bare brace takes (C2-I-055).
@@ -840,6 +887,7 @@ final class Text
         $open = ['*' => [], '/' => []];
         $brackets = [];
         $n = strlen($text);
+        $matching = self::matchingBrackets($text);
         for ($at = 0; $at < $n; $at++) {
             $ch = $text[$at];
             if ($ch === "\0") {
@@ -847,7 +895,7 @@ final class Text
 
                 continue;
             }
-            if ($ch === '[') {
+            if ($ch === '[' && isset($matching[$at])) {
                 $brackets[] = $open;
                 $open = ['*' => [], '/' => []];
 
@@ -874,13 +922,30 @@ final class Text
             if ($canClose && $open[$ch] !== []) {
                 $from = array_pop($open[$ch]);
                 $paired[$ch][$from] = true;
-                $paired[$ch][$at] = true;
             } elseif ($canOpen) {
                 $open[$ch][] = $at;
             }
         }
 
         return $paired;
+    }
+
+    /**
+     * @return array<int, true>
+     */
+    private static function matchingBrackets(string $text): array
+    {
+        $matching = [];
+        $pending = [];
+        for ($i = 0, $n = strlen($text); $i < $n; $i++) {
+            if ($text[$i] === '[') {
+                $pending[] = $i;
+            } elseif ($text[$i] === ']' && $pending !== []) {
+                $matching[array_pop($pending)] = true;
+            }
+        }
+
+        return $matching;
     }
 
     /**
