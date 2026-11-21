@@ -43,8 +43,11 @@ final class NodeRulesA
             return;
         }
         $text = substr($c->source, $range[0], $range[1] - $range[0]);
+        // A pair finding names the inline parent of the text, the holder of its text run (C2-W-140).
+        $at = strrpos($path, '/children/');
+        $parent = $at === false ? $path : substr($path, 0, $at);
         foreach (self::pairRanges($text, $mark, $id) as [$start, $end]) {
-            $c->report($id, $range[0] + $start, $range[0] + $end, $path);
+            $c->report($id, $range[0] + $start, $range[0] + $end, $parent);
         }
     }
 

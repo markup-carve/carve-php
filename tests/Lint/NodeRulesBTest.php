@@ -349,7 +349,7 @@ final class NodeRulesBTest extends TestCase
                 "- :::\n  :::e\n  ::::\nl\n",
                 [
                     'colon-fence-length-mismatch',
-                    '/children/0/children/0/children/0',
+                    '',
                     15,
                     19,
                     'Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the '
@@ -362,7 +362,7 @@ final class NodeRulesBTest extends TestCase
                 "{.x}\n::: warning\na\n::::\n",
                 [
                     'colon-fence-length-mismatch',
-                    '/children/0',
+                    '',
                     19,
                     23,
                     'Bare 4-colon fence has a different width from the innermost 3-colon admonition opened at 2:1; it '

@@ -993,7 +993,8 @@ final class NodeRulesB
         $activeLine = $c->lineOf($activeRun[0]);
         $activeColumn = $activeRun[0] - ($c->lines[$activeLine - 1]->start ?? 0) + 1;
         $runStart = $closerRun[0];
-        $c->report('colon-fence-length-mismatch', $runStart, $runStart + $closerRun[1], $path, [
+        // The finding names the closer line's own path, as the data row does.
+        $c->report('colon-fence-length-mismatch', $runStart, $runStart + $closerRun[1], $endLine->path, [
             'authoredWidth' => (string)$closerLength,
             'expectedWidth' => (string)$activeRun[1],
             'kind' => str_replace(['directive', '_'], ['div', ' '], (string)($innerType ?? $type)),
@@ -1039,7 +1040,7 @@ final class NodeRulesB
             if ($runLine === null || self::bareColonRun($runLine, $c->layout->quoteDepth($path)) === null) {
                 continue;
             }
-            $c->report('colon-fence-length-mismatch', $run[0], $run[0] + $run[1], $path . '/children/' . $at, [
+            $c->report('colon-fence-length-mismatch', $run[0], $run[0] + $run[1], $runLine->path, [
                 'authoredWidth' => (string)$run[1],
                 'expectedWidth' => (string)$opener[1],
                 'kind' => 'div',
