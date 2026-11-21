@@ -691,7 +691,7 @@ final class Inline
             $points = $c->inCell ? ($this->w->wrapPoints[$path] ?? null) : null;
             $c->here = $points === null ? $c->flatAt[$path] ?? -1 : -1;
             $c->textPath = $path;
-            $out = $points === null ? $this->text($node, $c, $next, $before) : $this->wrapped($node, $points, $c, $next);
+            $out = $points === null ? $this->text($node, $path, $c, $next, $before) : $this->wrapped($node, $points, $c, $next);
             $c->here = -1;
             if ($points === null) {
                 $c->runLog[] = [
@@ -759,21 +759,16 @@ final class Inline
 
     /**
      * @param array<mixed> $node
+     * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $next
      * @param mixed $before
      *
      * @return string
      */
-    private function text(array $node, Context $c, int $next, mixed $before): string
+    private function text(array $node, string $path, Context $c, int $next, mixed $before): string
     {
-        $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-        // C2-W-022: no space or tab of text stands at the end of a line.
-        if ($next === 10 && !$c->bareBreaks) {
-            $value = rtrim($value, " \t");
-        } elseif ($next === -1) {
-            $value = rtrim($value, " \t");
-        }
+        $value = $this->lineEndText(is_string($node['value'] ?? null) ? $node['value'] : '', $path, $c, $next);
         $prefix = '';
         // C2-W-125 case six: a name character behind a mention or a tag would lengthen its name.
         if (
@@ -806,6 +801,26 @@ final class Inline
         $this->textValue = $value;
 
         return $prefix . Text::escapePairs($value, $c, $next);
+    }
+
+    /**
+     * C2-W-022: a line ending consumes trailing spaces and tabs. Report that loss once per leaf.
+     */
+    private function lineEndText(string $value, string $path, Context $c, int $next): string
+    {
+        if ($next !== -1 && ($next !== 10 || $c->bareBreaks)) {
+            return $value;
+        }
+        $trimmed = rtrim($value, " \t");
+        if ($trimmed !== $value) {
+            $leafAt = strrpos($path, '/children/');
+            $leaf = $leafAt === false ? $path : substr($path, 0, $leafAt);
+            if (!$this->w->lastLossUnder($leaf)) {
+                $this->w->lose($path, 'text', null);
+            }
+        }
+
+        return $trimmed;
     }
 
     /**

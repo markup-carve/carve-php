@@ -229,6 +229,14 @@ final class State
         }
     }
 
+    public function lastLossUnder(string $path): bool
+    {
+        $last = end($this->losses);
+
+        return $last !== false && is_string($last->path)
+            && ($last->path === $path || str_starts_with($last->path, $path . '/'));
+    }
+
     private function lostUnder(string $path): bool
     {
         foreach (array_keys($this->lost) as $where) {
