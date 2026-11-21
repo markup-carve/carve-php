@@ -88,7 +88,8 @@ final class Chars
             return 0xFFFD;
         }
         $b = ord($t[$i]);
-        if ($len < 2 || $b < 0xC2 || $b > 0xF4) {
+        // A lead byte needs exactly its own count of continuation bytes; `before()` may hand a truncated sequence.
+        if ($b < 0xC2 || $b > 0xF4 || $len !== ($b >= 0xF0 ? 4 : ($b >= 0xE0 ? 3 : 2))) {
             return 0xFFFD;
         }
         $cp = $len === 2 ? $b & 0x1F : ($len === 3 ? $b & 0x0F : $b & 0x07);
