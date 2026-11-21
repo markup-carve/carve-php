@@ -390,6 +390,9 @@ final class TreeEncoder
 
             return $positions ? self::EMPTY_TABLE_CELL_FOR_LINT : self::EMPTY_TABLE_CELL_FOR_WRITER;
         }
+        // Resolve nested nodes in document order while keeping the wire's field order.
+        $title = isset($node->f['title']) ? $this->value($node->f['title'], $positions) : null;
+        $children = $this->encodedChildren($node, $positions);
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
             if (
@@ -405,21 +408,9 @@ final class TreeEncoder
             ) {
                 continue;
             }
-            $out[$key] = $this->value($value, $positions);
+            $out[$key] = $key === 'title' ? $title : $this->value($value, $positions);
         }
-        if ($node->children !== null) {
-            $children = [];
-            if ($this->release) {
-                $kids = array_reverse($node->children);
-                $node->children = [];
-                while (($child = array_pop($kids)) !== null) {
-                    $children[] = $this->node($child, $positions);
-                }
-            } else {
-                foreach ($node->children as $child) {
-                    $children[] = $this->node($child, $positions);
-                }
-            }
+        if ($children !== null) {
             $out['children'] = $children;
         }
         if ($positions && $node->start >= 0 && $node->type !== 'document') {
@@ -436,6 +427,30 @@ final class TreeEncoder
         }
 
         return $out;
+    }
+
+    /**
+     * @return array<array<string, mixed>>|null
+     */
+    private function encodedChildren(Node $node, bool $positions): ?array
+    {
+        if ($node->children === null) {
+            return null;
+        }
+        $children = [];
+        if ($this->release) {
+            $kids = array_reverse($node->children);
+            $node->children = [];
+            while (($child = array_pop($kids)) !== null) {
+                $children[] = $this->node($child, $positions);
+            }
+        } else {
+            foreach ($node->children as $child) {
+                $children[] = $this->node($child, $positions);
+            }
+        }
+
+        return $children;
     }
 
     private function omitsExpansion(Node $node, string $key): bool
