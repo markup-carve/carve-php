@@ -134,6 +134,25 @@ final class ImportClausesTest extends TestCase
         $this->assertSame('document', HtmlImporter::import($html)->tree->type);
     }
 
+    public function testC2M006ExpandedIncludeResetsBlockDepth(): void
+    {
+        $wrap = static function (int $count, array $child): array {
+            for ($i = 0; $i < $count; $i++) {
+                $child = ['type' => 'block_quote', 'children' => [$child]];
+            }
+
+            return $child;
+        };
+        $finish = static function (array $children) use ($wrap): array {
+            $inner = $wrap(150, ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'x']]]);
+            $include = ['type' => 'include', 'path' => 'a.crv', 'file' => 'a.crv', 'children' => [$inner]];
+
+            return [$wrap(150, $include)];
+        };
+
+        $this->assertSame('document', HtmlImporter::import('', finish: $finish)->tree->type);
+    }
+
     public function testC2M013RunOfImagesGivesOneImageParagraphEach(): void
     {
         $image = static fn (string $src): array => [

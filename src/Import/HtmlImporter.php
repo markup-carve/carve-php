@@ -263,6 +263,10 @@ final class HtmlImporter
             if ($depth > Tables::BLOCK_DEPTH) {
                 return true;
             }
+            if ($type === 'include') {
+                // C2-A-171: expanded include children start a new block depth count.
+                $depth = 0;
+            }
             $children = $node['children'] ?? [];
             if (!is_array($children)) {
                 continue;
