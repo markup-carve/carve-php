@@ -1628,34 +1628,45 @@ final class NodeRulesB
             return [];
         }
         $out = [];
-        $itemLine = Support::pos($node)['startLine'] ?? -1;
-        $walk = static function (array $children, string $parentPath) use (&$walk, &$out, $c, $content, $itemLine): void {
-            foreach ($children as $at => $child) {
-                $childPath = $parentPath . '/children/' . $at;
-                $type = Support::str($child, 'type') ?? '';
-                $pos = Support::pos($child);
-                if ($type !== 'list' && $type !== 'comment' && $pos !== null) {
-                    $line = $c->lines[$pos['startLine'] - 1] ?? null;
-                    if (
-                        $line !== null && $pos['startLine'] !== $itemLine
-                        && ($type !== 'paragraph' || ($child['role'] ?? null) === 'image' || isset($child['attrs']))
-                    ) {
-                        $quotes = $c->layout->quoteDepth($childPath);
-                        $start = $c->layout->startOffset($childPath) ?? $line->start + self::indentation($line->text);
-                        $indent = $c->layout->columnOf($start, $quotes);
-                        if ($indent > $content) {
-                            $out[] = [$childPath, $line, $indent, $type, $content];
-                        }
-                    }
-                }
-                if (in_array($type, ['div', 'admonition', 'directive', 'figure_group'], true)) {
-                    $walk(Support::kids($child), $childPath);
-                }
-            }
-        };
-        $walk(Support::kids($node), $path);
+        self::overindentedIn(Support::kids($node), $path, $c, $content, Support::pos($node)['startLine'] ?? -1, $out);
 
         return $out;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $children
+     * @param string $parentPath
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param int $content
+     * @param int $itemLine
+     * @param array<array{0: string, 1: \MarkupCarve\Carve\Lint\Line, 2: int, 3: string, 4: int}> $out
+     *
+     * @return void
+     */
+    private static function overindentedIn(array $children, string $parentPath, Context $c, int $content, int $itemLine, array &$out): void
+    {
+        foreach ($children as $at => $child) {
+            $childPath = $parentPath . '/children/' . $at;
+            $type = Support::str($child, 'type') ?? '';
+            $pos = Support::pos($child);
+            if ($type !== 'list' && $type !== 'comment' && $pos !== null) {
+                $line = $c->lines[$pos['startLine'] - 1] ?? null;
+                if (
+                    $line !== null && $pos['startLine'] !== $itemLine
+                    && ($type !== 'paragraph' || ($child['role'] ?? null) === 'image' || isset($child['attrs']))
+                ) {
+                    $quotes = $c->layout->quoteDepth($childPath);
+                    $start = $c->layout->startOffset($childPath) ?? $line->start + self::indentation($line->text);
+                    $indent = $c->layout->columnOf($start, $quotes);
+                    if ($indent > $content) {
+                        $out[] = [$childPath, $line, $indent, $type, $content];
+                    }
+                }
+            }
+            if (in_array($type, ['div', 'admonition', 'directive', 'figure_group'], true)) {
+                self::overindentedIn(Support::kids($child), $childPath, $c, $content, $itemLine, $out);
+            }
+        }
     }
 
     /**

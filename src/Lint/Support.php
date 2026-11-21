@@ -138,12 +138,10 @@ final class Support
      */
     public static function node(array $value): array
     {
-        $out = [];
-        foreach ($value as $key => $item) {
-            $out[(string)$key] = $item;
-        }
+        // A numeric string key is an int key in PHP, so a key-by-key copy would return the same array.
 
-        return $out;
+        /** @var array<string, mixed> $value */
+        return $value;
     }
 
     /**
