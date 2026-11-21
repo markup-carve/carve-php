@@ -298,7 +298,7 @@ final class Inline
         $c->lineAfterSpanEnds = false;
         $c->lineAfterSpanPipeSource = -1;
         $c->lineAfterSpanPipeText = -1;
-        if (!in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+        if (!self::multilineSpan($nodes[$at] ?? null, $type)) {
             return;
         }
         $c->lineAfterSpanEnds = true;
@@ -346,6 +346,12 @@ final class Inline
                 break;
             }
         }
+    }
+
+    private static function multilineSpan(mixed $node, string $type): bool
+    {
+        return is_array($node) && in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)
+            && str_contains(self::str($node, 'value'), "\n");
     }
 
     /**
