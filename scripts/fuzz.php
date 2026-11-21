@@ -75,6 +75,15 @@ function options(array $argv): array
     return $out;
 }
 
+/**
+ * The driver polls the status file, so it is replaced whole: a plain write is seen empty between truncate and write.
+ */
+function writeStatus(string $status, string $line): void
+{
+    file_put_contents($status . '.tmp', $line);
+    rename($status . '.tmp', $status);
+}
+
 function worker(int $seed, string $kind, int $start, int $count, string $status, string $findsFile): void
 {
     FuzzProperties::install();
@@ -86,7 +95,7 @@ function worker(int $seed, string $kind, int $start, int $count, string $status,
     $out = fopen($findsFile, 'ab');
     for ($i = $start; $i < $start + $count; $i++) {
         $input = $gen->next($kind);
-        file_put_contents($status, $i . ' ' . microtime(true));
+        writeStatus($status, $i . ' ' . microtime(true));
         foreach ($props->check($input) as [$property, $signature, $detail]) {
             fwrite($out, json_encode(['seed' => $seed, 'kind' => $kind, 'index' => $i, 'property' => $property,
                 'signature' => $signature, 'detail' => $detail, 'size' => strlen($input)], JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
@@ -96,7 +105,7 @@ function worker(int $seed, string $kind, int $start, int $count, string $status,
         gc_collect_cycles();
         gc_mem_caches();
     }
-    file_put_contents($status, 'done ' . ($start + $count));
+    writeStatus($status, 'done ' . ($start + $count));
 }
 
 /**
@@ -130,8 +139,7 @@ function drive(int $seed, string $kind, int $count, string $dir, float $timeout)
                 break;
             }
             $line = (string)@file_get_contents($status);
-            // Before its first input a worker regenerates the inputs it skips; that start gets a minute more. A read
-            // can meet the file between truncate and write, so an unreadable line keeps the last time seen.
+            // Before its first input a worker regenerates the inputs it skips; that start gets a minute more.
             $since = preg_match('/^(\d+) ([\d.]+)$/', $line, $m) ? (float)$m[2] : $since;
             if (microtime(true) - $since > $timeout) {
                 $hung = true;
