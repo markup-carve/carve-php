@@ -210,7 +210,6 @@ Carve::render($source, ['extensions' => [
 - `headingNumbers(minLevel, label, crossref)`: section numbers in `<span class="section-number">`, and cross-references
   `</#id>` written as `Section 1.2 - Title` (`crossref`: `number`, `number-title` or `title`). Headings in a quote or a
   note, with the class `unnumbered`, or above `minLevel` take no number.
-- `headingLevelShift(shift)`: every heading down by `shift` levels, to at most 6.
 - `headingReference(cssClass)`: a class on each reference link a heading resolves (`[Heading][]`). The 0.1
   `[[Heading]]` spelling is gone (C2-X-013).
 - `externalLinks(target, rel, nofollow)`: `target` and `rel` on links and autolinks to `http` and `https` URLs.

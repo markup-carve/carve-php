@@ -20,6 +20,7 @@ use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Html\HeadingShift;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Html\Profile;
 use MarkupCarve\Carve\Import\HtmlImporter;
@@ -196,11 +197,12 @@ final class Carve
             [$doc, $source, $facts] = self::resolvedTree($input, $opts);
             $findings = new Findings();
         }
+        HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
         $transformEntries = [];
         if ($transforms !== []) {
             [$doc, $facts, $transformEntries] = self::applyDocumentTransforms($doc, $source, $opts, $transforms);
         }
-        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
+        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts, true);
         $entries = $findings->finish($doc);
         array_push($entries, ...$transformEntries);
         $losses = new Findings();
@@ -509,13 +511,14 @@ final class Carve
             Extensions::apply($doc, $opts->extensions, self::divBody(...));
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
+            HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
         } finally {
             if ($gc) {
                 gc_enable();
             }
         }
 
-        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
+        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts, true);
         if ($opts->strictLosses && $log->entries !== []) {
             throw new RenderError();
         }
@@ -682,7 +685,8 @@ final class Carve
             return self::transformedHtml($input, $options, $opts);
         }
         [$doc, $source, $facts] = self::resolvedTree($input, $opts);
-        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts);
+        HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
+        [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts, true);
         if ($opts->strictLosses && $log->entries !== []) {
             throw new RenderError();
         }

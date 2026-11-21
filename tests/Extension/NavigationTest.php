@@ -244,14 +244,8 @@ final class NavigationTest extends TestCase
         $this->assertStringNotContainsString('Section 1 - C', $html);
     }
 
-    public function testHeadingLevelShiftAndReference(): void
+    public function testHeadingReference(): void
     {
-        $this->assertSame(
-            "<section id=\"A\">\n  <h2>A</h2>\n  <section id=\"F\">\n    <h6>F</h6>\n  </section>\n</section>",
-            self::html("= A\n\n====== F\n", Navigation::headingLevelShift()),
-        );
-        $this->assertStringContainsString('<h6>A</h6>', self::html("= A\n", Navigation::headingLevelShift(9)));
-        $this->assertStringContainsString('<h1>A</h1>', self::html("= A\n", Navigation::headingLevelShift(-2)));
         $this->assertStringContainsString(
             '<a href="#Setup" class="heading-ref">Setup</a> <a href="#Setup" class="heading-ref">here</a> <a href="https://x.org">Doc</a>',
             self::html("= Setup\n\n[Setup][] [here][Setup] [Doc][]\n\n[Doc]: https://x.org\n", Navigation::headingReference()),

@@ -27,6 +27,7 @@ final class AttrWriter
         'data-carve-ref' => true,
         'data-carve-ref-collapsed' => true,
         'data-carve-ref-shortcut' => true,
+        'data-carve-source-level' => true,
         'data-carve-autolink' => true,
         'data-carve-footnote-label' => true,
         'data-carve-inline-footnote' => true,

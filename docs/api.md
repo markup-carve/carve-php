@@ -467,7 +467,6 @@ Class. Provisional. The navigation extensions: each factory returns one `Extensi
   5 => 6,
 ), bool $prepend = false, bool $showOnHover = false, bool $copyToClipboard = false): ExtensionDefinition`: Adds a link to its own id to each heading that has one. The anchor is a core link, so no renderer is needed.
 - `static headingNumbers(int $minLevel = 1, string $label = 'Section', string $crossref = 'number-title'): ExtensionDefinition`: Numbers the sections, `1`, `1.1` and so on, in a `<span class="section-number">` before the heading text, and writes a cross-reference `</#id>` to a numbered heading as "Section 1.2 - Title". Headings in a quote or a note, with the class `unnumbered` or above `$minLevel` take no number.
-- `static headingLevelShift(int $shift = 1): ExtensionDefinition`: Moves every heading down by `$shift` levels (clamped to 0-5), to at most 6, for a page whose `<h1>` is its title.
 - `static headingReference(string $cssClass = 'heading-ref'): ExtensionDefinition`: Gives the class `heading-ref` to each reference link a heading resolves (`[Heading][]`, `[text][Heading]`, C2-H-083). The 0.1 `[[Heading]]` spelling is gone: 0.2 adds no delimiter for it (C2-X-013, C2-X-057).
 - `static externalLinks(string $target = '_blank', string $rel = 'noopener noreferrer', bool $nofollow = false): ExtensionDefinition`: Sets `target` and `rel` on each link and autolink to an `http` or `https` URL.
 - `static linkPolicy(?array $allowedSchemes = null, array $deniedSchemes = array (

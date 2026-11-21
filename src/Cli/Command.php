@@ -68,12 +68,17 @@ final class Command
     private const RENDER_TARGETS = ['html', 'markdown', 'plain', 'ansi'];
 
     /**
-     * Flags that set one option: `softBreak` (C2-T-010), `allowLosses` one code per instance (C2-T-027) and `maxLosses`
-     * (C2-T-029).
+     * Flags that set one option: `softBreak` and the count `headingShift` (C2-T-010), `allowLosses` one code per instance
+     * (C2-T-027) and `maxLosses` (C2-T-029).
      *
      * @var array<string, string>
      */
-    private const OPTION_FLAGS = ['soft-break' => 'softBreak', 'allow-loss' => 'allowLosses', 'max-render-losses' => 'maxLosses'];
+    private const OPTION_FLAGS = [
+        'soft-break' => 'softBreak',
+        'heading-shift' => 'headingShift',
+        'allow-loss' => 'allowLosses',
+        'max-render-losses' => 'maxLosses',
+    ];
 
     /**
      * @var array<string, bool>
@@ -134,7 +139,7 @@ Commands: render (default), ast, diagnostics, lint, fix, flatten, fmt, import, m
 Input: a file path or - for standard input; no file reads standard input.
 
 Every command: --help, --version
-Render: --to html|markdown|plain|ansi, --heading-ids MODE,
+Render: --to html|markdown|plain|ansi, --heading-ids MODE, --heading-shift N,
   --labels JSON, --mode interactive|static, --profile PROFILE,
   --raw-html, --roundtrip, --sections, --smart-typography,
   --social JSON, --soft-break newline|space|br, --source-lines,
@@ -479,7 +484,7 @@ HELP;
             $list = is_array($list) ? $list : [];
             $list[] = $value;
             $options[$option] = $list;
-        } elseif ($option === 'maxLosses') {
+        } elseif ($option === 'maxLosses' || $option === 'headingShift') {
             if (preg_match('/^(0|[1-9][0-9]*)$/', $value) !== 1) {
                 throw new OptionError('--' . $name . ' takes a count');
             }
@@ -609,7 +614,7 @@ HELP;
                         'ansi' => new AnsiExporter(),
                         default => throw new OptionError('bad value for --to'),
                     };
-                    $exportOptions = array_intersect_key($options, array_flip(['smartTypography', 'urlPolicy']));
+                    $exportOptions = array_intersect_key($options, array_flip(['smartTypography', 'urlPolicy', 'headingShift']));
                     $export = $exporter->export($tree, $exportOptions);
                     $allowed = $options['allowLosses'] ?? [];
                     $losses = array_values(array_filter(
