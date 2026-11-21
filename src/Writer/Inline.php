@@ -209,17 +209,21 @@ final class Inline
                 continue;
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+            self::resetFollowingPipe($c, $type);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
             $following = $nodes[$at + 1] ?? null;
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
+            $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
+            self::setFollowingTextLine($c, $nodes, $at, $type);
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
             $out .= $part;
+            self::advanceFollowingPipe($c, $node, $type);
             if (!self::isBracedComment($node)) {
                 $visible = $c->lineStart ? -1 : $c->last;
                 $visibleNode = $node;
@@ -227,6 +231,148 @@ final class Inline
         }
 
         return $out;
+    }
+
+    private static function resetFollowingPipe(Context $c, string $type): void
+    {
+        if ($type !== 'text' && !in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+            $c->escapeFollowingPipeAt = -1;
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param array<mixed> $node
+     * @param string $type
+     *
+     * @return void
+     */
+    private static function advanceFollowingPipe(Context $c, array $node, string $type): void
+    {
+        if ($type !== 'text') {
+            return;
+        }
+        $length = strlen(self::str($node, 'value'));
+        $c->escapeFollowingPipeAt = $c->escapeFollowingPipeAt >= $length
+            ? $c->escapeFollowingPipeAt - $length : -1;
+    }
+
+    /**
+     * The line up to the first break of a following verbatim span, for the opener test of text before it.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function spanLineTail(array $node): ?string
+    {
+        $type = self::str($node, 'type');
+        if (!in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+            return null;
+        }
+        $value = self::str($node, 'value');
+        if (!str_contains($value, "\n")) {
+            return null;
+        }
+        $prefix = match ($type) {
+            'math' => ($node['display'] ?? false) === true ? '$$' : '$',
+            'literal_inline' => '!',
+            default => '',
+        };
+        $spelled = $prefix . self::codeSpan($value);
+
+        return substr($spelled, 0, (int)strpos($spelled, "\n"));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param string $type
+     *
+     * @return void
+     */
+    private static function setFollowingTextLine(Context $c, array $nodes, int $at, string $type): void
+    {
+        $c->lineAfterSpan = '';
+        $c->lineAfterSpanEnds = false;
+        $c->lineAfterSpanPipeSource = -1;
+        $c->lineAfterSpanPipeText = -1;
+        if (!self::multilineSpan($nodes[$at] ?? null, $type)) {
+            return;
+        }
+        $c->lineAfterSpanEnds = true;
+        $textOffset = 0;
+        $probe = clone $c;
+        $probe->lineStart = false;
+        $probe->last = 0x60;
+        $probe->here = -1;
+        $probe->writerState = null;
+        $probe->escapeFollowingPipeAt = -1;
+        for ($i = $at + 1, $n = count($nodes); $i < $n; $i++) {
+            $node = $nodes[$i];
+            $nextType = is_array($node) ? self::str($node, 'type') : '';
+            $spanSpelling = is_array($node) ? self::simpleSpanSpelling($node) : null;
+            if (in_array($nextType, ['soft_break', 'hard_break'], true)) {
+                break;
+            }
+            if ($nextType === 'text') {
+                $value = self::str($node, 'value');
+                $break = strpos($value, "\n");
+                $fragment = $break === false ? $value : substr($value, 0, $break);
+                $spelled = Text::escape($fragment, $probe, $break === false ? -1 : 10);
+                $pipe = strrpos($fragment, '|');
+                if ($pipe !== false) {
+                    $c->lineAfterSpanPipeSource = strlen($c->lineAfterSpan) + (int)strrpos($spelled, '|');
+                    $c->lineAfterSpanPipeText = $textOffset + $pipe;
+                }
+                $textOffset += strlen($value);
+            } elseif ($spanSpelling !== null) {
+                $spelled = $spanSpelling;
+                $break = strpos($spelled, "\n");
+                if ($break !== false) {
+                    $spelled = substr($spelled, 0, $break);
+                }
+            } else {
+                $c->lineAfterSpanEnds = false;
+
+                break;
+            }
+            $c->lineAfterSpan .= $spelled;
+            if ($spelled !== '') {
+                $probe->last = Chars::before($spelled, strlen($spelled));
+            }
+            if ($break !== false) {
+                break;
+            }
+        }
+    }
+
+    private static function multilineSpan(mixed $node, string $type): bool
+    {
+        return is_array($node) && in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)
+            && str_contains(self::str($node, 'value'), "\n");
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function simpleSpanSpelling(array $node): ?string
+    {
+        $type = self::str($node, 'type');
+        if (!in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+            return null;
+        }
+        $prefix = match ($type) {
+            'math' => ($node['display'] ?? false) === true ? '$$' : '$',
+            'literal_inline' => '!',
+            default => '',
+        };
+
+        return $prefix . self::codeSpan(self::str($node, 'value'))
+            . ($type === 'raw_inline' ? '{=' . self::str($node, 'format') . '}' : '');
     }
 
     /**
@@ -1333,7 +1479,13 @@ final class Inline
      */
     private function spanValue(array $node, string $path, Context $c, string $prefix): string
     {
-        $value = $this->cellValue($node, $path, $c, self::str($node, 'value'));
+        $value = $this->cellValue($node, $path, $c, self::str($node, 'value'), true);
+        $spelling = $prefix . self::codeSpan($value);
+        $break = strpos($spelling, "\n");
+        $firstLine = $break === false ? $spelling : substr($spelling, 0, $break);
+        if ($c->lineStart && strspn($firstLine, '`') >= 3 && Text::opensBlock($firstLine, $c, true)) {
+            $this->w->lose($path, self::str($node, 'type'), 'value');
+        }
         if ($value === '') {
             // C2-W-116: an empty run pair reads back as text.
             $this->w->lose($path, self::str($node, 'type'), null);
@@ -1341,7 +1493,7 @@ final class Inline
             $this->w->lose($path, self::str($node, 'type'), 'value');
         }
 
-        return $prefix . self::codeSpan($value);
+        return $spelling;
     }
 
     /**
@@ -1351,26 +1503,34 @@ final class Inline
      * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param string $value
+     * @param bool $span
      *
      * @return string
      */
-    private function cellValue(array $node, string $path, Context $c, string $value): string
+    private function cellValue(array $node, string $path, Context $c, string $value, bool $span = false): string
     {
         if (!str_contains($value, "\n")) {
             return $value;
         }
         if (!$c->inCell) {
-            $lines = array_slice(explode("\n", $value), 1);
+            $lines = array_slice(explode("\n", $span ? self::codeSpan($value) : $value), 1);
             $last = count($lines) - 1;
             foreach ($lines as $at => $line) {
-                // The closing run follows the last line, so an empty last line is no blank line; a pad before the run
-                // would be indent (C2-I-002).
-                if ($at === $last && $line === '') {
+                if ($span && $at === $last) {
+                    if (!self::spellableFinalSpanLine($line, $c)) {
+                        $this->w->lose($path, self::str($node, 'type'), 'value');
+
+                        break;
+                    }
+
+                    continue;
+                }
+                if (!$span && $at === $last && $line === '') {
                     $spelled = self::codeSpan($value);
                     $line = substr($spelled, (int)strrpos($spelled, "\n") + 1);
                     $line = str_starts_with($line, ' ') ? '' : $line;
                 }
-                if (Text::opensBlock($line)) {
+                if (Text::opensBlock($line, $span ? $c : null)) {
                     $this->w->lose($path, self::str($node, 'type'), 'value');
 
                     break;
@@ -1382,6 +1542,33 @@ final class Inline
         $this->w->lose($path, self::str($node, 'type'), 'value');
 
         return str_replace("\n", ' ', $value);
+    }
+
+    private static function spellableFinalSpanLine(string $line, Context $c): bool
+    {
+        if (
+            str_starts_with($line, ' ') || ($c->lineAfterSpanEnds
+                && $c->lineAfterSpan !== rtrim($c->lineAfterSpan, " \t"))
+        ) {
+            return false;
+        }
+        if (!$c->lineAfterSpanEnds && str_starts_with(ltrim($line, " \t"), '|')) {
+            return false;
+        }
+        $emittedLine = $line . $c->lineAfterSpan;
+        if (!Text::opensBlock($emittedLine, $c)) {
+            return true;
+        }
+        $pipe = $c->lineAfterSpanPipeSource;
+        if (
+            $pipe < 0 || Text::opensBlock($line . substr($c->lineAfterSpan, 0, $pipe) . '\\'
+                . substr($c->lineAfterSpan, $pipe), $c)
+        ) {
+            return false;
+        }
+        $c->escapeFollowingPipeAt = $c->lineAfterSpanPipeText;
+
+        return true;
     }
 
     /**

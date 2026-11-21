@@ -18,6 +18,30 @@ final class Context
     public bool $lineStart = false;
 
     /**
+     * The rest of this source line when the next inline span crosses a line break.
+     */
+    public ?string $lineTail = null;
+
+    /**
+     * Source written after a multiline span, through the next line break or unknown inline node.
+     */
+    public string $lineAfterSpan = '';
+
+    public int $lineAfterSpanPipeSource = -1;
+
+    public int $lineAfterSpanPipeText = -1;
+
+    /**
+     * Whether the following text reaches the end of its source line without another inline node.
+     */
+    public bool $lineAfterSpanEnds = false;
+
+    /**
+     * Offset of the pipe in following text that must be escaped to keep the span's final line out of a table.
+     */
+    public int $escapeFollowingPipeAt = -1;
+
+    /**
      * A line comment immediately precedes the current continuation line.
      */
     public bool $lineCommentBefore = false;

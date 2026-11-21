@@ -154,7 +154,8 @@ final class Text
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
-            $escape = $i === $marks || isset($c->pairEscapes[$i]) || (str_contains(self::PUNCT, $ch)
+            $escape = ($i === $c->escapeFollowingPipeAt && $ch === '|')
+                || $i === $marks || isset($c->pairEscapes[$i]) || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next));
             $c->escapedAt[$i] = $escape;
@@ -1193,27 +1194,37 @@ final class Text
     }
 
     /**
-     * C2-W-016: whether a line after the first of a verbatim leaf could end its paragraph or open a block there
-     * (C2-B-014 to C2-B-019). The test is the later-line test of C2-W-092 inside an item, the widest owner, since the
-     * leaf does not know its own.
+     * C2-W-016: whether an emitted line of a verbatim leaf opens a block in its paragraph owner. The first-line option
+     * also checks a span whose opening run starts a block at the paragraph's column.
      *
      * @param string $line
+     * @param \MarkupCarve\Carve\Writer\Context|null $context
+     * @param bool $first
      *
      * @return bool
      */
-    public static function opensBlock(string $line): bool
+    public static function opensBlock(string $line, ?Context $context = null, bool $first = false): bool
     {
         $line = ltrim($line, " \t");
         if ($line === '' || strspn($line, '`') >= 3) {
             return true;
         }
-        $c = new Context();
-        $c->lineStart = true;
-        $c->last = 10;
-        $c->owner = 'body';
+        if ($context !== null && str_starts_with($line, '%%')) {
+            return true;
+        }
+        if ($context === null) {
+            $c = new Context();
+            $c->lineStart = true;
+            $c->last = 10;
+            $c->owner = 'body';
 
-        // The closer of the leaf may follow on the line, after a space for a comment, so the line is tested with content.
-        return self::lineStartMark($line . ' ', $c, 0) >= 0;
+            return self::lineStartMark($line . ' ', $c, 0) >= 0;
+        }
+        $c = clone $context;
+        $c->lineStart = true;
+        $c->last = $first ? -1 : 10;
+
+        return self::lineStartMark($line, $c, 10) >= 0;
     }
 
     /**
@@ -1232,8 +1243,10 @@ final class Text
         if (!$c->lineStart) {
             return -1;
         }
-        $eol = in_array($next, [-1, 10], true);
-        $line = $eol ? $value : $value . 'x';
+        $tail = $c->lineTail;
+        $eol = $tail !== null || in_array($next, [-1, 10], true);
+        $line = $tail !== null ? $value . $tail : ($eol ? $value : $value . 'x');
+        $value = $tail !== null ? $line : $value;
         if (self::anyLine($value, $line, $eol, $c->last === -1 && $next === 10)) {
             return 0;
         }
