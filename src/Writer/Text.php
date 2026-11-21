@@ -917,29 +917,43 @@ final class Text
      */
     private static function run(string $value, int $i, Context $c): ?array
     {
-        // Every mark of a run asks for the run; the bounds of the last run are kept, or a run of n marks costs n squared.
-        static $last = ['', -1, -1];
-        if ($i >= $last[1] && $i <= $last[2] && $value === $last[0]) {
-            [, $start, $end] = $last;
-        } else {
-            $ch = $value[$i];
-            $start = $i;
-            while ($start > 0 && $value[$start - 1] === $ch) {
-                $start--;
-            }
-            $end = $i;
-            $n = strlen($value);
-            while ($end + 1 < $n && $value[$end + 1] === $ch) {
-                $end++;
-            }
-            $last = [$value, $start, $end];
-        }
+        [$start, $end] = self::bounds($value, $i);
         if ($start > 0 && $value[$start - 1] === '{' && ($c->escapedAt[$start - 1] ?? true) === false) {
             if ($i === $start) {
                 return null;
             }
             $start++;
         }
+
+        return [$start, $end];
+    }
+
+    /**
+     * The first and last offset of the run of `$value[$i]` around `$i`. Every mark of a run asks for its run, so the
+     * bounds of the last run are kept: measured again for each mark, a run of n marks cost n squared.
+     *
+     * @param string $value
+     * @param int $i
+     *
+     * @return array{0: int, 1: int}
+     */
+    private static function bounds(string $value, int $i): array
+    {
+        static $last = ['', -1, -1];
+        if ($i >= $last[1] && $i <= $last[2] && $value === $last[0]) {
+            return [$last[1], $last[2]];
+        }
+        $ch = $value[$i];
+        $start = $i;
+        while ($start > 0 && $value[$start - 1] === $ch) {
+            $start--;
+        }
+        $end = $i;
+        $n = strlen($value);
+        while ($end + 1 < $n && $value[$end + 1] === $ch) {
+            $end++;
+        }
+        $last = [$value, $start, $end];
 
         return [$start, $end];
     }
@@ -958,15 +972,8 @@ final class Text
      */
     private static function hyphen(string $value, int $i, int $last, int $next): bool
     {
-        $start = $i;
-        while ($start > 0 && $value[$start - 1] === '-') {
-            $start--;
-        }
-        $end = $i;
+        [$start, $end] = self::bounds($value, $i);
         $n = strlen($value);
-        while ($end + 1 < $n && $value[$end + 1] === '-') {
-            $end++;
-        }
         $offset = $i - $start + ($start === 0 && $last === 0x2D ? 1 : 0);
         $glued = $end === $n - 1 && $next === 0x2D;
         if ($end === $start && $offset === 0 && !$glued) {
@@ -986,15 +993,7 @@ final class Text
      */
     private static function dot(string $value, int $i): bool
     {
-        $start = $i;
-        while ($start > 0 && $value[$start - 1] === '.') {
-            $start--;
-        }
-        $end = $i;
-        $n = strlen($value);
-        while ($end + 1 < $n && $value[$end + 1] === '.') {
-            $end++;
-        }
+        [$start, $end] = self::bounds($value, $i);
 
         return $end - $start >= 2 && ($i - $start) % 3 === 0 && $end - $i >= 2;
     }
