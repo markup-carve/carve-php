@@ -1467,6 +1467,10 @@ final class Inline
                             $paired[$key][$i] = true;
                         }
                     }
+                } elseif ($type === 'link') {
+                    // A nested link's own bracketed spelling ends any pair that was
+                    // still open in the containing label.
+                    $open = [];
                 } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                     $walk($node['children'], $key . '/children');
                 }
