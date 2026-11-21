@@ -20,6 +20,7 @@ use DOMException;
 use DOMNode;
 use DOMProcessingInstruction;
 use DOMText;
+use DOMXPath;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Exception\HtmlImportDepthExceededException;
 use RuntimeException;
@@ -76,7 +77,8 @@ final class DomLoader
         // The HTML input stream normalizes CR LF and a lone CR to LF before
         // tokenizing; libxml keeps them (carve-php#2497).
         $html = str_replace(["\r\n", "\r"], "\n", $html);
-        $html = self::processingInstructionsAsComments($html);
+        $held = [];
+        $html = self::processingInstructionsAsComments($html, $held);
         $document = new DOMDocument();
         $document->encoding = 'UTF-8';
         $previous = libxml_use_internal_errors(true);
@@ -88,6 +90,13 @@ final class DomLoader
         } finally {
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
+        }
+        if ($held !== []) {
+            foreach ((new DOMXPath($document))->query('//comment()') ?: [] as $comment) {
+                if ($comment instanceof DOMComment && isset($held[$comment->data])) {
+                    $comment->data = $held[$comment->data];
+                }
+            }
         }
         self::impliedTableBodies($document);
 
@@ -440,9 +449,17 @@ final class DomLoader
         return $tag === null ? $out : $out . '</' . $tag . '>';
     }
 
-    private static function processingInstructionsAsComments(string $html): string
+    /**
+     * @param string $html
+     * @param array<string, string> $held Placeholder comment => instruction text a comment cannot spell.
+     */
+    private static function processingInstructionsAsComments(string $html, array &$held): string
     {
         $length = strlen($html);
+        $placeholder = 'carve-instruction-';
+        while (str_contains($html, $placeholder)) {
+            $placeholder .= 'x';
+        }
         $out = '';
         $copied = 0;
         $offset = 0;
@@ -464,10 +481,14 @@ final class DomLoader
                     break;
                 }
                 $data = substr($html, $offset + 1, $end - $offset - 1);
-                if (!str_contains($data, '--') && !str_ends_with($data, '-')) {
-                    $out .= substr($html, $copied, $offset - $copied) . '<!--' . $data . '-->';
-                    $copied = $end + 1;
+                // HTML5 reads `<?a--b>` as a comment holding `?a--b`; libxml 2.9 drops it, so it travels as a placeholder.
+                if (str_contains($data, '--') || str_ends_with($data, '-')) {
+                    $key = $placeholder . count($held);
+                    $held[$key] = $data;
+                    $data = $key;
                 }
+                $out .= substr($html, $copied, $offset - $copied) . '<!--' . $data . '-->';
+                $copied = $end + 1;
                 $offset = $end + 1;
 
                 continue;
