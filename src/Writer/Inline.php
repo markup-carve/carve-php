@@ -1517,12 +1517,30 @@ final class Inline
             if ($after === ' ' || $after === "\t" || $before === "\t") {
                 return true;
             }
-            if ($before === ' ' && strspn(strrev(substr($value, 0, $at - 1)), '\\') % 2 === 0) {
+            if ($before === ' ' && self::backslashesBefore($value, $at - 1) % 2 === 0) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Counts only the run ending at `$end`, so a value with many line feeds stays linear.
+     *
+     * @param string $value
+     * @param int $end
+     *
+     * @return int
+     */
+    private static function backslashesBefore(string $value, int $end): int
+    {
+        $at = $end;
+        while ($at > 0 && $value[$at - 1] === '\\') {
+            $at--;
+        }
+
+        return $end - $at;
     }
 
     /**
