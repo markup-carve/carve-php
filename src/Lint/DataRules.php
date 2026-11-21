@@ -976,7 +976,13 @@ final class DataRules
                 $values[$name] = is_int($value) || is_string($value) ? $value : '';
             }
             $message = is_int($entry['message'] ?? null) ? $entry['message'] : 0;
-            $this->context->report($rule['id'], $start, $end, $record->path ?? '', $values, $message);
+            $path = $record->path ?? '';
+            // The line's own block is a child of the item; the finding names the item, as the handwritten rule and carve-js do.
+            if ($rule['id'] === 'list-item-body-below-content-column') {
+                $at = strrpos($path, '/children/');
+                $path = $at === false ? substr($path, 0, -1) : substr($path, 0, $at);
+            }
+            $this->context->report($rule['id'], $start, $end, $path, $values, $message);
 
             return;
         }

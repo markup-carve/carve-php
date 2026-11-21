@@ -53,4 +53,21 @@ final class DataRuleLookupsAndLayoutTest extends TestCase
             putenv($previous === false ? 'CARVE_LINT_RULES' : 'CARVE_LINT_RULES=' . $previous);
         }
     }
+
+    public function testListItemBodyFindingNamesTheItem(): void
+    {
+        $previous = getenv('CARVE_LINT_RULES');
+        putenv('CARVE_LINT_RULES=data');
+        try {
+            $paths = [];
+            foreach (Carve::lint("- a\n\n b") as $finding) {
+                if ($finding->code === 'list-item-body-below-content-column') {
+                    $paths[] = $finding->path;
+                }
+            }
+            self::assertSame(['/children/0/children/0'], $paths);
+        } finally {
+            putenv($previous === false ? 'CARVE_LINT_RULES' : 'CARVE_LINT_RULES=' . $previous);
+        }
+    }
 }
