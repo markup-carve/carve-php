@@ -78,6 +78,15 @@ final class NodeRulesA
 
                 continue;
             }
+            // These opener failures cannot be repaired by a later closer.
+            if (
+                self::escapedAt($text, $start)
+                || ($mark === '_' && self::endsWith($text, $start, '[\p{L}\p{N}_]'))
+            ) {
+                $at = $start + $size;
+
+                continue;
+            }
             $end = strpos($text, $mark, $start + $size + 1);
             while ($end !== false && !self::pairs($text, $mark, $start, $end, $id)) {
                 $next = $end + $size;
