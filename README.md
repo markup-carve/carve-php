@@ -42,6 +42,7 @@ Every error a call throws implements `CarveException`.
 | `supportsIncrementalParagraphReuse()` | whether a plain paragraph edit can reuse the other parsed paragraphs |
 | `validateLayout($json, $tree = null)` | the layout record, or `LayoutError` when it is refused |
 | `render($sourceOrTree, $options)` | HTML of source, a `Node` or a decoded tree array |
+| `tryRenderHtmlStreaming($source, $sink, $options)` | `'complete'`; calls the sink once with the exact HTML of `render()` after a successful render |
 | `renderWithDiagnostics($sourceOrTree, $options)` | `RenderResult`: HTML and all diagnostics |
 | `toHtml($source, $options)` | HTML |
 | `toJson($source, $options)` | the tree as AST JSON |
