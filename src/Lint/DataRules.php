@@ -1217,6 +1217,12 @@ final class DataRules
             }
             $leadText = ltrim($record->text, " \t")[0] ?? '';
             foreach ($lineCandidates[$key] as [$rule, $texts]) {
+                if ($rule['id'] === 'block-marker-as-text') {
+                    $raw = substr($context->source, $record->start, $record->end - $record->start);
+                    if (!str_contains($raw, '~~~') && !str_contains($raw, ':::') && !str_contains($raw, '{')) {
+                        continue;
+                    }
+                }
                 if (
                     $record->leaf_first
                     && in_array($rule['id'], ['block-opener-without-blank-line', 'markdown-definition-paragraph'], true)
@@ -1851,6 +1857,28 @@ final class DataRules
             if (!str_contains($arg, '.') && !in_array($arg, ['ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref'], true)) {
                 return static fn (stdClass $record): mixed => $record->$arg ?? null;
             }
+            $parts = explode('.', $arg);
+            if (
+                count($parts) === 2
+                && in_array(
+                    $parts[0],
+                    ['parent', 'owner', 'item_owner', 'line', 'last_line', 'prev', 'prev2', 'next', 'next2', 'item'],
+                    true,
+                )
+                && !in_array($parts[1], ['ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref'], true)
+            ) {
+                [$outer, $inner] = $parts;
+
+                return static function (stdClass $record) use ($outer, $inner): mixed {
+                    $related = $record->$outer ?? null;
+
+                    if (is_object($related)) {
+                        return $related->$inner ?? null;
+                    }
+
+                    return is_array($related) ? ($related[$inner] ?? null) : null;
+                };
+            }
 
             return fn (stdClass $record): mixed => $this->field($arg, $record);
         }
@@ -1910,15 +1938,17 @@ final class DataRules
             $flags = is_string($arg[2] ?? null) ? $arg[2] : '';
             $textExpr = $arg[0];
             if (is_string($arg[1])) {
-                // A literal pattern: a test without captures settles the common miss.
+                // A literal pattern needs one match for both its result and captured offsets.
                 $pattern = self::pattern($arg[1], $flags);
 
                 return function (stdClass $record) use ($left, $pattern, $textExpr): bool {
                     $value = $left($record);
-                    if (!is_string($value) || self::matchOne($pattern, $value, $parts, 0) !== 1) {
+                    if (
+                        !is_string($value)
+                        || self::matchOne($pattern, $value, $parts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL) !== 1
+                    ) {
                         return false;
                     }
-                    self::matchOne($pattern, $value, $parts, PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
                     $this->saveGroups($parts, $this->textBase($textExpr, $record));
 
                     return true;
