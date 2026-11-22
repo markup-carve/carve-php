@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Writer;
 
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -89,5 +91,18 @@ final class SmartNeighborNodesTest extends TestCase
         $result = Writer::writeWithDiagnostics($tree);
         $this->assertSame($source, $result->source);
         $this->assertSame($losses, array_map(static fn ($d): string => $d->code . ' ' . $d->path, $result->diagnostics));
+    }
+
+    /**
+     * The leaf is read back without the definitions of its document, so an abbreviation in it is not reported.
+     *
+     * @return void
+     */
+    public function testAnAbbreviationBesideARunIsNotReported(): void
+    {
+        $source = "*[HTML]: Hyper Text\n\nHTML x<=>=y\n";
+        $result = Writer::writeWithDiagnostics(TreeEncoder::decoded(Carve::parse($source)));
+        $this->assertSame($source, $result->source);
+        $this->assertSame([], $result->diagnostics);
     }
 }

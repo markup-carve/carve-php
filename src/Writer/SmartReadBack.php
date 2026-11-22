@@ -104,30 +104,20 @@ final class SmartReadBack
                 continue;
             }
             $type = is_string($e['type'] ?? null) ? $e['type'] : '';
+            $a = $read[$j] ?? null;
             if ($type === 'text') {
                 if (!self::compareText($e, $read, $j, $offset)) {
-                    $w->lose($path . '/' . $i, 'text', 'value');
+                    if ($a === null || $a->type === 'text' || $a->type === 'smart_punctuation') {
+                        $w->lose($path . '/' . $i, 'text', 'value');
+                    }
 
                     return false;
                 }
 
                 continue;
             }
-            $a = $read[$j] ?? null;
-            if ($a === null || $offset > 0 || $a->type !== $type) {
-                $w->lose($path . '/' . $i, $type, null);
-
-                return false;
-            }
-            $field = $type === 'smart_punctuation' ? self::differingField($e, $a->f) : null;
-            if ($field !== null) {
-                $w->lose($path . '/' . $i, $type, $field);
-            }
-            $at = $path . '/' . $i;
-            if (
-                is_array($e['children'] ?? null) && $a->children !== null
-                && !self::compareList(array_values($e['children']), $a->children, $at . '/children', $at, $type, $w)
-            ) {
+            // A node behind part of a read text stands inside that text.
+            if (!self::compareNode($e, $type, $offset > 0 ? null : $a, $path . '/' . $i, $w)) {
                 return false;
             }
             $j++;
@@ -139,6 +129,38 @@ final class SmartReadBack
         }
 
         return true;
+    }
+
+    /**
+     * Returns false where the lists cannot be compared further.
+     *
+     * @param array<mixed> $e
+     * @param string $type
+     * @param \MarkupCarve\Carve\Node|null $a
+     * @param string $at The path of `e`.
+     * @param \MarkupCarve\Carve\Writer\State $w
+     *
+     * @return bool
+     */
+    private static function compareNode(array $e, string $type, ?Node $a, string $at, State $w): bool
+    {
+        if ($a === null || $a->type !== $type) {
+            // The leaf is read without the definitions of its document, so only a run can be judged here.
+            if ($type === 'smart_punctuation') {
+                $w->lose($at, $type, null);
+            }
+
+            return false;
+        }
+        $field = $type === 'smart_punctuation' ? self::differingField($e, $a->f) : null;
+        if ($field !== null) {
+            $w->lose($at, $type, $field);
+        }
+        if (!is_array($e['children'] ?? null) || $a->children === null) {
+            return true;
+        }
+
+        return self::compareList(array_values($e['children']), $a->children, $at . '/children', $at, $type, $w);
     }
 
     /**
