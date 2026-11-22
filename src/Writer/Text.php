@@ -214,7 +214,8 @@ final class Text
         }
 
         return match (true) {
-            $ch === '{' => isset($c->kinds['{' . ($value[$i + 1] ?? '')]) || (isset($c->kinds['{']) && $prev !== 0x7B),
+            $ch === '{' => ($after > 0 && $after < 0x80 && isset($c->kinds['{' . chr($after)]))
+                || (isset($c->kinds['{']) && $prev !== 0x7B),
             $ch === '-' => isset($c->kinds['--']) && self::secondHyphen($value, $i, $prev, $c),
             $ch === '/' || $ch === '*' => isset($c->kinds[$ch]) && $prev !== ord($ch) && ($value[$i + 1] ?? '') !== $ch
                 && !Chars::isWord($prev) && !Chars::isSpace($after),

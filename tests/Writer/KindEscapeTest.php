@@ -33,6 +33,24 @@ final class KindEscapeTest extends TestCase
         self::assertSame(Carve::toHtml($source), Carve::toHtml($canonical));
     }
 
+    public function testABracedOpenerSplitOverTextNodesIsEscapedToo(): void
+    {
+        $text = static fn (string $value): array => ['type' => 'text', 'value' => $value];
+        $tree = static fn (array ...$texts): array => [
+
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                ['type' => 'paragraph', 'children' => $texts],
+            ],
+        ];
+
+        self::assertSame(
+            Carve::write($tree($text('{^a^} {^b'))),
+            Carve::write($tree($text('{^a^} '), $text('{'), $text('^b'))),
+        );
+    }
+
     public function testABalancedLinkKeepsTheReportedEscapesOnly(): void
     {
         $source = "x [{*/x/[a]](u)\\[:\n\n[a]: /u\n";
