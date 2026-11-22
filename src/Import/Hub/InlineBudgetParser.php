@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Import\Hub;
 
+use ArrayIterator;
 use League\CommonMark\Environment\EnvironmentInterface;
+use League\CommonMark\Parser\Block\BlockContinueParserWithInlinesInterface;
 use League\CommonMark\Parser\Block\BlockStart;
 use League\CommonMark\Parser\Block\BlockStartParserInterface;
 use League\CommonMark\Parser\Block\ParagraphParser;
@@ -97,10 +99,21 @@ final class InlineBudgetParser implements BlockStartParserInterface
                 ? $this->candidates($active->getContentString() . "\n" . $text)
                 : $this->lastCount;
         }
-        if ($this->total > self::MAX_CANDIDATES && $active instanceof ParagraphParser && $this->startsBlock($cursor, $parserState)) {
-            // The line interrupts the paragraph, so it is a block of its own.
+        $start = $this->total > self::MAX_CANDIDATES ? $this->blockStart($cursor, $parserState) : null;
+        if ($start !== null) {
+            // The line starts a block, so it adds nothing to the paragraph before it.
+            $parsers = [...$start->getBlockParsers()];
+            $last = end($parsers);
             $this->paragraph = null;
-            $this->total = $this->lastCount;
+            if ($last !== false && $last->isContainer()) {
+                // Asked again behind the container's marker.
+                $this->lastLine = null;
+                $this->total = $this->lastCount = 0;
+            } elseif (!$last instanceof BlockContinueParserWithInlinesInterface) {
+                $this->total = $this->lastCount = 0;
+            } else {
+                $this->total = $this->lastCount;
+            }
         }
         if ($this->total > self::MAX_CANDIDATES) {
             self::refuse();
@@ -119,19 +132,21 @@ final class InlineBudgetParser implements BlockStartParserInterface
         }
     }
 
-    private function startsBlock(Cursor $cursor, MarkdownParserStateInterface $parserState): bool
+    private function blockStart(Cursor $cursor, MarkdownParserStateInterface $parserState): ?BlockStart
     {
-        foreach ($this->environment->getBlockStartParsers() as $parser) {
-            if ($parser === $this) {
+        // league iterates the same ArrayIterator around this call, so walking it here would move league's loop.
+        $parsers = $this->environment->getBlockStartParsers();
+        foreach ($parsers instanceof ArrayIterator ? $parsers->getArrayCopy() : [] as $parser) {
+            if ($parser === $this || !$parser instanceof BlockStartParserInterface) {
                 continue;
             }
             $start = $parser->tryStart(clone $cursor, $parserState);
-            if ($start !== null && !$start->isAborting()) {
-                return true;
+            if ($start !== null) {
+                return $start->isAborting() ? null : $start;
             }
         }
 
-        return false;
+        return null;
     }
 
     private static function refuse(): never

@@ -120,6 +120,29 @@ final class HubCandidateBudgetTest extends TestCase
         $this->assertSame($source, Carve::importDocument($source, ['from' => 'gfm'])->source);
     }
 
+    public function testDoesNotCountTheInfoStringOfAFence(): void
+    {
+        $source = '```' . str_repeat('*', self::BOUND + 1) . "\nhello\n```\n";
+
+        $this->assertStringContainsString('hello', Carve::importDocument($source, ['from' => 'gfm'])->source);
+    }
+
+    #[DataProvider('formats')]
+    public function testRefusesAHeadingPastTheBound(string $from): void
+    {
+        $this->expectException(ImportInputError::class);
+
+        Carve::importDocument("a\n# " . str_repeat('[', self::BOUND + 1) . "\n", ['from' => $from]);
+    }
+
+    #[DataProvider('formats')]
+    public function testRefusesAQuotedLinePastTheBound(string $from): void
+    {
+        $this->expectException(ImportInputError::class);
+
+        Carve::importDocument("a\n> " . str_repeat('[', self::BOUND + 1) . "\n", ['from' => $from]);
+    }
+
     public function testRefusesBeforeTheLibraryParsesInlines(): void
     {
         $source = str_repeat('[', 200000) . "\n";
