@@ -97,6 +97,19 @@ final class DirectoryImportTest extends TestCase
         self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][3]['reason']);
     }
 
+    public function testFragmentIdsComeFromHtmlElementsNotComments(): void
+    {
+        file_put_contents($this->root . '/src/a.md', "[Real](b.md#real)\n\n[Fake](b.md#fake)\n");
+        file_put_contents($this->root . '/src/b.md', "<!-- id=\"fake\" -->\n\n<span id='real'>real</span>\n");
+        [$status, , $err] = self::call([
+            '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/dst',
+        ]);
+        self::assertSame(0, $status, $err);
+        $report = json_decode((string)file_get_contents($this->root . '/dst/migration-report.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('rewritten', $report['files'][0]['links'][0]['status']);
+        self::assertSame('fragment missing from target', $report['files'][0]['links'][1]['reason']);
+    }
+
     public function testChecksRawHtmlSrcsetAndObjectData(): void
     {
         $source = "<img srcset=\"b.md 1x\">\n\n<object data=\"b.md\"></object>\n";

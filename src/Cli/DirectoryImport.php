@@ -265,8 +265,7 @@ final class DirectoryImport
                     throw new RuntimeException('cannot read converted output');
                 }
                 $html = Carve::render($source, ['rawHtml' => true]);
-                preg_match_all('/\s(?:id|name)="([^"]*)"/i', $html, $matches);
-                $ids[$file['output']] = array_fill_keys(array_map(html_entity_decode(...), $matches[1]), true);
+                $ids[$file['output']] = self::fragmentIds($html);
             }
         }
         $review = [];
@@ -313,6 +312,35 @@ final class DirectoryImport
         sort($review, SORT_STRING);
 
         return $review;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private static function fragmentIds(string $html): array
+    {
+        $document = new DOMDocument();
+        $before = libxml_use_internal_errors(true);
+        try {
+            $document->loadHTML('<?xml encoding="UTF-8"><body>' . $html, LIBXML_NONET);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($before);
+        }
+        $ids = [];
+        $query = '//*[@id][not(ancestor::template)] | //a[@name][not(ancestor::template)]';
+        foreach ((new DOMXPath($document))->query($query) ?: [] as $element) {
+            if ($element instanceof DOMElement) {
+                if ($element->hasAttribute('id')) {
+                    $ids[$element->getAttribute('id')] = true;
+                }
+                if ($element->localName === 'a' && $element->hasAttribute('name')) {
+                    $ids[$element->getAttribute('name')] = true;
+                }
+            }
+        }
+
+        return $ids;
     }
 
     /**
