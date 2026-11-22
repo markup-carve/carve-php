@@ -129,7 +129,7 @@ final class ExtensionSource
 
         $content = array_values(array_filter(
             $children,
-            static fn ($node): bool => ($node['type'] ?? '') !== 'link_reference_definition',
+            static fn ($node): bool => !is_array($node) || ($node['type'] ?? '') !== 'link_reference_definition',
         ));
 
         return count($content) === 1 && is_array($content[0]) ? $content[0] : null;
