@@ -26,12 +26,43 @@ final class ExtensionSource
      */
     public static function readsBack(array $node, string $text, array $extensions, ?State $state = null, string $path = ''): bool
     {
+        // The state fixes registrations and link keys for this write. The complete
+        // node and spelling distinguish source records with different read-backs.
+        $cacheKey = $state === null || $extensions !== $state->extensions ? '' : serialize([$node, $text]);
+        if ($cacheKey !== '' && strlen($cacheKey) <= 4096) {
+            $cached = $state->cachedExtensionReadBack($cacheKey);
+            if ($cached !== null) {
+                return $cached;
+            }
+        } else {
+            $cacheKey = '';
+        }
+
+        $result = self::checkReadBack($node, $text, $extensions, $state, $path);
+        if ($cacheKey !== '') {
+            $state->rememberExtensionReadBack($cacheKey, $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param string $text
+     * @param array<mixed> $extensions
+     * @param \MarkupCarve\Carve\Writer\State|null $state
+     * @param string $path
+     *
+     * @return bool
+     */
+    private static function checkReadBack(array $node, string $text, array $extensions, ?State $state, string $path): bool
+    {
         $source = is_array($node['source'] ?? null) ? $node['source'] : [];
         $form = Inline::str($source, 'form');
         $keys = $state === null ? [] : $state->labels;
         $probe = self::withDefinitions($text, $keys);
         $state?->chargeRepair($path, 'extension-core', $probe);
-        $core = self::parse($probe, []);
+        $core = self::parse($probe, [], $state);
         $claimed = $form === 'inline' ? self::onlyInline($core) : self::only($core);
         if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'), $keys)) {
             return false;
@@ -40,7 +71,7 @@ final class ExtensionSource
             return true;
         }
         $state?->chargeRepair($path, 'extension-registered', $probe);
-        $extended = self::parse($probe, $extensions);
+        $extended = self::parse($probe, $extensions, $state);
         $back = $form === 'inline' ? self::onlyInline($extended) : self::only($extended);
 
         return $back !== null && TreeEquality::equal(self::bare($back), self::bare($node));
@@ -103,11 +134,15 @@ final class ExtensionSource
     /**
      * @param string $text
      * @param array<mixed> $extensions
+     * @param \MarkupCarve\Carve\Writer\State|null $state
      *
      * @return array<mixed>
      */
-    private static function parse(string $text, array $extensions): array
+    private static function parse(string $text, array $extensions, ?State $state): array
     {
+        if ($state !== null) {
+            ++$state->extensionReadBackParses;
+        }
         $options = $extensions === [] ? [] : ['extensions' => $extensions];
         $tree = json_decode(Carve::toJson($text, $options), true, 100000);
 
