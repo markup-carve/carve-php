@@ -409,12 +409,14 @@ final class Carve
         try {
             [$doc, $findings, $hasInclude] = self::stages($source);
             self::expand($doc, $findings, $opts, $hasInclude);
-            $linkKeys = self::linkKeysByFile($doc);
-            Extensions::apply(
-                $doc,
-                $opts->extensions,
-                static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
-            );
+            if ($opts->extensions !== []) {
+                $linkKeys = self::linkKeysByFile($doc);
+                Extensions::apply(
+                    $doc,
+                    $opts->extensions,
+                    static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
+                );
+            }
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
             if (!$keep) {
                 TreeEncoder::limitParsedExpansions($doc, strlen($source));
@@ -538,12 +540,14 @@ final class Carve
         try {
             [$doc, , $hasInclude] = self::stages($source);
             self::expand($doc, new Findings(), $opts, $hasInclude);
-            $linkKeys = self::linkKeysByFile($doc);
-            Extensions::apply(
-                $doc,
-                $opts->extensions,
-                static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
-            );
+            if ($opts->extensions !== []) {
+                $linkKeys = self::linkKeysByFile($doc);
+                Extensions::apply(
+                    $doc,
+                    $opts->extensions,
+                    static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
+                );
+            }
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
