@@ -1575,6 +1575,10 @@ final class Blocks
                     continue;
                 }
                 $inlines = is_array($line) && is_array($line['children'] ?? null) ? $line['children'] : [];
+                // C2-W-151: text of only spaces and tabs at the end of the line is dropped, so a hard break before it ends the line.
+                while ($inlines !== [] && self::blankText(end($inlines))) {
+                    array_pop($inlines);
+                }
                 $c = $this->context($inlines, true);
                 $c->inLineBlock = true;
                 $text = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
@@ -1586,6 +1590,12 @@ final class Blocks
             }
             $this->bareBreaks = false;
         });
+    }
+
+    private static function blankText(mixed $node): bool
+    {
+        return is_array($node) && ($node['type'] ?? '') === 'text' && count($node) === 2
+            && is_string($node['value'] ?? null) && trim($node['value'], " \t") === '';
     }
 
     /**

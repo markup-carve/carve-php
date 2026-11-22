@@ -76,6 +76,11 @@ final class Context
      */
     public bool $inLineBlock = false;
 
+    /**
+     * The node being written is followed by a soft break.
+     */
+    public bool $beforeSoftBreak = false;
+
     public bool $inBracket = false;
 
     /**

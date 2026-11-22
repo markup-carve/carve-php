@@ -543,6 +543,7 @@ final class Inline
     {
         $node = (array)$nodes[$at];
         $following = $nodes[$at + 1] ?? null;
+        $c->beforeSoftBreak = self::isSoftBreak($following);
         $after = is_array($following) ? self::first($following, $c) : $next;
         $retry = self::str($node, 'type') === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
             && str_ends_with(self::str($node, 'value'), '{');
@@ -558,6 +559,23 @@ final class Inline
         $redo = $snapshot === null ? null : [strlen($out), strlen($part), $snapshot];
 
         return $part;
+    }
+
+    private static function isSoftBreak(mixed $node): bool
+    {
+        return is_array($node) && ($node['type'] ?? '') === 'soft_break';
+    }
+
+    /**
+     * C2-A-069: inside a line of a line block every line ending ends the line, so a soft break, and a hard break before
+     * more content, splits the line. The bare line ending is the nearest form (C2-W-117). A break before a soft break
+     * leaves an empty line, which `BlankLines` reports.
+     */
+    private function loseBreakInLine(string $type, string $path, Context $c, int $next): void
+    {
+        if ($c->inLineBlock && !$c->inCell && $next !== -1 && !$c->beforeSoftBreak) {
+            $this->w->lose($path, $type, null);
+        }
     }
 
     /**
@@ -1180,6 +1198,10 @@ final class Inline
      */
     private function spelledFromFields(array $node, string $type, string $path, Context $c, int $next): ?string
     {
+        if ($type === 'soft_break' || $type === 'hard_break') {
+            $this->loseBreakInLine($type, $path, $c, $next);
+        }
+
         return match ($type) {
             'soft_break' => "\n",
             'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : "\\\n",
