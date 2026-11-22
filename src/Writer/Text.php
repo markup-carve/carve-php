@@ -420,7 +420,7 @@ final class Text
             '|' => $c->inCell,
             '}' => false,
             '/', '*' => self::pairs($value, $i, $prev, $after, $c),
-            '-' => self::hyphen($value, $i, $c->last, $next),
+            '-' => self::hyphen($value, $i, $c, $next),
             '.' => self::dot($value, $i),
             default => self::sigil($value, $i, [$prev, $after, $next], $c),
         };
@@ -1073,22 +1073,23 @@ final class Text
      *
      * @param string $value
      * @param int $i
-     * @param int $last
+     * @param \MarkupCarve\Carve\Writer\Context $c
      * @param int $next
      *
      * @return bool
      */
-    private static function hyphen(string $value, int $i, int $last, int $next): bool
+    private static function hyphen(string $value, int $i, Context $c, int $next): bool
     {
         [$start, $end] = self::bounds($value, $i);
         $n = strlen($value);
-        $offset = $i - $start + ($start === 0 && $last === 0x2D ? 1 : 0);
-        $glued = $end === $n - 1 && $next === 0x2D;
+        $before = $c->hyphensBefore > 0 ? $c->hyphensBefore : ($c->last === 0x2D ? 1 : 0);
+        $offset = $i - $start + ($start === 0 ? $before : 0);
+        $glued = $end === $n - 1 && $next === 0x2D && !$c->hyphenAfter;
         if ($end === $start && $offset === 0 && !$glued) {
             return false;
         }
 
-        return $offset % 2 === 1 || ($glued && $i === $end && ($end - $start) % 2 === 0);
+        return $offset % 2 === 1 || ($glued && $i === $end);
     }
 
     /**
@@ -1352,12 +1353,35 @@ final class Text
         if (count($children) === 1 && $children[0]->type === 'paragraph') {
             return -1;
         }
+        if (self::hyphenRunStaysParagraph($line, $c)) {
+            return 1;
+        }
         // C2-B-081: a definition shape opens a definition only at column 0.
         if ($c->owner !== 'top' && isset(self::DEFINITIONS[$children[0]->type ?? ''])) {
             return -1;
         }
 
         return ctype_alnum($ch) ? strcspn($line, self::PUNCT) : 0;
+    }
+
+    /**
+     * C2-W-090: in a hyphen run the backslash stands before the second hyphen, where that keeps the line a paragraph.
+     *
+     * @param string $line
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function hyphenRunStaysParagraph(string $line, Context $c): bool
+    {
+        if (!str_starts_with($line, '--')) {
+            return false;
+        }
+        $escaped = '-\\' . substr($line, 1) . "\n";
+        $c->writerState?->chargeRepair($c->textPath, 'first-line-hyphen', $escaped);
+        $children = Carve::parse($escaped)->children ?? [];
+
+        return count($children) === 1 && $children[0]->type === 'paragraph';
     }
 
     /**

@@ -79,6 +79,14 @@ final class Context
     public bool $inBracket = false;
 
     /**
+     * C2-W-099: tree hyphens that the text nodes directly before end with, and whether the next node is text that
+     * starts with one, so a run split over text nodes is escaped as one run.
+     */
+    public int $hyphensBefore = 0;
+
+    public bool $hyphenAfter = false;
+
+    /**
      * Whether this leaf has a backtick in a neighboring nonverbatim inline node.
      */
     public ?bool $neighborTick = null;
