@@ -118,7 +118,7 @@ final class DataModel
     public array $ids = [];
 
     /**
-     * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int, pos: array<string, int>|null}>
+     * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int, pos: array<string, int>|null, type: string}>
      */
     private array $blockWalked = [];
 
@@ -147,6 +147,8 @@ final class DataModel
      * @param \Closure(string, string): bool $mightUseBlock
      * @param \Closure(string, array<string, mixed>|null, int, int): bool $mightUseInline
      * @param bool $textRuns
+     * @param string $textRunNeedles Necessary characters of every active text-run rule; empty disables the lexical gate.
+     * @param bool $plainTableCellGate Whether all active table-cell rules have the known lexical preconditions.
      */
     public function __construct(
         private Context $context,
@@ -156,18 +158,10 @@ final class DataModel
         private Closure $mightUseBlock,
         private Closure $mightUseInline,
         private bool $textRuns,
+        private string $textRunNeedles,
+        private bool $plainTableCellGate,
     ) {
         $this->build();
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     */
-    private static function type(array $node): string
-    {
-        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-
-        return $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type;
     }
 
     /**
@@ -301,7 +295,7 @@ final class DataModel
         $rows = [];
         foreach ($c->walked as $item) {
             $parentHolder = $this->holderByPath[$item['parent']] ?? null;
-            $type = self::type($item['node']);
+            $type = $item['type'];
             if ($type === 'table_row' && $item['pos'] !== null) {
                 $rows[] = [$item['pos']['startLine'] - 1, $item['pos']['endLine'] - 1, $item['path']];
             } elseif ($type === 'table' && $c->layout->sourceFormat($item['path']) === 'pipe' && $item['pos'] !== null) {
@@ -331,13 +325,13 @@ final class DataModel
                     $key = $item['parent'];
                     if ($type === 'text' || $type === 'soft_break') {
                         $open = $openRuns[$key] ?? null;
+                        $pending = $pendingRuns[$key] ?? null;
                         $pos = $item['pos'];
                         if ($pos !== null) {
                             if ($open !== null && $runs[$open]['next'] === $item['index']) {
                                 $runs[$open]['end'] = $pos['endOffset'];
                                 $runs[$open]['next'] = $item['index'] + 1;
                             } else {
-                                $pending = $pendingRuns[$key] ?? null;
                                 $candidate = [
                                     'type' => 'text_run',
                                     'path' => $key,
@@ -349,7 +343,13 @@ final class DataModel
                                     'next' => $item['index'] + 1,
                                 ];
                                 if (
-                                    strcspn($c->source, '=~_^*', $candidate['start'], $candidate['end'] - $candidate['start'])
+                                    $this->textRunNeedles !== ''
+                                    && strcspn(
+                                        $c->source,
+                                        $this->textRunNeedles,
+                                        $candidate['start'],
+                                        $candidate['end'] - $candidate['start'],
+                                    )
                                     === $candidate['end'] - $candidate['start']
                                 ) {
                                     $pendingRuns[$key] = $candidate;
@@ -361,6 +361,8 @@ final class DataModel
                             }
                         } elseif ($open !== null && $runs[$open]['next'] === $item['index']) {
                             $runs[$open]['next'] = $item['index'] + 1;
+                        } elseif ($pending !== null && $pending['next'] === $item['index']) {
+                            $pendingRuns[$key]['next'] = $item['index'] + 1;
                         }
                     } else {
                         unset($openRuns[$key], $pendingRuns[$key]);
@@ -425,7 +427,7 @@ final class DataModel
         foreach ($this->blockWalked as $item) {
             $node = $item['node'];
             $pos = $item['pos'];
-            $type = self::type($node);
+            $type = $item['type'];
             if ($pos === null || !isset(self::LEAVES[$type])) {
                 continue;
             }
@@ -705,8 +707,9 @@ final class DataModel
             }
             $nodePos = $node['pos'] ?? null;
             if (
-                !$needBounds && ($node['type'] ?? null) === 'table_cell' && !isset($node['span'])
+                $this->plainTableCellGate && !$needBounds && ($node['type'] ?? null) === 'table_cell' && !isset($node['span'])
                 && is_array($nodePos) && is_int($nodePos['startOffset'] ?? null) && is_int($nodePos['endOffset'] ?? null)
+                && $nodePos['endOffset'] >= $nodePos['startOffset']
                 && strcspn($c->source, '<>~?{^', $nodePos['startOffset'], $nodePos['endOffset'] - $nodePos['startOffset'])
                     === $nodePos['endOffset'] - $nodePos['startOffset']
             ) {
@@ -721,7 +724,7 @@ final class DataModel
             if ($pos === null && $span === null) {
                 continue;
             }
-            $type = self::type($node);
+            $type = $item['type'];
             [$start, $end] = $pos === null ? $span : [$pos['startOffset'], $pos['endOffset']];
             // The encoder counts lines from the same offsets, so a node's own start line is the line of its start.
             $included = $span !== null || (is_array($node['pos'] ?? null) && isset($node['pos']['file']));
