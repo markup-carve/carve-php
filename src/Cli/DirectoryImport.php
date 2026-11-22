@@ -369,7 +369,13 @@ final class DirectoryImport
         ) {
             return;
         }
-        foreach (self::rawUrls($node['value']) as $href) {
+        foreach (self::rawUrls($node['value']) as $url) {
+            $href = $url['target'];
+            if ($url['manual']) {
+                $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'raw HTML srcset needs manual review'];
+
+                continue;
+            }
             $replacement = self::checkDestination($href, $source, $outputs, $ids, $links);
             if ($replacement !== null && $replacement !== $href) {
                 $links[array_key_last($links)] = [
@@ -433,7 +439,7 @@ final class DirectoryImport
     }
 
     /**
-     * @return list<string>
+     * @return list<array{target: string, manual: bool}>
      */
     private static function rawUrls(string $html): array
     {
@@ -446,16 +452,77 @@ final class DirectoryImport
             libxml_use_internal_errors($before);
         }
         $out = [];
-        $nodes = (new DOMXPath($document))->query('//*[@href or @src or @poster or @action or @formaction]');
+        $query = '//*[@href or @src or @poster or @action or @formaction or @data or @srcset or @imagesrcset]';
+        $nodes = (new DOMXPath($document))->query($query);
         foreach ($nodes ?: [] as $element) {
             if (!$element instanceof DOMElement) {
                 continue;
             }
-            foreach (['href', 'src', 'poster', 'action', 'formaction'] as $name) {
-                if ($element->hasAttribute($name)) {
-                    $out[] = $element->getAttribute($name);
+            foreach (['href', 'src', 'poster', 'data', 'action', 'formaction', 'srcset', 'imagesrcset'] as $name) {
+                if (!self::rawAttributeApplies($element, $name)) {
+                    continue;
+                }
+                $value = $element->getAttribute($name);
+                if ($name === 'srcset' || $name === 'imagesrcset') {
+                    if (stripos($value, 'data:') !== false) {
+                        $out[] = ['target' => $value, 'manual' => true];
+                    } else {
+                        foreach (self::srcsetUrls($value) as $url) {
+                            $out[] = ['target' => $url, 'manual' => false];
+                        }
+                    }
+                } else {
+                    $out[] = ['target' => self::normalizeUrl($value), 'manual' => false];
                 }
             }
+        }
+
+        return $out;
+    }
+
+    private static function rawAttributeApplies(DOMElement $element, string $name): bool
+    {
+        if (!$element->hasAttribute($name)) {
+            return false;
+        }
+
+        return match ($name) {
+            'data' => $element->localName === 'object',
+            'action' => $element->localName === 'form',
+            'formaction' => in_array($element->localName, ['button', 'input'], true),
+            default => true,
+        };
+    }
+
+    private static function normalizeUrl(string $value): string
+    {
+        return str_replace(["\t", "\n", "\r"], '', trim($value, "\x00..\x20"));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function srcsetUrls(string $value): array
+    {
+        $out = [];
+        $at = 0;
+        $length = strlen($value);
+        while ($at < $length) {
+            while ($at < $length && (ctype_space($value[$at]) || $value[$at] === ',')) {
+                $at++;
+            }
+            $start = $at;
+            while ($at < $length && !ctype_space($value[$at])) {
+                $at++;
+            }
+            $url = rtrim(substr($value, $start, $at - $start), ',');
+            if ($url !== '') {
+                $out[] = self::normalizeUrl($url);
+            }
+            while ($at < $length && $value[$at] !== ',') {
+                $at++;
+            }
+            $at++;
         }
 
         return $out;

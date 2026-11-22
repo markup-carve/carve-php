@@ -97,6 +97,21 @@ final class DirectoryImportTest extends TestCase
         self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][3]['reason']);
     }
 
+    public function testChecksRawHtmlSrcsetAndObjectData(): void
+    {
+        $source = "<img srcset=\"b.md 1x\">\n\n<object data=\"b.md\"></object>\n";
+        file_put_contents($this->root . '/src/a.md', $source);
+        file_put_contents($this->root . '/src/b.md', 'target');
+        [$status, , $err] = self::call([
+            '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/dst',
+        ]);
+        self::assertSame(0, $status, $err);
+        $report = json_decode((string)file_get_contents($this->root . '/dst/migration-report.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['a.md'], $report['review']);
+        self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][0]['reason']);
+        self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][1]['reason']);
+    }
+
     public function testRefusesNestedTargetAndCaseCollision(): void
     {
         file_put_contents($this->root . '/src/A.md', 'one');
