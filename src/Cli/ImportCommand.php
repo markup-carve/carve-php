@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Import\ImportInputError;
 use MarkupCarve\Carve\Import\ImportResult;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\OptionError;
+use RuntimeException;
 
 /**
  * `carve import --from=html [--raw-html] [FILE]`, as the `import` command of the carve-js 0.2 command line: the canonical
@@ -38,7 +39,7 @@ final class ImportCommand
     public static function main(array $args, $in, $out, $err): int
     {
         try {
-            [$from, $options, $files, $output] = self::parse($args);
+            [$from, $options, $files, $output, $directory] = self::parse($args);
         } catch (OptionError $e) {
             return self::fail($err, 'usage', $e->getMessage(), 2);
         }
@@ -47,6 +48,19 @@ final class ImportCommand
         }
         if ($from !== 'html' && !in_array($from, HubImporter::FORMATS, true)) {
             return self::fail($err, 'usage', 'import requires --from=markdown|gfm|djot|html and at most one file', 2);
+        }
+        if ($directory !== null) {
+            if (!in_array($from, ['markdown', 'gfm'], true) || $output === null || $files !== []) {
+                return self::fail($err, 'usage', 'directory import requires --from gfm --directory SOURCE --output TARGET', 2);
+            }
+            try {
+                $counts = DirectoryImport::run($directory, $output);
+            } catch (RuntimeException $e) {
+                return self::fail($err, 'input-invalid', $e->getMessage(), 2);
+            }
+            fwrite($out, json_encode($counts, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+
+            return 0;
         }
         $file = $files[0] ?? '-';
         $html = $file === '-' ? stream_get_contents($in) : @file_get_contents($file);
@@ -121,7 +135,7 @@ final class ImportCommand
      *
      * @throws \MarkupCarve\Carve\OptionError
      *
-     * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>, 3: string|null}
+     * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>, 3: string|null, 4: string|null}
      */
     private static function parse(array $args): array
     {
@@ -129,6 +143,7 @@ final class ImportCommand
         $options = ['rawHtml' => false];
         $files = [];
         $output = null;
+        $directory = null;
         $count = count($args);
         for ($i = 0; $i < $count; $i++) {
             $arg = $args[$i];
@@ -136,6 +151,13 @@ final class ImportCommand
                 $from = self::valueFlag($m[1], $m[2] ?? ($args[++$i] ?? null), $from, $options);
             } elseif ($arg === '--raw-html' || $arg === '--strict-losses') {
                 $options[$arg === '--raw-html' ? 'rawHtml' : 'strictLosses'] = true;
+            } elseif ($arg === '--directory') {
+                $directory = $args[++$i] ?? null;
+                if ($directory === null) {
+                    throw new OptionError('missing value for --directory');
+                }
+            } elseif (str_starts_with($arg, '--directory=')) {
+                $directory = substr($arg, 12);
             } elseif ($arg === '-o' || $arg === '--output') {
                 $output = $args[++$i] ?? null;
                 if ($output === null) {
@@ -146,11 +168,11 @@ final class ImportCommand
             } elseif ($arg === '-' || !str_starts_with($arg, '-')) {
                 $files[] = $arg;
             } else {
-                return [null, [], [], null];
+                return [null, [], [], null, null];
             }
         }
 
-        return [$from, $options, $files, $output];
+        return [$from, $options, $files, $output, $directory];
     }
 
     /**
