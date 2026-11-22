@@ -866,6 +866,30 @@ final class DataModel
         return $found;
     }
 
+    /**
+     * @param list<\stdClass> $blocks
+     * @param bool $pathTie
+     * @param string $field
+     */
+    private static function orderBlocks(array &$blocks, string $field = 'start', bool $pathTie = true): void
+    {
+        $previous = null;
+        foreach ($blocks as $block) {
+            if (
+                $previous !== null
+                && ($previous->$field > $block->$field
+                    || ($pathTie && $previous->$field === $block->$field
+                        && strlen($previous->path) > strlen($block->path)))
+            ) {
+                usort($blocks, static fn (stdClass $a, stdClass $b): int => ($a->$field <=> $b->$field)
+                    ?: ($pathTie ? strlen($a->path) <=> strlen($b->path) : 0));
+
+                return;
+            }
+            $previous = $block;
+        }
+    }
+
     private function fillPathsOnly(): void
     {
         $previous = null;
@@ -925,7 +949,7 @@ final class DataModel
             return $closed;
         }
         $blocks = $this->blocks;
-        usort($blocks, static fn (stdClass $a, stdClass $b): int => ($a->start <=> $b->start) ?: (strlen($a->path) <=> strlen($b->path)));
+        self::orderBlocks($blocks);
         $next = 0;
         $stack = [];
         foreach ($runs as [$start, $end, $number]) {
@@ -965,12 +989,12 @@ final class DataModel
             ['block_quote', 'list_item', 'footnote', 'definition_description'],
             true,
         )));
-        usort($bounds, static fn (stdClass $a, stdClass $b): int => ($a->start <=> $b->start) ?: (strlen($a->path) <=> strlen($b->path)));
+        self::orderBlocks($bounds);
         $nextBound = 0;
         $openBounds = [];
         $colon = [];
         $colonBlocks = $this->blocks;
-        usort($colonBlocks, static fn (stdClass $a, stdClass $b): int => $a->opener_start <=> $b->opener_start);
+        self::orderBlocks($colonBlocks, 'opener_start', false);
         foreach ($colonBlocks as $block) {
             if (
                 !in_array($block->type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)
@@ -1006,8 +1030,7 @@ final class DataModel
         $nextColon = 0;
         $openColon = [];
         $pathBlocks = $this->blocks;
-        usort($pathBlocks, static fn (stdClass $a, stdClass $b): int => ($a->start <=> $b->start)
-            ?: (strlen($a->path) <=> strlen($b->path)));
+        self::orderBlocks($pathBlocks);
         $nextPath = 0;
         $openPaths = [];
         foreach ($this->lines as $line) {

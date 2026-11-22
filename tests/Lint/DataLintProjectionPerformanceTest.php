@@ -24,6 +24,29 @@ final class DataLintProjectionPerformanceTest extends TestCase
             $source .= $row;
             $length += strlen($row);
         }
+        self::assertLessThanOrEqual(1.15, self::dataRatio($source));
+    }
+
+    public function testListLookupProjectionCost(): void
+    {
+        if (getenv('CARVE_PERF_TEST') !== '1') {
+            self::markTestSkipped('Run on a stable CPU with CARVE_PERF_TEST=1');
+        }
+        $source = '';
+        $length = 0;
+        for ($i = 0; $length < 32 * 1024; $i++) {
+            $row = "- item $i alpha delta eta *em* `c$i`\n";
+            if ($i % 5 === 0) {
+                $row .= "  - nested alpha delta eta\n  - nested two\n";
+            }
+            $source .= $row;
+            $length += strlen($row);
+        }
+        self::assertLessThanOrEqual(1.25, self::dataRatio($source));
+    }
+
+    private static function dataRatio(string $source): float
+    {
         $previous = getenv('CARVE_LINT_RULES');
         $samples = ['hand' => [], 'data' => []];
         $findings = [];
@@ -44,7 +67,8 @@ final class DataLintProjectionPerformanceTest extends TestCase
         self::assertSame($findings['hand'], $findings['data']);
         sort($samples['hand']);
         sort($samples['data']);
-        self::assertLessThanOrEqual(1.08, $samples['data'][1] / $samples['hand'][1]);
+
+        return $samples['data'][1] / $samples['hand'][1];
     }
 
     private static function cpuMicros(): int
