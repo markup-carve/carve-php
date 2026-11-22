@@ -874,6 +874,29 @@ final class DataRules
         return ($text[$at] ?? '') === ':';
     }
 
+    private function rejectsUnevenListIndent(stdClass $record): bool
+    {
+        $index = $record->index ?? null;
+        if ($index === 0) {
+            return true;
+        }
+        if (!is_int($index) || !is_string($record->path ?? null) || $index < 0) {
+            return false;
+        }
+        $cut = strrpos($record->path, '/');
+        if ($cut === false) {
+            return false;
+        }
+        $previousPath = substr($record->path, 0, $cut + 1) . ($index - 1);
+        if (($this->context->nodeTypes[$previousPath] ?? null) !== 'list_item') {
+            return false;
+        }
+        $current = $this->context->layoutEntries[$record->path]['markerColumn'] ?? null;
+        $previous = $this->context->layoutEntries[$previousPath]['markerColumn'] ?? null;
+
+        return is_int($current) && is_int($previous) && $current >= $previous;
+    }
+
     public static function run(Context $context): void
     {
         if (self::rules() === []) {
@@ -914,8 +937,24 @@ final class DataRules
                 $plainTableCellGate = false;
             }
         }
-        // These literals are required by the rules' lookup conditions, regardless of the record being tested.
+        $footnoteKeys = [];
+        $duplicateFootnoteKey = false;
+        foreach ($context->footnoteDefinitions as [$definition]) {
+            $key = $definition['key'] ?? null;
+            if (!is_string($key)) {
+                $duplicateFootnoteKey = true;
+
+                break;
+            }
+            if (isset($footnoteKeys[$key])) {
+                $duplicateFootnoteKey = true;
+            }
+            $footnoteKeys[$key] = true;
+        }
+        // These facts are necessary for the corresponding rules to report a finding.
         $absentRule = [
+            'footnote-labels-differ-only-in-whitespace' => !$duplicateFootnoteKey,
+            'unused-footnote-definition' => false,
             'heading-marker-mixed' => !str_contains($context->source, '='),
             'comment-splits-table-row' => !str_contains($context->source, '+'),
             'description-separator-below-content-column' => preg_match('/^[ \t]*(?:> [ \t]*)*:/m', $context->source) !== 1,
@@ -1003,10 +1042,13 @@ final class DataRules
             $typedRules,
             $untypedRules,
             $lookupRules,
-            $absentRule,
+            &$absentRule,
         ): void {
             foreach ($typedRules[$kind][$record->type ?? ''] ?? [] as $rule) {
                 if ($lookupRules[$rule['id']] === $lookups && !($absentRule[$rule['id']] ?? false)) {
+                    if ($rule['id'] === 'uneven-list-indent' && $self->rejectsUnevenListIndent($record)) {
+                        continue;
+                    }
                     $self->apply($rule, $record);
                 }
             }
@@ -1133,6 +1175,20 @@ final class DataRules
         // The rules that look records up run once the walk has made every record they can find.
         $self->lookupRecords['line'] = $model->lines;
         $self->lookupRecords['id'] = $model->ids;
+        $inlineFootnoteKeys = [];
+        foreach ($self->lookupRecords['inline'] as $inlineRecord) {
+            if (($inlineRecord->type ?? null) === 'footnote_ref' && is_string($inlineRecord->nodeSource['key'] ?? null)) {
+                $inlineFootnoteKeys[$inlineRecord->nodeSource['key']] = true;
+            }
+        }
+        $absentRule['unused-footnote-definition'] = true;
+        foreach ($context->footnoteDefinitions as [$definition]) {
+            if (!is_string($definition['key'] ?? null) || !isset($inlineFootnoteKeys[$definition['key']])) {
+                $absentRule['unused-footnote-definition'] = false;
+
+                break;
+            }
+        }
         foreach ($deferredInline as $record) {
             $apply($record, 'inline', true);
         }
@@ -2301,20 +2357,28 @@ final class DataRules
         if (!isset($this->lookupIndexes[$site])) {
             $index = [];
             $records = $over === 'line' ? $this->lineRecords() : $this->lookupRecords[$over];
-            $keyOf = isset($expr['key']) ? ($this->compiledKeys[$site] ??= $this->compile($expr['key'], $this->vars)) : null;
+            $simpleKey = is_array($expr['key'] ?? null) && count($expr['key']) === 1
+                && is_string($expr['key']['f'] ?? null) && str_starts_with($expr['key']['f'], 'item.')
+                ? substr($expr['key']['f'], 5) : null;
+            $keyOf = $simpleKey === null && isset($expr['key'])
+                ? ($this->compiledKeys[$site] ??= $this->compile($expr['key'], $this->vars)) : null;
             foreach ($records as $candidate) {
                 $type = $candidate->type ?? null;
                 // C2-W-150: a lookup with no types reads every block or every inline node; a text run is no node.
                 if ($types === null ? $type === 'text_run' : ($over !== 'line' && !in_array($type, $types, true))) {
                     continue;
                 }
-                $copy = clone $candidate;
-                $copy->item = $candidate;
-                $oldGroups = $this->groups;
-                $oldBase = $this->base;
-                $key = $keyOf === null ? null : $keyOf($copy);
-                $this->groups = $oldGroups;
-                $this->base = $oldBase;
+                if ($simpleKey !== null) {
+                    $key = $this->field($simpleKey, $candidate);
+                } else {
+                    $copy = clone $candidate;
+                    $copy->item = $candidate;
+                    $oldGroups = $this->groups;
+                    $oldBase = $this->base;
+                    $key = $keyOf === null ? null : $keyOf($copy);
+                    $this->groups = $oldGroups;
+                    $this->base = $oldBase;
+                }
                 $index[serialize($key)][] = $candidate;
             }
             $this->lookupIndexes[$site] = $index;
