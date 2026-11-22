@@ -29,6 +29,7 @@ final class Writer
     {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
+        $w->labels = self::linkKeys($options);
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         self::collect($children, $w);
         self::rootLosses($tree, $children, $w);
@@ -111,6 +112,16 @@ final class Writer
     }
 
     /**
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, true>
+     */
+    private static function linkKeys(array $options): array
+    {
+        return is_array($options['linkKeys'] ?? null) ? array_fill_keys(array_keys($options['linkKeys']), true) : [];
+    }
+
+    /**
      * C2-W-134: the source alone; a loss throws.
      *
      * @param array<string, mixed> $tree
@@ -143,7 +154,8 @@ final class Writer
     public static function formatWithDiagnostics(string $source, array $options = [], ?array $layout = null): WriteResult
     {
         Options::from($options, ['format']);
-        $parsed = TableBuilder::compactEmptyParagraphs(static fn () => Carve::parseWithLayout($source));
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        $parsed = TableBuilder::compactEmptyParagraphs(static fn () => Carve::parseWithLayout($source, $parseOptions));
         $tree = TreeEncoder::decodedForWriter($parsed->tree);
         $writeLayout = $layout ?? $parsed->layout;
         // The read-back parser may need the same memory as the initial parse.

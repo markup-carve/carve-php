@@ -1503,7 +1503,10 @@ final class Inline
             $inner = '\\' . $inner;
         }
 
-        if (($node['refForm'] ?? '') === 'collapsed' && is_string($node['key'] ?? null) && Chars::fold($inner) !== $node['key']) {
+        if (
+            in_array($node['refForm'] ?? '', ['collapsed', 'shortcut'], true)
+            && is_string($node['key'] ?? null) && Chars::fold($inner) !== $node['key']
+        ) {
             $inner = self::escapedLike($inner, $node['key']) ?? $inner;
         }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Json\TreeEquality;
 
 /**
@@ -27,17 +28,19 @@ final class ExtensionSource
     {
         $source = is_array($node['source'] ?? null) ? $node['source'] : [];
         $form = Inline::str($source, 'form');
-        $state?->chargeRepair($path, 'extension-core', $text);
-        $core = self::parse($text, []);
+        $keys = $state === null ? [] : $state->labels;
+        $probe = self::withDefinitions($text, $keys);
+        $state?->chargeRepair($path, 'extension-core', $probe);
+        $core = self::parse($probe, []);
         $claimed = $form === 'inline' ? self::onlyInline($core) : self::only($core);
-        if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'))) {
+        if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'), $keys)) {
             return false;
         }
         if ($extensions === []) {
             return true;
         }
-        $state?->chargeRepair($path, 'extension-registered', $text);
-        $extended = self::parse($text, $extensions);
+        $state?->chargeRepair($path, 'extension-registered', $probe);
+        $extended = self::parse($probe, $extensions);
         $back = $form === 'inline' ? self::onlyInline($extended) : self::only($extended);
 
         return $back !== null && TreeEquality::equal(self::bare($back), self::bare($node));
@@ -48,16 +51,17 @@ final class ExtensionSource
      * @param string $form
      * @param string $name
      * @param string $body
+     * @param array<string, true> $keys
      *
      * @return bool
      */
-    private static function isClaimed(array $node, string $form, string $name, string $body): bool
+    private static function isClaimed(array $node, string $form, string $name, string $body, array $keys): bool
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
 
         return match ($form) {
             'fence' => ($node['type'] ?? '') === 'code_block' && ($node['syntax'] ?? '') === $name && ($node['value'] ?? '') === $body,
-            'div' => self::divName($node) === $name && Writer::writeBlocks($children) === $body,
+            'div' => self::divName($node) === $name && Writer::writeBlocks($children, ['linkKeys' => $keys]) === $body,
             'inline' => ($node['type'] ?? '') === 'inline_extension' && ($node['name'] ?? '') === $name
                 && self::inlineBody($name, $children) === $body,
             default => false,
@@ -111,6 +115,37 @@ final class ExtensionSource
     }
 
     /**
+     * The probe needs only definitions whose bracket labels occur in this source form.
+     *
+     * @param string $text
+     * @param array<string, true> $keys
+     *
+     * @return string
+     */
+    private static function withDefinitions(string $text, array $keys): string
+    {
+        if ($keys === [] || !str_contains($text, '[')) {
+            return $text;
+        }
+        preg_match_all('/\[([^\]]+)\]/', $text, $matches);
+        $possible = [];
+        foreach ($matches[1] as $label) {
+            $possible[Chars::fold($label)] = true;
+        }
+        // A quoted closing bracket can extend a key past the first closer.
+        $needed = str_contains($text, '\\]') ? $keys : array_intersect_key($keys, $possible);
+        if ($needed === []) {
+            return $text;
+        }
+        $text .= "\n";
+        foreach (array_keys($needed) as $key) {
+            $text .= "\n[" . $key . "]: /\n";
+        }
+
+        return $text;
+    }
+
+    /**
      * @param array<mixed> $tree
      *
      * @return array<mixed>|null
@@ -119,7 +154,12 @@ final class ExtensionSource
     {
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
 
-        return count($children) === 1 && is_array($children[0]) ? $children[0] : null;
+        $content = array_values(array_filter(
+            $children,
+            static fn ($node): bool => !is_array($node) || ($node['type'] ?? '') !== 'link_reference_definition',
+        ));
+
+        return count($content) === 1 && is_array($content[0]) ? $content[0] : null;
     }
 
     /**
