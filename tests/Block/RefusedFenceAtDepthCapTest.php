@@ -69,6 +69,19 @@ final class RefusedFenceAtDepthCapTest extends TestCase
         self::assertSame($source, $written->source);
     }
 
+    public function testUncountedLeafFencesStillInterruptAtTheDepthCap(): void
+    {
+        $prefix = str_repeat('> ', 200);
+        foreach (['```' => 'code_block', '%%%' => 'comment'] as $mark => $type) {
+            $source = $prefix . "x\n" . $prefix . $mark . "\n" . $prefix . "body\n" . $prefix . $mark . "\n";
+            $node = Carve::parse($source);
+            for ($depth = 0; $depth < 200; $depth++) {
+                $node = $node->children[0];
+            }
+            self::assertSame(['paragraph', $type], array_map(static fn ($child) => $child->type, $node->children));
+        }
+    }
+
     public function testFenceTextInsideCappedQuoteKeepsAncestorFenceEscapes(): void
     {
         $lines = [];

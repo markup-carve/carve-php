@@ -799,7 +799,10 @@ final class BlockParser
                     return true;
                 }
             }
-            if ($this->depthAt($owner) + 1 <= Tables::BLOCK_DEPTH && LineShapes::isFenceLine($s, $j, $this->le)) {
+            if (
+                ($ch !== ':' || $this->depthAt($owner) + 1 <= Tables::BLOCK_DEPTH)
+                && LineShapes::isFenceLine($s, $j, $this->le)
+            ) {
                 return true;
             }
         }

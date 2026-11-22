@@ -1284,7 +1284,7 @@ final class Text
             $c->blockDepth >= Tables::BLOCK_DEPTH
             && $c->owner === 'quote'
             && !$c->hasFencedAncestor
-            && in_array($line[0], [':', '%', '`'], true)
+            && $line[0] === ':'
             && LineShapes::isFenceLine($line, 0, strlen($line))
         ) {
             return -1;
