@@ -20,36 +20,54 @@ use MarkupCarve\Carve\NulReplacer;
 final class SmartReadBack
 {
     /**
-     * The content of an inline leaf that is no paragraph, heading or term, read back as a paragraph where a smart
-     * punctuation node in it has a run character beside it. A leaf that does not read as one paragraph is not judged.
+     * Starts a leaf: returns the flag of the leaf around it, which `end()` puts back.
      *
-     * @param \MarkupCarve\Carve\Writer\Inline $inline
      * @param \MarkupCarve\Carve\Writer\State $w
-     * @param array<mixed> $inlines
-     * @param string $path The path of the leaf.
-     * @param \MarkupCarve\Carve\Writer\Context $c
-     * @param string $host `paragraph`, `caption` for the paragraph of a caption, `line` for a line of a line block, or
-     *   `cell` for a paragraph of a table cell.
      *
-     * @return string
+     * @return bool
      */
-    public static function content(Inline $inline, State $w, array $inlines, string $path, Context $c, string $host = 'paragraph'): string
+    public static function begin(State $w): bool
     {
-        $outer = $w->takeSmartRun();
-        $text = $inline->content($inlines, $path . '/children', $c, -1);
+        return $w->takeSmartRun();
+    }
+
+    /**
+     * Ends a leaf written as `text`, its final spelling. Where a smart punctuation node in it has a run character
+     * beside it, the leaf is read back in a host of its own kind, which keeps the line start, a caption number and the
+     * indent of a line; a leaf that does not read back as one such leaf is not judged.
+     *
+     * @param \MarkupCarve\Carve\Writer\State $w
+     * @param bool $outer What `begin()` returned.
+     * @param array<mixed> $inlines
+     * @param string $text
+     * @param string $path The path of the leaf.
+     * @param string $host `paragraph`, `heading`, `definition_term`, `caption` for the paragraph of a caption, `line` for
+     *   a line of a line block, or `cell` for a paragraph of a table cell.
+     * @param string $mark The marker before the first line of a heading or a term.
+     * @param string $indent The indent of its later lines.
+     *
+     * @return void
+     */
+    public static function end(
+        State $w,
+        bool $outer,
+        array $inlines,
+        string $text,
+        string $path,
+        string $host,
+        string $mark = '',
+        string $indent = '',
+    ): void {
         if ($w->takeSmartRun()) {
-            // The leaf is read back in a host of its own kind, which keeps a caption number and the indent of a line.
             $source = match ($host) {
                 'caption' => "![](x)\n^ " . str_replace("\n", "\n  ", $text) . "\n",
                 'line' => "::: |\n" . $text . "\n:::\n",
                 'cell' => '| ' . $text . " |\n",
-                default => $text . "\n",
+                default => $mark . str_replace("\n", "\n" . $indent, $text) . "\n",
             };
             self::check($inlines, $source, $path, $host, $w);
         }
         $w->smartRun = $outer;
-
-        return $text;
     }
 
     /**
@@ -63,7 +81,7 @@ final class SmartReadBack
      *
      * @return void
      */
-    public static function check(array $children, string $source, string $path, string $type, State $w): void
+    private static function check(array $children, string $source, string $path, string $type, State $w): void
     {
         $w->chargeRepair($path, 'smart-run', $source);
         $parsed = self::leaf(self::parse($source, self::context($children, new InlineContext())), $type);

@@ -645,7 +645,10 @@ final class TableWriter
             $c->inCell = true;
             $c->blockLines = false;
             $c->counts = Inline::counts($inlines);
-            $parts[] = SmartReadBack::content($this->inline, $this->w, $inlines, $path . '/children/' . $at, $c, 'cell');
+            $outer = SmartReadBack::begin($this->w);
+            $part = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
+            SmartReadBack::end($this->w, $outer, $inlines, $part, $path . '/children/' . $at, 'cell');
+            $parts[] = $part;
         }
 
         return implode(' ', $parts);
