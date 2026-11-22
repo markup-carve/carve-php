@@ -746,11 +746,18 @@ final class Blocks
         $this->attributeLine($node, $path, $prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $c = $this->context($children, $mark === '', $prefix);
+        $smartRun = $this->w->takeSmartRun();
         $text = $this->inline->content($children, $path . '/children', $c, -1);
         if ($mark === '') {
             $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
         }
         $text = self::endContent($text, $children, $c);
+        if ($this->w->takeSmartRun()) {
+            $lines = explode("\n", $text);
+            $source = $mark . implode("\n" . $indent, $lines) . "\n";
+            SmartReadBack::check($children, $source, $path, Inline::str($node, 'type'), $this->w);
+        }
+        $this->w->smartRun = $smartRun;
         $this->w->emitLines($prefix, $indent, $text);
 
         return $text;
