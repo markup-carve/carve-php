@@ -101,17 +101,17 @@ final class RepairPlanner
         }
         $this->addAsked($comparison['openers']);
         $this->addAsked($asked);
-        $this->probeMoved($candidate, $comparison['moved']);
-        $this->ownerMoved($comparison['moved']);
+        $moved = $this->probeMoved($candidate, $comparison['moved']);
+        $moved = $this->ownerMoved($comparison['moved']) || $moved;
         if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
-            return $comparison['openers'] !== [] || $trial !== null || $asked !== [];
+            return $comparison['openers'] !== [] || $trial !== null || $asked !== [] || $moved;
         }
 
         $differences = [];
         self::textDifferences($this->tree, $comparison['read'], '', $differences);
         $this->addAsked($differences);
 
-        return $differences !== [];
+        return $differences !== [] || $moved;
     }
 
     private function addEscape(string $path, int $offset): bool
