@@ -128,6 +128,9 @@ final class Text
      */
     public static function escape(string $value, Context $c, int $next): string
     {
+        if ($c->writerState?->repairTrace !== null) {
+            return $c->writerState->repairTrace->bareText($value, $c->textPath);
+        }
         $n = strlen($value);
         if ($n === 0) {
             return '';
@@ -236,6 +239,9 @@ final class Text
      */
     public static function escapePairs(string $value, Context $c, int $next): string
     {
+        if ($c->writerState?->repairTrace !== null) {
+            return self::escape($value, $c, $next);
+        }
         $start = clone $c;
         $forced = $c->runPairEscapes[$c->textPath] ?? [];
         $c->pairEscapes = $forced;

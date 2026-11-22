@@ -150,6 +150,9 @@ final class Inline
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
     {
+        if ($this->w->repairTrace !== null) {
+            return $this->contentOnce($nodes, $path, $c, $next);
+        }
         if ($c->flat !== null) {
             return $this->contentOnce($nodes, $path, $c, $next);
         }
@@ -237,7 +240,7 @@ final class Inline
                 $visibleNode = $node;
             }
         }
-        if (!$c->inCell) {
+        if (!$c->inCell && $this->w->repairTrace === null) {
             $this->readBack($nodes, $parts, $out, $path);
         }
 
@@ -954,7 +957,12 @@ final class Inline
         }
         $this->moved($c, $out);
 
-        return $out;
+        return $this->tracedNode($out, $path, $type);
+    }
+
+    private function tracedNode(string $out, string $path, string $type): string
+    {
+        return $this->w->repairTrace?->inlineNode($out, $path, $type) ?? $out;
     }
 
     /**

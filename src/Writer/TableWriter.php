@@ -642,6 +642,7 @@ final class TableWriter
         foreach ($blocks as $at => $block) {
             $inlines = is_array($block) && is_array($block['children'] ?? null) ? $block['children'] : [];
             $c = new Context();
+            $c->writerState = $this->w;
             $c->inCell = true;
             $c->blockLines = false;
             $c->counts = Inline::counts($inlines);

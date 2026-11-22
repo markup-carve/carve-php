@@ -27,7 +27,43 @@ final class Writer
      */
     public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
     {
+        return self::writeInternal($tree, $layout, $options, null);
+    }
+
+    /**
+     * The source of a bare candidate and its text and inline-node source positions for C2-W-088.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $escapes
+     * @param bool $mark
+     *
+     * @return array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>}
+     */
+    public static function bareCandidate(
+        array $tree,
+        ?array $layout = null,
+        array $options = [],
+        array $escapes = [],
+        bool $mark = true,
+    ): array {
+        $trace = new RepairTrace($escapes, $mark);
+        $result = self::writeInternal($tree, $layout, $options, $trace);
+
+        return $trace->decode($result->source);
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Writer\RepairTrace|null $trace
+     */
+    private static function writeInternal(array $tree, ?array $layout, array $options, ?RepairTrace $trace): WriteResult
+    {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
+        $w->repairTrace = $trace;
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
         $w->labels = self::linkKeys($options);
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
