@@ -839,7 +839,7 @@ final class Text
 
         return match ($value[$i]) {
             '@', '#' => !self::isLetterOrNumber($prev) && self::sigilName($value, $i, $c, $next),
-            ':' => !self::isLetterOrNumber($prev) && (self::symbolFollows($value, $i) || self::extensionFollows($value, $i, $next)),
+            ':' => !self::isLetterOrNumber($prev) && self::colonOpens($value, $i, $c, $next),
             '<' => $after === 0x2F || $after === 0x2D || $after === 0x3D || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after))),
             '>', '!' => $after === 0x3D,
             '=' => substr($value, $i + 1, 2) === '=>',
@@ -1115,6 +1115,66 @@ final class Text
     }
 
     /**
+     * C2-W-088: a symbol or an extension name may run on into the next nodes of the leaf.
+     *
+     * @param string $value
+     * @param int $i
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return bool
+     */
+    private static function colonOpens(string $value, int $i, Context $c, int $next): bool
+    {
+        $len = strspn($value, Tables::SIGIL_SYMBOL_REST, $i + 1);
+        if ($i + 1 + $len === strlen($value)) {
+            [$tail, $next] = self::nameOn($value, $c, $next);
+            $value .= $tail;
+        }
+
+        return self::symbolFollows($value, $i) || self::extensionFollows($value, $i, $next);
+    }
+
+    /**
+     * The leaf behind the text, spelled as written, up to and with the first character no symbol name holds, and the
+     * first character after that; at a node that is no atom, nothing more and that node's first character.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return array{0: string, 1: int}
+     */
+    private static function nameOn(string $value, Context $c, int $next): array
+    {
+        if ($c->here < 0) {
+            return ['', $next];
+        }
+        $flat = (string)$c->flat;
+        $n = strlen($flat);
+        $out = '';
+        for ($at = $c->here + strlen($value); $at < $n; $at++) {
+            if ($flat[$at] !== "\0") {
+                $out .= $flat[$at];
+                if (!str_contains(Tables::SIGIL_SYMBOL_REST, $flat[$at])) {
+                    return [$out, $at + 1 < $n && $flat[$at + 1] !== "\0" ? ord($flat[$at + 1]) : -1];
+                }
+
+                continue;
+            }
+            if (!isset($c->flatAtoms[$at])) {
+                return [$out, $c->flatFirst[$at] ?? -1];
+            }
+            $out .= $c->flatAtoms[$at];
+            if (strspn($c->flatAtoms[$at], Tables::SIGIL_SYMBOL_REST) < strlen($c->flatAtoms[$at])) {
+                return [$out, -1];
+            }
+        }
+
+        return [$out, $next];
+    }
+
+    /**
      * C2-I-093: `:`, a symbol name and `:`.
      *
      * @param string $value
@@ -1124,9 +1184,12 @@ final class Text
      */
     private static function symbolFollows(string $value, int $i): bool
     {
-        $len = strspn($value, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_+-', $i + 1);
+        if (strspn($value, Tables::SIGIL_SYMBOL_FIRST, $i + 1, 1) !== 1) {
+            return false;
+        }
+        $close = $i + 2 + strspn($value, Tables::SIGIL_SYMBOL_REST, $i + 2);
 
-        return $len > 0 && ($value[$i + 1 + $len] ?? '') === ':';
+        return ($value[$close] ?? '') === ':' && $value[$close - 1] !== '-';
     }
 
     /**

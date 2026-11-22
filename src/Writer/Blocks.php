@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Writer;
 
 use Closure;
 use MarkupCarve\Carve\Block\LineShapes;
+use MarkupCarve\Carve\Block\Markers;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\Standard;
@@ -739,7 +740,7 @@ final class Blocks
      */
     private static function protectParagraphLead(string $text, array $children, ?string $head, string $path): string
     {
-        if ($text === '' || !Text::isPunct($text[0]) || str_contains($text, "\n")) {
+        if (!self::mayOpenBlock($text)) {
             return $text;
         }
         // C2-W-092: a caret opens a caption line only with a following gap.
@@ -756,7 +757,7 @@ final class Blocks
         $referenceLead = in_array($first['type'] ?? '', ['footnote_ref', 'link'], true)
             && str_starts_with($text, '[') && str_contains($text, ']');
         $afterReference = $referenceLead ? (int)strpos($text, ']') + 1 : 0;
-        $nested = $head !== '';
+        $nested = $head === '' ? [] : self::containers($head . 'x');
         if (self::readsAsParagraph($head . $text, $children, true, $nested)) {
             return $text;
         }
@@ -773,28 +774,72 @@ final class Blocks
         return $text;
     }
 
+    private static function mayOpenBlock(string $text): bool
+    {
+        if ($text === '' || str_contains($text, "\n")) {
+            return false;
+        }
+
+        // C2-B-036: an ordered marker opens with a letter or a digit.
+        $n = strlen($text);
+
+        return Text::isPunct($text[0])
+            || (ctype_alnum($text[0]) && !Markers::quickReject($text, 0, $n) && Markers::read($text, 0, $n) !== null);
+    }
+
     /**
      * @param string $line
      * @param array<mixed> $children
      * @param bool $allowUnresolvedReference
-     * @param bool $allowNested
+     * @param array<string> $containers The containers the line's head opens, which the paragraph stands in.
      */
     private static function readsAsParagraph(
         string $line,
         array $children,
         bool $allowUnresolvedReference = false,
-        bool $allowNested = false,
+        array $containers = [],
     ): bool {
         $tree = TreeEncoder::decoded(Carve::parse($line . "\n"));
         $rootChildren = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         $node = $rootChildren[0] ?? null;
-        while ($allowNested && is_array($node) && in_array($node['type'] ?? '', ['list', 'list_item', 'block_quote'], true)) {
+        foreach ($containers as $type) {
+            if (!is_array($node) || ($node['type'] ?? '') !== $type) {
+                return false;
+            }
             $nested = is_array($node['children'] ?? null) ? $node['children'] : [];
             $node = $nested[0] ?? null;
         }
 
         return is_array($node) && ($node['type'] ?? '') === 'paragraph'
             && ($allowUnresolvedReference || TreeEquality::equal($node['children'] ?? [], $children));
+    }
+
+    /**
+     * The list, item and quote containers the first block of a line opens, outermost first.
+     *
+     * @param string $line
+     *
+     * @return array<string>
+     */
+    private static function containers(string $line): array
+    {
+        static $known = [];
+        if (isset($known[$line])) {
+            return $known[$line];
+        }
+        if (count($known) >= 256) {
+            $known = [];
+        }
+        $tree = TreeEncoder::decoded(Carve::parse($line . "\n"));
+        $node = is_array($tree['children'] ?? null) ? ($tree['children'][0] ?? null) : null;
+        $types = [];
+        while (is_array($node) && in_array($node['type'] ?? '', ['list', 'list_item', 'block_quote'], true)) {
+            $types[] = $node['type'];
+            $nested = is_array($node['children'] ?? null) ? $node['children'] : [];
+            $node = $nested[0] ?? null;
+        }
+
+        return $known[$line] = $types;
     }
 
     /**
