@@ -150,6 +150,7 @@ final class SmartNeighborNodesTest extends TestCase
             'a numbered caption' => ["![a](i.png)\n^ # x-----y\n", $kinds('/children/0/caption/children/0', 2)],
             'a caption with a number mark as text' => ["![a](i.png)\n^ \\# x-----y\n", $kinds('/children/0/caption/children/0', 1)],
             'a table cell' => ["| a | x-----y |\n", $kinds('/children/0/children/0/children/0/children/1/children/0', 1)],
+            'a block opener title' => ["::: note \"x-----y\"\nb\n:::\n", ['/children/0/title/1/kind', '/children/0/title/2/kind']],
             'a cell like a heading' => ["| # x-----y |\n", $kinds('/children/0/children/0/children/0/children/0/children/0', 1)],
         ];
     }
@@ -204,16 +205,18 @@ final class SmartNeighborNodesTest extends TestCase
             }
         }
         unset($value);
-        $children = $node['children'] ?? null;
-        if (!is_array($children) || !array_is_list($children)) {
-            return;
-        }
-        $last = count($children) - 1;
-        for ($at = 0; $at < $last; $at++) {
-            if (($children[$at]['kind'] ?? '') === 'em_dash' && ($children[$at + 1]['kind'] ?? '') === 'en_dash') {
-                [$children[$at], $children[$at + 1]] = [$children[$at + 1], $children[$at]];
+        foreach (['children', 'title'] as $key) {
+            $children = $node[$key] ?? null;
+            if (!is_array($children) || !array_is_list($children)) {
+                continue;
             }
+            $last = count($children) - 1;
+            for ($at = 0; $at < $last; $at++) {
+                if (($children[$at]['kind'] ?? '') === 'em_dash' && ($children[$at + 1]['kind'] ?? '') === 'en_dash') {
+                    [$children[$at], $children[$at + 1]] = [$children[$at + 1], $children[$at]];
+                }
+            }
+            $node[$key] = $children;
         }
-        $node['children'] = $children;
     }
 }

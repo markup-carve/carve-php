@@ -29,7 +29,7 @@ final class SmartReadBack
      * @param string $text
      * @param string $path The path of the leaf.
      * @param string $host `paragraph`, `heading`, `definition_term`, `caption` for the paragraph of a caption, `line` for
-     *   a line of a line block, or `cell` for a paragraph of a table cell.
+     *   a line of a line block, `cell` for a paragraph of a table cell, or `title` for the title of a block opener.
      * @param string $mark The marker before the first line of a heading or a term.
      * @param string $indent The indent of its later lines.
      *
@@ -48,6 +48,7 @@ final class SmartReadBack
             'caption' => "![](x)\n^ " . str_replace("\n", "\n  ", $text) . "\n",
             'line' => "::: |\n" . $text . "\n:::\n",
             'cell' => '| ' . $text . " |\n",
+            'title' => '::: note "' . $text . "\"\n:::\n",
             default => $mark . str_replace("\n", "\n" . $indent, $text) . "\n",
         };
         self::check($inlines, $source, $path, $host, $w);
@@ -71,7 +72,8 @@ final class SmartReadBack
         if ($parsed === null) {
             return;
         }
-        self::compareList(array_values($children), $parsed->children ?? [], $path . '/children', $path, $parsed->type, $w);
+        $list = $type === 'title' ? $path . '/title' : $path . '/children';
+        self::compareList(array_values($children), $parsed->children ?? [], $list, $path, $parsed->type, $w);
     }
 
     /**
@@ -143,15 +145,30 @@ final class SmartReadBack
     {
         $block = self::only($document, 'document');
         $caption = $block?->f['caption'] ?? null;
+        $title = $block?->f['title'] ?? null;
+        $title = is_array($title) ? new Node('title', array_values(array_filter($title, self::isNode(...)))) : null;
         [$leaf, $type] = match ($host) {
             'definition_term' => [self::path($block, ['definition_list']), $host],
             'caption' => [$caption instanceof Node ? self::only($caption, 'caption') : null, 'paragraph'],
             'line' => [self::path($block, ['line_block']), $host],
             'cell' => [self::path($block, ['table', 'table_body', 'table_row', 'table_cell']), 'cell_paragraph'],
+            'title' => [$title, $host],
             default => [$block, $host],
         };
 
         return $leaf !== null && $leaf->type === $type ? $leaf : null;
+    }
+
+    /**
+     * @phpstan-assert-if-true \MarkupCarve\Carve\Node $node
+     *
+     * @param mixed $node
+     *
+     * @return bool
+     */
+    private static function isNode(mixed $node): bool
+    {
+        return $node instanceof Node;
     }
 
     /**

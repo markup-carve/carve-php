@@ -1551,7 +1551,12 @@ final class Blocks
         if (is_array($node['title'] ?? null)) {
             $c = $this->context($node['title'], false);
             $c->blockLines = false;
+            $outer = $this->w->takeSmartRun();
             $title = $this->inline->content($node['title'], $path . '/title', $c, 0x22);
+            if ($this->w->takeSmartRun()) {
+                SmartReadBack::leafReadBack($this->w, $node['title'], $title, $path, 'title');
+            }
+            $this->w->smartRun = $outer;
         }
 
         return $this->openerTail($node, $path, $title, $title ?? '');
