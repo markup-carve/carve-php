@@ -229,7 +229,7 @@ final class RepairPlanner
         for ($i = strpos($value, $ch === '{' ? '{' : ($kind === '--' ? '-' : $ch)); $i !== false && $i < $n; $i = strpos($value, $value[$i], $i + 1)) {
             $prev = $value[$i - 1] ?? '';
             $open = match (true) {
-                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1] && $prev !== '{',
+                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1],
                 $kind === '--' => $prev === '-' && ($value[$i - 2] ?? '') !== '-' && ($value[$i + 1] ?? '') !== '',
                 $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
                     && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),
