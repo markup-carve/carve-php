@@ -19,6 +19,7 @@ converter.
 | `new CarveConverter(...)`, `CarveConverter::create(...)` | none; pass the settings as `$options` to each call |
 | `$converter->convert($source)` | `Carve::render($source, $options)` |
 | `$converter->convertWithReport($source, $strict, $max)` | `Carve::renderWithDiagnostics($source, ['strictLosses' => $strict, 'maxLosses' => $max])`; `suppressedDiagnostics` counts the entries past the cap |
+| `$converter->convertWithReport(...)->toArray()` | `Carve::renderWithDiagnostics(...)->toArray()`; the array has `html`, `diagnostics`, and `suppressedDiagnostics` |
 | `$converter->parse($source)` | `Carve::parse($source, $options)` |
 | `$converter->render($document)` | `Carve::render($tree, $options)` |
 | `$converter->renderWithReport($document, ...)` | `Carve::renderWithDiagnostics($tree, $options)` |

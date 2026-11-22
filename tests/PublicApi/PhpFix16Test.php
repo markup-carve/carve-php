@@ -15,6 +15,22 @@ use PHPUnit\Framework\TestCase;
 
 final class PhpFix16Test extends TestCase
 {
+    public function testRenderResultToArrayKeepsCurrentFieldsAndDiagnosticRecords(): void
+    {
+        $this->assertSame([
+            'html' => '<p>Hello</p>',
+            'diagnostics' => [],
+            'suppressedDiagnostics' => 0,
+        ], Carve::renderWithDiagnostics('Hello')->toArray());
+
+        $result = new \MarkupCarve\Carve\RenderResult('x', [new \MarkupCarve\Carve\Diagnostics\Diagnostic('sample', 'warning', 'parse', 'sample message')], 2);
+        $this->assertSame([
+            'html' => 'x',
+            'diagnostics' => [['code' => 'sample', 'severity' => 'warning', 'channel' => 'parse', 'message' => 'sample message']],
+            'suppressedDiagnostics' => 2,
+        ], $result->toArray());
+    }
+
     public function testC2X034RegisteredInlineRendererHandlesSourceAndDecodedTree(): void
     {
         $extension = self::inlineExtension();
