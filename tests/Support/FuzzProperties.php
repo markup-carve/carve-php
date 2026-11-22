@@ -37,6 +37,14 @@ final class FuzzProperties
     public const IMPORT_HTML_BYTES = 262144;
 
     /**
+     * The largest source imported through the Markdown, GFM or Djot hub under that memory_limit: league/commonmark
+     * holds about 1.7 KB per byte of a line of brackets (a 100 KB line peaks at 173 MB, linear in the size).
+     *
+     * @var int
+     */
+    public const IMPORT_HUB_BYTES = 65536;
+
+    /**
      * JSON bytes per source byte up to which a decoded tree gets the time budget of its source.
      *
      * @var int
@@ -102,8 +110,10 @@ final class FuzzProperties
         if (strlen($html) <= self::IMPORT_HTML_BYTES) {
             $this->run('import-html', static fn (): string => Carve::importHtml($html)->source);
         }
-        $from = self::HUB[crc32($source) % count(self::HUB)];
-        $this->run('import-' . $from, static fn (): string => Carve::importDocument($source, ['from' => $from])->source);
+        if ($this->size <= self::IMPORT_HUB_BYTES) {
+            $from = self::HUB[crc32($source) % count(self::HUB)];
+            $this->run('import-' . $from, static fn (): string => Carve::importDocument($source, ['from' => $from])->source);
+        }
 
         return $this->finds;
     }
