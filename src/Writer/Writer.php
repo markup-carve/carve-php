@@ -29,9 +29,7 @@ final class Writer
     {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
-        if (isset($options['linkKeys'])) {
-            $w->labels = $options['linkKeys'];
-        }
+        $w->labels = self::linkKeys($options);
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         self::collect($children, $w);
         self::rootLosses($tree, $children, $w);
@@ -111,6 +109,16 @@ final class Writer
         }
 
         return $facts;
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, true>
+     */
+    private static function linkKeys(array $options): array
+    {
+        return is_array($options['linkKeys'] ?? null) ? array_fill_keys(array_keys($options['linkKeys']), true) : [];
     }
 
     /**

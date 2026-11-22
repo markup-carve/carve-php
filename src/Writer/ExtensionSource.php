@@ -28,7 +28,7 @@ final class ExtensionSource
         $source = is_array($node['source'] ?? null) ? $node['source'] : [];
         $form = Inline::str($source, 'form');
         $state?->chargeRepair($path, 'extension-core', $text);
-        $keys = $state?->labels ?? [];
+        $keys = $state === null ? [] : $state->labels;
         $core = self::parse($text, [], $keys);
         $claimed = $form === 'inline' ? self::onlyInline($core) : self::only($core);
         if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'), $keys)) {
@@ -129,7 +129,7 @@ final class ExtensionSource
 
         $content = array_values(array_filter(
             $children,
-            static fn ($node): bool => is_array($node) && ($node['type'] ?? '') !== 'link_reference_definition',
+            static fn ($node): bool => ($node['type'] ?? '') !== 'link_reference_definition',
         ));
 
         return count($content) === 1 && is_array($content[0]) ? $content[0] : null;
