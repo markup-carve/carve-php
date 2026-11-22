@@ -151,12 +151,6 @@ final class Text
             return $value;
         }
         $marks = self::lineStartMark($value, $c, $next);
-        if (
-            $marks >= 0 && LineShapes::isFenceLine($value, 0, strlen($value))
-            && !self::sourceLineEscaped($value, $c)
-        ) {
-            $c->bareBlockOpenerSeen = true;
-        }
         $c->escapedAt = [];
         $out = '';
         $prev = $c->last;
@@ -264,31 +258,6 @@ final class Text
         $delimiter = $value[$at] ?? '';
 
         return $at > 0 && $at <= 9 && ($delimiter === '.' || $delimiter === ')') && isset($c->kinds['line' . $delimiter]) ? $at : -1;
-    }
-
-    /**
-     * An authored escape already kept this fence-shaped paragraph line literal.
-     */
-    private static function sourceLineEscaped(string $value, Context $c): bool
-    {
-        $state = $c->writerState;
-        if ($state?->source === null || $c->flat === null || !isset($c->flatAt[$c->textPath])) {
-            return false;
-        }
-        $line = substr_count($c->flat, "\n", 0, $c->flatAt[$c->textPath]);
-        $path = $c->textPath;
-        while (($cut = strrpos($path, '/')) !== false) {
-            $path = substr($path, 0, $cut);
-            $fact = $state->facts[$path] ?? null;
-            if (!is_array($fact) || !is_int($fact['startByte'] ?? null) || !is_int($fact['endByte'] ?? null)) {
-                continue;
-            }
-            $lines = explode("\n", substr($state->source, $fact['startByte'], $fact['endByte'] - $fact['startByte']));
-
-            return isset($lines[$line]) && str_contains($lines[$line], '\\' . $value);
-        }
-
-        return false;
     }
 
     /**
@@ -1573,10 +1542,8 @@ final class Text
         ) {
             return -1;
         }
-        // A continuation mark can attach to an opener found earlier in the same
-        // bare read-back. Both marks belong to this round, before either escape
-        // is placed. The attachment may disappear after the earlier escape.
-        if ($c->bareBlockOpenerSeen && $line === '+') {
+        // C2-B-125: past the block cap a lone `+` line can attach to a colon line the cap left as text.
+        if ($c->blockDepth >= Tables::BLOCK_DEPTH && !$c->inQuote && rtrim($line, " \t") === '+') {
             return 0;
         }
         if (self::anyLine($value, $line, $eol, $c->last === -1 && $next === 10)) {

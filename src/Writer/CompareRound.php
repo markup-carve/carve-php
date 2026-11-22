@@ -16,6 +16,11 @@ final class CompareRound
     private array $asks = [];
 
     /**
+     * @var array<string, int> The written start offset of each expected node, by path.
+     */
+    private array $starts = [];
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -27,12 +32,19 @@ final class CompareRound
      * @param array<mixed> $expected
      * @param array<mixed> $actual
      * @param array<string, array<int, true>> $escapes
+     * @param array{nodes?: array<int, array{string, string, int, int}>, ranges?: array<string, array{int, int}>} $candidate
      *
      * @return array<string, array<int, true>>
      */
-    public static function inspect(array $expected, array $actual, array $escapes): array
+    public static function inspect(array $expected, array $actual, array $escapes, array $candidate = []): array
     {
         $comparison = new self($expected, $escapes);
+        foreach ($candidate['ranges'] ?? [] as $path => [$start]) {
+            $comparison->starts[$path] = $start;
+        }
+        foreach ($candidate['nodes'] ?? [] as [$path, , $start]) {
+            $comparison->starts[$path] = $start;
+        }
         $comparison->children($expected, $actual, '', '');
 
         return $comparison->asks;
@@ -65,10 +77,52 @@ final class CompareRound
             $more = $type === 'text'
                 ? $this->matchText($node, $have, $nodePath, $owner, $i, $j, $vi, $aj)
                 : $this->matchNode($node, $have, $nodePath, $type, $i, $j, $aj);
-            if (!$more) {
+            if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
                 return;
             }
+            if (!$more) {
+                $vi = 0;
+                $aj = 0;
+            }
         }
+    }
+
+    /**
+     * After a mismatch, resume at the next expected node of the line at whose written start a parsed node starts,
+     * behind the parsed node that failed, so one round reports the later deviations too (C2-W-088).
+     *
+     * @param array<mixed> $want
+     * @param array<mixed> $have
+     */
+    private function resync(array $want, array $have, string $path, int &$i, int &$j): bool
+    {
+        $failed = $have[$j] ?? null;
+        $failedEnd = is_array($failed) ? ($failed['pos']['endOffset'] ?? null) : null;
+        if (!is_int($failedEnd)) {
+            return false;
+        }
+        $count = count($want);
+        for ($k = $i + 1, $next = $j; $k < $count; $k++) {
+            $type = is_array($want[$k]) ? ($want[$k]['type'] ?? '') : '';
+            if ($type === 'soft_break' || $type === 'hard_break') {
+                return false;
+            }
+            $start = $this->starts[$path . '/children/' . $k] ?? null;
+            if ($start === null || $start < $failedEnd) {
+                continue;
+            }
+            while (is_array($have[$next] ?? null) && ($have[$next]['pos']['startOffset'] ?? -1) < $start) {
+                $next++;
+            }
+            if (is_array($have[$next] ?? null) && ($have[$next]['pos']['startOffset'] ?? -1) === $start) {
+                $i = $k;
+                $j = $next;
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

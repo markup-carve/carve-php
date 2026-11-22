@@ -108,7 +108,7 @@ final class RepairPlanner
      */
     private function applyRound(array $candidate, array $comparison): bool
     {
-        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes);
+        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate);
         $missing = self::missingSiblings($candidate, $comparison['read']);
         $trial = $this->nextTrial($candidate, $comparison['read'], $missing);
         if ($trial !== null && $this->keepTrial($trial)) {
@@ -157,10 +157,7 @@ final class RepairPlanner
                     continue;
                 }
                 $this->kindsDone[$leaf][$kind] = true;
-                foreach ($this->textOrder as $text => $_order) {
-                    if (!str_starts_with($text, $leaf . '/') || $this->leafOf($text) !== $leaf) {
-                        continue;
-                    }
+                foreach ($this->leafTexts()[$leaf] ?? [] as $text) {
                     $other = self::nodeAt($this->tree, $text)['value'] ?? null;
                     if (is_string($other)) {
                         foreach (self::kindOffsets($kind, $other) as $at) {
@@ -170,6 +167,26 @@ final class RepairPlanner
                 }
             }
         }
+    }
+
+    /**
+     * @var array<string, array<string>>|null The text paths of each leaf block, in source order.
+     */
+    private ?array $leafTexts = null;
+
+    /**
+     * @return array<string, array<string>>
+     */
+    private function leafTexts(): array
+    {
+        if ($this->leafTexts === null) {
+            $this->leafTexts = [];
+            foreach ($this->textOrder as $text => $_order) {
+                $this->leafTexts[$this->leafOf($text)][] = $text;
+            }
+        }
+
+        return $this->leafTexts;
     }
 
     private function leafOf(string $path): string
@@ -212,7 +229,7 @@ final class RepairPlanner
         for ($i = strpos($value, $ch === '{' ? '{' : ($kind === '--' ? '-' : $ch)); $i !== false && $i < $n; $i = strpos($value, $value[$i], $i + 1)) {
             $prev = $value[$i - 1] ?? '';
             $open = match (true) {
-                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1],
+                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1] && $prev !== '{',
                 $kind === '--' => $prev === '-' && ($value[$i - 2] ?? '') !== '-' && ($value[$i + 1] ?? '') !== '',
                 $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
                     && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),
@@ -258,6 +275,7 @@ final class RepairPlanner
     private function probeMoved(array $candidate, array $moved): bool
     {
         $added = false;
+        $spans = $moved === [] ? [] : self::spans($candidate);
         foreach ($moved as $position => [$path, , , $end, $readEnd]) {
             if ($position === 0) {
                 continue;
@@ -265,7 +283,7 @@ final class RepairPlanner
             if ($readEnd <= $end) {
                 continue;
             }
-            foreach ($this->probeAcrossCloser($candidate, $path, $end) as [$owner, $offset]) {
+            foreach ($this->probeAcrossCloser($candidate, $spans, $path, $end) as [$owner, $offset]) {
                 $added = $this->addEscape($owner, $offset) || $added;
             }
         }
@@ -650,21 +668,26 @@ final class RepairPlanner
      * does not hide its nested openers. As in C2-W-125, a probe takes at most 32 rounds.
      *
      * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array<string, array{int, int}> $spans
      * @param int $end
      * @param string $path
      *
      * @return array<array{string, int}>
      */
-    private function probeAcrossCloser(array $candidate, string $path, int $end): array
+    private function probeAcrossCloser(array $candidate, array $spans, string $path, int $end): array
     {
         $node = self::nodeAt($this->tree, $path);
         if ($node === null || self::closer($node) === '') {
             return [];
         }
-        [$candidate, $end] = $this->probeCandidate($candidate, $path, $end);
+        [$probe, $end] = $this->probeCandidate($candidate, $path, $end);
+        if ($probe !== $candidate) {
+            $candidate = $probe;
+            $spans = self::spans($candidate);
+        }
         $first = null;
-        foreach ($candidate['text'] as $position => [$owner]) {
-            if (str_starts_with($owner, $path . '/')) {
+        for ($position = $spans[$path][0] ?? 0, $stop = $spans[$path][1] ?? -1; $position < $stop; $position++) {
+            if (str_starts_with($candidate['text'][$position][0] ?? '', $path . '/')) {
                 $first = $position;
 
                 break;
@@ -673,7 +696,7 @@ final class RepairPlanner
         if ($first === null) {
             return [];
         }
-        $source = 'x ' . substr($candidate['source'], $first);
+        $source = 'x ' . substr($candidate['source'], $first, self::acrossEnd($candidate['source'], $spans, $path) - $first);
         if (!$this->charge($source)) {
             return [];
         }
@@ -697,6 +720,44 @@ final class RepairPlanner
         ksort($found);
 
         return array_slice(array_values($found), 0, 32);
+    }
+
+    // The inlines behind a node that a probe across its closer reads, at most (as MAX_ACROSS in carve-js).
+    private const MAX_ACROSS = 16;
+
+    /**
+     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>, ranges?: array<string, array{int, int}>} $candidate
+     *
+     * @return array<string, array{int, int}>
+     */
+    private static function spans(array $candidate): array
+    {
+        $spans = $candidate['ranges'] ?? [];
+        foreach ($candidate['nodes'] as [$nodePath, , $start, $end]) {
+            $spans[$nodePath] = [$start, $end];
+        }
+
+        return $spans;
+    }
+
+    /**
+     * The end of a probe across the closer of `path`: the node, its closer and at most MAX_ACROSS inlines behind it.
+     *
+     * @param array<string, array{int, int}> $spans
+     */
+    private static function acrossEnd(string $source, array $spans, string $path): int
+    {
+        $cut = (int)strrpos($path, '/');
+        $parent = substr($path, 0, $cut);
+        $index = (int)substr($path, $cut + 1);
+        for ($k = $index + self::MAX_ACROSS; $k >= $index; $k--) {
+            $end = $spans[$parent . '/' . $k][1] ?? null;
+            if ($end !== null) {
+                return $end;
+            }
+        }
+
+        return strlen($source);
     }
 
     /**
