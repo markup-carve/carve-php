@@ -1194,8 +1194,13 @@ final class DataRules
             }
             $after = $end + $width;
             [, , $afterEnd] = self::charAt($text, $after);
+            $backslashStart = $start;
+            while ($backslashStart > 0 && $text[$backslashStart - 1] === '\\') {
+                --$backslashStart;
+            }
 
             yield [
+                'backslashes' => [$backslashStart, $start],
                 'open' => [$start, $start + $width],
                 'inner' => [$start + $width, $end],
                 'close' => [$end, $after],

@@ -812,10 +812,12 @@ final class NodeRulesB
         if (!isset($node['attrs'])) {
             return $start;
         }
-        // As the rule row's opener start: each line below an attribute line, behind its spaces and container quotes.
+        // Attribute ownership survives comment-only lines (C2-B-137).
         $s = $c->source;
         $at = $start;
-        while (($s[$at] ?? '') === '{') {
+        $sawAttribute = false;
+        while (($s[$at] ?? '') === '{' || ($sawAttribute && substr($s, $at, 2) === '%%')) {
+            $sawAttribute = true;
             $end = strpos($s, "\n", $at);
             if ($end === false) {
                 return $start;
