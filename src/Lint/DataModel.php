@@ -118,7 +118,7 @@ final class DataModel
     public array $ids = [];
 
     /**
-     * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int}>
+     * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int, pos: array<string, int>|null}>
      */
     private array $blockWalked = [];
 
@@ -295,24 +295,34 @@ final class DataModel
         $c = $this->context;
         $runs = [];
         $openRuns = [];
+        $pendingRuns = [];
         $seenIds = [];
+        $pipeTables = [];
+        $rows = [];
         foreach ($c->walked as $item) {
             $parentHolder = $this->holderByPath[$item['parent']] ?? null;
             $type = self::type($item['node']);
+            if ($type === 'table_row' && $item['pos'] !== null) {
+                $rows[] = [$item['pos']['startLine'] - 1, $item['pos']['endLine'] - 1, $item['path']];
+            } elseif ($type === 'table' && $c->layout->sourceFormat($item['path']) === 'pipe' && $item['pos'] !== null) {
+                $pipeTables[] = [$item['pos']['startLine'] - 1, $item['pos']['endLine'] - 1, $item['path']];
+            }
             // An authored id, then the id generated for a heading.
             $attrs = $item['node']['attrs'] ?? null;
             $authored = is_array($attrs) ? ($attrs['id'] ?? null) : null;
             $generated = $type === 'heading' ? ($item['node']['generatedId'] ?? null) : null;
-            foreach ([$authored, $generated] as $id) {
-                if (is_string($id) && !isset($seenIds[$id])) {
-                    $seenIds[$id] = true;
-                    $this->ids[] = (object)[
-                        'type' => 'id',
-                        'id' => $id,
-                        'owner' => $type,
-                        'index' => count($this->ids),
-                        'start' => Support::pos($item['node'])['startOffset'] ?? 0,
-                    ];
+            if (is_string($authored) || is_string($generated)) {
+                foreach ([$authored, $generated] as $id) {
+                    if (is_string($id) && !isset($seenIds[$id])) {
+                        $seenIds[$id] = true;
+                        $this->ids[] = (object)[
+                            'type' => 'id',
+                            'id' => $id,
+                            'owner' => $type,
+                            'index' => count($this->ids),
+                            'start' => $item['pos']['startOffset'] ?? 0,
+                        ];
+                    }
                 }
             }
             if ($this->textRuns) {
@@ -321,28 +331,39 @@ final class DataModel
                     $key = $item['parent'];
                     if ($type === 'text' || $type === 'soft_break') {
                         $open = $openRuns[$key] ?? null;
-                        $pos = Support::pos($item['node']);
+                        $pos = $item['pos'];
                         if ($pos !== null) {
                             if ($open !== null && $runs[$open]['next'] === $item['index']) {
                                 $runs[$open]['end'] = $pos['endOffset'];
                                 $runs[$open]['next'] = $item['index'] + 1;
                             } else {
-                                $runs[] = [
+                                $pending = $pendingRuns[$key] ?? null;
+                                $candidate = [
                                     'type' => 'text_run',
                                     'path' => $key,
                                     'parent' => $parentType,
                                     'leaf' => $parentHolder['type'] ?? $parentType,
-                                    'start' => $pos['startOffset'],
+                                    'start' => $pending !== null && $pending['next'] === $item['index']
+                                        ? $pending['start'] : $pos['startOffset'],
                                     'end' => $pos['endOffset'],
                                     'next' => $item['index'] + 1,
                                 ];
-                                $openRuns[$key] = array_key_last($runs);
+                                if (
+                                    strcspn($c->source, '=~_^*', $candidate['start'], $candidate['end'] - $candidate['start'])
+                                    === $candidate['end'] - $candidate['start']
+                                ) {
+                                    $pendingRuns[$key] = $candidate;
+                                } else {
+                                    $runs[] = $candidate;
+                                    $openRuns[$key] = array_key_last($runs);
+                                    unset($pendingRuns[$key]);
+                                }
                             }
                         } elseif ($open !== null && $runs[$open]['next'] === $item['index']) {
                             $runs[$open]['next'] = $item['index'] + 1;
                         }
                     } else {
-                        unset($openRuns[$key]);
+                        unset($openRuns[$key], $pendingRuns[$key]);
                     }
                 }
             }
@@ -351,7 +372,7 @@ final class DataModel
                 $parentHolder = null;
             }
             if ($parentHolder !== null && $parentHolder['inline']) {
-                $pos = Support::pos($item['node']);
+                $pos = $item['pos'];
                 if (
                     $pos !== null && $item['path'] !== ''
                     && ($this->mightUseInline)($type, $item['node'], $pos['startOffset'], $pos['endOffset'])
@@ -375,35 +396,18 @@ final class DataModel
             } elseif ($parentHolder === null) {
                 $this->blockWalked[] = $item;
             }
-            if (isset(self::INLINE_HOLDERS[$type])) {
-                $this->holderByPath[$item['path']] = ['type' => $type, 'inline' => isset(self::INLINE_LEAVES[$type])];
-            } elseif ($parentHolder !== null) {
-                $this->holderByPath[$item['path']] = $parentHolder;
+            if (!empty($item['node']['children'])) {
+                if (isset(self::INLINE_HOLDERS[$type])) {
+                    $this->holderByPath[$item['path']] = ['type' => $type, 'inline' => isset(self::INLINE_LEAVES[$type])];
+                } elseif ($parentHolder !== null) {
+                    $this->holderByPath[$item['path']] = $parentHolder;
+                }
             }
         }
         foreach ($runs as $run) {
             if (($this->mightUseInline)('text_run', null, $run['start'], $run['end'])) {
                 $run['text'] = substr($c->source, $run['start'], $run['end'] - $run['start']);
                 ($this->onInline)((object)$run);
-            }
-        }
-        $pipeTables = [];
-        $rows = [];
-        foreach ($c->walked as $item) {
-            if (self::type($item['node']) === 'table_row') {
-                $rowPos = Support::pos($item['node']);
-                if ($rowPos !== null) {
-                    $rows[] = [$rowPos['startLine'] - 1, $rowPos['endLine'] - 1, $item['path']];
-                }
-
-                continue;
-            }
-            if (self::type($item['node']) !== 'table' || $c->layout->sourceFormat($item['path']) !== 'pipe') {
-                continue;
-            }
-            $tablePos = Support::pos($item['node']);
-            if ($tablePos !== null) {
-                $pipeTables[] = [$tablePos['startLine'] - 1, $tablePos['endLine'] - 1, $item['path']];
             }
         }
         unset($runs, $openRuns);
@@ -420,7 +424,7 @@ final class DataModel
         $holders = array_fill(0, $count, null);
         foreach ($this->blockWalked as $item) {
             $node = $item['node'];
-            $pos = Support::pos($node);
+            $pos = $item['pos'];
             $type = self::type($node);
             if ($pos === null || !isset(self::LEAVES[$type])) {
                 continue;
@@ -540,23 +544,36 @@ final class DataModel
         if ($body === '') {
             return 'blank';
         }
-        if (preg_match('/^:{3,}[ \t]*$/', $body)) {
-            return 'div_bare_run';
-        }
-        if (preg_match('/^\{[ \t]*(?:[.#_A-Za-z])[^{}]*\}$/', $body)) {
-            return 'attribute_line';
-        }
-        if (preg_match('/^[#=]{1,6} +\S/', $body)) {
-            return 'heading';
-        }
-        if (preg_match('/^>(?: |$)/', $body)) {
-            return 'quote';
-        }
-        if (preg_match('/^::(?: |$)/', $body)) {
-            return 'term';
-        }
-        if (preg_match('/^:[^:]/', $body)) {
-            return 'description';
+        switch ($body[0]) {
+            case ':':
+                if (preg_match('/^:{3,}[ \t]*$/', $body)) {
+                    return 'div_bare_run';
+                }
+                if (preg_match('/^::(?: |$)/', $body)) {
+                    return 'term';
+                }
+                if (preg_match('/^:[^:]/', $body)) {
+                    return 'description';
+                }
+
+                break;
+            case '{':
+                if (preg_match('/^\{[ \t]*(?:[.#_A-Za-z])[^{}]*\}$/', $body)) {
+                    return 'attribute_line';
+                }
+
+                break;
+            case '#':
+            case '=':
+                if (preg_match('/^[#=]{1,6} +\S/', $body)) {
+                    return 'heading';
+                }
+
+                break;
+            case '>':
+                if (preg_match('/^>(?: |$)/', $body)) {
+                    return 'quote';
+                }
         }
 
         return 'text';
@@ -686,7 +703,16 @@ final class DataModel
             if ($item['path'] === '') {
                 continue;
             }
-            $pos = Support::pos($node);
+            $nodePos = $node['pos'] ?? null;
+            if (
+                !$needBounds && ($node['type'] ?? null) === 'table_cell' && !isset($node['span'])
+                && is_array($nodePos) && is_int($nodePos['startOffset'] ?? null) && is_int($nodePos['endOffset'] ?? null)
+                && strcspn($c->source, '<>~?{^', $nodePos['startOffset'], $nodePos['endOffset'] - $nodePos['startOffset'])
+                    === $nodePos['endOffset'] - $nodePos['startOffset']
+            ) {
+                continue;
+            }
+            $pos = $item['pos'];
             // C2-W-140: every block has a record; a row a continuation joined has no `pos` (C2-A-158), so its layout gives the span.
             $entry = $pos === null ? ($c->layoutEntries[$item['path']] ?? null) : null;
             /** @var array{0: int, 1: int}|null $span */

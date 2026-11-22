@@ -952,6 +952,12 @@ final class DataRules
             if (isset($needBlocks[$type]) || isset($needBlocks['*'])) {
                 return true;
             }
+            if (
+                $type === 'table_cell' && !isset($node['span'])
+                && strcspn($context->source, '<>~?{^', $start, $end - $start) === $end - $start
+            ) {
+                return false;
+            }
             foreach ($typedRules['block'][$type] ?? [] as $rule) {
                 if (self::earlyPasses($rule['early'], $node, $context->source, $start, $end)) {
                     return true;
@@ -1789,7 +1795,7 @@ final class DataRules
             };
         }
         if ($op === 'lookup' && is_array($arg)) {
-            $site = json_encode($arg, JSON_THROW_ON_ERROR);
+            $site = self::lookupSite($arg, $let);
             $value = isset($arg['value']) ? $this->compile($arg['value'], $let) : null;
 
             return fn (stdClass $record): mixed => $this->lookup($arg, $record, $site, $value);
@@ -2162,7 +2168,7 @@ final class DataRules
         if (!in_array($over, ['block', 'inline', 'id', 'line'], true)) {
             return null;
         }
-        $site ??= json_encode($expr, JSON_THROW_ON_ERROR);
+        $site ??= self::lookupSite($expr, $this->vars);
         if (!isset($this->lookupIndexes[$site])) {
             $index = [];
             $records = $over === 'line' ? $this->lineRecords() : $this->lookupRecords[$over];
@@ -2219,6 +2225,23 @@ final class DataRules
         }
 
         return $this->lookupField($field, $chosen);
+    }
+
+    /**
+     * Lookups with the same source, type filter, key, and rule bindings use the same record index even if their returned
+     * fields or selection positions differ.
+     *
+     * @param array<mixed> $expr
+     * @param array<mixed> $vars
+     */
+    private static function lookupSite(array $expr, array $vars): string
+    {
+        return json_encode([
+            $expr['over'] ?? null,
+            $expr['types'] ?? null,
+            $expr['key'] ?? null,
+            $vars,
+        ], JSON_THROW_ON_ERROR);
     }
 
     private function lookupField(string $field, stdClass $found): mixed

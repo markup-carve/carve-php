@@ -257,14 +257,14 @@ final class Linter
         } elseif ($type === 'footnote_ref') {
             $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
         }
-        if ($c->dataRules) {
-            $c->walked[] = ['node' => $node, 'path' => $path, 'parent' => $parent, 'index' => $index];
-        }
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
             $c->ids[$attrs['id']] = true;
         }
         $pos = Support::pos($node);
+        if ($c->dataRules) {
+            $c->walked[] = ['node' => $node, 'path' => $path, 'parent' => $parent, 'index' => $index, 'pos' => $pos];
+        }
         if ($attrs !== null && $pos !== null) {
             $c->attachedLines[$pos['startLine']] = true;
         }
