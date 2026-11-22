@@ -28,7 +28,8 @@ final class SmartReadBack
      * @param array<mixed> $inlines
      * @param string $path The path of the leaf.
      * @param \MarkupCarve\Carve\Writer\Context $c
-     * @param string $host `paragraph`, `caption` for the paragraph of a caption, or `line` for a line of a line block.
+     * @param string $host `paragraph`, `caption` for the paragraph of a caption, `line` for a line of a line block, or
+     *   `cell` for a paragraph of a table cell.
      *
      * @return string
      */
@@ -41,6 +42,7 @@ final class SmartReadBack
             $source = match ($host) {
                 'caption' => "![](x)\n^ " . str_replace("\n", "\n  ", $text) . "\n",
                 'line' => "::: |\n" . $text . "\n:::\n",
+                'cell' => '| ' . $text . " |\n",
                 default => $text . "\n",
             };
             self::check($inlines, $source, $path, $host, $w);
@@ -141,13 +143,31 @@ final class SmartReadBack
         $block = self::only($document, 'document');
         $caption = $block?->f['caption'] ?? null;
         [$leaf, $type] = match ($host) {
-            'definition_term' => [$block === null ? null : self::only($block, 'definition_list'), $host],
+            'definition_term' => [self::path($block, ['definition_list']), $host],
             'caption' => [$caption instanceof Node ? self::only($caption, 'caption') : null, 'paragraph'],
-            'line' => [$block === null ? null : self::only($block, 'line_block'), $host],
+            'line' => [self::path($block, ['line_block']), $host],
+            'cell' => [self::path($block, ['table', 'table_body', 'table_row', 'table_cell']), 'cell_paragraph'],
             default => [$block, $host],
         };
 
         return $leaf !== null && $leaf->type === $type ? $leaf : null;
+    }
+
+    /**
+     * The node below `node` through only children of the types `types`.
+     *
+     * @param \MarkupCarve\Carve\Node|null $node
+     * @param array<string> $types
+     *
+     * @return \MarkupCarve\Carve\Node|null
+     */
+    private static function path(?Node $node, array $types): ?Node
+    {
+        foreach ($types as $type) {
+            $node = $node === null ? null : self::only($node, $type);
+        }
+
+        return $node;
     }
 
     /**

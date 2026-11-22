@@ -144,6 +144,7 @@ final class SmartNeighborNodesTest extends TestCase
             'an indented line' => ["::: |\n  x-----y\n:::\n", $kinds('/children/0/children/0', 1)],
             'a numbered caption' => ["![a](i.png)\n^ # x-----y\n", $kinds('/children/0/caption/children/0', 2)],
             'a table cell' => ["| a | x-----y |\n", $kinds('/children/0/children/0/children/0/children/1/children/0', 1)],
+            'a cell like a heading' => ["| # x-----y |\n", $kinds('/children/0/children/0/children/0/children/0/children/0', 1)],
         ];
     }
 
