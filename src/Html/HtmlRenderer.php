@@ -113,7 +113,7 @@ final class HtmlRenderer
         $this->log = new RenderLog();
         $this->silenced = new WeakMap();
         if ($o->profile !== 'full') {
-            $this->profile = new Profile($o->profile, $this->log);
+            $this->profile = new Profile($o->profile, $this->log, $o);
             $this->profile->measure($doc);
         }
         $this->state = new RenderState($doc, $o, $this->profile, $facts);
@@ -703,7 +703,7 @@ final class HtmlRenderer
      */
     private function thematicBreak(Node $node, int $depth): string
     {
-        return self::pad($depth) . '<hr' . $this->attrs($node) . '>';
+        return self::pad($depth) . '<hr' . $this->attrs($node) . ($this->o->xhtml ? ' />' : '>');
     }
 
     /**
@@ -1349,7 +1349,7 @@ final class HtmlRenderer
      *
      * @return array{0: string, 1: array<array{0: string, 1: string|null}>, 2: array<string>, 3: array{decl?: string, first?: bool}}
      */
-    private static function taskParts(Node $item, array $task, bool $ordered): array
+    private function taskParts(Node $item, array $task, bool $ordered): array
     {
         $mark = PlainText::str($task['mark'] ?? ' ');
         $state = Tables::TASK_STATE_ATTRIBUTE[$mark] ?? null;
@@ -1363,7 +1363,7 @@ final class HtmlRenderer
         }
         $text = implode(' ', $label);
         $box = '<input type="checkbox"' . ((Tables::TASK_CHECKED[$mark] ?? false) ? ' checked' : '') . ' disabled'
-            . ($text !== '' ? ' aria-label="' . Escape::attr($text) . '"' : '') . '> ';
+            . ($text !== '' ? ' aria-label="' . Escape::attr($text) . '"' : '') . ($this->o->xhtml ? ' /> ' : '> ');
 
         return [$box, $structural, ['task'], $style];
     }
@@ -1385,7 +1385,7 @@ final class HtmlRenderer
         if ($task === null && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['dir'])) {
             $open = self::pad($depth) . '<li>';
         } else {
-            [$box, $structural, $base, $style] = $task !== null ? self::taskParts($item, $task, $ordered) : ['', [], [], []];
+            [$box, $structural, $base, $style] = $task !== null ? $this->taskParts($item, $task, $ordered) : ['', [], [], []];
             $open = self::pad($depth) . '<li' . $this->attrs($item, $base, [], $structural, [], $style) . '>' . $box;
         }
         $visible = $this->visibleOf(iterator_to_array($this->documentBlocks($item->children ?? []), false));
@@ -1652,6 +1652,7 @@ final class HtmlRenderer
      */
     private function lineBlock(Node $node, int $depth): string
     {
+        $break = $this->o->xhtml ? "<br />\n" : "<br>\n";
         $stanzas = [];
         $lines = [];
         $previous = null;
@@ -1670,8 +1671,8 @@ final class HtmlRenderer
             }
             if ($previous instanceof Node && $lines !== [] && self::endsWithHardBreak($previous)) {
                 $last = count($lines) - 1;
-                if (str_ends_with($lines[$last], "<br>\n")) {
-                    $lines[$last] = substr($lines[$last], 0, -strlen("<br>\n"));
+                if (str_ends_with($lines[$last], $break)) {
+                    $lines[$last] = substr($lines[$last], 0, -strlen($break));
                 }
             }
             $lines[] = $this->lineHtml($line, $depth);
@@ -1682,7 +1683,7 @@ final class HtmlRenderer
         }
         $children = [];
         foreach ($stanzas as $stanza) {
-            $children[] = self::pad($depth + 1) . '<p>' . implode("<br>\n", $stanza) . '</p>';
+            $children[] = self::pad($depth + 1) . '<p>' . implode($break, $stanza) . '</p>';
         }
         $structural = $this->o->roundtrip ? [['data-carve-line-block', null]] : [];
 

@@ -39,7 +39,7 @@ final class NoteRenderer
                 $lines[] = $line;
             }
         }
-        $lines[] = $pad . '  <hr>';
+        $lines[] = $pad . '  <hr' . ($this->r->o->xhtml ? ' />' : '>');
         $lines[] = $pad . '  <ol>';
         foreach ($state->notes as $number => $note) {
             $lines[] = $this->note($number, $note, $depth + 2);

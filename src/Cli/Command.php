@@ -99,6 +99,7 @@ final class Command
         'sections' => true,
         'smart-typography' => true,
         'source-lines' => true,
+        'xhtml' => true,
     ];
 
     /**
@@ -141,7 +142,7 @@ Input: a file path or - for standard input; no file reads standard input.
 Every command: --help, --version
 Render: --to html|markdown|plain|ansi, --heading-ids MODE, --heading-shift N,
   --labels JSON, --mode interactive|static, --profile PROFILE,
-  --raw-html, --roundtrip, --sections, --smart-typography,
+  --raw-html, --roundtrip, --sections, --smart-typography, --xhtml (-x),
   --social JSON, --soft-break newline|space|br, --source-lines,
   --symbols JSON, --url-policy JSON, --strict-losses,
   --allow-loss CODE, --max-render-losses N, --report-losses FILE
@@ -317,7 +318,7 @@ HELP;
         $name = substr($arg, 2, $equals === false ? null : $equals - 2);
         if (
             in_array($name, [
-                'mode', 'labels', 'social', 'symbols', 'raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines',
+                'mode', 'labels', 'social', 'symbols', 'raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines', 'xhtml',
             ], true) && $parsed['command'] !== 'render'
         ) {
             throw new OptionError('unknown option ' . $arg);
@@ -344,6 +345,11 @@ HELP;
     private static function switchOption(array $args, int $i, string $arg, string $name, int|false $equals, array &$parsed): int
     {
         $fmt = $parsed['command'] === 'fmt';
+        if ($arg === '-x' && $parsed['command'] === 'render') {
+            $parsed['options']['xhtml'] = true;
+
+            return $i;
+        }
         if ($arg === '-o') {
             self::valued('output', $args[$i + 1] ?? null, $parsed);
 
@@ -361,7 +367,7 @@ HELP;
         }
         if ($name === 'strict-losses') {
             $parsed['options']['strictLosses'] = true;
-        } elseif (in_array($name, ['raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines'], true)) {
+        } elseif (in_array($name, ['raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines', 'xhtml'], true)) {
             $key = str_replace('-', '', ucwords($name, '-'));
             $parsed['options'][lcfirst($key)] = true;
         } elseif ($name === 'no-positions') {

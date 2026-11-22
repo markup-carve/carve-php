@@ -17,6 +17,7 @@ Class. The public entry of the 0.2 engine (tooling.md C2-T-005): parse, render, 
 - `static supportsIncrementalParagraphReuse(): bool`
 - `static createEditorSession(string $source, array $options = []): EditorSession`: Start a source-authoritative editor session with byte-range edits.
 - `static validateLayout(string $json, ?array $tree = null): array`: Reads a source-layout record as JSON, refusing what C2-L-008 and C2-L-058 refuse.
+- PHP render option `xhtml: true` writes generated HTML void elements with ` />`; the default uses HTML closers.
 - `static renderWithDiagnostics(Node|array|string $input, array $options = []): RenderResult`: Render, with the entries of the parse and the render-loss channels (C2-A-173). A tree has no parse entries.
 - `static renderWithDocumentTransforms(Node|array|string $input, array $transforms, array $options = []): RenderResult`: C2-X-053 to C2-X-055: run named host passes on a copied resolved view before HTML rendering.
 - `static toHtml(string $source, array $options = []): string`: Carve source to HTML; `render()` takes a tree as well.

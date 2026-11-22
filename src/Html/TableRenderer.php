@@ -111,9 +111,9 @@ final class TableRenderer
             $w = $column->f['width'] ?? null;
             if (is_int($w) || is_float($w)) {
                 $pct = self::decimal($w * 100);
-                $out .= "\n" . $pad . '  <col style="width: ' . $pct . '%;">';
+                $out .= "\n" . $pad . '  <col style="width: ' . $pct . '%;"' . ($this->r->o->xhtml ? ' />' : '>');
             } else {
-                $out .= "\n" . $pad . '  <col>';
+                $out .= "\n" . $pad . '  <col' . ($this->r->o->xhtml ? ' />' : '>');
             }
         }
 
