@@ -14,6 +14,52 @@ use PHPUnit\Framework\TestCase;
 
 final class ReadbackTraceTest extends TestCase
 {
+    #[DataProvider('escapedBlockOpeners')]
+    public function testNormalWriteDoesNotEscapeContinuationAfterEscapedOpener(string $input): void
+    {
+        self::assertSame($input, Carve::formatWithDiagnostics($input)->source);
+    }
+
+    public static function escapedBlockOpeners(): iterable
+    {
+        yield 'heading' => ["\\# hi\n+\n"];
+        yield 'div fence' => ["\\::: note\n+\n"];
+        yield 'colon fence' => ["\\::::\n+\n"];
+    }
+
+    public function testTracePreservesLiteralTableSpanMark(): void
+    {
+        $input = "|= Name |= Qty |\n| A | \\^ |\n";
+        $parsed = Carve::parseWithLayout($input);
+        $tree = TreeEncoder::decodedForWriter($parsed->tree);
+        $marked = Writer::bareCandidate($tree, $parsed->layout);
+        $plain = Writer::bareCandidate($tree, $parsed->layout, [], [], false);
+        self::assertSame($plain['source'], $marked['source']);
+        self::assertSame($input, $marked['source']);
+    }
+
+    public function testRepairGroupKeepsLaterLiteralTableSpanMark(): void
+    {
+        $cases = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
+            true,
+            4096,
+            JSON_THROW_ON_ERROR,
+        )['cases'];
+        foreach ($cases as $case) {
+            if (($case['id'] ?? '') !== 'CC-1568') {
+                continue;
+            }
+            $table = "|= Name |= Qty |\n| A | \\^ |\n";
+            $input = rtrim($case['input'], "\n") . "\n\n" . $table;
+            $expected = rtrim($case['expected']['carve'], "\n") . "\n\n" . $table;
+            self::assertSame($expected, Carve::formatWithDiagnostics($input)->source);
+
+            return;
+        }
+        self::fail('CC-1568 is missing from the pinned clause cases');
+    }
+
     #[DataProvider('terminalBreaks')]
     public function testTracePreservesTerminalBreak(string $break): void
     {

@@ -134,6 +134,7 @@ final class Writer
     private static function writeInternal(array $tree, ?array $layout, array $options, ?RepairTrace $trace): WriteResult
     {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
+        $w->source = ControlLines::source($layout);
         $w->repairTrace = $trace;
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
         $w->labels = self::linkKeys($options);
@@ -204,7 +205,7 @@ final class Writer
     {
         $facts = [];
         $used = array_fill_keys([
-            'bare', 'fenced', 'hardBreakOpener', 'headerRows', 'sourceFormat', 'wraps', 'rawRef',
+            'bare', 'fenced', 'hardBreakOpener', 'headerRows', 'sourceFormat', 'wraps', 'rawRef', 'startByte',
         ], true);
         foreach (is_array($layout['nodes'] ?? null) ? $layout['nodes'] : [] as $entry) {
             if (

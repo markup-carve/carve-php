@@ -25,7 +25,7 @@ final class Context
     public bool $hasFencedAncestor = false;
 
     /**
-     * A prior line of this leaf would have opened a block in the round's bare read-back.
+     * A prior line of this leaf would have opened a fence in the round's bare read-back.
      */
     public bool $bareBlockOpenerSeen = false;
 

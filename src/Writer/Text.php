@@ -143,7 +143,10 @@ final class Text
             return $value;
         }
         $marks = self::lineStartMark($value, $c, $next);
-        if ($marks >= 0) {
+        if (
+            $marks >= 0 && LineShapes::isFenceLine($value, 0, strlen($value))
+            && !self::sourceLineEscaped($value, $c)
+        ) {
             $c->bareBlockOpenerSeen = true;
         }
         $c->escapedAt = [];
@@ -174,6 +177,31 @@ final class Text
         }
 
         return $out;
+    }
+
+    /**
+     * An authored escape already kept this fence-shaped paragraph line literal.
+     */
+    private static function sourceLineEscaped(string $value, Context $c): bool
+    {
+        $state = $c->writerState;
+        if ($state?->source === null || $c->flat === null || !isset($c->flatAt[$c->textPath])) {
+            return false;
+        }
+        $line = substr_count($c->flat, "\n", 0, $c->flatAt[$c->textPath]);
+        $path = $c->textPath;
+        while (($cut = strrpos($path, '/')) !== false) {
+            $path = substr($path, 0, $cut);
+            $fact = $state->facts[$path] ?? null;
+            if (!is_array($fact) || !is_int($fact['startByte'] ?? null) || !is_int($fact['endByte'] ?? null)) {
+                continue;
+            }
+            $lines = explode("\n", substr($state->source, $fact['startByte'], $fact['endByte'] - $fact['startByte']));
+
+            return isset($lines[$line]) && str_contains($lines[$line], '\\' . $value);
+        }
+
+        return false;
     }
 
     /**
