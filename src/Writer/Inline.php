@@ -206,15 +206,19 @@ final class Inline
         $visibleNode = null;
         $redo = null;
         $parts = [];
+        $hyphens = 0;
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
                 continue;
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+            $following = $nodes[$at + 1] ?? null;
+            $c->hyphensBefore = $type === 'text' ? $hyphens : 0;
+            $c->hyphenAfter = $type === 'text' && is_array($following) && ($following['type'] ?? '') === 'text'
+                && str_starts_with(self::str($following, 'value'), '-');
             self::resetFollowingPipe($c, $type);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
-            $following = $nodes[$at + 1] ?? null;
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
@@ -231,6 +235,8 @@ final class Inline
             }
             $parts[] = [strlen($out), $first, $at];
             $out .= $part;
+            // A dash node before a hyphen run counts as one hyphen of it (C2-W-125 case four).
+            $hyphens = $type === 'text' ? self::trailingHyphens(self::str($node, 'value'), $hyphens) : ($c->last === 0x2D ? 1 : 0);
             self::advanceFollowingPipe($c, $node, $type);
             if (!self::isBracedComment($node)) {
                 $visible = $c->lineStart ? -1 : $c->last;
@@ -437,6 +443,8 @@ final class Inline
         $probe->last = 0x60;
         $probe->here = -1;
         $probe->writerState = null;
+        $probe->hyphensBefore = 0;
+        $probe->hyphenAfter = false;
         $probe->escapeFollowingPipeAt = -1;
         for ($i = $at + 1, $n = count($nodes); $i < $n; $i++) {
             $node = $nodes[$i];
@@ -553,6 +561,16 @@ final class Inline
         $redo = $snapshot === null ? null : [strlen($out), strlen($part), $snapshot];
 
         return $part;
+    }
+
+    /**
+     * The hyphens a text value ends with, counting those before it when the value is all hyphens.
+     */
+    private static function trailingHyphens(string $value, int $before): int
+    {
+        $run = strlen($value) - strlen(rtrim($value, '-'));
+
+        return $run === strlen($value) ? $before + $run : $run;
     }
 
     /**
