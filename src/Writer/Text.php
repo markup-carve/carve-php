@@ -132,7 +132,11 @@ final class Text
         if ($n === 0) {
             return '';
         }
-        if (!$c->lineStart && strpbrk($value, self::PUNCT) === false) {
+        if ((!$c->lineStart || ctype_alpha($value[0])) && strpbrk($value, self::PUNCT) === false) {
+            if ($c->lineStart) {
+                $c->escapedAt = [];
+            }
+
             return $value;
         }
         $marks = self::lineStartMark($value, $c, $next);
