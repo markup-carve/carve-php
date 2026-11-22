@@ -66,7 +66,7 @@ final class ReadbackRound
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @param array<mixed> $node
      * @param array<int, array{string, int}> $text
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
