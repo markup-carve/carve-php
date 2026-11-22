@@ -967,6 +967,12 @@ final class DataRules
             'setext-heading-underline' => !str_contains($context->source, '===') && !str_contains($context->source, '---'),
             'thematic-break-spelling' => !str_contains($context->source, '---') && !str_contains($context->source, '___'),
             'blockquote-marker-without-space' => !str_contains($context->source, '>'),
+            'html-comment-renders-as-text' => !str_contains($context->source, '<!--'),
+            'region-marker-renders-as-text' => stripos($context->source, 'region') === false,
+            'definition-in-container' => !str_contains($context->source, '['),
+            'caption-looking-paragraph' => !str_contains($context->source, ':'),
+            'block-marker-as-text' => !str_contains($context->source, '~~~')
+                && !str_contains($context->source, ':::') && !str_contains($context->source, '{'),
         ];
         if (isset($needInline['*'])) {
             $wildcardNeeded = false;
@@ -1246,9 +1252,26 @@ final class DataRules
             }
             $leadText = ltrim($record->text, " \t")[0] ?? '';
             foreach ($lineCandidates[$key] as [$rule, $texts]) {
-                if ($rule['id'] === 'block-marker-as-text') {
-                    $raw = substr($context->source, $record->start, $record->end - $record->start);
-                    if (!str_contains($raw, '~~~') && !str_contains($raw, ':::') && !str_contains($raw, '{')) {
+                if (
+                    in_array($rule['id'], [
+                        'block-marker-as-text', 'html-comment-renders-as-text',
+                        'region-marker-renders-as-text', 'definition-in-container',
+                    ], true)
+                ) {
+                    if (
+                        $rule['id'] === 'block-marker-as-text'
+                        && !str_contains($record->text, '~~~') && !str_contains($record->text, '{')
+                        && preg_match('/:{3,}\S/', $record->text) !== 1
+                    ) {
+                        continue;
+                    }
+                    if ($rule['id'] === 'html-comment-renders-as-text' && !str_contains($record->text, '<!--')) {
+                        continue;
+                    }
+                    if ($rule['id'] === 'region-marker-renders-as-text' && stripos($record->text, 'region') === false) {
+                        continue;
+                    }
+                    if ($rule['id'] === 'definition-in-container' && !str_contains($record->text, '[')) {
                         continue;
                     }
                 }
