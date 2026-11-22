@@ -1416,12 +1416,13 @@ final class NodeRulesB
             $type = $node['type'] ?? null;
             $key = Support::str($node, 'key') ?? '';
             $candidates = Support::caseOnly($key, $labels);
-            if ($type !== 'image') {
-                // C2-I-084: a link also looks up heading text, never a heading id.
+            if ($type !== 'image' && $candidates === []) {
+                // C2-I-084: a link also looks up heading text, never a heading id; the hint shows it as written.
                 $headings ??= self::headingTexts($c);
-                $text = Resolver::fold(PlainText::of(InlineRunner::parse($key, [0, strlen($key)], new InlineContext())));
-                foreach (Support::caseOnly($text, $headings) as $heading) {
-                    if (!in_array($heading, $candidates, true)) {
+                $text = PlainText::of(InlineRunner::parse($key, [0, strlen($key)], new InlineContext()));
+                $folded = mb_convert_case(Resolver::fold($text), MB_CASE_FOLD, 'UTF-8');
+                foreach ($headings as $heading) {
+                    if ($heading !== $text && mb_convert_case(Resolver::fold($heading), MB_CASE_FOLD, 'UTF-8') === $folded) {
                         $candidates[] = $heading;
                     }
                 }
@@ -1501,7 +1502,7 @@ final class NodeRulesB
     }
 
     /**
-     * The plain text of every heading, its whitespace folded as C2-I-079 folds a label, in document order.
+     * The plain text of every heading, in document order.
      *
      * @param \MarkupCarve\Carve\Lint\Context $c
      *
@@ -1518,7 +1519,7 @@ final class NodeRulesB
         while ($stack !== []) {
             $node = array_pop($stack);
             if ($node->type === 'heading') {
-                $text = Resolver::fold(PlainText::of($node->children ?? []));
+                $text = PlainText::of($node->children ?? []);
                 if ($text !== '') {
                     $texts[] = $text;
                 }

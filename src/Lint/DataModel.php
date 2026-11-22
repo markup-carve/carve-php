@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use Closure;
+use MarkupCarve\Carve\Carve;
 use stdClass;
+use Throwable;
 
 final class DataModel
 {
@@ -305,6 +307,8 @@ final class DataModel
         $openRuns = [];
         $pendingRuns = [];
         $seenIds = [];
+        $numberedPanels = [];
+        $fragments = false;
         $pipeTables = [];
         $rows = [];
         foreach ($c->walked as $item) {
@@ -320,17 +324,41 @@ final class DataModel
             $authored = is_array($attrs) ? ($attrs['id'] ?? null) : null;
             $generated = $type === 'heading' ? ($item['node']['generatedId'] ?? null) : null;
             if (is_string($authored) || is_string($generated)) {
+                $xref = $type === 'heading' || self::numberedCaption($item['node']) || isset($numberedPanels[$item['path']]);
                 foreach ([$authored, $generated] as $id) {
-                    if (is_string($id) && !isset($seenIds[$id])) {
-                        $seenIds[$id] = true;
-                        $this->ids[] = (object)[
-                            'type' => 'id',
-                            'id' => $id,
-                            'owner' => $type,
-                            'index' => count($this->ids),
-                            'start' => $item['pos']['startOffset'] ?? 0,
-                        ];
+                    if (!is_string($id)) {
+                        continue;
                     }
+                    if (isset($seenIds[$id])) {
+                        // One record per id; a later occurrence in the HTML still makes it rendered.
+                        $record = $this->ids[$seenIds[$id]];
+                        $record->rendered = $record->rendered || $type !== 'frontmatter';
+                        $record->xref = $record->xref || $xref;
+
+                        continue;
+                    }
+                    $seenIds[$id] = count($this->ids);
+                    $record = (object)[
+                        'type' => 'id',
+                        'id' => $id,
+                        'owner' => $type,
+                        'index' => count($this->ids),
+                        'start' => $item['pos']['startOffset'] ?? 0,
+                        // C2-A-218: a metadata key renders no element.
+                        'rendered' => $type !== 'frontmatter',
+                        'xref' => $xref,
+                    ];
+                    if ($type === 'heading') {
+                        $record->heading_text = self::plain($item['node']['children'] ?? []);
+                    }
+                    $this->ids[] = $record;
+                }
+            }
+            if ($type === 'link' && str_starts_with(self::str($item['node']['href'] ?? null), '#')) {
+                $fragments = true;
+            } elseif ($type === 'figure_group' && self::numberedCaption($item['node'])) {
+                foreach (self::panelPaths($item['node'], $item['path']) as $panel) {
+                    $numberedPanels[$panel] = true;
                 }
             }
             if ($this->textRuns) {
@@ -553,6 +581,149 @@ final class DataModel
         if ($needBounds) {
             $this->markColonContainers();
         }
+        if ($fragments) {
+            $this->renderedIds($seenIds);
+        }
+    }
+
+    /**
+     * C2-W-150: the ids only the rendered HTML carries, footnote and note marks and raw HTML anchors. Only a fragment
+     * link reads them, so only a document with one pays for the render.
+     *
+     * @param array<string, int|true> $seen The ids with a record.
+     *
+     * @return void
+     */
+    private function renderedIds(array $seen): void
+    {
+        $options = array_intersect_key($this->context->options, ['includes' => true, 'headingIds' => true]);
+        try {
+            $html = Carve::render($this->context->source, $options);
+        } catch (Throwable) {
+            return;
+        }
+        preg_match_all('/<[a-zA-Z][^>]*?\sid="([^"]*)"|<a\b[^>]*?\sname="([^"]*)"/', $html, $matches, PREG_SET_ORDER);
+        foreach ($matches as $match) {
+            $id = html_entity_decode(($match[2] ?? '') !== '' ? $match[2] : ($match[1] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $this->ids[] = (object)[
+                'type' => 'id',
+                'id' => $id,
+                'owner' => 'html',
+                'index' => count($this->ids),
+                'start' => 0,
+                'rendered' => true,
+                'xref' => false,
+            ];
+        }
+    }
+
+    /**
+     * C2-B-207: the paths of the panels of a figure group, as the resolver finds them.
+     *
+     * @param array<mixed> $group
+     * @param string $path
+     *
+     * @return array<string>
+     */
+    public static function panelPaths(array $group, string $path): array
+    {
+        $paths = [];
+        foreach (is_array($group['children'] ?? null) ? $group['children'] : [] as $k => $child) {
+            $type = is_array($child) ? ($child['type'] ?? null) : null;
+            $captioned = in_array($type, ['paragraph', 'code_block', 'block_quote', 'math'], true) && is_array($child['caption'] ?? null);
+            if ($type === 'table' || $captioned) {
+                $paths[] = $path . '/children/' . $k;
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * C2-B-207: a table, figure, figure group or panel whose caption holds a number mark.
+     *
+     * @param mixed $node
+     *
+     * @return bool
+     */
+    public static function numberedCaption(mixed $node): bool
+    {
+        $caption = is_array($node) ? ($node['caption'] ?? null) : null;
+        $stack = is_array($caption) ? [$caption] : [];
+        while ($stack !== []) {
+            $next = array_pop($stack);
+            if (!is_array($next)) {
+                continue;
+            }
+            if (($next['type'] ?? null) === 'caption_number') {
+                return true;
+            }
+            foreach (is_array($next['children'] ?? null) ? $next['children'] : [] as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<mixed> $node
+     */
+    private static function ruby(array $node): string
+    {
+        $out = '';
+        foreach (is_array($node['pairs'] ?? null) ? $node['pairs'] : [] as $pair) {
+            if (is_array($pair)) {
+                $out .= self::plain($pair['base'] ?? []) . '(' . self::plain($pair['annotation'] ?? []) . ')';
+            }
+        }
+
+        return $out;
+    }
+
+    private static function str(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
+    }
+
+    /**
+     * C2-H-143: the plain text of decoded inline nodes.
+     *
+     * @param mixed $nodes
+     *
+     * @return string
+     */
+    private static function plain(mixed $nodes): string
+    {
+        $out = '';
+        foreach (is_array($nodes) ? $nodes : [] as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? null;
+            $out .= match ($type) {
+                'text', 'code', 'literal_inline', 'math' => self::str($node['value'] ?? null),
+                'soft_break', 'hard_break' => ' ',
+                'non_breaking_space' => "\u{00A0}",
+                'image' => self::str($node['alt'] ?? null),
+                'mention' => '@' . self::str($node['target'] ?? null),
+                'tag' => '#' . self::str($node['name'] ?? null),
+                'smart_punctuation' => self::str($node['glyph'] ?? $node['source'] ?? null),
+                'autolink' => self::str($node['text'] ?? $node['href'] ?? null),
+                'caption_number' => is_int($node['n'] ?? null) ? (string)$node['n'] : '',
+                'abbreviation' => self::str($node['key'] ?? null),
+                'symbol' => '',
+                'ruby' => self::ruby($node),
+                'footnote_ref', 'inline_footnote', 'xref', 'raw_inline', 'comment', 'citation_group' => '',
+                default => self::plain($node['children'] ?? []),
+            };
+        }
+
+        return $out;
     }
 
     private static function shape(string $body): string

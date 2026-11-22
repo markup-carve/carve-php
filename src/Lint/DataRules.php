@@ -8,6 +8,11 @@ use Closure;
 use Generator;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\LineShapes;
+use MarkupCarve\Carve\Inline\InlineContext;
+use MarkupCarve\Carve\Inline\InlineRunner;
+use MarkupCarve\Carve\Resolve\PlainText;
+use MarkupCarve\Carve\Resolve\Resolver;
+use Normalizer;
 use stdClass;
 
 /**
@@ -326,7 +331,7 @@ final class DataRules
         $literal = $args[1];
         if (
             !is_string($field) || str_contains($field, '.')
-            || in_array($field, ['ancestors', 'ancestor_ids', 'node', 'layout', 'raw_ref'], true)
+            || in_array($field, ['ancestors', 'ancestor_ids', 'node', 'layout', 'raw_ref', 'key_text'], true)
             || ($field === 'text' && $over === 'block')
             || (is_array($literal) && !array_is_list($literal))
         ) {
@@ -1915,7 +1920,7 @@ final class DataRules
             if ($path === 'text' && property_exists($record, 'text') && $record->text === null) {
                 $record->text = substr($this->context->source, $record->start, $record->end - $record->start);
             }
-            if ($path === 'layout' || $path === 'raw_ref') {
+            if ($path === 'layout' || $path === 'raw_ref' || $path === 'key_text') {
                 $this->lateField($record, $path);
             }
 
@@ -1950,7 +1955,7 @@ final class DataRules
                 if ($part === 'node' && $value instanceof stdClass && isset($value->nodeSource) && $value->node === null) {
                     $value->node = $this->compactNode($value->nodeSource);
                 }
-                if (($part === 'layout' || $part === 'raw_ref') && $value instanceof stdClass) {
+                if (($part === 'layout' || $part === 'raw_ref' || $part === 'key_text') && $value instanceof stdClass) {
                     $this->lateField($value, $part);
                 }
                 if (
@@ -2052,7 +2057,40 @@ final class DataRules
         } elseif ($part === 'raw_ref' && property_exists($record, 'leaf') && isset($record->path)) {
             $raw = $this->context->layoutEntries[$record->path]['rawRef'] ?? null;
             $record->raw_ref = is_string($raw) ? $raw : $this->field('text', $record);
+        } elseif ($part === 'key_text' && property_exists($record, 'leaf')) {
+            // C2-I-084: the stored key of a reference read as inline content, as plain text.
+            $key = $this->field('node.key', $record);
+            $record->key_text = is_string($key)
+                ? PlainText::of(InlineRunner::parse($key, [0, strlen($key)], new InlineContext())) : null;
         }
+    }
+
+    private static function nfc(string $text): string
+    {
+        $normalized = Normalizer::normalize($text, Normalizer::FORM_C);
+
+        return is_string($normalized) ? $normalized : $text;
+    }
+
+    /**
+     * C2-W-150 `plain_list` and `quoted_list`: `X`, `X and Y`, `X, Y, and Z`, in source order.
+     *
+     * @param array<string> $items
+     * @param bool $quoted
+     *
+     * @return string
+     */
+    private static function listPhrase(array $items, bool $quoted): string
+    {
+        if ($quoted) {
+            $items = array_map(static fn (string $item): string => '"' . $item . '"', $items);
+        }
+        if (count($items) < 3) {
+            return implode(' and ', $items);
+        }
+        $last = array_pop($items);
+
+        return implode(', ', $items) . ', and ' . $last;
     }
 
     private static function integer(mixed $value): int
@@ -2105,7 +2143,7 @@ final class DataRules
         $arg = $expr[$op];
         if ($op === 'f' && is_string($arg)) {
             $lazyFields = [
-                'ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref',
+                'ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref', 'key_text',
                 'column', 'mark_column', 'opener_column', 'opener_text', 'after_quote_mark', 'prev_type',
                 'lazy', 'quote_marks',
             ];
@@ -2545,6 +2583,18 @@ final class DataRules
         switch ($op) {
             case 'lower':
                 return mb_strtolower(self::string($this->value($arg, $record)), 'UTF-8');
+            case 'nfc':
+                return self::nfc(self::string($this->value($arg, $record)));
+            case 'fold':
+                // C2-W-150: NFC, Unicode full case folding, NFC again.
+                return self::nfc(mb_convert_case(self::nfc(self::string($this->value($arg, $record))), MB_CASE_FOLD, 'UTF-8'));
+            case 'fold_space':
+                return Resolver::fold(self::string($this->value($arg, $record)));
+            case 'plain_list':
+            case 'quoted_list':
+                $items = $this->value($arg, $record);
+
+                return is_array($items) ? self::listPhrase(array_map(self::display(...), $items), $op === 'quoted_list') : '';
             case 'percent_decode':
                 return self::percentDecode(self::string($this->value($arg, $record)));
             case 'join':

@@ -24,7 +24,7 @@ final class RenderedTargetsAndHeadingHintTest extends TestCase
         $messages = array_map(static fn ($d): string => $d->message, Carve::lint("# Big  Title\n\n[x][big title]\n"));
 
         self::assertCount(1, $messages);
-        self::assertStringContainsString('; the label Big Title differs only in case,', $messages[0]);
+        self::assertStringContainsString('; the label Big  Title differs only in case,', $messages[0]);
     }
 
     public function testMetadataKeyIsNoFragmentTarget(): void

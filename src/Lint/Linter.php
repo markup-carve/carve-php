@@ -287,6 +287,9 @@ final class Linter
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
             $c->ids[$attrs['id']] = true;
+            if ($type === 'heading' || DataModel::numberedCaption($node)) {
+                $c->xrefIds[$attrs['id']] = true;
+            }
         }
         $pos = Support::pos($node);
         if ($c->dataRules) {
@@ -298,6 +301,10 @@ final class Linter
         }
         if ($type === 'heading' && is_string($node['generatedId'] ?? null)) {
             $c->ids[$node['generatedId']] = true;
+            $c->xrefIds[$node['generatedId']] = true;
+        }
+        if ($type === 'figure_group' && DataModel::numberedCaption($node)) {
+            self::panelTargets($node, $c);
         }
         if ($pos !== null) {
             self::placed($node, $type, $path, $pos, $c, $controls);
@@ -377,6 +384,26 @@ final class Linter
         $inner = $quotes + ($type === 'block_quote' && $pos !== null && self::marked($c->source, $pos['startOffset']) ? 1 : 0);
         foreach (self::children($node, $type, $path) as [$child, $childPath]) {
             self::measure($child, $childPath, $path, $inner, $c);
+        }
+    }
+
+    /**
+     * C2-B-207: the panels of a numbered figure group are cross-reference targets.
+     *
+     * @param array<string, mixed> $group
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return void
+     */
+    private static function panelTargets(array $group, Context $c): void
+    {
+        $children = is_array($group['children'] ?? null) ? $group['children'] : [];
+        foreach (DataModel::panelPaths($group, '') as $panel) {
+            $child = $children[(int)substr($panel, strlen('/children/'))] ?? null;
+            $attrs = is_array($child) ? ($child['attrs'] ?? null) : null;
+            if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
+                $c->xrefIds[$attrs['id']] = true;
+            }
         }
     }
 

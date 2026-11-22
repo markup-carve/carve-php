@@ -1674,7 +1674,7 @@ final class NodeRulesA
         if (isset($c->frontmatterIds[$target])) {
             return;
         }
-        $candidates = Support::caseOnly($target, array_keys(array_diff_key($c->ids, $c->frontmatterIds)));
+        $candidates = Support::caseOnly($target, array_keys($c->xrefIds));
         if ($candidates !== []) {
             Support::reportNode('broken-crossref', $node, $path, $c, [
                 'target' => $target,
