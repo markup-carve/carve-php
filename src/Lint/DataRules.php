@@ -1040,8 +1040,8 @@ final class DataRules
             }
         }
         $textRunNeedles = '';
-        $wildcardTextRunLookup = isset($needInline['*']) && (!self::markerOnlyWildcardInlineLookup()
-            || str_contains($context->source, '~~~') || str_contains($context->source, ':::') || str_contains($context->source, '{'));
+        // Wildcard inline lookups index nodes only; the block-marker rule cannot consume a text run.
+        $wildcardTextRunLookup = isset($needInline['*']) && !self::markerOnlyWildcardInlineLookup();
         if (!$wildcardTextRunLookup && !isset($needInline['text_run']) && $untypedRules['inline'] === []) {
             foreach ($typedRules['inline']['text_run'] ?? [] as $rule) {
                 $literal = null;
