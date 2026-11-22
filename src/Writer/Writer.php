@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Writer;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Options;
 
@@ -37,7 +38,13 @@ final class Writer
         }
         $repaired = (new RepairPlanner($tree, $layout, $options))->repair();
 
-        return $repaired === null ? $result : new WriteResult($repaired, []);
+        if ($repaired === null) {
+            return new WriteResult($result->source, [
+                new Diagnostic('writer-refused', 'warning', 'render-loss', 'Writer repair stopped for this block group', ''),
+            ]);
+        }
+
+        return new WriteResult($repaired, []);
     }
 
     /**
