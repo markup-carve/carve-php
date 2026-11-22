@@ -48,6 +48,20 @@ final class DataModel
     private const VERBATIM = ['code_block' => true, 'raw_block' => true, 'frontmatter' => true, 'comment_block' => true];
 
     /**
+     * Container types whose content starts at column zero.
+     *
+     * @var array<string, true>
+     */
+    private const ZERO_CONTENT = ['document' => true, 'block_quote' => true];
+
+    /**
+     * Container types whose content may require marker parsing.
+     *
+     * @var array<string, true>
+     */
+    private const MARKER_CONTENT = ['list_item' => true, 'footnote' => true, 'definition_description' => true];
+
+    /**
      * @var array<string, true>
      */
     private const INLINE_HOLDERS = [
@@ -450,7 +464,9 @@ final class DataModel
                     ? $pos['startOffset'] : self::quoteStart($sourceLine, $marks));
             $masked = $this->masked($sourceLine);
             $body = self::trimEnd(substr($masked, $start - $sourceLine->start));
-            $rawBody = self::trimEnd(substr($sourceLine->text, $start - $sourceLine->start));
+            $rawBody = $masked === $sourceLine->text
+                ? $body : self::trimEnd(substr($sourceLine->text, $start - $sourceLine->start));
+            $quoteAt = strpos($sourceLine->text, '>');
             $record = (object)[
                 'number' => $i + 1,
                 'start' => $sourceLine->start,
@@ -475,7 +491,7 @@ final class DataModel
                 'ancestor_path' => $linePath,
                 'quote_depth' => $this->quoteDepth($path),
                 'quote_marks' => null,
-                'quote_prefix' => str_contains(substr($sourceLine->text, 0, $start - $sourceLine->start), '>'),
+                'quote_prefix' => $quoteAt !== false && $quoteAt < $start - $sourceLine->start,
                 'raw_body' => $rawBody,
                 'lazy' => null,
                 'open_colon' => [],
@@ -645,10 +661,12 @@ final class DataModel
             return $this->containerCache[$quotes][$path];
         }
         $type = $this->context->nodeTypes[$path] ?? 'document';
-        $content = in_array($type, ['document', 'block_quote'], true) ? 0
-            : ($this->context->layout->contentColumn($path)
+        $isQuoteOrDocument = isset(self::ZERO_CONTENT[$type]);
+        $layoutContent = $isQuoteOrDocument ? null : $this->context->layout->contentColumn($path);
+        $content = $isQuoteOrDocument ? 0
+            : ($layoutContent
                 ?? $this->context->layout->columnOf($this->context->layout->startOffset($path) ?? 0, $quotes));
-        if (in_array($type, ['list_item', 'footnote', 'definition_description'], true)) {
+        if ($layoutContent === null && isset(self::MARKER_CONTENT[$type])) {
             $from = $this->openerStart($this->context->layout->startOffset($path) ?? 0, $quotes);
             $lineEnd = strpos($this->context->source, "\n", $from);
             $written = substr($this->context->source, $from, ($lineEnd === false ? strlen($this->context->source) : $lineEnd) - $from);
@@ -787,6 +805,10 @@ final class DataModel
             if ($lastLine === null) {
                 $lastLine = $this->lines[($span === null ? $pos['endLine'] : $c->lineOf(max($start, $end - 1))) - 1] ?? $line;
             }
+            $owner = $this->container($ownerPath, $quotes);
+            $itemOwner = $itemPath === $ownerPath ? $owner : $this->container($itemPath, $quotes);
+            $parent = $item['parent'] === $ownerPath ? $owner
+                : ($item['parent'] === $itemPath ? $itemOwner : $this->container($item['parent'], $quotes));
             $record = (object)[
                 'type' => $type,
                 'path' => $item['path'],
@@ -802,9 +824,9 @@ final class DataModel
                 'quote_depth_internal' => $quotes,
                 'opener_start' => $opener,
                 'opener_text' => $openerText,
-                'owner' => $this->container($ownerPath, $quotes),
-                'item_owner' => $this->container($itemPath, $quotes),
-                'parent' => $this->container($item['parent'], $quotes),
+                'owner' => $owner,
+                'item_owner' => $itemOwner,
+                'parent' => $parent,
                 'index' => $item['index'],
                 'attributed' => isset($node['attrs']),
                 'image_line' => $type === 'paragraph' && self::imageLine($node),
@@ -917,17 +939,24 @@ final class DataModel
      * that no block inside it covers: a run that closed a child is the child's closer.
      *
      * @param list<\stdClass> $colon
+     * @param list<\stdClass> $blocks Source-ordered block bounds.
      *
      * @return array<string, true> The paths of the closed containers.
      */
-    private function closedColons(array $colon): array
+    private function closedColons(array $colon, array $blocks): array
     {
         $byPath = [];
         foreach ($colon as $entry) {
             $byPath[$entry->path] = $entry;
         }
+        if ($byPath === []) {
+            return [];
+        }
         $runs = [];
         foreach ($this->context->lines as $sourceLine) {
+            if (!str_contains($sourceLine->text, ':')) {
+                continue;
+            }
             $from = self::quoteStart($sourceLine);
             $text = rtrim(substr($sourceLine->text, $from - $sourceLine->start));
             if (strlen($text) >= 3 && strspn($text, ':') === strlen($text)) {
@@ -935,11 +964,9 @@ final class DataModel
             }
         }
         $closed = [];
-        if ($runs === [] || $byPath === []) {
+        if ($runs === []) {
             return $closed;
         }
-        $blocks = $this->blocks;
-        self::orderBlocks($blocks);
         $next = 0;
         $stack = [];
         foreach ($runs as [$start, $end, $number]) {
@@ -974,21 +1001,25 @@ final class DataModel
 
             return;
         }
-        $bounds = array_values(array_filter($this->blocks, static fn (stdClass $block): bool => in_array(
+        $pathBlocks = $this->blocks;
+        self::orderBlocks($pathBlocks);
+        $bounds = array_values(array_filter($pathBlocks, static fn (stdClass $block): bool => in_array(
             $block->type,
             ['block_quote', 'list_item', 'footnote', 'definition_description'],
             true,
         )));
-        self::orderBlocks($bounds);
         $nextBound = 0;
         $openBounds = [];
         $colon = [];
-        $colonBlocks = $this->blocks;
+        $colonBlocks = array_values(array_filter($pathBlocks, static fn (stdClass $block): bool => in_array(
+            $block->type,
+            ['div', 'directive', 'admonition', 'figure_group', 'line_block'],
+            true,
+        )));
         self::orderBlocks($colonBlocks, 'opener_start', false);
         foreach ($colonBlocks as $block) {
             if (
-                !in_array($block->type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)
-                || preg_match('/^(:{3,})/', $block->opener_text, $match) !== 1
+                preg_match('/^(:{3,})/', $block->opener_text, $match) !== 1
             ) {
                 continue;
             }
@@ -1010,7 +1041,7 @@ final class DataModel
                 'path' => $block->path,
             ];
         }
-        $closed = $this->closedColons($colon);
+        $closed = $this->closedColons($colon, $pathBlocks);
         foreach ($colon as $entry) {
             $entry->closed = isset($closed[$entry->path]);
         }
@@ -1019,8 +1050,6 @@ final class DataModel
         $openBounds = [];
         $nextColon = 0;
         $openColon = [];
-        $pathBlocks = $this->blocks;
-        self::orderBlocks($pathBlocks);
         $nextPath = 0;
         $openPaths = [];
         foreach ($this->lines as $line) {
