@@ -214,9 +214,7 @@ final class Inline
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $following = $nodes[$at + 1] ?? null;
-            $c->hyphensBefore = $type === 'text' ? $hyphens : 0;
-            $c->hyphenAfter = $type === 'text' && is_array($following) && ($following['type'] ?? '') === 'text'
-                && str_starts_with(self::str($following, 'value'), '-');
+            self::hyphenNeighbors($c, $type, $following, $hyphens);
             self::resetFollowingPipe($c, $type);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
             $this->before = $visibleNode;
@@ -235,8 +233,7 @@ final class Inline
             }
             $parts[] = [strlen($out), $first, $at];
             $out .= $part;
-            // A dash node before a hyphen run counts as one hyphen of it (C2-W-125 case four).
-            $hyphens = $type === 'text' ? self::trailingHyphens(self::str($node, 'value'), $hyphens) : ($c->last === 0x2D ? 1 : 0);
+            $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
             self::advanceFollowingPipe($c, $node, $type);
             if (!self::isBracedComment($node)) {
                 $visible = $c->lineStart ? -1 : $c->last;
@@ -564,10 +561,32 @@ final class Inline
     }
 
     /**
-     * The hyphens a text value ends with, counting those before it when the value is all hyphens.
+     * C2-W-099: the hyphens of the run a text node continues, and whether the next text node continues it.
      */
-    private static function trailingHyphens(string $value, int $before): int
+    private static function hyphenNeighbors(Context $c, string $type, mixed $following, int $hyphens): void
     {
+        $c->hyphensBefore = $type === 'text' ? $hyphens : 0;
+        $c->hyphenAfter = $type === 'text' && is_array($following) && ($following['type'] ?? '') === 'text'
+            && str_starts_with(self::str($following, 'value'), '-');
+    }
+
+    /**
+     * The hyphens the written node ends a run with: a text value's, counting those before it when it is all hyphens,
+     * and one for a dash node (C2-W-125 case four).
+     *
+     * @param array<mixed> $node
+     * @param string $type
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $before
+     *
+     * @return int
+     */
+    private static function hyphensAfter(array $node, string $type, Context $c, int $before): int
+    {
+        if ($type !== 'text') {
+            return $c->last === 0x2D ? 1 : 0;
+        }
+        $value = self::str($node, 'value');
         $run = strlen($value) - strlen(rtrim($value, '-'));
 
         return $run === strlen($value) ? $before + $run : $run;
