@@ -147,24 +147,22 @@ final class ImportCommand
         $count = count($args);
         for ($i = 0; $i < $count; $i++) {
             $arg = $args[$i];
+            $match = [];
             if (preg_match('/^--(from|adapter|allow-loss|max-render-losses)(?:=(.*))?$/s', $arg, $m) === 1) {
                 $from = self::valueFlag($m[1], $m[2] ?? ($args[++$i] ?? null), $from, $options);
             } elseif ($arg === '--raw-html' || $arg === '--strict-losses') {
                 $options[$arg === '--raw-html' ? 'rawHtml' : 'strictLosses'] = true;
-            } elseif ($arg === '--directory') {
-                $directory = $args[++$i] ?? null;
-                if ($directory === null) {
-                    throw new OptionError('missing value for --directory');
+            } elseif ($arg === '-o' || preg_match('/^--(output|directory)(?:=(.*))?$/s', $arg, $match) === 1) {
+                $name = $arg === '-o' ? 'output' : ($match[1] ?? 'output');
+                $value = $match[2] ?? ($args[++$i] ?? null);
+                if ($value === null) {
+                    throw new OptionError('missing value for --' . $name);
                 }
-            } elseif (str_starts_with($arg, '--directory=')) {
-                $directory = substr($arg, 12);
-            } elseif ($arg === '-o' || $arg === '--output') {
-                $output = $args[++$i] ?? null;
-                if ($output === null) {
-                    throw new OptionError('missing value for --output');
+                if ($name === 'directory') {
+                    $directory = $value;
+                } else {
+                    $output = $value;
                 }
-            } elseif (str_starts_with($arg, '--output=')) {
-                $output = substr($arg, 9);
             } elseif ($arg === '-' || !str_starts_with($arg, '-')) {
                 $files[] = $arg;
             } else {

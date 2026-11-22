@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Carve;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
+use SplFileInfo;
 use Throwable;
 
 /**
@@ -48,8 +49,16 @@ final class DirectoryImport
         try {
             [$files, $assets, $skipped] = self::convert($root, $stage, $entries);
             $review = self::checkLinks($stage, $files, $assets);
-            $report = ['schemaVersion' => 1, 'sourceFormat' => 'markdown', 'files' => $files, 'assets' => $assets, 'skipped' => $skipped, 'review' => $review];
-            if (file_put_contents($stage . '/migration-report.json', json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n") === false) {
+            $report = [
+                'schemaVersion' => 1,
+                'sourceFormat' => 'markdown',
+                'files' => $files,
+                'assets' => $assets,
+                'skipped' => $skipped,
+                'review' => $review,
+            ];
+            $reportJson = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            if (file_put_contents($stage . '/migration-report.json', $reportJson . "\n") === false) {
                 throw new RuntimeException('cannot write migration report');
             }
             $claimed = PHP_OS_FAMILY !== 'Windows';
@@ -60,13 +69,21 @@ final class DirectoryImport
                 if ($claimed) {
                     rmdir($final);
                 }
+
                 throw new RuntimeException("cannot create output: $final");
             }
             rmdir($shell);
 
-            return ['files' => count($files), 'assets' => count($assets), 'review' => count($review), 'skipped' => count($skipped), 'report' => $final . '/migration-report.json'];
+            return [
+                'files' => count($files),
+                'assets' => count($assets),
+                'review' => count($review),
+                'skipped' => count($skipped),
+                'report' => $final . '/migration-report.json',
+            ];
         } catch (Throwable $error) {
             self::clean($shell);
+
             throw $error;
         }
     }
@@ -99,8 +116,12 @@ final class DirectoryImport
         $out = [];
         $walk = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
         foreach ($walk as $entry) {
+            if (!$entry instanceof SplFileInfo) {
+                continue;
+            }
             $path = str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($root) + 1));
-            $kind = $entry->isLink() || !$entry->isFile() ? 'skipped' : (preg_match('/\.(md|markdown)$/i', $entry->getFilename()) ? 'markdown' : 'asset');
+            $kind = $entry->isLink() || !$entry->isFile()
+                ? 'skipped' : (preg_match('/\.(md|markdown)$/i', $entry->getFilename()) ? 'markdown' : 'asset');
             $stat = $kind === 'skipped' ? false : lstat($entry->getPathname());
             $out[] = ['path' => $path, 'kind' => $kind, 'identity' => $stat === false ? null : [$stat['dev'], $stat['ino']]];
         }
@@ -110,8 +131,13 @@ final class DirectoryImport
     }
 
     /**
+     * @param string $root
+     * @param string $stage
      * @param array<array{path: string, kind: string, identity: array<int>|null}> $entries
-     * @return array{0: array<array<string, mixed>>, 1: array<string>, 2: array<string>}
+     *
+     * @throws \RuntimeException
+     *
+     * @return array{0: list<array{source: string, output: string, diagnostics: array<mixed>}>, 1: list<string>, 2: list<string>}
      */
     private static function convert(string $root, string $stage, array $entries): array
     {
@@ -121,6 +147,7 @@ final class DirectoryImport
             $path = $entry['path'];
             if ($entry['kind'] === 'skipped') {
                 $skipped[] = $path;
+
                 continue;
             }
             $dest = $entry['kind'] === 'markdown' ? preg_replace('/\.(md|markdown)$/i', '.crv', $path) : $path;
@@ -137,6 +164,8 @@ final class DirectoryImport
                 throw new RuntimeException("cannot create directory for $dest");
             }
             [$handle, $mode] = self::openEntry($root . '/' . $path, $path, $entry['identity']);
+            $ok = false;
+            $input = false;
             try {
                 if ($entry['kind'] === 'asset') {
                     $ok = file_put_contents($target, $handle);
@@ -151,6 +180,7 @@ final class DirectoryImport
                     throw new RuntimeException("cannot copy $path");
                 }
                 $assets[] = $path;
+
                 continue;
             }
             if ($input === false) {
@@ -160,14 +190,23 @@ final class DirectoryImport
             if (file_put_contents($target, $result->source) === false || !chmod($target, (0666 & ~umask()) & $mode)) {
                 throw new RuntimeException("cannot write $dest");
             }
-            $files[] = ['source' => $path, 'output' => $dest, 'diagnostics' => array_map(static fn ($d): array => $d->toArray(), $result->diagnostics)];
+            $files[] = [
+                'source' => $path,
+                'output' => $dest,
+                'diagnostics' => array_map(static fn ($d): array => $d->toArray(), $result->diagnostics),
+            ];
         }
 
         return [$files, $assets, $skipped];
     }
 
     /**
+     * @param string $input
+     * @param string $path
      * @param array<int>|null $identity
+     *
+     * @throws \RuntimeException
+     *
      * @return array{0: resource, 1: int}
      */
     private static function openEntry(string $input, string $path, ?array $identity): array
@@ -184,6 +223,7 @@ final class DirectoryImport
         $opened = fstat($handle);
         if ($opened === false || $identity !== [$opened['dev'], $opened['ino']]) {
             fclose($handle);
+
             throw new RuntimeException("changed during migration: $path");
         }
 
@@ -191,8 +231,12 @@ final class DirectoryImport
     }
 
     /**
-     * @param array<array<string, mixed>> $files
-     * @param array<string> $assets
+     * @param string $stage
+     * @param list<array{source: string, output: string, diagnostics: array<mixed>}> $files
+     * @param list<string> $assets
+     *
+     * @throws \RuntimeException
+     *
      * @return array<string>
      */
     private static function checkLinks(string $stage, array &$files, array $assets): array
@@ -206,6 +250,9 @@ final class DirectoryImport
                 throw new RuntimeException('cannot read converted output');
             }
             $tree = json_decode(Carve::encodeTree(Carve::parse($source)), true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($tree)) {
+                throw new RuntimeException('cannot read converted tree');
+            }
             $changed = false;
             $links = [];
             self::rewriteNode($tree, $file['source'], $outputs, $links, $changed);
@@ -213,13 +260,15 @@ final class DirectoryImport
             foreach ($links as $link) {
                 if ($link['status'] === 'unresolved') {
                     $review[] = $file['source'];
+
                     break;
                 }
             }
             if ($changed) {
                 $mode = fileperms($path) & 0777;
                 $json = json_encode($tree, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                if (!chmod($path, $mode | 0200) || file_put_contents($path, Carve::write(Carve::decodeTree($json))) === false || !chmod($path, $mode)) {
+                $written = Carve::write(Carve::decodeTree($json));
+                if (!chmod($path, $mode | 0200) || file_put_contents($path, $written) === false || !chmod($path, $mode)) {
                     throw new RuntimeException('cannot write converted output');
                 }
             }
@@ -231,32 +280,22 @@ final class DirectoryImport
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @param array<mixed> $node
+     * @param string $source
      * @param array<string, true> $outputs
      * @param array<array<string, string>> $links
+     * @param bool $changed
      */
     private static function rewriteNode(array &$node, string $source, array $outputs, array &$links, bool &$changed): void
     {
-        $key = match ($node['type'] ?? null) { 'link' => 'href', 'image' => 'src', default => null };
+        $key = match ($node['type'] ?? null) {
+            'link' => 'href', 'image' => 'src', default => null
+        };
         if ($key !== null && isset($node[$key]) && is_string($node[$key])) {
-            $href = $node[$key];
-            if (!str_starts_with($href, '#') && preg_match('~^[a-z][a-z0-9+.-]*:|^//~i', $href) !== 1) {
-                $parts = parse_url($href);
-                $rawPath = $parts['path'] ?? '';
-                $relative = dirname($source) === '.' ? $rawPath : dirname($source) . '/' . $rawPath;
-                $normalized = self::normalizePath($relative);
-                $mapped = preg_replace('/\.(md|markdown)$/i', '.crv', $normalized);
-                if ($mapped === null || !isset($outputs[$mapped])) {
-                    $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'target missing from output'];
-                } else {
-                    $newPath = preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath);
-                    $newHref = $newPath . (isset($parts['query']) ? '?' . $parts['query'] : '') . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
-                    $links[] = ['target' => $href, 'status' => $newHref === $href ? 'valid' : 'rewritten'];
-                    if ($newHref !== $href) {
-                        $node[$key] = $newHref;
-                        $changed = true;
-                    }
-                }
+            $replacement = self::checkDestination($node[$key], $source, $outputs, $links);
+            if ($replacement !== null && $replacement !== $node[$key]) {
+                $node[$key] = $replacement;
+                $changed = true;
             }
         }
         foreach ($node as &$value) {
@@ -277,11 +316,53 @@ final class DirectoryImport
         unset($value);
     }
 
-    private static function normalizePath(string $path): string
+    /**
+     * @param string $href
+     * @param string $source
+     * @param array<string, true> $outputs
+     * @param array<array<string, string>> $links
+     */
+    private static function checkDestination(string $href, string $source, array $outputs, array &$links): ?string
+    {
+        if (str_starts_with($href, '#') || preg_match('~^[a-z][a-z0-9+.-]*:|^//~i', $href) === 1) {
+            return null;
+        }
+        if (str_starts_with($href, '/')) {
+            $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'site-root path needs route mapping'];
+
+            return null;
+        }
+        $parts = parse_url($href);
+        if ($parts === false) {
+            $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'invalid URL'];
+
+            return null;
+        }
+        $rawPath = $parts['path'] ?? '';
+        $relative = dirname($source) === '.' ? $rawPath : dirname($source) . '/' . $rawPath;
+        $normalized = self::normalizePath(rawurldecode($relative));
+        $mapped = $normalized === null ? null : preg_replace('/\.(md|markdown)$/i', '.crv', $normalized);
+        if ($mapped === null || !isset($outputs[$mapped])) {
+            $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'target missing from output'];
+
+            return null;
+        }
+        $newPath = preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath);
+        $newHref = $newPath . (isset($parts['query']) ? '?' . $parts['query'] : '')
+            . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
+        $links[] = ['target' => $href, 'status' => $newHref === $href ? 'valid' : 'rewritten'];
+
+        return $newHref;
+    }
+
+    private static function normalizePath(string $path): ?string
     {
         $parts = [];
         foreach (explode('/', $path) as $part) {
             if ($part === '..') {
+                if ($parts === []) {
+                    return null;
+                }
                 array_pop($parts);
             } elseif ($part !== '' && $part !== '.') {
                 $parts[] = $part;
@@ -293,8 +374,12 @@ final class DirectoryImport
 
     private static function clean(string $path): void
     {
-        $walk = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+        $directory = new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS);
+        $walk = new RecursiveIteratorIterator($directory, RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($walk as $entry) {
+            if (!$entry instanceof SplFileInfo) {
+                continue;
+            }
             $entry->isDir() && !$entry->isLink() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
         }
         rmdir($path);
