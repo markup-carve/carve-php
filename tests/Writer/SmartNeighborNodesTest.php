@@ -74,6 +74,11 @@ final class SmartNeighborNodesTest extends TestCase
             'two en dashes read back' => [$p($t('x'), $en, $en, $t('y')), "x----y\n", []],
             'an em dash before an en dash reads back' => [$p($t('x'), $em, $en, $t('y')), "x-----y\n", []],
             'a space between two nodes' => [$p($t('x'), $lessEqual, $t(' '), $greaterEqual, $t('y')), "x<= >=y\n", []],
+            'an ordered marker split over text nodes before a run' => [
+                $p($t('x'), $t('. b'), $left, $greaterEqual),
+                "x\\. b<-->=\n",
+                ['field-unspellable /children/0/children/2/kind', 'structure-unspellable /children/0/children/3'],
+            ],
         ];
     }
 

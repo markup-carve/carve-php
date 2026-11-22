@@ -795,17 +795,49 @@ final class Blocks
         if (self::readsAsParagraph($head . $text, $children, true, $nested)) {
             return $text;
         }
+
+        return self::escapedLead($text, $children, $head, $referenceLead, $afterReference, $nested);
+    }
+
+    /**
+     * The earliest escape of a text punctuation that keeps the line a paragraph with the same children.
+     *
+     * @param string $text
+     * @param array<mixed> $children
+     * @param string $head
+     * @param bool $referenceLead
+     * @param int $afterReference
+     * @param array<string> $nested
+     *
+     * @return string
+     */
+    private static function escapedLead(
+        string $text,
+        array $children,
+        string $head,
+        bool $referenceLead,
+        int $afterReference,
+        array $nested,
+    ): string {
+        // C2-W-078: an ordered marker beside a smart punctuation run that reads back as other nodes keeps no escape
+        // with the same children. The first one that keeps the paragraph is written, and the read-back reports the run.
+        $paragraph = null;
+        $marker = ctype_alnum($text[0]);
         for ($i = 0, $n = strlen($text); $i < $n; $i++) {
             if ($i < $afterReference || !Text::isPunct($text[$i]) || ($i > 0 && $text[$i - 1] === '\\')) {
                 continue;
             }
             $candidate = substr($text, 0, $i) . '\\' . substr($text, $i);
-            if (self::readsAsParagraph($head . $candidate, $children, $referenceLead, $nested)) {
+            $isParagraph = false;
+            if (self::readsAsParagraph($head . $candidate, $children, $referenceLead, $nested, $isParagraph)) {
                 return $candidate;
+            }
+            if ($isParagraph && $marker) {
+                $paragraph ??= $candidate;
             }
         }
 
-        return $text;
+        return $paragraph ?? $text;
     }
 
     private static function mayOpenBlock(string $text): bool
@@ -826,12 +858,14 @@ final class Blocks
      * @param array<mixed> $children
      * @param bool $allowUnresolvedReference
      * @param array<string> $containers The containers the line's head opens, which the paragraph stands in.
+     * @param bool $isParagraph Set to whether the line reads as a paragraph, whatever its children.
      */
     private static function readsAsParagraph(
         string $line,
         array $children,
         bool $allowUnresolvedReference = false,
         array $containers = [],
+        bool &$isParagraph = false,
     ): bool {
         $tree = TreeEncoder::decoded(Carve::parse($line . "\n"));
         $rootChildren = is_array($tree['children'] ?? null) ? $tree['children'] : [];
@@ -844,8 +878,9 @@ final class Blocks
             $node = $nested[0] ?? null;
         }
 
-        return is_array($node) && ($node['type'] ?? '') === 'paragraph'
-            && ($allowUnresolvedReference || TreeEquality::equal($node['children'] ?? [], $children));
+        $isParagraph = is_array($node) && ($node['type'] ?? '') === 'paragraph';
+
+        return $isParagraph && ($allowUnresolvedReference || TreeEquality::equal($node['children'] ?? [], $children));
     }
 
     /**
