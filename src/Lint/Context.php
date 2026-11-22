@@ -137,6 +137,13 @@ final class Context
     public array $ids = [];
 
     /**
+     * C2-A-218: ids of top-level frontmatter, lookup keys and no cross-reference target.
+     *
+     * @var array<string, true>
+     */
+    public array $frontmatterIds = [];
+
+    /**
      * @var array<array{0: array<string, mixed>, 1: string}>
      */
     public array $fragmentLinks = [];

@@ -526,6 +526,10 @@ final class Resolver
      */
     private function reserve(string $id, Node $node, ?array $range): void
     {
+        if ($node->type === 'frontmatter' && $range !== null) {
+            // CC-1603: a metadata key is reported from the start of its block.
+            $range = [$node->start, $range[1]];
+        }
         if (isset($this->taken[$id])) {
             $this->findings?->add(
                 'duplicate-id',

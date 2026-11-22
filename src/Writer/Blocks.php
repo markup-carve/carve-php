@@ -1119,7 +1119,10 @@ final class Blocks
         if (in_array('---', $lines, true)) {
             $this->w->lose($path, 'frontmatter', 'value');
         }
-        $this->w->emit($prefix, $format === 'yaml' ? '---' : '---' . $format);
+        // C2-B-232: only the first child of the document may use the bare opener; a later block names its format.
+        $leading = $path === '/children/0' && !is_array($node['attrs'] ?? null);
+        $this->attributeLine($node, $path, $prefix);
+        $this->w->emit($prefix, $format === 'yaml' && $leading ? '---' : '---' . $format);
         foreach ($lines as $line) {
             $this->w->lines[] = $prefix . $line;
         }

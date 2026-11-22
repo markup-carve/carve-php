@@ -107,6 +107,7 @@ final class NodeRules
             ['figure-group-opener-metadata', ['div'], NodeRulesA::figureOpenerMetadata(...)],
             ['comment-line-in-line-block', ['line'], NodeRulesA::commentInLineBlock(...)],
             ['broken-crossref', ['xref'], NodeRulesA::brokenCrossref(...)],
+            ['frontmatter-crossref', ['xref'], NodeRulesA::frontmatterCrossref(...)],
             ['broken-fragment-link', ['link'], NodeRulesA::collectFragment(...)],
             ['platform-issue-reference', ['text'], NodeRulesA::platformIssue(...)],
             ['platform-mention-token', ['text', 'mention'], NodeRulesA::platformMention(...)],

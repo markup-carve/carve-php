@@ -391,6 +391,10 @@ final class Linter
         $c->layout->register('', $root, 0, '');
         $previousType = '';
         foreach (self::children($root, 'document', '') as [$child, $childPath]) {
+            $attrs = $child['attrs'] ?? null;
+            if (($child['type'] ?? null) === 'frontmatter' && is_array($attrs) && is_string($attrs['id'] ?? null)) {
+                $c->frontmatterIds[$attrs['id']] = true;
+            }
             $blockPos = Support::pos($child);
             if ($blockPos !== null) {
                 $firstLine = $c->lines[$blockPos['startLine'] - 1] ?? null;

@@ -1671,7 +1671,10 @@ final class NodeRulesA
             return;
         }
         $target = Support::str($node, 'key') ?? '';
-        $candidates = Support::caseOnly($target, array_keys($c->ids));
+        if (isset($c->frontmatterIds[$target])) {
+            return;
+        }
+        $candidates = Support::caseOnly($target, array_keys(array_diff_key($c->ids, $c->frontmatterIds)));
         if ($candidates !== []) {
             Support::reportNode('broken-crossref', $node, $path, $c, [
                 'target' => $target,
@@ -1681,6 +1684,23 @@ final class NodeRulesA
             return;
         }
         Support::reportNode('broken-crossref', $node, $path, $c, ['target' => $target], 2);
+    }
+
+    /**
+     * C2-W-153: a cross-reference to a frontmatter id, which has no HTML target.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return void
+     */
+    public static function frontmatterCrossref(array $node, string $path, Context $c): void
+    {
+        $target = Support::str($node, 'key') ?? '';
+        if (($node['type'] ?? null) === 'xref' && !array_key_exists('href', $node) && isset($c->frontmatterIds[$target])) {
+            Support::reportNode('frontmatter-crossref', $node, $path, $c, ['target' => $target]);
+        }
     }
 
     /**

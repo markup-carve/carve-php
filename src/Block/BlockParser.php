@@ -152,6 +152,51 @@ final class BlockParser
     }
 
     /**
+     * Whether every open container is a list or a list item.
+     *
+     * @return bool
+     */
+    private function listsOnly(): bool
+    {
+        for ($k = count($this->stack) - 1; $k > 0; $k--) {
+            $kind = $this->stack[$k]->kind;
+            if ($kind !== Frame::LIST && $kind !== Frame::ITEM) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * C2-B-232, C2-B-233: after a blank line or pending top-level attribute lines, a typed opener opens frontmatter.
+     *
+     * @param int $ls
+     * @param int $le
+     *
+     * @return bool
+     */
+    private function metadataBlock(int $ls, int $le): bool
+    {
+        if ($this->leaf !== null) {
+            return false;
+        }
+        $pending = $this->pending;
+        if ($pending !== null ? $pending->depth !== 0 : $this->blank === 0) {
+            return false;
+        }
+        $f = new Frame(Frame::FRONTMATTER, $ls);
+        $f->value = (string)LineShapes::typedFrontmatter($this->s, $ls, $le);
+        $f->end = $le;
+        $this->take($f);
+        $this->leaf = $f;
+        $this->closed = null;
+        $this->blank = 0;
+
+        return true;
+    }
+
+    /**
      * @param int $ls
      * @param int $le
      *
@@ -210,6 +255,16 @@ final class BlockParser
             return;
         }
         $s = $this->s;
+        if ($j === $ls && $s[$j] === '-' && !$forced && LineShapes::typedFrontmatter($s, $j, $le) !== null && $this->listsOnly()) {
+            // C2-B-232: a column-0 typed opener ends the lists before it, whether or not it opens a block.
+            $this->closeTo(0);
+            $owner = 0;
+            $top = 0;
+            $leaf = $this->leaf;
+            if ($this->metadataBlock($ls, $le)) {
+                return;
+            }
+        }
         if ($s[$j] === '%' && $j + 1 < $le && $s[$j + 1] === '%' && ($j + 2 >= $le || $s[$j + 2] !== '%')) {
             if ($this->regionMarker($j)) {
                 $this->closeLeaf();

@@ -195,7 +195,8 @@ final class NodeRulesB
             return;
         }
         $pos = Support::pos($node);
-        if ($pos === null) {
+        // C2-B-231: only the line-1 block declares the version.
+        if ($pos === null || $pos['startLine'] !== 1) {
             return;
         }
         for ($number = $pos['startLine'] + 1; $number < $pos['endLine']; $number++) {
