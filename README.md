@@ -19,6 +19,17 @@ PHP 8.2 or later. Import (HTML, Markdown, GFM, Djot) needs `ext-dom`; it uses `D
 composer require markup-carve/carve-php
 ```
 
+Rendering, formatting, linting and HTML import need nothing else. Markdown, GFM and Djot import use a library you add
+yourself:
+
+| Import format | Package |
+|---|---|
+| `markdown`, `gfm` | `composer require league/commonmark` |
+| `djot` | `composer require php-collective/djot` |
+
+Without it, `importDocument()` throws `ImportInputError` and `carve import` exits with `import-input-invalid`, both
+naming the package to install.
+
 ## Usage
 
 ```php
@@ -81,7 +92,7 @@ Writer options: `normalize` (ignore the layout record), `alignTables` (pad pipe 
 that wrote the HTML, `generic` by default; `word` and `google-docs` read exported notes as footnotes, C2-M-102),
 `strictLosses`, `allowLosses` and `maxLosses`, and `labels` (the labels used to render generated accessible names). Markdown, GFM and Djot go through
 the HTML importer: `league/commonmark` (CommonMark 0.31 and the GFM
-extensions) and `php-collective/djot` render HTML, which the HTML importer reads. Includes: an
+extensions) and `php-collective/djot`, both optional (see Install), render HTML, which the HTML importer reads. Includes: an
 `Include\IncludeResolver` such as `Include\FileResolver::forRoot($root)` in the `includes` option, or an array with
 `resolver` and the lowered limits `depth`, `bytes` and `maxDiagnostics` (include failures kept, at most 100).
 

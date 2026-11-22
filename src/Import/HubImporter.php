@@ -24,6 +24,17 @@ final class HubImporter
     public const FORMATS = ['markdown', 'gfm', 'djot'];
 
     /**
+     * The optional Composer package each format renders HTML with.
+     *
+     * @var array<string, array{0: string, 1: string}>
+     */
+    private const LIBRARIES = [
+        'markdown' => ['league/commonmark', 'League\\CommonMark\\Environment\\Environment'],
+        'gfm' => ['league/commonmark', 'League\\CommonMark\\Environment\\Environment'],
+        'djot' => ['php-collective/djot', 'Djot\\DjotConverter'],
+    ];
+
+    /**
      * @var array<string, string>
      */
     private const ALERT_KINDS = ['NOTE' => 'note', 'TIP' => 'tip', 'IMPORTANT' => 'info', 'WARNING' => 'warning', 'CAUTION' => 'danger'];
@@ -44,6 +55,7 @@ final class HubImporter
         if (($options['adapter'] ?? 'generic') !== 'generic') {
             throw new OptionError('option adapter: HTML only');
         }
+        self::requireLibrary($format);
         $sink = new Sink();
         try {
             $html = $format === 'djot' ? DjotHtml::html($input, $sink) : MarkdownHtml::html($input, $format === 'gfm', $sink);
@@ -77,6 +89,21 @@ final class HubImporter
             $result->source,
             $result->suppressedDiagnostics,
         );
+    }
+
+    /**
+     * @param string $format `markdown`, `gfm` or `djot`.
+     *
+     * @throws \MarkupCarve\Carve\Import\ImportInputError When the library of the format is not installed.
+     *
+     * @return void
+     */
+    public static function requireLibrary(string $format): void
+    {
+        [$package, $class] = self::LIBRARIES[$format] ?? ['', ''];
+        if ($class !== '' && !class_exists($class)) {
+            throw new ImportInputError($format . ' import requires the ' . $package . ' package: composer require ' . $package);
+        }
     }
 
     /**
