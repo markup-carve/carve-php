@@ -5,11 +5,21 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 final class PinnedRepairRoundTest extends TestCase
 {
-    public function testRepairRoundCasesMatchPinnedBytes(): void
+    #[DataProvider('repairCases')]
+    public function testRepairRoundCaseMatchesPinnedBytes(string $id, string $input, string $expected, array $options): void
+    {
+        $written = Carve::formatWithDiagnostics($input, $options);
+        self::assertSame($expected, $written->source, $id);
+        self::assertSame([], $written->diagnostics, $id . ' diagnostics');
+    }
+
+    public static function repairCases(): iterable
     {
         $spec = json_decode(
             (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
@@ -17,16 +27,17 @@ final class PinnedRepairRoundTest extends TestCase
             4096,
             JSON_THROW_ON_ERROR,
         );
-        $seen = [];
+        $byId = [];
         foreach ($spec['cases'] as $case) {
-            if (!in_array($case['id'], ['CC-1565', 'CC-1566', 'CC-1567', 'CC-1568'], true)) {
-                continue;
-            }
-            $seen[] = $case['id'];
-            $written = Carve::formatWithDiagnostics($case['input'], $case['options'] ?? []);
-            self::assertSame($case['expected']['carve'], $written->source, $case['id']);
-            self::assertSame([], $written->diagnostics, $case['id'] . ' diagnostics');
+            $byId[$case['id']] = $case;
         }
-        self::assertSame(['CC-1565', 'CC-1566', 'CC-1567', 'CC-1568'], $seen);
+        foreach (['CC-1565', 'CC-1566', 'CC-1567', 'CC-1568'] as $id) {
+            if (!isset($byId[$id])) {
+                throw new RuntimeException('Missing pinned repair case ' . $id);
+            }
+            $case = $byId[$id];
+
+            yield $id => [$id, $case['input'], $case['expected']['carve'], $case['options'] ?? []];
+        }
     }
 }
