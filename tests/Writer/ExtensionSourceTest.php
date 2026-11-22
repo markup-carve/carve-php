@@ -176,6 +176,28 @@ final class ExtensionSourceTest extends TestCase
         $this->assertSame([], $result->codes());
     }
 
+    public function testTabsShortcutWithEscapedReferenceKeyKeepsItsSource(): void
+    {
+        $source = "[a\\\\b]: /u\n\n:::: tabs\n::: tab \"T\"\nsee [a\\\\b].\n:::\n::::\n";
+        $result = Writer::formatWithDiagnostics($source, ['extensions' => ['carve.tabs']]);
+        $this->assertSame($source, $result->source);
+        $this->assertSame([], $result->codes());
+    }
+
+    public function testIncludedTabsUseDefinitionsOfTheirOwnFile(): void
+    {
+        $resolver = static fn (): array => [
+            'text' => ":::: tabs\n::: tab \"T\"\n[r] lit\n:::\n::::\n",
+            'id' => 'child',
+        ];
+        $tree = json_decode(Carve::toJson("[r]: /u\n\n{{ child }}\n", [
+            'includes' => $resolver,
+            'extensions' => ['carve.tabs'],
+        ]), true);
+        $source = $tree['children'][1]['children'][0]['source']['body'];
+        $this->assertSame("::: tab \"T\"\n[r] lit\n:::\n", $source);
+    }
+
     /**
      * @param array<array<string, mixed>> $children
      *

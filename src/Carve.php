@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Import\HubImporter;
 use MarkupCarve\Carve\Import\ImportResult;
 use MarkupCarve\Carve\Include\Expander;
 use MarkupCarve\Carve\Include\IncludeResolver;
+use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Json\TreeEncoder;
@@ -408,8 +409,12 @@ final class Carve
         try {
             [$doc, $findings, $hasInclude] = self::stages($source);
             self::expand($doc, $findings, $opts, $hasInclude);
-            $linkKeys = InlineContext::collect($doc, $source)->linkKeys;
-            Extensions::apply($doc, $opts->extensions, static fn (Node $div): string => self::divBody($div, $linkKeys));
+            $linkKeys = self::linkKeysByFile($doc);
+            Extensions::apply(
+                $doc,
+                $opts->extensions,
+                static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
+            );
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
             if (!$keep) {
                 TreeEncoder::limitParsedExpansions($doc, strlen($source));
@@ -436,6 +441,28 @@ final class Carve
         $blocks = (new TreeEncoder())->encode($div, null)['children'] ?? [];
 
         return Writer::writeBlocks(is_array($blocks) ? $blocks : [], ['linkKeys' => $linkKeys]);
+    }
+
+    /**
+     * The inline pass of each included file sees its own definitions.
+     *
+     * @return array<string, array<string, true>>
+     */
+    private static function linkKeysByFile(Node $doc): array
+    {
+        $byFile = [];
+        $stack = [$doc];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node->type === 'link_reference_definition' && is_string($node->f['key'] ?? null)) {
+                $byFile[$node->file ?? ''][Chars::fold($node->f['key'])] = true;
+            }
+            foreach ($node->children ?? [] as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        return $byFile;
     }
 
     /**
@@ -511,8 +538,12 @@ final class Carve
         try {
             [$doc, , $hasInclude] = self::stages($source);
             self::expand($doc, new Findings(), $opts, $hasInclude);
-            $linkKeys = InlineContext::collect($doc, $source)->linkKeys;
-            Extensions::apply($doc, $opts->extensions, static fn (Node $div): string => self::divBody($div, $linkKeys));
+            $linkKeys = self::linkKeysByFile($doc);
+            Extensions::apply(
+                $doc,
+                $opts->extensions,
+                static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
+            );
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
