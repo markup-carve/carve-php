@@ -553,6 +553,7 @@ final class DirectoryImport
         }
         $out = [];
         $query = '//*[@href or @src or @poster or @action or @formaction or @data or @srcset or @imagesrcset]';
+        $query .= '[not(ancestor::template)]';
         $nodes = (new DOMXPath($document))->query($query);
         foreach ($nodes ?: [] as $element) {
             if (!$element instanceof DOMElement) {

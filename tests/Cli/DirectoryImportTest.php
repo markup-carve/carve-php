@@ -138,6 +138,17 @@ final class DirectoryImportTest extends TestCase
         self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][1]['reason']);
     }
 
+    public function testIgnoresRawHtmlLinksInsideTemplate(): void
+    {
+        file_put_contents($this->root . '/src/a.md', "<template>\n<a href=\"missing.md\">x</a>\n</template>\n");
+        [$status, , $err] = self::call([
+            '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/dst',
+        ]);
+        self::assertSame(0, $status, $err);
+        $report = json_decode((string)file_get_contents($this->root . '/dst/migration-report.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame([], $report['files'][0]['links']);
+    }
+
     public function testRefusesNestedTargetAndCaseCollision(): void
     {
         file_put_contents($this->root . '/src/A.md', 'one');
