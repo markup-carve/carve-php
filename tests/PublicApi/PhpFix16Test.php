@@ -6,13 +6,13 @@ namespace MarkupCarve\Carve\Test\PublicApi;
 
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
-use MarkupCarve\Carve\RenderResult;
 use MarkupCarve\Carve\Extension\Claim;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Options;
+use MarkupCarve\Carve\RenderResult;
 use PHPUnit\Framework\TestCase;
 
 final class PhpFix16Test extends TestCase
