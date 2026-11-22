@@ -18,6 +18,19 @@ use MarkupCarve\Carve\Options;
 final class Writer
 {
     /**
+     * @var array<string>
+     */
+    private const PAIRED_INLINES = [
+        'superscript', 'subscript', 'emphasis', 'strong', 'underline', 'strike', 'highlight',
+        'insert', 'delete', 'link', 'span', 'inline_footnote', 'inline_extension',
+    ];
+
+    /**
+     * @var array<string>
+     */
+    private const BRACKETED_INLINES = ['link', 'image', 'span', 'inline_footnote', 'inline_extension'];
+
+    /**
      * C2-W-134: the nearest source and the report.
      *
      * @param array<string, mixed> $tree A decoded 2.0 tree.
@@ -55,37 +68,37 @@ final class Writer
      */
     private static function hasRoundRisk(array $tree): bool
     {
-        /** @var array<array{array<mixed>, bool, bool}> $pending */
-        $pending = [[$tree, false, false]];
-        while ($pending !== []) {
-            [$node, $pairedBefore, $bracketedBefore] = array_pop($pending);
-            $paired = 0;
-            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-            foreach ($children as $child) {
-                if (
-                    is_array($child) && in_array($child['type'] ?? '', [
-                        'superscript', 'subscript', 'emphasis', 'strong', 'underline', 'strike', 'highlight',
-                        'insert', 'delete', 'link', 'span', 'inline_footnote', 'inline_extension',
-                    ], true)
-                ) {
-                    $paired++;
+        return self::nodeHasRoundRisk($tree, false, false);
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param bool $pairedBefore
+     * @param bool $bracketedBefore
+     */
+    private static function nodeHasRoundRisk(array $node, bool $pairedBefore, bool $bracketedBefore): bool
+    {
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $paired = 0;
+        foreach ($children as $child) {
+            if (is_array($child) && in_array($child['type'] ?? '', self::PAIRED_INLINES, true)) {
+                $paired++;
+                if ($paired >= 2) {
+                    break;
                 }
             }
-            $pairedHere = $pairedBefore || $paired >= 2;
-            $bracketed = $bracketedBefore || in_array($node['type'] ?? '', [
-                'link', 'image', 'span', 'inline_footnote', 'inline_extension',
-            ], true);
-            if (
-                $pairedHere && !$bracketed && ($node['type'] ?? '') === 'text'
-                && is_string($node['value'] ?? null) && strpbrk($node['value'], '[`<{$:') !== false
-            ) {
+        }
+        $pairedHere = $pairedBefore || $paired >= 2;
+        $bracketed = $bracketedBefore || in_array($node['type'] ?? '', self::BRACKETED_INLINES, true);
+        if (
+            $pairedHere && !$bracketed && ($node['type'] ?? '') === 'text'
+            && is_string($node['value'] ?? null) && strpbrk($node['value'], '[`<{$:') !== false
+        ) {
+            return true;
+        }
+        foreach ($children as $child) {
+            if (is_array($child) && self::nodeHasRoundRisk($child, $pairedHere, $bracketed)) {
                 return true;
-            }
-            foreach ($children as $child) {
-                if (!is_array($child)) {
-                    continue;
-                }
-                $pending[] = [$child, $pairedHere, $bracketed];
             }
         }
 
