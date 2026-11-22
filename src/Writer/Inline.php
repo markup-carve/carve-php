@@ -207,6 +207,8 @@ final class Inline
         $redo = null;
         $parts = [];
         $hyphens = 0;
+        $dots = 0;
+        $dotsAhead = self::dotsAhead($nodes);
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -215,6 +217,7 @@ final class Inline
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $following = $nodes[$at + 1] ?? null;
             self::hyphenNeighbors($c, $type, $following, $hyphens);
+            self::dotNeighbors($c, $type, $dots, $dotsAhead, $at);
             self::resetFollowingPipe($c, $type);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
             $this->before = $visibleNode;
@@ -234,6 +237,7 @@ final class Inline
             $parts[] = [strlen($out), $first, $at];
             $out .= $part;
             $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
+            $dots = self::dotsAfter($node, $dots);
             self::advanceFollowingPipe($c, $node, $type);
             if (!self::isBracedComment($node)) {
                 $visible = $c->lineStart ? -1 : $c->last;
@@ -442,6 +446,8 @@ final class Inline
         $probe->writerState = null;
         $probe->hyphensBefore = 0;
         $probe->hyphenAfter = false;
+        $probe->dotsBefore = 0;
+        $probe->dotsAfter = 0;
         $probe->escapeFollowingPipeAt = -1;
         for ($i = $at + 1, $n = count($nodes); $i < $n; $i++) {
             $node = $nodes[$i];
@@ -608,6 +614,83 @@ final class Inline
         $run = strlen($value) - strlen(rtrim($value, '-'));
 
         return $run === strlen($value) ? $before + $run : $run;
+    }
+
+    /**
+     * C2-I-114: the dots of the run a text node continues, before and after it.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param string $type
+     * @param int $dots
+     * @param array<int, int> $ahead
+     * @param int $at
+     *
+     * @return void
+     */
+    private static function dotNeighbors(Context $c, string $type, int $dots, array $ahead, int $at): void
+    {
+        $text = $type === 'text';
+        $c->dotsBefore = $text ? $dots : 0;
+        $c->dotsAfter = $text ? $ahead[$at + 1] ?? 0 : 0;
+    }
+
+    /**
+     * C2-I-114: the dots each node starts the spelling with, counting those of the nodes behind it when it is all dots.
+     *
+     * @param array<mixed> $nodes
+     *
+     * @return array<int, int>
+     */
+    private static function dotsAhead(array $nodes): array
+    {
+        $ahead = [];
+        $run = 0;
+        for ($at = count($nodes) - 1; $at >= 0; $at--) {
+            $spelled = self::spelledDots($nodes[$at]);
+            $lead = $spelled === null ? 0 : strspn($spelled, '.');
+            $run = $spelled !== null && $lead === strlen($spelled) ? $lead + $run : $lead;
+            $ahead[$at] = $run;
+        }
+
+        return $ahead;
+    }
+
+    /**
+     * The dots a written node ends its spelling with, counting those before it when it is all dots.
+     *
+     * @param mixed $node
+     * @param int $before
+     *
+     * @return int
+     */
+    private static function dotsAfter(mixed $node, int $before): int
+    {
+        $spelled = self::spelledDots($node);
+        if ($spelled === null || $spelled === '') {
+            return 0;
+        }
+        $run = strlen($spelled) - strlen(rtrim($spelled, '.'));
+
+        return $run === strlen($spelled) ? $before + $run : $run;
+    }
+
+    /**
+     * The text of a text node or the spelling of an atom, where a dot run can go on through it.
+     *
+     * @param mixed $node
+     *
+     * @return string|null
+     */
+    private static function spelledDots(mixed $node): ?string
+    {
+        if (!is_array($node)) {
+            return null;
+        }
+        if (($node['type'] ?? '') === 'text') {
+            return self::str($node, 'value');
+        }
+
+        return isset($node['attrs']) ? null : self::atom($node);
     }
 
     /**
