@@ -25,6 +25,11 @@ final class Context
     public bool $hasFencedAncestor = false;
 
     /**
+     * A prior line of this leaf would have opened a fence in the round's bare read-back.
+     */
+    public bool $bareBlockOpenerSeen = false;
+
+    /**
      * The rest of this source line when the next inline span crosses a line break.
      */
     public ?string $lineTail = null;

@@ -135,6 +135,9 @@ final class Text
      */
     public static function escape(string $value, Context $c, int $next): string
     {
+        if ($c->writerState?->repairTrace !== null) {
+            return $c->writerState->repairTrace->bareText($value, $c->textPath);
+        }
         $n = strlen($value);
         $c->escapeKinds = [];
         if ($n === 0) {
@@ -148,6 +151,12 @@ final class Text
             return $value;
         }
         $marks = self::lineStartMark($value, $c, $next);
+        if (
+            $marks >= 0 && LineShapes::isFenceLine($value, 0, strlen($value))
+            && !self::sourceLineEscaped($value, $c)
+        ) {
+            $c->bareBlockOpenerSeen = true;
+        }
         $c->escapedAt = [];
         $out = '';
         $prev = $c->last;
@@ -258,6 +267,31 @@ final class Text
     }
 
     /**
+     * An authored escape already kept this fence-shaped paragraph line literal.
+     */
+    private static function sourceLineEscaped(string $value, Context $c): bool
+    {
+        $state = $c->writerState;
+        if ($state?->source === null || $c->flat === null || !isset($c->flatAt[$c->textPath])) {
+            return false;
+        }
+        $line = substr_count($c->flat, "\n", 0, $c->flatAt[$c->textPath]);
+        $path = $c->textPath;
+        while (($cut = strrpos($path, '/')) !== false) {
+            $path = substr($path, 0, $cut);
+            $fact = $state->facts[$path] ?? null;
+            if (!is_array($fact) || !is_int($fact['startByte'] ?? null) || !is_int($fact['endByte'] ?? null)) {
+                continue;
+            }
+            $lines = explode("\n", substr($state->source, $fact['startByte'], $fact['endByte'] - $fact['startByte']));
+
+            return isset($lines[$line]) && str_contains($lines[$line], '\\' . $value);
+        }
+
+        return false;
+    }
+
+    /**
      * Bare text runs with different lengths do not close each other. Plan escapes from right to left so an escaped
      * prefix cannot make an earlier run acquire a closer (C2-W-088, C2-W-091).
      *
@@ -320,6 +354,9 @@ final class Text
      */
     public static function escapePairs(string $value, Context $c, int $next): string
     {
+        if ($c->writerState?->repairTrace !== null) {
+            return self::escape($value, $c, $next);
+        }
         $start = clone $c;
         $forced = $c->runPairEscapes[$c->textPath] ?? [];
         $c->pairEscapes = $forced;
@@ -976,6 +1013,7 @@ final class Text
         $behind = $at + 1;
         if (
             $open && !isset($c->partners[$ch][$at]) && $i === strlen($value) - 1 && ($c->flat[$behind] ?? '') === "\0"
+            && !in_array($c->flatTypes[$behind] ?? '', ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)
             && str_contains(Inline::strings($c->flatNodes[$behind] ?? []) . ($c->flatAtoms[$behind] ?? ''), $ch)
         ) {
             return true;
@@ -1086,7 +1124,9 @@ final class Text
      */
     private static function pairNode(string $type, array $node, array &$open, array &$paired): void
     {
-        if (isset(self::WHOLE[$type])) {
+        // A bracketed node bounds the delimiter stack. Its marks cannot close
+        // a pair opened in text outside its bracketed spelling.
+        if (isset(self::WHOLE[$type]) || in_array($type, ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)) {
             return;
         }
         $held = Inline::strings($node);
@@ -1532,6 +1572,12 @@ final class Text
             && LineShapes::isFenceLine($line, 0, strlen($line))
         ) {
             return -1;
+        }
+        // A continuation mark can attach to an opener found earlier in the same
+        // bare read-back. Both marks belong to this round, before either escape
+        // is placed. The attachment may disappear after the earlier escape.
+        if ($c->bareBlockOpenerSeen && $line === '+') {
+            return 0;
         }
         if (self::anyLine($value, $line, $eol, $c->last === -1 && $next === 10)) {
             return 0;

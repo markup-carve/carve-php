@@ -581,7 +581,8 @@ final class TableWriter
         $lines = $this->registerWraps($path);
         $content = $this->content($blocks, $path);
         // C2-W-063: a cell whose content is only a span mark is written with an escape.
-        if ($content === '^' || $content === '<') {
+        $visibleContent = $this->w->repairTrace?->decode($content)['source'] ?? $content;
+        if ($visibleContent === '^' || $visibleContent === '<') {
             $content = '\\' . $content;
         }
 
@@ -642,6 +643,7 @@ final class TableWriter
         foreach ($blocks as $at => $block) {
             $inlines = is_array($block) && is_array($block['children'] ?? null) ? $block['children'] : [];
             $c = new Context();
+            $c->writerState = $this->w;
             $c->inCell = true;
             $c->blockLines = false;
             $c->counts = Inline::counts($inlines);
