@@ -74,6 +74,14 @@ final class HubCandidateBudgetTest extends TestCase
         $this->assertSame($source, Carve::importDocument($source, ['from' => $from])->source);
     }
 
+    #[DataProvider('formats')]
+    public function testCountsABlockThatInterruptsAParagraphOnItsOwn(string $from): void
+    {
+        $source = str_repeat('[', self::BOUND - 384) . "\n# " . str_repeat('[', 500) . "\n";
+
+        $this->assertStringEndsWith(str_repeat('[', 500) . "\n", Carve::importDocument($source, ['from' => $from])->source);
+    }
+
     public function testCountsEachTightListItemOnItsOwn(): void
     {
         $item = '- [a](b) [c](d) ' . str_repeat('*', 64) . "\n";

@@ -97,6 +97,11 @@ final class InlineBudgetParser implements BlockStartParserInterface
                 ? $this->candidates($active->getContentString() . "\n" . $text)
                 : $this->lastCount;
         }
+        if ($this->total > self::MAX_CANDIDATES && $active instanceof ParagraphParser && $this->startsBlock($cursor, $parserState)) {
+            // The line interrupts the paragraph, so it is a block of its own.
+            $this->paragraph = null;
+            $this->total = $this->lastCount;
+        }
         if ($this->total > self::MAX_CANDIDATES) {
             self::refuse();
         }
@@ -112,6 +117,21 @@ final class InlineBudgetParser implements BlockStartParserInterface
         if (strlen($line) * $this->regexCount() > self::MAX_CANDIDATES && $this->candidates($line) > self::MAX_CANDIDATES) {
             self::refuse();
         }
+    }
+
+    private function startsBlock(Cursor $cursor, MarkdownParserStateInterface $parserState): bool
+    {
+        foreach ($this->environment->getBlockStartParsers() as $parser) {
+            if ($parser === $this) {
+                continue;
+            }
+            $start = $parser->tryStart(clone $cursor, $parserState);
+            if ($start !== null && !$start->isAborting()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function refuse(): never
