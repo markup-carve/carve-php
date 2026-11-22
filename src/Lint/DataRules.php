@@ -801,9 +801,11 @@ final class DataRules
             }
         }
         $typedBlocks = [];
+        $typedBlockParents = [];
         $genericBlocks = [];
         foreach ($byKind['block'] as $rule) {
             if ($rule['types'] !== null) {
+                $typedBlockParents[$rule['id']] = self::requiredValues($rule['when'], 'parent.type');
                 foreach ($rule['types'] as $type) {
                     if (is_string($type)) {
                         $typedBlocks[$type] = true;
@@ -813,6 +815,7 @@ final class DataRules
                 continue;
             }
             $genericBlocks[] = [
+                'id' => $rule['id'],
                 'parents' => self::requiredValues($rule['when'], 'parent.type'),
                 'itemOwners' => self::requiredValues($rule['when'], 'item_owner.type'),
             ];
@@ -826,7 +829,7 @@ final class DataRules
 
         return [
             $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
-            $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves,
+            $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves, $typedBlockParents,
         ];
     }
 
@@ -913,12 +916,13 @@ final class DataRules
          * @var array{inline: array<string, list<Rule>>, block: array<string, list<Rule>>} $typedRules
          * @var array{inline: list<Rule>, block: list<Rule>} $untypedRules
          * @var array<string, true> $typedBlocks
-         * @var list<array{parents: array<string, true>|null, itemOwners: array<string, true>|null}> $genericBlocks
+         * @var list<array{id: string, parents: array<string, true>|null, itemOwners: array<string, true>|null}> $genericBlocks
          * @var array<int|string, true> $verbatimLeaves
+         * @var array<string, array<string, true>|null> $typedBlockParents
          */
         [
             $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
-            $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves,
+            $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves, $typedBlockParents,
         ] = self::$plans[self::activeKey($context)] ??= self::plan($context);
         $plainTableCellGate = !isset($needBlocks['*']) && !isset($needBlocks['table_cell']);
         foreach ($genericBlocks as $filter) {
@@ -1065,8 +1069,10 @@ final class DataRules
             array $node,
             int $start,
             int $end,
+            int $index,
         ) use (
             $typedRules,
+            $typedBlockParents,
             $genericBlocks,
             $needBlocks,
             $context,
@@ -1082,6 +1088,19 @@ final class DataRules
                 return false;
             }
             foreach ($typedRules['block'][$type] ?? [] as $rule) {
+                $parents = $typedBlockParents[$rule['id']] ?? null;
+                if ($parents !== null && !isset($parents[$parentType])) {
+                    continue;
+                }
+                if (
+                    $rule['id'] === 'html-comment-renders-as-text'
+                    && is_array($rule['each'] ?? null)
+                    && is_array($rule['each']['matches'] ?? null)
+                    && ($rule['each']['matches'][1] ?? null) === '(?<o><!--)'
+                    && !str_contains(substr($context->source, $start, $end - $start), '<!--')
+                ) {
+                    continue;
+                }
                 if (self::earlyPasses($rule['early'], $node, $context->source, $start, $end)) {
                     return true;
                 }
@@ -1091,6 +1110,16 @@ final class DataRules
                     ($filter['parents'] === null || isset($filter['parents'][$parentType]))
                     && ($filter['itemOwners'] === null || isset($filter['itemOwners'][$itemOwnerType]))
                 ) {
+                    if ($filter['id'] === 'list-item-body-below-content-column' && $index < 1) {
+                        continue;
+                    }
+                    if (
+                        $filter['id'] === 'list-item-block-overindented' && $type === 'paragraph'
+                        && !isset($node['attrs']) && !DataModel::imageLine($node)
+                    ) {
+                        continue;
+                    }
+
                     return true;
                 }
             }

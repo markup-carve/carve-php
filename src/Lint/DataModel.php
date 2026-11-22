@@ -143,7 +143,7 @@ final class DataModel
      * @param \MarkupCarve\Carve\Lint\Context $context
      * @param \Closure(\stdClass): void $onInline
      * @param \Closure(\stdClass): void $onBlock
-     * @param \Closure(string, string, string, array<string, mixed>, int, int): bool $acceptBlock
+     * @param \Closure(string, string, string, array<string, mixed>, int, int, int): bool $acceptBlock
      * @param \Closure(string, string): bool $mightUseBlock
      * @param \Closure(string, array<string, mixed>|null, int, int): bool $mightUseInline
      * @param bool $textRuns
@@ -782,7 +782,7 @@ final class DataModel
                 $this->blocks[] = (object)$bounds;
             }
             $itemOwnerType = $c->nodeTypes[$itemPath] ?? 'document';
-            if (!(($this->acceptBlock)($type, $parentType, $itemOwnerType, $node, $start, $end))) {
+            if (!(($this->acceptBlock)($type, $parentType, $itemOwnerType, $node, $start, $end, $item['index']))) {
                 continue;
             }
             if ($lastLine === null) {

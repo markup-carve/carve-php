@@ -180,22 +180,7 @@ final class Linter
         unset($childCounts, $tree, $root);
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
-        $maskCursor = 0;
-        $lineRules = array_values(array_filter(LineRules::all(), static fn (array $rule): bool => $c->active($rule[0])));
-        foreach ($c->lines as $line) {
-            if ($line->opaque) {
-                if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
-                    LineRules::frontmatterQuote($line, $c);
-                }
-                LineRules::escapedOpaque($line, $c);
-
-                continue;
-            }
-            $scan = self::masked($line, $c, $maskCursor);
-            foreach ($lineRules as [, $check]) {
-                $check($scan, $c);
-            }
-        }
+        self::runHandwrittenLines($c);
 
         if ($c->dataRules) {
             DataRules::run($c);
@@ -209,6 +194,48 @@ final class Linter
         }
 
         return $findings;
+    }
+
+    private static function runHandwrittenLines(Context $c): void
+    {
+        $maskCursor = 0;
+        $lineRules = array_values(array_filter(LineRules::all(), static fn (array $rule): bool => $c->active($rule[0])));
+        $shapeOnly = $c->dataRules;
+        foreach ($lineRules as [$id]) {
+            if (!in_array($id, ['deprecated-indented-line-under-heading', 'table-row-without-closing-pipe'], true)) {
+                $shapeOnly = false;
+
+                break;
+            }
+        }
+        $recoverOpaque = $c->active('blockquote-marker-without-space') || $c->active('bare-html-tag');
+        if ($lineRules !== [] || $recoverOpaque) {
+            foreach ($c->lines as $line) {
+                if ($line->opaque) {
+                    if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
+                        LineRules::frontmatterQuote($line, $c);
+                    }
+                    if ($recoverOpaque) {
+                        LineRules::escapedOpaque($line, $c);
+                    }
+
+                    continue;
+                }
+                if ($lineRules !== []) {
+                    if (
+                        $shapeOnly
+                        && (!$line->paragraph || (($line->text[0] ?? '') !== ' '
+                            && (ltrim($line->text, " \t")[0] ?? '') !== '|'))
+                    ) {
+                        continue;
+                    }
+                    $scan = self::masked($line, $c, $maskCursor);
+                    foreach ($lineRules as [, $check]) {
+                        $check($scan, $c);
+                    }
+                }
+            }
+        }
     }
 
     /**
