@@ -112,8 +112,10 @@ final class TreeEncoder
     public static function decoded(Node $root): array
     {
         $encoder = new self();
+        $tree = $encoder->encode($root, null);
+        self::decodedArray($tree);
 
-        return self::decodedArray($encoder->encode($root, null));
+        return $tree;
     }
 
     /**
@@ -127,8 +129,10 @@ final class TreeEncoder
         $encoder = new self();
         $encoder->release = true;
         $encoder->compactEmptyCells = true;
+        $tree = $encoder->encode($root, null);
+        self::decodedArray($tree);
 
-        return self::decodedArray($encoder->encode($root, null));
+        return $tree;
     }
 
     /**
@@ -139,39 +143,28 @@ final class TreeEncoder
     public static function decodedWithPositions(Node $root, string $source): array
     {
         $encoder = new self();
+        $tree = $encoder->encode($root, $source);
+        self::decodedArray($tree);
 
-        return self::decodedArray($encoder->encode($root, $source));
-    }
-
-    /**
-     * Match json_decode(..., true) for object-valued node fields without serializing the tree.
-     *
-     * @return mixed
-     */
-    private static function decodedValue(mixed $value): mixed
-    {
-        if ($value instanceof stdClass) {
-            $value = get_object_vars($value);
-        }
-        if (!is_array($value)) {
-            return $value;
-        }
-
-        return self::decodedArray($value);
+        return $tree;
     }
 
     /**
      * @param array<mixed> $value
      *
-     * @return array<mixed>
+     * @return void
      */
-    private static function decodedArray(array $value): array
+    private static function decodedArray(array &$value): void
     {
-        foreach ($value as $key => $item) {
-            $value[$key] = self::decodedValue($item);
+        foreach ($value as &$item) {
+            if ($item instanceof stdClass) {
+                $item = get_object_vars($item);
+            }
+            if (is_array($item)) {
+                self::decodedArray($item);
+            }
         }
-
-        return $value;
+        unset($item);
     }
 
     /**
