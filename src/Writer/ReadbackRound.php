@@ -55,7 +55,12 @@ final class ReadbackRound
             if (!is_array($node)) {
                 continue;
             }
-            self::noteNode($node, $text, $actual, $openers);
+            $unexpected = self::noteNode($node, $text, $actual, $openers);
+            if ($unexpected) {
+                // The outer construct consumes this stretch. Its children are not independently visible
+                // to this repair round; they can surface only after its opener is escaped.
+                continue;
+            }
             foreach (array_reverse(is_array($node['children'] ?? null) ? $node['children'] : []) as $child) {
                 $pending[] = $child;
             }
@@ -71,22 +76,26 @@ final class ReadbackRound
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
      */
-    private static function noteNode(array $node, array $text, array &$actual, array &$openers): void
+    private static function noteNode(array $node, array $text, array &$actual, array &$openers): bool
     {
         $pos = $node['pos'] ?? null;
         if (!is_array($pos) || !isset($pos['startOffset'], $pos['endOffset'])) {
-            return;
+            return false;
         }
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $start = (int)$pos['startOffset'];
         $actual[$type . "\0" . $start] = (int)$pos['endOffset'];
         if (in_array($type, ['text', 'paragraph', 'cell_paragraph'], true)) {
-            return;
+            return false;
         }
         $owner = $text[$start] ?? null;
         if ($owner !== null) {
             [$path, $offset] = $owner;
             $openers[$path][$offset] = true;
+
+            return true;
         }
+
+        return false;
     }
 }

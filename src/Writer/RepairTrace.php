@@ -34,17 +34,17 @@ final class RepairTrace
         $out = '';
         for ($at = 0, $length = strlen($value); $at < $length; $at++) {
             $char = $value[$at];
-            if ($this->mark && Text::isPunct($char)) {
-                $id = count($this->text);
-                $this->text[] = [$path, $at];
-                $out .= $this->marker . 't' . $id . "\x02";
-            }
             if (isset($this->escapes[$path][$at])) {
                 $out .= '\\';
             }
             // A literal backslash before punctuation must remain a backslash in the read-back text.
             if ($char === '\\' && $at + 1 < $length && Text::isPunct($value[$at + 1])) {
                 $out .= '\\';
+            }
+            if ($this->mark && Text::isPunct($char)) {
+                $id = count($this->text);
+                $this->text[] = [$path, $at];
+                $out .= $this->marker . 't' . $id . "\x02";
             }
             $out .= $char;
         }

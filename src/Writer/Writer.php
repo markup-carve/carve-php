@@ -57,7 +57,7 @@ final class Writer
         $plain = new RepairTrace($escapes, false);
         $bare = self::writeInternal($tree, $layout, $options, $plain)->source;
         do {
-            $marker = "\x01" . random_bytes(16) . "\x03";
+            $marker = "\x01" . bin2hex(random_bytes(16)) . "\x03";
         } while (str_contains($bare, $marker));
         $trace = new RepairTrace($escapes, true, $marker);
         $result = self::writeInternal($tree, $layout, $options, $trace);

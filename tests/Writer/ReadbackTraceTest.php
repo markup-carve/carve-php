@@ -30,7 +30,7 @@ final class ReadbackTraceTest extends TestCase
     }
 
     #[DataProvider('cases')]
-    public function testOneReadbackReportsAllUnexpectedOpeners(string $input, int $openers, int $remainingSpans): void
+    public function testOneReadbackReportsOuterUnexpectedOpener(string $input, int $remainingSpans): void
     {
         $parsed = Carve::parseWithLayout($input);
         $tree = TreeEncoder::decodedForWriter($parsed->tree);
@@ -39,12 +39,12 @@ final class ReadbackTraceTest extends TestCase
         self::assertSame($unmarked['source'], $candidate['source']);
 
         $first = ReadbackRound::inspect($candidate, $tree);
-        self::assertSame($openers, array_sum(array_map('count', $first['openers'])));
+        self::assertSame(1, array_sum(array_map('count', $first['openers'])));
         self::assertFalse($first['equal']);
 
         $repaired = Writer::bareCandidate($tree, $parsed->layout, [], $first['openers']);
         $second = ReadbackRound::inspect($repaired, $tree);
-        self::assertSame([], $second['openers']);
+        self::assertSame(1, array_sum(array_map('count', $second['openers'])));
         self::assertCount($remainingSpans, $second['moved']);
         self::assertFalse($second['equal']);
     }
@@ -59,9 +59,9 @@ final class ReadbackTraceTest extends TestCase
         )['cases'];
         foreach ($cases as $case) {
             if (($case['id'] ?? '') === 'CC-1566') {
-                yield 'CC-1566' => [$case['input'], 158, 2];
+                yield 'CC-1566' => [$case['input'], 1];
             } elseif (($case['id'] ?? '') === 'CC-1568') {
-                yield 'CC-1568' => [$case['input'], 9, 1];
+                yield 'CC-1568' => [$case['input'], 1];
             }
         }
     }
