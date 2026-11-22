@@ -60,6 +60,11 @@ final class Blocks
 
     private int $fencedAncestors = 0;
 
+    /**
+     * @var array<string, int>
+     */
+    private array $longestRunByPath = [];
+
     public function __construct(private State $w)
     {
         $this->inline = new Inline($w);
@@ -1264,6 +1269,9 @@ final class Blocks
      */
     private function runsBelow(array $node, string $path): int
     {
+        if (isset($this->longestRunByPath[$path])) {
+            return $this->longestRunByPath[$path];
+        }
         $longest = 0;
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $at => $child) {
             if (!is_array($child)) {
@@ -1273,7 +1281,7 @@ final class Blocks
             $longest = max($longest, $this->hasColonRun($child, $path . '/children/' . $at) ? max(3, $below + 1) : $below);
         }
 
-        return $longest;
+        return $this->longestRunByPath[$path] = $longest;
     }
 
     /**
