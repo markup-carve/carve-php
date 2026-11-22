@@ -7,6 +7,7 @@ declare(strict_types=1);
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\CarveException;
 use MarkupCarve\Carve\Extension\Tabs;
+use MarkupCarve\Carve\Import\ImportInputError;
 use MarkupCarve\Carve\Include\FileResolver;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
@@ -46,6 +47,15 @@ check(Carve::write(Carve::parse("x\n")) === "x\n", 'write');
 check(Carve::writeWithDiagnostics(Carve::parse("x\n"))->source === "x\n", 'writeWithDiagnostics');
 check(Carve::importDocument('<p>Hi</p>')->source === "Hi\n", 'importDocument');
 check(Carve::importHtml('<p>Hi</p>')->source === "Hi\n", 'importHtml');
+// The consumer installs no suggested importer library.
+foreach (['markdown' => 'league/commonmark', 'gfm' => 'league/commonmark', 'djot' => 'php-collective/djot'] as $from => $package) {
+    try {
+        Carve::importDocument("# Hi\n", ['from' => $from]);
+        check(false, "importDocument from $from without $package");
+    } catch (ImportInputError $e) {
+        check(str_contains($e->getMessage(), "composer require $package"), "importDocument from $from without $package");
+    }
+}
 $decoded = Carve::decodeTree(Carve::encodeEnvelope(Carve::parse("a\n")));
 check(Carve::encodeTree($decoded) === Carve::encodeTree(Carve::decodeTree(Carve::encodeTree($decoded))), 'encodeTree, encodeEnvelope, decodeTree');
 Carve::validateTree($decoded);

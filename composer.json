@@ -22,15 +22,17 @@
     ],
     "require": {
         "php": "^8.2",
-        "symfony/polyfill-intl-normalizer": "^1.27",
-        "league/commonmark": "^2.9.2",
-        "php-collective/djot": "^0.1.35"
+        "symfony/polyfill-intl-normalizer": "^1.27"
     },
     "suggest": {
         "ext-dom": "Required for HTML import and HTML heading-ID conversion.",
+        "league/commonmark": "Required for Markdown and GFM import (^2.9.2).",
+        "php-collective/djot": "Required for Djot import (^0.1.35).",
         "ext-intl": "Recommended for heading-ID transliteration: enables ICU romanization of non-Latin scripts (e.g. CJK, Arabic). Without it, a baked map covers Latin/Cyrillic/punctuation identically and other scripts fall back to the generated `section` id."
     },
     "require-dev": {
+        "league/commonmark": "^2.9.2",
+        "php-collective/djot": "^0.1.35",
         "php-collective/code-sniffer": "^0.6.8",
         "phpstan/phpstan": "^2.1.32",
         "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0"

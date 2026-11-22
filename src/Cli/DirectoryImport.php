@@ -9,6 +9,7 @@ use DOMElement;
 use DOMXPath;
 use FilesystemIterator;
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Import\HubImporter;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -29,6 +30,7 @@ final class DirectoryImport
         if ($root === false || !is_dir($root)) {
             throw new RuntimeException("source is not a directory: $source");
         }
+        HubImporter::requireLibrary('gfm');
         $final = self::futurePath($output);
         if (file_exists($final) || is_link($final)) {
             throw new RuntimeException("output already exists: $final");
