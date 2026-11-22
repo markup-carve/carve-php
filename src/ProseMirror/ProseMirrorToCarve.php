@@ -630,7 +630,7 @@ final class ProseMirrorToCarve
     }
 
     /**
-     * A paragraph that holds one image or one display math, and nothing else that is written, reads as an image or
+     * A paragraph that holds one image or one display math, and no other node but blank text, reads as an image or
      * math paragraph. The editor edits the content, so the role follows it.
      *
      * @param array<mixed> $node
@@ -645,7 +645,7 @@ final class ProseMirrorToCarve
             $type = is_array($child) ? ($child['type'] ?? '') : '';
             $value = is_array($child) ? ($child['value'] ?? null) : null;
             $blank = $type === 'text' && is_string($value) && trim($value, " \t") === '';
-            if (!$blank && $type !== 'soft_break' && $type !== 'hard_break') {
+            if (!$blank) {
                 $kept[] = $child;
             }
         }
