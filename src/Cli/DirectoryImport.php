@@ -161,6 +161,9 @@ final class DirectoryImport
             if ($dest === null) {
                 throw new RuntimeException("invalid output path: $path");
             }
+            if (!function_exists('mb_strtolower') && preg_match('/[^\x00-\x7F]/', $dest) === 1) {
+                throw new RuntimeException('non-ASCII output names require mbstring');
+            }
             $key = function_exists('mb_strtolower') ? mb_strtolower($dest, 'UTF-8') : strtolower($dest);
             if (isset($used[$key])) {
                 throw new RuntimeException("two inputs map to the same output: $dest");
