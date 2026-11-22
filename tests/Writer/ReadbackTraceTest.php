@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\Writer;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Writer\ReadbackRound;
+use MarkupCarve\Carve\Writer\RepairPlanner;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -27,6 +28,28 @@ final class ReadbackTraceTest extends TestCase
         $plain = Writer::bareCandidate($tree, null, [], [], false);
         self::assertSame($plain['source'], $marked['source']);
         self::assertSame($value . "\n", $marked['source']);
+    }
+
+    public function testOrderedRoundsKeepThePinnedNestedSuperscriptBytes(): void
+    {
+        $cases = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
+            true,
+            4096,
+            JSON_THROW_ON_ERROR,
+        )['cases'];
+        foreach ($cases as $case) {
+            if (($case['id'] ?? '') !== 'CC-1568') {
+                continue;
+            }
+            $parsed = Carve::parseWithLayout($case['input']);
+            $tree = TreeEncoder::decodedForWriter($parsed->tree);
+            $source = (new RepairPlanner($tree, $parsed->layout))->repair();
+            self::assertSame($case['expected']['carve'], $source);
+
+            return;
+        }
+        self::fail('CC-1568 is missing from the pinned clause cases');
     }
 
     #[DataProvider('cases')]

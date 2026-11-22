@@ -17,7 +17,12 @@ final class ReadbackRound
      * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
      * @param array<string, mixed> $expected
      *
-     * @return array{equal: bool, openers: array<string, array<int, true>>, moved: array<int, array{string, string, int, int, int}>}
+     * @return array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>,
+     *     read: array<string, mixed>
+     * }
      */
     public static function inspect(array $candidate, array $expected): array
     {
@@ -38,6 +43,7 @@ final class ReadbackRound
             'equal' => TreeEquality::equal($expected, $read),
             'openers' => $openers,
             'moved' => $moved,
+            'read' => $read,
         ];
     }
 
