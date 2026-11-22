@@ -37,18 +37,24 @@ final class RepairTrace
     public function bareText(string $value, string $path): string
     {
         $out = '';
+        // Keep line endings after the final marker. The block writer decides whether a
+        // terminal empty line is retained by looking at the last emitted byte.
+        $bodyLength = strlen(rtrim($value, "\r\n"));
+        if ($bodyLength === 0) {
+            return $value;
+        }
         $nodeId = count($this->textNodes);
         if ($this->mark) {
             $this->textNodes[] = $path;
             $out .= $this->marker . 's' . $nodeId . "\x02";
         }
-        for ($at = 0, $length = strlen($value); $at < $length; $at++) {
+        for ($at = 0; $at < $bodyLength; $at++) {
             $char = $value[$at];
             if (isset($this->escapes[$path][$at])) {
                 $out .= '\\';
             }
             // A literal backslash before punctuation must remain a backslash in the read-back text.
-            if ($char === '\\' && $at + 1 < $length && Text::isPunct($value[$at + 1])) {
+            if ($char === '\\' && $at + 1 < $bodyLength && Text::isPunct($value[$at + 1])) {
                 $out .= '\\';
             }
             if ($this->mark && Text::isPunct($char)) {
@@ -63,7 +69,7 @@ final class RepairTrace
             $out .= $this->marker . 'f' . $nodeId . "\x02";
         }
 
-        return $out;
+        return $out . substr($value, $bodyLength);
     }
 
     public function inlineNode(string $source, string $path, string $type): string

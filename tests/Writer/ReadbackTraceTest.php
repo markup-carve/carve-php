@@ -41,6 +41,29 @@ final class ReadbackTraceTest extends TestCase
         yield 'hard break' => ['hard_break'];
     }
 
+    #[DataProvider('terminalTextLineEndings')]
+    public function testTracePreservesTerminalTextLineEndings(string $value): void
+    {
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => $value]]],
+            ],
+        ];
+        $marked = Writer::bareCandidate($tree);
+        $plain = Writer::bareCandidate($tree, null, [], [], false);
+        self::assertSame($plain['source'], $marked['source']);
+    }
+
+    public static function terminalTextLineEndings(): iterable
+    {
+        yield 'line feed' => ["a\n"];
+        yield 'two line feeds' => ["a\n\n"];
+        yield 'only a line feed' => ["\n"];
+        yield 'carriage return and line feed' => ["a\r\n"];
+    }
+
     public function testLiteralControlBytesSurviveTraceDecoding(): void
     {
         $value = "a\x010\x02\x030\x04\x050\x06b";
