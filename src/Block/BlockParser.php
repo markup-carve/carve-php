@@ -904,7 +904,7 @@ final class BlockParser
 
             // C2-B-022 holds at the description list's column; left of it C2-B-015 nests in the body.
             $leftOfList = $candidate->kind === Frame::DLIST && $c - $this->base < $candidate->markerCol;
-            if ($leftOfList && $body !== null && $body->kind === Frame::DESC) {
+            if ($leftOfList && ($body !== null && $body->kind === Frame::DESC || $this->leaf?->kind === Frame::TERM)) {
                 return $inItem && $this->mayNest($marker) && $this->canNestAt($owner);
             }
 

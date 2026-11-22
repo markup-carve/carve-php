@@ -20,6 +20,20 @@ final class DescriptionNestedListTest extends TestCase
     public static function cases(): array
     {
         return [
+            'term only, ordered value 1 opens a nested list' => [
+                "10. :: t\n  1. x\n",
+                "<ol start=\"10\">\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <ol>\n"
+                . "      <li>x</li>\n    </ol>\n  </li>\n</ol>",
+            ],
+            'term only, bullet opens a nested list' => [
+                "- :: t\n * x\n",
+                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <ul>\n"
+                . "      <li>x</li>\n    </ul>\n  </li>\n</ul>",
+            ],
+            'term only, value 2 stays a lazy line' => [
+                "- :: t\n 2. x\n",
+                "<ul>\n  <li>\n    <dl>\n      <dt>t\n2. x</dt>\n    </dl>\n  </li>\n</ul>",
+            ],
             'item, ordered value 1 opens a nested list' => [
                 "10. :: t\n    : ---\n  1. ::\n",
                 "<ol start=\"10\">\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>—</dd>\n    </dl>\n    <ol>\n"
