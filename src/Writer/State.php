@@ -12,6 +12,8 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
  */
 final class State
 {
+    public ?RepairTrace $repairTrace = null;
+
     /**
      * @var array<string>
      */

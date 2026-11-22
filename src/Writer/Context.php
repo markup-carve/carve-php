@@ -24,6 +24,8 @@ final class Context
 
     public bool $hasFencedAncestor = false;
 
+    public bool $inQuote = false;
+
     /**
      * The rest of this source line when the next inline span crosses a line break.
      */

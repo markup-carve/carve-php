@@ -184,6 +184,9 @@ final class Inline
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
     {
+        if ($this->w->repairTrace !== null) {
+            return $this->contentOnce($nodes, $path, $c, $next);
+        }
         if ($c->flat !== null) {
             return $this->contentOnce($nodes, $path, $c, $next);
         }
@@ -459,7 +462,7 @@ final class Inline
                 $visibleNode = $node;
             }
         }
-        if (!$c->inCell) {
+        if (!$c->inCell && $this->w->repairTrace === null) {
             $this->readBack($nodes, $parts, $out, $path);
         }
 
@@ -1308,7 +1311,12 @@ final class Inline
         }
         $this->moved($c, $out);
 
-        return $out;
+        return $this->tracedNode($out, $path, $type);
+    }
+
+    private function tracedNode(string $out, string $path, string $type): string
+    {
+        return $this->w->repairTrace?->inlineNode($out, $path, $type) ?? $out;
     }
 
     /**
@@ -1624,7 +1632,8 @@ final class Inline
         $c->spanTexts = $spanTexts;
         $c->open = $open;
         $c->marks = $marks;
-        $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($inner, $mark, $prev, $next);
+        $visibleInner = $this->w->repairTrace?->decode($inner)['source'] ?? $inner;
+        $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($visibleInner, $mark, $prev, $next);
 
         return $bare ? $mark . $inner . $mark : '{' . $mark . $inner . $mark . '}';
     }
@@ -1747,7 +1756,7 @@ final class Inline
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of span text would read as a footnote reference.
-        if ($open === '[' && str_starts_with($inner, '^')) {
+        if ($open === '[' && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')) {
             $inner = '\\' . $inner;
         }
 
@@ -1830,6 +1839,10 @@ final class Inline
                             $paired[$key][$i] = true;
                         }
                     }
+                } elseif ($type === 'link') {
+                    // A nested link's own bracketed spelling ends any pair that was
+                    // still open in the containing label.
+                    $open = [];
                 } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                     $walk($node['children'], $key . '/children');
                 }
@@ -1862,7 +1875,7 @@ final class Inline
         }
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of link text would read as a footnote reference.
-        if (str_starts_with($inner, '^')) {
+        if (str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')) {
             $inner = '\\' . $inner;
         }
 

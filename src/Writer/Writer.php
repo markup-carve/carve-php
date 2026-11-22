@@ -7,7 +7,9 @@ namespace MarkupCarve\Carve\Writer;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Options;
 
 /**
@@ -16,6 +18,19 @@ use MarkupCarve\Carve\Options;
  */
 final class Writer
 {
+    /**
+     * @var array<string>
+     */
+    private const PAIRED_INLINES = [
+        'superscript', 'subscript', 'emphasis', 'strong', 'underline', 'strike', 'highlight',
+        'insert', 'delete', 'link', 'span', 'inline_footnote', 'inline_extension',
+    ];
+
+    /**
+     * @var array<string>
+     */
+    private const BRACKETED_INLINES = ['link', 'image', 'span', 'inline_footnote', 'inline_extension'];
+
     /**
      * C2-W-134: the nearest source and the report.
      *
@@ -27,7 +42,126 @@ final class Writer
      */
     public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
     {
+        $result = self::writeInternal($tree, $layout, $options, null);
+        if ($result->diagnostics !== [] || !self::hasRoundRisk($tree)) {
+            return $result;
+        }
+        $bare = self::bareCandidate($tree, $layout, $options);
+        if (ReadbackRound::inspect($bare, $tree, $options)['equal']) {
+            return $result;
+        }
+        $repaired = (new RepairPlanner($tree, $layout, $options))->repair();
+
+        if ($repaired === null) {
+            $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+            $read = TreeEncoder::decodedForWriter(Carve::parse($result->source, $parseOptions));
+            if (TreeEquality::equal($tree, $read)) {
+                return $result;
+            }
+
+            return new WriteResult($result->source, [
+                new Diagnostic('writer-refused', 'warning', 'render-loss', 'Writer repair stopped for this block group', ''),
+            ]);
+        }
+
+        return new WriteResult($repaired, []);
+    }
+
+    /**
+     * Neighboring paired inlines can read each other's delimiters after their local writes.
+     * Only those groups need a whole-group read-back on top of the local writer.
+     *
+     * @param array<mixed> $tree
+     */
+    private static function hasRoundRisk(array $tree): bool
+    {
+        return self::nodeHasRoundRisk($tree, false, false);
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param bool $pairedBefore
+     * @param bool $bracketedBefore
+     */
+    private static function nodeHasRoundRisk(array $node, bool $pairedBefore, bool $bracketedBefore): bool
+    {
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $paired = 0;
+        foreach ($children as $child) {
+            if (is_array($child) && in_array($child['type'] ?? '', self::PAIRED_INLINES, true)) {
+                $paired++;
+                if ($paired >= 2) {
+                    break;
+                }
+            }
+        }
+        $pairedHere = $pairedBefore || $paired >= 2;
+        $bracketed = $bracketedBefore || in_array($node['type'] ?? '', self::BRACKETED_INLINES, true);
+        if (
+            $pairedHere && !$bracketed && ($node['type'] ?? '') === 'text'
+            && is_string($node['value'] ?? null) && strpbrk($node['value'], '[`<{$:') !== false
+        ) {
+            return true;
+        }
+        foreach ($children as $child) {
+            if (is_array($child) && self::nodeHasRoundRisk($child, $pairedHere, $bracketed)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The source of a bare candidate and its text and inline-node source positions for C2-W-088.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $escapes
+     * @param bool $mark
+     *
+     * @return array{
+     *     source: string,
+     *     text: array<int, array{string, int}>,
+     *     nodes: array<int, array{string, string, int, int}>,
+     *     ranges: array<string, array{int, int}>
+     * }
+     */
+    public static function bareCandidate(
+        array $tree,
+        ?array $layout = null,
+        array $options = [],
+        array $escapes = [],
+        bool $mark = true,
+    ): array {
+        if (!$mark) {
+            $trace = new RepairTrace($escapes, false);
+            $result = self::writeInternal($tree, $layout, $options, $trace);
+
+            return $trace->decode($result->source);
+        }
+        $plain = new RepairTrace($escapes, false);
+        $bare = self::writeInternal($tree, $layout, $options, $plain)->source;
+        do {
+            $marker = "\x01" . bin2hex(random_bytes(16)) . "\x03";
+        } while (str_contains($bare, $marker));
+        $trace = new RepairTrace($escapes, true, $marker);
+        $result = self::writeInternal($tree, $layout, $options, $trace);
+
+        return RepairAlignment::onto($trace->decode($result->source), $bare);
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Writer\RepairTrace|null $trace
+     */
+    private static function writeInternal(array $tree, ?array $layout, array $options, ?RepairTrace $trace): WriteResult
+    {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
+        $w->repairTrace = $trace;
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
         $w->labels = self::linkKeys($options);
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];

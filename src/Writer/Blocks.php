@@ -626,6 +626,7 @@ final class Blocks
         $c->lineStart = $lineStart;
         $c->blockDepth = $this->blockDepth - 1;
         $c->hasFencedAncestor = $this->fencedAncestors > 0;
+        $c->inQuote = str_contains($prefix, '>');
         $c->afterDescriptions = $this->w->afterDescriptions;
         $c->boxLead = $this->w->lead !== null && $this->w->lead === $this->w->boxLead;
         $c->owner = $prefix === '' && $this->blockDepth === 1 ? 'top'

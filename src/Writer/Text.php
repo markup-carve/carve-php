@@ -135,6 +135,15 @@ final class Text
      */
     public static function escape(string $value, Context $c, int $next): string
     {
+        if ($c->writerState?->repairTrace !== null) {
+            return $c->writerState->repairTrace->bareText($value, $c->textPath);
+        }
+
+        return self::escapeText($value, $c, $next);
+    }
+
+    private static function escapeText(string $value, Context $c, int $next): string
+    {
         $n = strlen($value);
         $c->escapeKinds = [];
         if ($n === 0) {
@@ -320,6 +329,9 @@ final class Text
      */
     public static function escapePairs(string $value, Context $c, int $next): string
     {
+        if ($c->writerState?->repairTrace !== null) {
+            return self::escape($value, $c, $next);
+        }
         $start = clone $c;
         $forced = $c->runPairEscapes[$c->textPath] ?? [];
         $c->pairEscapes = $forced;
@@ -976,6 +988,7 @@ final class Text
         $behind = $at + 1;
         if (
             $open && !isset($c->partners[$ch][$at]) && $i === strlen($value) - 1 && ($c->flat[$behind] ?? '') === "\0"
+            && !in_array($c->flatTypes[$behind] ?? '', ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)
             && str_contains(Inline::strings($c->flatNodes[$behind] ?? []) . ($c->flatAtoms[$behind] ?? ''), $ch)
         ) {
             return true;
@@ -1086,7 +1099,9 @@ final class Text
      */
     private static function pairNode(string $type, array $node, array &$open, array &$paired): void
     {
-        if (isset(self::WHOLE[$type])) {
+        // A bracketed node bounds the delimiter stack. Its marks cannot close
+        // a pair opened in text outside its bracketed spelling.
+        if (isset(self::WHOLE[$type]) || in_array($type, ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)) {
             return;
         }
         $held = Inline::strings($node);
@@ -1532,6 +1547,10 @@ final class Text
             && LineShapes::isFenceLine($line, 0, strlen($line))
         ) {
             return -1;
+        }
+        // C2-B-125: past the block cap a lone `+` line can attach to a colon line the cap left as text.
+        if ($c->blockDepth >= Tables::BLOCK_DEPTH && !$c->inQuote && rtrim($line, " \t") === '+') {
+            return 0;
         }
         if (self::anyLine($value, $line, $eol, $c->last === -1 && $next === 10)) {
             return 0;
