@@ -205,12 +205,8 @@ final class DataRules
         if (self::$rulesCache !== null) {
             return self::$rulesCache;
         }
-        $raw = self::data()['rules'] ?? [];
-        if (!is_array($raw)) {
-            return [];
-        }
         $rules = [];
-        foreach ($raw as $rule) {
+        foreach (self::rawRules() as $rule) {
             if (
                 is_array($rule) && is_string($rule['id'] ?? null)
                 && in_array($rule['over'] ?? null, ['line', 'block', 'inline'], true)
@@ -222,11 +218,80 @@ final class DataRules
                 $rule['pre'] = self::prefilter($rule['when'], $over);
                 $rule['early'] = self::earlyTerms($rule['when'], $over);
                 $rule['key'] = $over . ' ' . $rule['id'];
+                if ($rule['id'] === 'list-marker-below-content-column') {
+                    $rule['let'] = self::portOpenListLet($rule['let'] ?? null);
+                    $rule['report'] = self::portOpenListReport($rule['report'] ?? null);
+                }
                 $rules[] = $rule;
             }
         }
 
         return self::$rulesCache = $rules;
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private static function rawRules(): array
+    {
+        $raw = self::data()['rules'] ?? [];
+
+        return is_array($raw) ? $raw : [];
+    }
+
+    /**
+     * C2-B-055 in the merged 0.2 rule: an intervening paragraph leaves the deeper list open.
+     * Keep the port idempotent so a later spec pin can contain the same rule directly.
+     *
+     * @param mixed $let
+     *
+     * @return mixed
+     */
+    private static function portOpenListLet(mixed $let): mixed
+    {
+        if (is_array($let) && is_array($let['previous'] ?? null)) {
+            $previous = $let['previous'];
+            if (is_array($previous['lookup'] ?? null)) {
+                $lookup = $previous['lookup'];
+                unset($lookup['before']);
+                $previous['lookup'] = $lookup;
+                $let['previous'] = $previous;
+            }
+        }
+
+        return $let;
+    }
+
+    /**
+     * @param mixed $reports
+     *
+     * @return mixed
+     */
+    private static function portOpenListReport(mixed $reports): mixed
+    {
+        if (!is_array($reports) || !is_array($reports[1] ?? null)) {
+            return $reports;
+        }
+        $second = $reports[1];
+        $when = $second['when'] ?? null;
+        if (!is_array($when) || !is_array($when['all'] ?? null)) {
+            return $reports;
+        }
+        $terms = $when['all'];
+        foreach ($terms as $index => $term) {
+            if (!is_array($term) || !is_array($term['eq'] ?? null)) {
+                continue;
+            }
+            $equals = $term['eq'];
+            if (is_array($equals[0] ?? null) && ($equals[0]['v'] ?? null) === 'list_prev' && ($equals[1] ?? null) === 'list') {
+                $terms[$index] = ['in' => [['v' => 'list_prev'], ['list', 'paragraph']]];
+            }
+        }
+        $when['all'] = $terms;
+        $second['when'] = $when;
+        $reports[1] = $second;
+
+        return $reports;
     }
 
     /**
