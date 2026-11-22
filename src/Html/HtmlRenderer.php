@@ -408,7 +408,10 @@ final class HtmlRenderer
     {
         $source = AbbreviationSource::run($run, $this->log);
 
-        return self::pad($depth) . '<template data-carve-abbreviations>' . Escape::carrierText($source) . '</template>';
+        $presence = $this->o->xhtml ? '=""' : '';
+
+        return self::pad($depth) . '<template data-carve-abbreviations' . $presence . '>'
+            . Escape::carrierText($source) . '</template>';
     }
 
     /**

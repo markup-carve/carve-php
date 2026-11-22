@@ -24,6 +24,11 @@ final class XhtmlCompatibilityTest extends TestCase
         self::assertSame('<p>a <img src="pic.png" alt="alt" /></p>', Carve::render('a ![alt](pic.png)', ['xhtml' => true]));
     }
 
+    public function testRoundtripPresenceAttributesHaveValues(): void
+    {
+        self::assertStringContainsString('data-carve-generated-id=""', Carve::render('# H', ['roundtrip' => true, 'xhtml' => true]));
+    }
+
     public function testXhtmlFlagAndRawHtmlPreservation(): void
     {
         foreach (['-x', '--xhtml'] as $flag) {

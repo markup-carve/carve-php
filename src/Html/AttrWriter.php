@@ -79,7 +79,7 @@ final class AttrWriter
         ) {
             // Nothing else to merge: the structural attributes, then the id; `align` and `first` act on authored attributes only.
             if ($id === null || $id === '') {
-                return $structural === [] ? '' : self::join($structural);
+                return $structural === [] ? '' : self::join($structural, $this->o->xhtml);
             }
             if ($structural === []) {
                 return ' id="' . Escape::attr($id) . '"';
@@ -111,7 +111,7 @@ final class AttrWriter
             $out[] = ['data-source-line', (string)$sourceLine];
         }
 
-        return self::join($out);
+        return self::join($out, $this->o->xhtml);
     }
 
     /**
@@ -365,14 +365,15 @@ final class AttrWriter
 
     /**
      * @param array<array{0: string, 1: string|null}> $attrs
+     * @param bool $xhtml
      *
      * @return string
      */
-    public static function join(array $attrs): string
+    public static function join(array $attrs, bool $xhtml = false): string
     {
         $out = '';
         foreach ($attrs as [$name, $value]) {
-            $out .= $value === null ? ' ' . $name : ' ' . $name . '="' . Escape::attr($value) . '"';
+            $out .= $value === null && !$xhtml ? ' ' . $name : ' ' . $name . '="' . Escape::attr($value ?? '') . '"';
         }
 
         return $out;

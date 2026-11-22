@@ -90,7 +90,7 @@ final class NoteRenderer
             }
         }
 
-        return $pad . '<li' . AttrWriter::join($structural) . ">\n" . implode("\n", $lines) . "\n" . $pad . '</li>';
+        return $pad . '<li' . AttrWriter::join($structural, $this->r->o->xhtml) . ">\n" . implode("\n", $lines) . "\n" . $pad . '</li>';
     }
 
     /**
