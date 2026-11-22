@@ -80,6 +80,13 @@ final class Text
     private const LINE_OPENERS = '#=>^|+:%-*.[{`~$!<';
 
     /**
+     * The characters a smart punctuation run goes on with (C2-I-104 to C2-I-117).
+     *
+     * @var string
+     */
+    private const RUN_CHARACTERS = '!+-.<=>()';
+
+    /**
      * C2-I-092: the characters of a name and the dots that join its runs.
      *
      * @var string
@@ -158,7 +165,7 @@ final class Text
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
-            $escape = ($i === $c->escapeFollowingPipeAt && $ch === '|')
+            $escape = ($i === $c->escapeFollowingPipeAt && $ch === '|') || ($i === 0 && self::atomRunGoesOn($value, $c, $next))
                 || $i === $marks || isset($c->pairEscapes[$i]) || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next));
@@ -421,7 +428,7 @@ final class Text
             '}' => false,
             '/', '*' => self::pairs($value, $i, $prev, $after, $c),
             '-' => self::hyphen($value, $i, $c, $next),
-            '.' => self::dot($value, $i),
+            '.' => self::dot($value, $i, $c),
             default => self::sigil($value, $i, [$prev, $after, $next], $c),
         };
     }
@@ -842,9 +849,9 @@ final class Text
             ':' => !self::isLetterOrNumber($prev) && self::colonOpens($value, $i, $c, $next),
             '<' => $after === 0x2F || $after === 0x2D || $after === 0x3D || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after))),
             '>', '!' => $after === 0x3D,
-            '=' => substr($value, $i + 1, 2) === '=>',
+            '=' => self::ahead($value, $i + 1, 2, $c, $next) === '=>',
             '+' => $after === 0x2D,
-            '(' => strtolower(substr($value, $i, 4)) === '(tm)',
+            '(' => strtolower(self::ahead($value, $i, 4, $c, $next)) === '(tm)',
             // C2-I-023
             '%' => $after === 0x25 && ($prev === -1 || $prev === 10 || Chars::isSpace($prev) || ($i === 0 && $c->lineStart)),
             default => false,
@@ -1096,18 +1103,23 @@ final class Text
      * C2-I-114: three bare dots read as an ellipsis. Short runs keep the writer's simple spelling; long runs use the
      * compact spelling of one escape per three dots. The tail also needs escapes until at most two bare dots remain.
      *
+     * A run goes on through the text and dot atoms around the value.
+     *
      * @param string $value
      * @param int $i
+     * @param \MarkupCarve\Carve\Writer\Context $c
      *
      * @return bool
      */
-    private static function dot(string $value, int $i): bool
+    private static function dot(string $value, int $i, Context $c): bool
     {
         [$start, $end] = self::bounds($value, $i);
-        $length = $end - $start + 1;
-        $offset = $i - $start;
+        $before = $start === 0 ? $c->dotsBefore : 0;
+        $after = $end === strlen($value) - 1 ? $c->dotsAfter : 0;
+        $length = $end - $start + 1 + $before + $after;
+        $offset = $i - $start + $before;
         if ($length < 15) {
-            return $end - $i >= 2;
+            return $end - $i + $after >= 2;
         }
         $last = intdiv($length - 3, 3) * 3;
 
@@ -1172,6 +1184,74 @@ final class Text
         }
 
         return [$out, $next];
+    }
+
+    /**
+     * The `$length` characters from `$from`, read on into the leaf behind the text: its text and the spelling of its
+     * atoms, then the first character of a node that is no atom.
+     *
+     * @param string $value
+     * @param int $from
+     * @param int $length
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return string
+     */
+    private static function ahead(string $value, int $from, int $length, Context $c, int $next): string
+    {
+        $out = substr($value, $from, $length);
+        if (strlen($out) === $length) {
+            return $out;
+        }
+        if ($c->here < 0) {
+            return $out . ($next >= 0 && $next < 0x80 ? chr($next) : '');
+        }
+        $flat = (string)$c->flat;
+        $n = strlen($flat);
+        for ($at = $c->here + strlen($value); $at < $n; $at++) {
+            if (strlen($out) >= $length) {
+                break;
+            }
+            if ($flat[$at] !== "\0") {
+                $out .= $flat[$at];
+            } elseif (isset($c->flatAtoms[$at])) {
+                $out .= $c->flatAtoms[$at];
+            } else {
+                $first = $c->flatFirst[$at] ?? -1;
+
+                return $out . ($first >= 0 && $first < 0x80 ? chr($first) : '');
+            }
+        }
+
+        return substr($out, 0, $length);
+    }
+
+    /**
+     * C2-W-095: a text after an atom whose spelling, with the start of the text, spells a longer replaced run (`--`
+     * and `>`, `<=` and `>`). The atom reads first, so a run that starts inside its spelling does not form.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return bool
+     */
+    private static function atomRunGoesOn(string $value, Context $c, int $next): bool
+    {
+        if ($c->here < 1 || !isset($c->flatAtoms[$c->here - 1]) || !str_contains(self::RUN_CHARACTERS, $value[0])) {
+            return false;
+        }
+        $spelled = $c->flatAtoms[$c->here - 1];
+        $text = self::ahead($value, 0, 3, $c, $next);
+        $n = strlen($spelled);
+        foreach (Tables::SMART_RUNS_BY_FIRST[$spelled[0] ?? ''] ?? [] as $run) {
+            if (strlen($run) > $n && str_starts_with($run, $spelled) && str_starts_with($text, substr($run, $n))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

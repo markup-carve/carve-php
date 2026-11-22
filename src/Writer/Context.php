@@ -92,6 +92,13 @@ final class Context
     public bool $hyphenAfter = false;
 
     /**
+     * C2-I-114: the dots of the run a text node continues from the nodes before it, and goes on with in the nodes after.
+     */
+    public int $dotsBefore = 0;
+
+    public int $dotsAfter = 0;
+
+    /**
      * Whether this leaf has a backtick in a neighboring nonverbatim inline node.
      */
     public ?bool $neighborTick = null;
