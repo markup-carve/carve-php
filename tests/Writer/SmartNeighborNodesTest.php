@@ -94,15 +94,39 @@ final class SmartNeighborNodesTest extends TestCase
     }
 
     /**
-     * The leaf is read back without the definitions of its document, so an abbreviation in it is not reported.
+     * @return array<string, array{string, int, int}>
+     */
+    public static function definedCases(): array
+    {
+        return [
+            'an abbreviation' => ["*[HTML]: Hyper Text\n\nHTML x-----y\n", 1, 2],
+            'a reference link' => ["[a][r] x-----y\n\n[r]: /u\n", 0, 2],
+            'a footnote reference' => ["x[^1]-----y\n\n[^1]: n\n", 0, 2],
+        ];
+    }
+
+    /**
+     * A node defined elsewhere in the document reads back as itself, and the run behind it is still judged.
+     *
+     * @param string $source
+     * @param int $block The paragraph.
+     * @param int $at Its em dash, followed by an en dash.
      *
      * @return void
      */
-    public function testAnAbbreviationBesideARunIsNotReported(): void
+    #[DataProvider('definedCases')]
+    public function testANodeDefinedElsewhereReadsBack(string $source, int $block, int $at): void
     {
-        $source = "*[HTML]: Hyper Text\n\nHTML x<=>=y\n";
-        $result = Writer::writeWithDiagnostics(TreeEncoder::decoded(Carve::parse($source)));
+        $tree = TreeEncoder::decoded(Carve::parse($source));
+        $this->assertSame([], Writer::writeWithDiagnostics($tree)->diagnostics);
+        // An en dash before an em dash is written the same and reads back as an em dash and an en dash.
+        $leaf = &$tree['children'][$block]['children'];
+        [$leaf[$at], $leaf[$at + 1]] = [$leaf[$at + 1], $leaf[$at]];
+        unset($leaf);
+        $result = Writer::writeWithDiagnostics($tree);
+        $path = "/children/$block/children/";
         $this->assertSame($source, $result->source);
-        $this->assertSame([], $result->diagnostics);
+        $paths = array_map(static fn ($d): string => $d->path, $result->diagnostics);
+        $this->assertSame([$path . $at . '/kind', $path . ($at + 1) . '/kind'], $paths);
     }
 }

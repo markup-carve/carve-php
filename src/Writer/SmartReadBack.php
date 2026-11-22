@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Writer;
 
 use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TreeSink;
+use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Node;
@@ -32,7 +33,7 @@ final class SmartReadBack
     public static function check(array $children, string $source, string $path, string $type, State $w): void
     {
         $w->chargeRepair($path, 'smart-run', $source);
-        $parsed = self::leaf(self::parse($source), $type);
+        $parsed = self::leaf(self::parse($source, self::context($children, new InlineContext())), $type);
         if ($parsed === null) {
             return;
         }
@@ -43,21 +44,57 @@ final class SmartReadBack
      * The block and inline stages of `Carve::parse`: the later stages do not touch smart punctuation.
      *
      * @param string $source
+     * @param \MarkupCarve\Carve\Inline\InlineContext $ctx
      *
      * @return \MarkupCarve\Carve\Node
      */
-    private static function parse(string $source): Node
+    private static function parse(string $source, InlineContext $ctx): Node
     {
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source, true);
         $doc = $sink->root;
         assert($doc !== null);
-        InlineRunner::run($doc, $source, new InlineContext());
+        InlineRunner::run($doc, $source, $ctx);
         if (str_contains($source, "\0") || !mb_check_encoding($source, 'UTF-8')) {
             NulReplacer::apply($doc);
         }
 
         return $doc;
+    }
+
+    /**
+     * The definitions elsewhere in the document that the nodes of the leaf use, so they read back as those nodes.
+     *
+     * @param array<mixed> $nodes
+     * @param \MarkupCarve\Carve\Inline\InlineContext $ctx
+     *
+     * @return \MarkupCarve\Carve\Inline\InlineContext
+     */
+    private static function context(array $nodes, InlineContext $ctx): InlineContext
+    {
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $key = $node['key'] ?? null;
+            if (is_string($key)) {
+                $folded = Chars::fold($key);
+                $type = $node['type'] ?? '';
+                if ($type === 'abbreviation') {
+                    $expansion = $node['expansion'] ?? '';
+                    $ctx->abbreviations[$folded] ??= is_string($expansion) ? $expansion : '';
+                } elseif ($type === 'footnote_ref') {
+                    $ctx->footnoteKeys[$folded] = true;
+                } elseif ($type === 'link' || $type === 'image') {
+                    $ctx->linkKeys[$folded] = true;
+                }
+            }
+            if (is_array($node['children'] ?? null)) {
+                self::context($node['children'], $ctx);
+            }
+        }
+
+        return $ctx;
     }
 
     /**
