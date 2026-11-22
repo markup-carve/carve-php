@@ -170,6 +170,23 @@ final class SmartNeighborNodesTest extends TestCase
     }
 
     /**
+     * The children of an inline extension come from its registry, so only the run beside it is judged.
+     *
+     * @return void
+     */
+    public function testARunBesideAnInlineExtensionIsJudged(): void
+    {
+        $source = ":wiki[Page] x-----y\n";
+        $tree = TreeEncoder::decoded(Carve::parse($source, ['extensions' => ['carve.wiki']]));
+        $this->assertSame([], Writer::writeWithDiagnostics($tree)->diagnostics);
+        self::swapDashes($tree);
+        $result = Writer::writeWithDiagnostics($tree);
+        $this->assertSame($source, $result->source);
+        $paths = array_map(static fn ($d): string => $d->path, $result->diagnostics);
+        $this->assertSame(['/children/0/children/2/kind', '/children/0/children/3/kind'], $paths);
+    }
+
+    /**
      * @param array<mixed> $node
      *
      * @return void

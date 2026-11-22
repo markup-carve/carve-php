@@ -263,7 +263,8 @@ final class SmartReadBack
         if ($field !== null) {
             $w->lose($at, $type, $field);
         }
-        if (!is_array($e['children'] ?? null) || $a->children === null) {
+        // The children of an inline extension come from its registry, which the read-back does not apply.
+        if (!is_array($e['children'] ?? null) || $a->children === null || $type === 'inline_extension') {
             return true;
         }
 
