@@ -5430,6 +5430,7 @@ final class Tables
             'bullet',
             'frontmatter_closer',
             'frontmatter_opener',
+            'typed_metadata_opener',
         ],
         '.' => [
             'ordered',
@@ -5726,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '61ecb0c344aecef98e82c0aad4a0d3d16dbeb592',
+        'commit' => 'd3deba91c3c675d54d7829d86fb6649f4ac01131',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6975,6 +6976,9 @@ final class Tables
         'footnotes-placement-in-container' => [
             'This "::: footnotes" marker is inside a container, where it does not place: it renders as a plain typed div and the endnotes section goes where it would without the marker. Move the marker to document level, or delete it to accept the default position.',
         ],
+        'frontmatter-crossref' => [
+            'Cross-reference </#${target}> names a metadata key, which has no HTML target. Read the block through the tree instead.',
+        ],
         'frontmatter-shaped-thematic-break' => [
             'Three hyphens on line 1 open frontmatter, not a thematic break. Write three stars for a break.',
         ],
@@ -6994,7 +6998,7 @@ final class Tables
             'This document mixes the two heading markers. carve fmt rewrites the hash to the equals sign.',
         ],
         'heading-shift-above-6' => [
-            'The heading shift of ${shift} raises a heading above level 6: the render writes it as a div with the role heading, the Markdown export at level 6.',
+            'The heading shift of ${shift} raises a heading above level 6.',
         ],
         'heading-trailing-attribute' => [
             'Trailing "${block}" on a heading is literal text in Carve, not an attribute block. Move it to a "${block}" line directly above the heading.',
@@ -7279,7 +7283,7 @@ final class Tables
             ],
         ],
         'unclosed-frontmatter' => [
-            'The frontmatter opened on line 1 has no closing line, so the whole document is frontmatter.',
+            'This frontmatter block has no closing line, so it runs to the end of the document.',
         ],
         'unclosed-inline-emphasis' => [
             'This ${span} opener is unclosed in its paragraph; add a closer.',
@@ -7409,7 +7413,7 @@ final class Tables
         'heading-shift-above-6' => [
             'warning',
             'render-loss',
-            'The heading shift of ${shift} raises a heading above level 6: the render writes it as a div with the role heading, the Markdown export at level 6.',
+            'The heading shift of ${shift} raises a heading above level 6.',
         ],
         'import-attribute-dropped' => [
             'warning',
@@ -7589,7 +7593,7 @@ final class Tables
         'unclosed-frontmatter' => [
             'error',
             'parse',
-            'The frontmatter opened on line 1 has no closing line, so the whole document is frontmatter.',
+            'This frontmatter block has no closing line, so it runs to the end of the document.',
         ],
         'writer-refused' => [
             'warning',
