@@ -746,13 +746,16 @@ final class Blocks
         $this->attributeLine($node, $path, $prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $c = $this->context($children, $mark === '', $prefix);
-        $outer = SmartReadBack::begin($this->w);
+        $outer = $this->w->takeSmartRun();
         $text = $this->inline->content($children, $path . '/children', $c, -1);
         if ($mark === '') {
             $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
         }
         $text = self::endContent($text, $children, $c);
-        SmartReadBack::end($this->w, $outer, $children, $text, $path, Inline::str($node, 'type'), $mark, $indent);
+        if ($this->w->takeSmartRun()) {
+            SmartReadBack::leafReadBack($this->w, $children, $text, $path, Inline::str($node, 'type'), $mark, $indent);
+        }
+        $this->w->smartRun = $outer;
         $this->w->emitLines($prefix, $indent, $text);
 
         return $text;
@@ -939,13 +942,16 @@ final class Blocks
         foreach ($blocks as $at => $block) {
             $inlines = is_array($block) && is_array($block['children'] ?? null) ? $block['children'] : [];
             $c = $this->context($inlines, false);
-            $outer = SmartReadBack::begin($this->w);
+            $outer = $this->w->takeSmartRun();
             $part = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
             // A text number mark at the caption lead would read back as caption_number.
             if (str_starts_with($part, '#') && is_array($inlines[0] ?? null) && ($inlines[0]['type'] ?? '') === 'text') {
                 $part = '\\' . $part;
             }
-            SmartReadBack::end($this->w, $outer, $inlines, $part, $path . '/children/' . $at, 'caption');
+            if ($this->w->takeSmartRun()) {
+                SmartReadBack::leafReadBack($this->w, $inlines, $part, $path . '/children/' . $at, 'caption');
+            }
+            $this->w->smartRun = $outer;
             $parts[] = $part;
         }
         $this->w->lead = ($this->w->lead ?? $prefix) . '^ ';
@@ -1716,14 +1722,17 @@ final class Blocks
                 }
                 $c = $this->context($inlines, true);
                 $c->inLineBlock = true;
-                $outer = SmartReadBack::begin($this->w);
+                $outer = $this->w->takeSmartRun();
                 $text = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
                 if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $text) === 1) {
                     $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
                     $this->w->lose('', 'document', null);
                 }
                 $text = self::endContent($text, $inlines, $c);
-                SmartReadBack::end($this->w, $outer, $inlines, $text, $path . '/children/' . $at, 'line');
+                if ($this->w->takeSmartRun()) {
+                    SmartReadBack::leafReadBack($this->w, $inlines, $text, $path . '/children/' . $at, 'line');
+                }
+                $this->w->smartRun = $outer;
                 $this->w->emit($prefix, $text);
             }
             $this->bareBreaks = false;

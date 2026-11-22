@@ -20,24 +20,11 @@ use MarkupCarve\Carve\NulReplacer;
 final class SmartReadBack
 {
     /**
-     * Starts a leaf: returns the flag of the leaf around it, which `end()` puts back.
+     * Reads back a leaf written as `text`, its final spelling, in which a smart punctuation node has a run character
+     * beside it (`State::takeSmartRun()`). The host is of the leaf's own kind, which keeps the line start, a caption
+     * number and the indent of a line; a leaf that does not read back as one such leaf is not judged.
      *
      * @param \MarkupCarve\Carve\Writer\State $w
-     *
-     * @return bool
-     */
-    public static function begin(State $w): bool
-    {
-        return $w->takeSmartRun();
-    }
-
-    /**
-     * Ends a leaf written as `text`, its final spelling. Where a smart punctuation node in it has a run character
-     * beside it, the leaf is read back in a host of its own kind, which keeps the line start, a caption number and the
-     * indent of a line; a leaf that does not read back as one such leaf is not judged.
-     *
-     * @param \MarkupCarve\Carve\Writer\State $w
-     * @param bool $outer What `begin()` returned.
      * @param array<mixed> $inlines
      * @param string $text
      * @param string $path The path of the leaf.
@@ -48,9 +35,8 @@ final class SmartReadBack
      *
      * @return void
      */
-    public static function end(
+    public static function leafReadBack(
         State $w,
-        bool $outer,
         array $inlines,
         string $text,
         string $path,
@@ -58,16 +44,13 @@ final class SmartReadBack
         string $mark = '',
         string $indent = '',
     ): void {
-        if ($w->takeSmartRun()) {
-            $source = match ($host) {
-                'caption' => "![](x)\n^ " . str_replace("\n", "\n  ", $text) . "\n",
-                'line' => "::: |\n" . $text . "\n:::\n",
-                'cell' => '| ' . $text . " |\n",
-                default => $mark . str_replace("\n", "\n" . $indent, $text) . "\n",
-            };
-            self::check($inlines, $source, $path, $host, $w);
-        }
-        $w->smartRun = $outer;
+        $source = match ($host) {
+            'caption' => "![](x)\n^ " . str_replace("\n", "\n  ", $text) . "\n",
+            'line' => "::: |\n" . $text . "\n:::\n",
+            'cell' => '| ' . $text . " |\n",
+            default => $mark . str_replace("\n", "\n" . $indent, $text) . "\n",
+        };
+        self::check($inlines, $source, $path, $host, $w);
     }
 
     /**
