@@ -250,14 +250,24 @@ final class DirectoryImport
     {
         $outputs = array_fill_keys(array_merge(array_column($files, 'output'), $assets), true);
         $ids = [];
+        $needsIds = false;
         foreach ($files as $file) {
             $source = file_get_contents($stage . '/' . $file['output']);
             if ($source === false) {
                 throw new RuntimeException('cannot read converted output');
             }
-            $html = Carve::render($source, ['rawHtml' => true]);
-            preg_match_all('/\s(?:id|name)="([^"]*)"/i', $html, $matches);
-            $ids[$file['output']] = array_fill_keys(array_map(html_entity_decode(...), $matches[1]), true);
+            $needsIds = $needsIds || str_contains($source, '#');
+        }
+        if ($needsIds) {
+            foreach ($files as $file) {
+                $source = file_get_contents($stage . '/' . $file['output']);
+                if ($source === false) {
+                    throw new RuntimeException('cannot read converted output');
+                }
+                $html = Carve::render($source, ['rawHtml' => true]);
+                preg_match_all('/\s(?:id|name)="([^"]*)"/i', $html, $matches);
+                $ids[$file['output']] = array_fill_keys(array_map(html_entity_decode(...), $matches[1]), true);
+            }
         }
         $review = [];
         foreach ($files as &$file) {
@@ -268,6 +278,11 @@ final class DirectoryImport
             $source = file_get_contents($path);
             if ($source === false) {
                 throw new RuntimeException('cannot read converted output');
+            }
+            if (!str_contains($source, '[') && !str_contains($source, '<')) {
+                $file['links'] = [];
+
+                continue;
             }
             $tree = json_decode(Carve::encodeTree(Carve::parse($source)), true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($tree)) {
