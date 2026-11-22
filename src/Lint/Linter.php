@@ -505,6 +505,14 @@ final class Linter
     private static function marked(string $s, int $start): bool
     {
         $p = $start + strspn($s, " \t", $start);
+        // A quote's position starts at the attribute lines above its opener (C2-A-148).
+        while (($s[$p] ?? '') === '{') {
+            $feed = strpos($s, "\n", $p);
+            if ($feed === false) {
+                return false;
+            }
+            $p = $feed + 1 + strspn($s, " \t", $feed + 1);
+        }
 
         return ($s[$p] ?? '') === '>';
     }
