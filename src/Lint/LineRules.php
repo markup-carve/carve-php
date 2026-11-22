@@ -646,15 +646,6 @@ final class LineRules
         if (str_starts_with($text, '[') && self::hasAncestor($line->path, $c, 'footnote')) {
             return;
         }
-        // A lazy line carries no mark of the quote before its content, so its own `>` is the candidate (carve#6178).
-        $prefix = $line->content === null ? '>' : substr($line->text, 0, max(0, $line->content - $line->start));
-        $ownMark = str_contains($prefix, '>');
-        if (
-            str_starts_with($text, '> ') && $ownMark && str_starts_with(Support::trimStart($previous->text), '> ')
-            && self::hasAncestor($line->path, $c, 'block_quote')
-        ) {
-            return;
-        }
         $opener = match (true) {
             self::isHeading($text) => 'a heading',
             str_starts_with($text, '>') => 'a quote',
