@@ -69,7 +69,8 @@ final class Lists
             $start = 1;
         }
         // C2-L-030, C2-L-031: the bare dot for a decimal list with the period, unless the sidecar records numbers.
-        $bare = $delimiter === '.' && !$w->bareDotLead && $w->fact($path, 'bare') !== false;
+        $behindBareDot = $w->bareDotLead !== null && $w->bareDotLead === $w->lead;
+        $bare = $delimiter === '.' && !$behindBareDot && $w->fact($path, 'bare') !== false;
         if ($bare) {
             return [array_fill(0, $count, '.'), $start === 1 ? null : (string)$start];
         }
