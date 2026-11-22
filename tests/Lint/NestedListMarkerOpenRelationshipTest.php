@@ -37,6 +37,10 @@ final class NestedListMarkerOpenRelationshipTest extends TestCase
                 "- a\n    - x\n\n  # heading\n\n   - y\n",
                 [],
             ],
+            'paragraph after heading does not reopen the deeper list' => [
+                "- root\n    1. x\n\n  # head\n\n  para\n\n   1. x\n",
+                [],
+            ],
         ];
     }
 

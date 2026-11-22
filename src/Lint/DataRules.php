@@ -977,16 +977,8 @@ final class DataRules
         }
         $parent = substr($path, 0, $at);
         $index = $record->index ?? null;
-        if ($index === 0) {
-            $listAt = strrpos($parent, '/children/');
-            if ($listAt !== false) {
-                $listIndex = substr($parent, $listAt + 10);
-                if (ctype_digit($listIndex)) {
-                    if ((int)$listIndex === 0) {
-                        return true;
-                    }
-                }
-            }
+        if ($index === 0 && !$this->hasOpenPreviousList($parent)) {
+            return true;
         }
         $at = strrpos($parent, '/children/');
         if ($at === false) {
@@ -1000,6 +992,29 @@ final class DataRules
         $column = $this->context->layoutEntries[$path]['markerColumn'] ?? null;
 
         return is_int($outerColumn) && is_int($column) && $column <= $outerColumn;
+    }
+
+    private function hasOpenPreviousList(string $listPath): bool
+    {
+        $at = strrpos($listPath, '/children/');
+        if ($at === false) {
+            return false;
+        }
+        $index = substr($listPath, $at + 10);
+        if (!ctype_digit($index)) {
+            return false;
+        }
+        $siblings = substr($listPath, 0, $at + 10);
+        for ($i = (int)$index - 1; $i >= 0; --$i) {
+            $type = $this->context->nodeTypes[$siblings . $i] ?? null;
+            if ($type === 'paragraph') {
+                continue;
+            }
+
+            return $type === 'list';
+        }
+
+        return false;
     }
 
     public static function run(Context $context): void
