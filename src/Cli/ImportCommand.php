@@ -51,7 +51,7 @@ final class ImportCommand
         }
         if ($directory !== null) {
             if (
-                !in_array($from, ['markdown', 'gfm'], true) || $output === null || $files !== []
+                $from !== 'gfm' || $output === null || $files !== []
                 || $options !== ['rawHtml' => false]
             ) {
                 return self::fail($err, 'usage', 'directory import requires --from gfm --directory SOURCE --output TARGET', 2);
