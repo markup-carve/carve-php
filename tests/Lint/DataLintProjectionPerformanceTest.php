@@ -14,6 +14,9 @@ final class DataLintProjectionPerformanceTest extends TestCase
 {
     public function testDataModeStaysNearTheHandwrittenCost(): void
     {
+        if (getenv('CARVE_PERF_TEST') !== '1') {
+            self::markTestSkipped('Run on a stable CPU with CARVE_PERF_TEST=1');
+        }
         $source = "|= Key |= Name |= Value |= Code |\n";
         $length = strlen($source);
         for ($i = 0; $length < 32 * 1024; $i++) {
