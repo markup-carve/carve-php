@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Json\TreeEquality;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -15,6 +17,9 @@ final class PinnedRepairRoundTest extends TestCase
     public function testRepairRoundCaseMatchesPinnedBytes(string $id, string $input, string $expected, array $options): void
     {
         $written = Carve::formatWithDiagnostics($input, $options);
+        $before = TreeEncoder::decodedForWriter(Carve::parse($input));
+        $after = TreeEncoder::decodedForWriter(Carve::parse($written->source));
+        self::assertSame(TreeEquality::normalize($before), TreeEquality::normalize($after), $id . ' tree');
         self::assertSame($expected, $written->source, $id);
         self::assertSame([], $written->diagnostics, $id . ' diagnostics');
     }
