@@ -31,7 +31,8 @@ final class Support
      */
     public static function caseOnlyPhrase(array $values, string $noun): string
     {
-        $quoted = array_map(static fn (string $value): string => '"' . $value . '"', $values);
+        // C2-W-150 `plain_list`: the source spellings without quotes (carve#6358).
+        $quoted = $values;
         if (count($quoted) === 1) {
             return 'the ' . $noun . ' ' . $quoted[0] . ' differs only in case';
         }

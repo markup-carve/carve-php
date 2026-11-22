@@ -546,6 +546,20 @@ final class LineShapes
     }
 
     /**
+     * C2-B-232: a frontmatter opener that names its format. Returns the format or null.
+     *
+     * @param string $s
+     * @param int $j
+     * @param int $le
+     *
+     * @return string|null
+     */
+    public static function typedFrontmatter(string $s, int $j, int $le): ?string
+    {
+        return self::trimEnd($s, $j + 3, $le) > $j + 3 ? self::frontmatter($s, $j, $le) : null;
+    }
+
+    /**
      * C2-I-079: spaces, tabs and line breaks fold to one space, the ends are trimmed.
      *
      * @param string $label

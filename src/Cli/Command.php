@@ -910,7 +910,7 @@ HELP;
 
             return 1;
         }
-        self::expandTree($result->tree);
+        self::expandTree($result->tree, $result->tree->includeSources);
         $flat = Carve::write($result->tree);
         if (Carve::toHtml($flat) !== Carve::toHtml($source, $options)) {
             fwrite($err, "carve[flatten-changed]: {$display}: flattened source renders differently\n");
@@ -922,19 +922,27 @@ HELP;
         return 0;
     }
 
-    private static function expandTree(Node $node): void
+    /**
+     * @param \MarkupCarve\Carve\Node $node
+     * @param array<string, string> $sources The text of each included file, by id.
+     *
+     * @return void
+     */
+    private static function expandTree(Node $node, array $sources): void
     {
         $children = [];
         foreach ($node->children ?? [] as $child) {
             if ($child->type === 'include') {
-                self::expandTree($child);
-                foreach ($child->children ?? [] as $expanded) {
-                    if ($expanded->type !== 'frontmatter') {
+                self::expandTree($child, $sources);
+                foreach ($child->children ?? [] as $k => $expanded) {
+                    // C2-T-047: only the leading block of the included file goes; later metadata blocks stay.
+                    $bom = str_starts_with($sources[$expanded->file ?? ''] ?? '', "\u{FEFF}") ? 3 : 0;
+                    if ($k !== 0 || $expanded->type !== 'frontmatter' || $expanded->start !== $bom) {
                         $children[] = $expanded;
                     }
                 }
             } else {
-                self::expandTree($child);
+                self::expandTree($child, $sources);
                 $children[] = $child;
             }
         }

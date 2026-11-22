@@ -24,12 +24,14 @@ final class Next2QuotedBlockAndFrontmatterLintTest extends TestCase
             'closed frontmatter with no value' => ["---\n---", [['frontmatter-shaped-thematic-break', 0, 7]]],
             'quoted heading-shaped line' => ["> base\n> # H", [['block-opener-without-blank-line', 9, 10]]],
             'first quote marker follows text' => ["base\n> # H", [['block-opener-without-blank-line', 5, 6]]],
-            'nested quote marker follows quoted text' => ["> base\n> > # H", []],
+            'nested quote marker follows quoted text' => ["> base\n> > # H", [['block-opener-without-blank-line', 9, 10]]],
             'quoted underline' => ["> base\n> ---", [['setext-heading-underline', 9, 12]]],
             'first quoted underline follows text' => [
                 "base\n> ---", [['block-opener-without-blank-line', 5, 6], ['setext-heading-underline', 7, 10]],
             ],
-            'nested quoted underline' => ["> base\n> > ---", [['setext-heading-underline', 11, 14]]],
+            'nested quoted underline' => [
+                "> base\n> > ---", [['block-opener-without-blank-line', 9, 10], ['setext-heading-underline', 11, 14]],
+            ],
             'deep quoted equals underline' => ["> > base\n> > ===", [['setext-heading-underline', 13, 16]]],
             'quoted heading after blank' => ["> base\n>\n> # H", []],
             'quoted underline after blank' => ["> base\n>\n> ---", [['thematic-break-spelling', 11, 14]]],

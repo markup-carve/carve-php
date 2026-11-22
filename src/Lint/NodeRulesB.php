@@ -6,6 +6,12 @@ namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Inline\InlineContext;
+use MarkupCarve\Carve\Inline\InlineRunner;
+use MarkupCarve\Carve\Resolve\PlainText;
+use MarkupCarve\Carve\Resolve\Resolver;
+use Throwable;
 
 /**
  * The second half of the carve-js node rules (`lint/structure.ts`), one method per JS rule function, and the checks that run
@@ -189,7 +195,8 @@ final class NodeRulesB
             return;
         }
         $pos = Support::pos($node);
-        if ($pos === null) {
+        // C2-B-231: only the line-1 block declares the version.
+        if ($pos === null || $pos['startLine'] !== 1) {
             return;
         }
         for ($number = $pos['startLine'] + 1; $number < $pos['endLine']; $number++) {
@@ -1404,14 +1411,25 @@ final class NodeRulesB
                 $labels[] = $key;
             }
         }
+        $headings = null;
         foreach ($c->unresolvedReferences as [$node, $path]) {
             $type = $node['type'] ?? null;
             $key = Support::str($node, 'key') ?? '';
-            $candidates = Support::caseOnly($key, $type === 'image' ? $labels : array_merge($labels, array_keys($c->ids)));
+            $candidates = Support::caseOnly($key, $labels);
+            if ($type !== 'image') {
+                // C2-I-084: a link also looks up heading text, never a heading id.
+                $headings ??= self::headingTexts($c);
+                $text = Resolver::fold(PlainText::of(InlineRunner::parse($key, [0, strlen($key)], new InlineContext())));
+                foreach (Support::caseOnly($text, $headings) as $heading) {
+                    if (!in_array($heading, $candidates, true)) {
+                        $candidates[] = $heading;
+                    }
+                }
+            }
             $rawRef = $c->layout->rawRef($path) ?? Support::raw($node, $c);
             $values = ['rawRef' => $rawRef];
             if ($candidates !== []) {
-                $values['caseOnlyPhrase'] = Support::caseOnlyPhrase($candidates, in_array($candidates[0], $labels, true) ? 'label' : 'id');
+                $values['caseOnlyPhrase'] = Support::caseOnlyPhrase($candidates, 'label');
             }
             $variant = $type === 'image' ? ($candidates === [] ? 3 : 2) : ($candidates === [] ? 1 : 0);
             Support::reportNode('unresolved-reference-link', $node, $path, $c, $values, $variant);
@@ -1451,6 +1469,9 @@ final class NodeRulesB
         if ($c->off('broken-fragment-link') || !empty($c->options['extensions'])) {
             return;
         }
+        $ids = null;
+        // C2-A-218: a metadata key creates no HTML target.
+        $treeIds = array_diff_key($c->ids, $c->frontmatterIds);
         foreach ($c->fragmentLinks as [$node, $path]) {
             $href = Support::str($node, 'href');
             if (($node['type'] ?? null) !== 'link' || $href === null) {
@@ -1458,9 +1479,14 @@ final class NodeRulesB
             }
             $fragment = explode(':~:', substr($href, 1), 2)[0];
             $decoded = rawurldecode($fragment);
-            if (strtolower($fragment) !== 'top' && !isset($c->ids[$fragment]) && !isset($c->ids[$decoded])) {
-                $candidates = Support::caseOnly($fragment, array_keys($c->ids));
-                foreach (Support::caseOnly($decoded, array_keys($c->ids)) as $candidate) {
+            if (strtolower($fragment) === 'top' || isset($treeIds[$fragment]) || isset($treeIds[$decoded])) {
+                continue;
+            }
+            // C2-H-022: footnote, note mark and raw HTML ids are targets too; only a miss pays for the render.
+            $ids ??= self::renderedIds($c, $treeIds);
+            if (!isset($ids[$fragment]) && !isset($ids[$decoded])) {
+                $candidates = Support::caseOnly($fragment, array_keys($ids));
+                foreach (Support::caseOnly($decoded, array_keys($ids)) as $candidate) {
                     if (!in_array($candidate, $candidates, true)) {
                         $candidates[] = $candidate;
                     }
@@ -1472,6 +1498,66 @@ final class NodeRulesB
                 Support::reportNode('broken-fragment-link', $node, $path, $c, $values, $candidates === [] ? 1 : 0);
             }
         }
+    }
+
+    /**
+     * The plain text of every heading, its whitespace folded as C2-I-079 folds a label, in document order.
+     *
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return array<string>
+     */
+    private static function headingTexts(Context $c): array
+    {
+        try {
+            $stack = [Carve::parse($c->source, array_intersect_key($c->options, ['includes' => true, 'extensions' => true]))];
+        } catch (Throwable) {
+            return [];
+        }
+        $texts = [];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node->type === 'heading') {
+                $text = Resolver::fold(PlainText::of($node->children ?? []));
+                if ($text !== '') {
+                    $texts[] = $text;
+                }
+
+                continue;
+            }
+            if ($node->type !== 'paragraph') {
+                foreach (array_reverse($node->children ?? []) as $child) {
+                    $stack[] = $child;
+                }
+            }
+        }
+
+        return $texts;
+    }
+
+    /**
+     * Every id, and every name of an `a` element, of the rendered HTML, in document order.
+     *
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param array<string, true> $treeIds
+     *
+     * @return array<string, true>
+     */
+    private static function renderedIds(Context $c, array $treeIds): array
+    {
+        try {
+            $html = Carve::render($c->source, array_intersect_key($c->options, ['includes' => true, 'headingIds' => true]));
+        } catch (Throwable) {
+            return $treeIds;
+        }
+        preg_match_all('/<[a-zA-Z][^>]*?\sid="([^"]*)"|<a\b[^>]*?\sname="([^"]*)"/', $html, $matches, PREG_SET_ORDER);
+        $ids = [];
+        foreach ($matches as $match) {
+            $id = ($match[2] ?? '') !== '' ? $match[2] : ($match[1] ?? '');
+            $ids[html_entity_decode($id, ENT_QUOTES | ENT_HTML5, 'UTF-8')] = true;
+        }
+
+        return $ids + $treeIds;
     }
 
     private static function finishReferences(Context $c): void
