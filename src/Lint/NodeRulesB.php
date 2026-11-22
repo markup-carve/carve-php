@@ -692,8 +692,12 @@ final class NodeRulesB
         $index = $indexAt === false ? 0 : (int)substr($path, $indexAt + 10);
         for ($prior = $index - 1; $prior >= 0; $prior--) {
             $priorPath = $parent . '/children/' . $prior;
-            if (($c->nodeTypes[$priorPath] ?? null) !== 'list') {
+            $priorType = $c->nodeTypes[$priorPath] ?? null;
+            if ($priorType === 'paragraph') {
                 continue;
+            }
+            if ($priorType !== 'list') {
+                break;
             }
             $deeper = $c->layout->markerColumn($priorPath . '/children/0');
             if ($deeper !== null && $marker > $base && $marker < $deeper) {
