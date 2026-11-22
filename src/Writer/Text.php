@@ -138,6 +138,12 @@ final class Text
         if ($c->writerState?->repairTrace !== null) {
             return $c->writerState->repairTrace->bareText($value, $c->textPath);
         }
+
+        return self::escapeText($value, $c, $next);
+    }
+
+    private static function escapeText(string $value, Context $c, int $next): string
+    {
         $n = strlen($value);
         $c->escapeKinds = [];
         if ($n === 0) {

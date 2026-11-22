@@ -56,6 +56,22 @@ final class RepairPlanner
     private int $limit;
 
     /**
+     * The planner a content probe runs for: its character budget is the one charged.
+     */
+    private ?self $parent = null;
+
+    /**
+     * In a content probe, the type of the probed node.
+     */
+    private ?string $probed = null;
+
+    // The rounds of one content probe, as MAX_PROBE_ROUNDS in carve-js.
+    /**
+     * @var int
+     */
+    private const MAX_PROBE_ROUNDS = 32;
+
+    /**
      * @param array<mixed> $tree
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
@@ -108,7 +124,7 @@ final class RepairPlanner
      */
     private function applyRound(array $candidate, array $comparison): bool
     {
-        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate);
+        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed);
         $missing = self::missingSiblings($candidate, $comparison['read']);
         $trial = $this->nextTrial($candidate, $comparison['read'], $missing);
         if ($trial !== null && $this->keepTrial($trial)) {
@@ -226,10 +242,11 @@ final class RepairPlanner
         $offsets = [];
         $n = strlen($value);
         $ch = $kind[0];
-        for ($i = strpos($value, $ch === '{' ? '{' : ($kind === '--' ? '-' : $ch)); $i !== false && $i < $n; $i = strpos($value, $value[$i], $i + 1)) {
+        $first = $ch === '{' ? '{' : ($kind === '--' ? '-' : $ch);
+        for ($i = strpos($value, $first); $i !== false && $i < $n; $i = strpos($value, $value[$i], $i + 1)) {
             $prev = $value[$i - 1] ?? '';
             $open = match (true) {
-                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1],
+                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1] && $prev !== '{',
                 $kind === '--' => $prev === '-' && ($value[$i - 2] ?? '') !== '-' && ($value[$i + 1] ?? '') !== '',
                 $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
                     && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),
@@ -369,6 +386,9 @@ final class RepairPlanner
 
     private function charge(string $source): bool
     {
+        if ($this->parent !== null) {
+            return $this->parent->charge($source);
+        }
         $this->read += strlen($source);
 
         return $this->read <= $this->limit;
@@ -455,10 +475,12 @@ final class RepairPlanner
         $parent = implode('/', $parts);
         while ($step < 14) {
             $case = $step++;
-            if ($case === 4) {
-                $across = self::acrossCloser($candidate, $actual, $path, $this->escapes);
-                if ($across !== []) {
-                    return $across;
+            if ($case === 3 || $case === 4) {
+                $probed = $case === 3
+                    ? $this->contentConstruct($path, $node)
+                    : self::acrossCloser($candidate, $actual, $path, $this->escapes);
+                if ($probed !== []) {
+                    return $probed;
                 }
 
                 continue;
@@ -476,6 +498,144 @@ final class RepairPlanner
         }
 
         return null;
+    }
+
+    /**
+     * C2-W-088: the content of the node at `path`, written and parsed on its own, holds a construct that the tree does
+     * not, as a closer of an inner node that reads early. The escapes its own rounds ask for are this trial. A content
+     * that opens a block is read again behind a word, then with its line breaks as spaces (carve-js
+     * `escapeContentConstruct`).
+     *
+     * @param string $path
+     * @param array<mixed> $node
+     *
+     * @return array<array{string, int}>
+     */
+    private function contentConstruct(string $path, array $node): array
+    {
+        $children = is_array($node['children'] ?? null) ? array_values($node['children']) : [];
+        if ($children === [] || !in_array($node['type'] ?? '', self::INLINE_CONTAINERS, true)) {
+            return [];
+        }
+        $word = ['type' => 'text', 'value' => 'x'];
+        $flat = [];
+        $kept = [];
+        foreach ($children as $index => $child) {
+            $break = is_array($child) && ($child['type'] ?? '') === 'soft_break';
+            $flat[] = $break ? ['type' => 'text', 'value' => ' '] : $child;
+            if (!$break) {
+                $kept[$index] = true;
+            }
+        }
+        $all = array_fill_keys(array_keys($children), true);
+        $first = is_array($children[0]) ? ($children[0]['type'] ?? '') : '';
+        $variants = [[[$word, ...$children], 1, $all], [[$word, ...$flat], 1, $kept]];
+        if ($first !== 'soft_break' && $first !== 'hard_break') {
+            array_unshift($variants, [$children, 0, $all]);
+        }
+        foreach ($variants as [$inlines, $shift, $mapped]) {
+            $found = $this->probeContent($path, $inlines, $shift, $mapped);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * One variant of a content probe: null where its first parse is no single paragraph, which tells nothing.
+     *
+     * @param string $path
+     * @param array<mixed> $inlines
+     * @param int $shift
+     * @param array<int, true> $mapped The children of `path` that stand in the probe as themselves.
+     *
+     * @return array<array{string, int}>|null
+     */
+    private function probeContent(string $path, array $inlines, int $shift, array $mapped): ?array
+    {
+        $prefix = $path . '/children/';
+        $inside = '/children/0/children/';
+        $probe = new self(['type' => 'document', 'children' => [['type' => 'paragraph', 'children' => $inlines]]], null, $this->options);
+        $probe->parent = $this;
+        $probe->kindRounds = false;
+        $type = self::nodeAt($this->tree, $path)['type'] ?? null;
+        $probe->probed = is_string($type) ? $type : null;
+        $probe->escapes = self::moveEscapes($this->escapes, $prefix, $inside, $shift, $mapped);
+        if (!$probe->probeRounds()) {
+            return null;
+        }
+        $found = [];
+        foreach (self::moveEscapes($probe->escapes, $inside, $prefix, -$shift, $mapped, true) as $original => $offsets) {
+            foreach ($offsets as $at => $_) {
+                if (!isset($this->escapes[$original][$at])) {
+                    $found[] = [$original, $at];
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * The rounds of a content probe; false where its first parse is no single paragraph.
+     */
+    private function probeRounds(): bool
+    {
+        for ($round = 0; $round < self::MAX_PROBE_ROUNDS; $round++) {
+            $candidate = Writer::bareCandidate($this->tree, null, $this->options, $this->escapes);
+            if (!$this->charge($candidate['source'])) {
+                return true;
+            }
+            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options);
+            $blocks = is_array($comparison['read']['children'] ?? null) ? $comparison['read']['children'] : [];
+            if ($round === 0 && (count($blocks) !== 1 || !is_array($blocks[0]) || ($blocks[0]['type'] ?? '') !== 'paragraph')) {
+                return false;
+            }
+            if ($comparison['equal'] || !$this->applyRound($candidate, $comparison)) {
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The escapes below `from` moved below `to`, each child index shifted by `shift`. Only the children in `mapped`
+     * (by their index below the content of the probed node) move.
+     *
+     * @param array<string, array<int, true>> $escapes
+     * @param string $from
+     * @param string $to
+     * @param int $shift
+     * @param array<int, true> $mapped
+     * @param bool $back
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function moveEscapes(
+        array $escapes,
+        string $from,
+        string $to,
+        int $shift,
+        array $mapped,
+        bool $back = false,
+    ): array {
+        $moved = [];
+        foreach ($escapes as $owner => $offsets) {
+            if (!str_starts_with($owner, $from)) {
+                continue;
+            }
+            $rest = substr($owner, strlen($from));
+            $cut = strpos($rest, '/');
+            $index = (int)($cut === false ? $rest : substr($rest, 0, $cut));
+            if (isset($mapped[$back ? $index + $shift : $index])) {
+                $moved[$to . ($index + $shift) . ($cut === false ? '' : substr($rest, $cut))] = $offsets;
+            }
+        }
+
+        return $moved;
     }
 
     /**
@@ -701,6 +861,22 @@ final class RepairPlanner
             return [];
         }
         $read = TreeEncoder::decodedWithPositions(Carve::parse($source, $this->parseOptions()), $source);
+
+        return $this->probeOpeners($candidate, $read, $path, $end, $first, self::closer($node));
+    }
+
+    /**
+     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array<mixed> $read
+     * @param string $path
+     * @param int $end
+     * @param int $first
+     * @param string $closer
+     *
+     * @return array<array{string, int}>
+     */
+    private function probeOpeners(array $candidate, array $read, string $path, int $end, int $first, string $closer): array
+    {
         $found = [];
         $pending = [$read];
         while ($pending !== []) {
@@ -711,7 +887,7 @@ final class RepairPlanner
             foreach (is_array($item['children'] ?? null) ? $item['children'] : [] as $child) {
                 $pending[] = $child;
             }
-            $opener = $this->probeOpener($candidate, $item, $path, $end, $first, self::closer($node));
+            $opener = $this->probeOpener($candidate, $item, $path, $end, $first, $closer);
             if ($opener !== null) {
                 [$start, $owned] = $opener;
                 $found[$start] = $owned;
@@ -723,10 +899,18 @@ final class RepairPlanner
     }
 
     // The inlines behind a node that a probe across its closer reads, at most (as MAX_ACROSS in carve-js).
+    /**
+     * @var int
+     */
     private const MAX_ACROSS = 16;
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>, ranges?: array<string, array{int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, array{string, int}>,
+     *     nodes: array<int, array{string, string, int, int}>,
+     *     ranges?: array<string, array{int, int}>
+     * } $candidate
      *
      * @return array<string, array{int, int}>
      */
@@ -743,7 +927,9 @@ final class RepairPlanner
     /**
      * The end of a probe across the closer of `path`: the node, its closer and at most MAX_ACROSS inlines behind it.
      *
+     * @param string $source
      * @param array<string, array{int, int}> $spans
+     * @param string $path
      */
     private static function acrossEnd(string $source, array $spans, string $path): int
     {

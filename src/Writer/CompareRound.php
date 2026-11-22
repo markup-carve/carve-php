@@ -21,6 +21,11 @@ final class CompareRound
     private array $starts = [];
 
     /**
+     * The type of the node whose content a probe compares: it owns the probe's paragraph (carve-js `probeRound`).
+     */
+    private ?string $probed = null;
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -33,12 +38,19 @@ final class CompareRound
      * @param array<mixed> $actual
      * @param array<string, array<int, true>> $escapes
      * @param array{nodes?: array<int, array{string, string, int, int}>, ranges?: array<string, array{int, int}>} $candidate
+     * @param string|null $probed
      *
      * @return array<string, array<int, true>>
      */
-    public static function inspect(array $expected, array $actual, array $escapes, array $candidate = []): array
-    {
+    public static function inspect(
+        array $expected,
+        array $actual,
+        array $escapes,
+        array $candidate = [],
+        ?string $probed = null,
+    ): array {
         $comparison = new self($expected, $escapes);
+        $comparison->probed = $probed;
         foreach ($candidate['ranges'] ?? [] as $path => [$start]) {
             $comparison->starts[$path] = $start;
         }
@@ -75,7 +87,7 @@ final class CompareRound
             $nodePath = $path . '/children/' . $i;
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $more = $type === 'text'
-                ? $this->matchText($node, $have, $nodePath, $owner, $i, $j, $vi, $aj)
+                ? $this->matchText($node, $have, $nodePath, $owner, $i, $j, $vi, $aj, $i + 1 === $count ? $path : null)
                 : $this->matchNode($node, $have, $nodePath, $type, $i, $j, $aj);
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
                 return;
@@ -93,12 +105,14 @@ final class CompareRound
      *
      * @param array<mixed> $want
      * @param array<mixed> $have
+     * @param int $j
+     * @param int $i
+     * @param string $path
      */
     private function resync(array $want, array $have, string $path, int &$i, int &$j): bool
     {
-        $failed = $have[$j] ?? null;
-        $failedEnd = is_array($failed) ? ($failed['pos']['endOffset'] ?? null) : null;
-        if (!is_int($failedEnd)) {
+        $failedEnd = self::offset($have[$j] ?? null, 'endOffset');
+        if ($failedEnd === null) {
             return false;
         }
         $count = count($want);
@@ -111,10 +125,10 @@ final class CompareRound
             if ($start === null || $start < $failedEnd) {
                 continue;
             }
-            while (is_array($have[$next] ?? null) && ($have[$next]['pos']['startOffset'] ?? -1) < $start) {
+            while (is_array($have[$next] ?? null) && (self::offset($have[$next], 'startOffset') ?? -1) < $start) {
                 $next++;
             }
-            if (is_array($have[$next] ?? null) && ($have[$next]['pos']['startOffset'] ?? -1) === $start) {
+            if (self::offset($have[$next] ?? null, 'startOffset') === $start) {
                 $i = $k;
                 $j = $next;
 
@@ -123,6 +137,14 @@ final class CompareRound
         }
 
         return false;
+    }
+
+    private static function offset(mixed $node, string $key): ?int
+    {
+        $pos = is_array($node) && is_array($node['pos'] ?? null) ? $node['pos'] : [];
+        $offset = $pos[$key] ?? null;
+
+        return is_int($offset) ? $offset : null;
     }
 
     /**
@@ -157,7 +179,7 @@ final class CompareRound
         if (!is_array($other)) {
             return false;
         }
-        $this->children($node, $other, $path, $type);
+        $this->children($node, $other, $path, $this->probed !== null && $path === '/children/0' ? $this->probed : $type);
         $i++;
         $j++;
 
@@ -168,6 +190,7 @@ final class CompareRound
      * @param array<mixed> $node
      * @param array<mixed> $have
      * @param int $aj
+     * @param string|null $last
      * @param int $vi
      * @param int $j
      * @param int $i
@@ -183,6 +206,7 @@ final class CompareRound
         int &$j,
         int &$vi,
         int &$aj,
+        ?string $last = null,
     ): bool {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
         $other = $have[$j] ?? null;
@@ -201,7 +225,7 @@ final class CompareRound
             return $this->matchConstruct($value, $other, $path, $i, $j, $vi);
         }
 
-        return $this->matchPlain($value, $other, $path, $i, $j, $vi, $aj);
+        return $this->matchPlain($value, $other, $path, $i, $j, $vi, $aj, $last, $owner);
     }
 
     /**
@@ -243,13 +267,24 @@ final class CompareRound
      * @param string $value
      * @param array<mixed> $other
      * @param int $aj
+     * @param string $owner
+     * @param string|null $last
      * @param int $vi
      * @param int $j
      * @param int $i
      * @param string $path
      */
-    private function matchPlain(string $value, array $other, string $path, int &$i, int &$j, int &$vi, int &$aj): bool
-    {
+    private function matchPlain(
+        string $value,
+        array $other,
+        string $path,
+        int &$i,
+        int &$j,
+        int &$vi,
+        int &$aj,
+        ?string $last = null,
+        string $owner = '',
+    ): bool {
         $otherValue = is_string($other['value'] ?? null) ? $other['value'] : '';
         $limit = min(strlen($value) - $vi, strlen($otherValue) - $aj);
         for ($k = 0; $k < $limit; $k++) {
@@ -268,6 +303,9 @@ final class CompareRound
         if ($vi === strlen($value)) {
             $i++;
             $vi = 0;
+            if ($aj > 0 && $last !== null) {
+                $this->contentEnd($last, $owner);
+            }
             if ($aj > 0) {
                 $j++;
                 $aj = 0;
@@ -275,6 +313,93 @@ final class CompareRound
         }
 
         return $limit > 0;
+    }
+
+    /**
+     * The content of the node at `path` is matched to its end and the parse holds more text: its closing mark did not
+     * close. The first bare closing mark in the content takes the backslash, else the end of its last text
+     * (C2-W-093, C2-W-125; carve-js `afterTextNode`).
+     */
+    private function contentEnd(string $path, string $type): void
+    {
+        $node = $this->textAt($path);
+        $mark = self::closer($type);
+        if ($node === null || $mark === '') {
+            return;
+        }
+        if ($this->askMark($node, $path, $mark) || ($mark === ']' && $this->askMark($node, $path, '['))) {
+            return;
+        }
+        $last = self::lastText($node, $path);
+        if ($last === null) {
+            return;
+        }
+        [$textPath, $value] = $last;
+        $length = strlen($value);
+        if ($length > 0 && str_contains('\\!^$`', $value[$length - 1]) && $this->tryAsk($textPath, $length - 1)) {
+            return;
+        }
+        $brace = strrpos($value, '{');
+        if ($brace !== false) {
+            $this->tryAsk($textPath, $brace);
+        }
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param string $mark
+     * @param string $path
+     */
+    private function askMark(array $node, string $path, string $mark): bool
+    {
+        if (($node['type'] ?? '') === 'text') {
+            $value = is_string($node['value'] ?? null) ? $node['value'] : '';
+            for ($at = strpos($value, $mark); $at !== false; $at = strpos($value, $mark, $at + 1)) {
+                if ($this->tryAsk($path, $at)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $index => $child) {
+            if (is_array($child) && $this->askMark($child, $path . '/children/' . $index, $mark)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return array{string, string}|null
+     */
+    private static function lastText(array $node, string $path): ?array
+    {
+        if (($node['type'] ?? '') === 'text') {
+            return [$path, is_string($node['value'] ?? null) ? $node['value'] : ''];
+        }
+        foreach (array_reverse(is_array($node['children'] ?? null) ? $node['children'] : [], true) as $index => $child) {
+            $last = is_array($child) ? self::lastText($child, $path . '/children/' . $index) : null;
+            if ($last !== null) {
+                return $last;
+            }
+        }
+
+        return null;
+    }
+
+    private function tryAsk(string $path, int $offset): bool
+    {
+        if (isset($this->asks[$path][$offset]) || isset($this->escapes[$path][$offset])) {
+            return false;
+        }
+        $this->ask($path, $offset);
+
+        return isset($this->asks[$path][$offset]);
     }
 
     private function ask(string $path, int $offset): void
