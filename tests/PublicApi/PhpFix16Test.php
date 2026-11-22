@@ -5,16 +5,34 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\PublicApi;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Extension\Claim;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Options;
+use MarkupCarve\Carve\RenderResult;
 use PHPUnit\Framework\TestCase;
 
 final class PhpFix16Test extends TestCase
 {
+    public function testRenderResultToArrayKeepsCurrentFieldsAndDiagnosticRecords(): void
+    {
+        $this->assertSame([
+            'html' => '<p>Hello</p>',
+            'diagnostics' => [],
+            'suppressedDiagnostics' => 0,
+        ], Carve::renderWithDiagnostics('Hello')->toArray());
+
+        $result = new RenderResult('x', [new Diagnostic('sample', 'warning', 'parse', 'sample message')], 2);
+        $this->assertSame([
+            'html' => 'x',
+            'diagnostics' => [['code' => 'sample', 'severity' => 'warning', 'channel' => 'parse', 'message' => 'sample message']],
+            'suppressedDiagnostics' => 2,
+        ], $result->toArray());
+    }
+
     public function testC2X034RegisteredInlineRendererHandlesSourceAndDecodedTree(): void
     {
         $extension = self::inlineExtension();

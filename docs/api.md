@@ -74,6 +74,7 @@ Class. The HTML of a render and the entries of its parse and render-loss channel
 
 Fields: `string $html`, `array $diagnostics`, `int $suppressedDiagnostics`.
 
+- `toArray(): array`
 - `codes(): array`
 
 ### `MarkupCarve\Carve\LayoutResult`

@@ -24,6 +24,18 @@ final class RenderResult
     }
 
     /**
+     * @return array{html: string, diagnostics: array<array<string, mixed>>, suppressedDiagnostics: int}
+     */
+    public function toArray(): array
+    {
+        return [
+            'html' => $this->html,
+            'diagnostics' => array_map(static fn (Diagnostic $d): array => $d->toArray(), $this->diagnostics),
+            'suppressedDiagnostics' => $this->suppressedDiagnostics,
+        ];
+    }
+
+    /**
      * @return array<string>
      */
     public function codes(): array
