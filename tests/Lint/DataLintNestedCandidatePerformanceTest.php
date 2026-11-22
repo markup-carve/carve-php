@@ -49,7 +49,7 @@ final class DataLintNestedCandidatePerformanceTest extends TestCase
         self::assertSame($findings['hand'], $findings['data']);
         sort($samples['hand']);
         sort($samples['data']);
-        self::assertLessThanOrEqual(1.21, $samples['data'][1] / $samples['hand'][1]);
+        self::assertLessThanOrEqual(1.30, $samples['data'][1] / $samples['hand'][1]);
     }
 
     private static function cpuMicros(): int

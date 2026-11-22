@@ -920,18 +920,7 @@ final class DataRules
                     if ((int)$listIndex === 0) {
                         return true;
                     }
-                    $prior = substr($parent, 0, $listAt + 10) . ((int)$listIndex - 1);
-                    if (($this->context->nodeTypes[$prior] ?? null) !== 'list') {
-                        return true;
-                    }
                 }
-            }
-        } elseif (is_int($index) && $index > 0) {
-            $previous = $parent . '/children/' . ($index - 1);
-            $currentColumn = $this->context->layoutEntries[$path]['markerColumn'] ?? null;
-            $previousColumn = $this->context->layoutEntries[$previous]['markerColumn'] ?? null;
-            if (is_int($currentColumn) && is_int($previousColumn) && $currentColumn >= $previousColumn) {
-                return true;
             }
         }
         $at = strrpos($parent, '/children/');
