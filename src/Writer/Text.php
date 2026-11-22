@@ -1303,6 +1303,18 @@ final class Text
         return self::nameFollows($value . $tail, $i, $after);
     }
 
+    /**
+     * C2-I-092: a letter, number or mark outside ASCII behind the run of a name makes its sigil start no form.
+     *
+     * @param int $cp
+     *
+     * @return bool
+     */
+    public static function endsNoName(int $cp): bool
+    {
+        return $cp >= 0x80 && (Chars::isWord($cp) || Chars::inRanges($cp, Tables::UNICODE_MARK_RANGES));
+    }
+
     private static function isLetterOrNumber(int $cp): bool
     {
         return $cp >= 0 && Chars::isWord($cp);
@@ -1361,7 +1373,11 @@ final class Text
             return false;
         }
         $len = strspn($value, self::NAME, $i + 1);
-        $runsOn = $i + 1 + $len === strlen($value) && $next >= 0 && $next < 0x80 && str_contains(self::NAME, chr($next));
+        $end = $i + 1 + $len;
+        if ($len > 0 && self::endsNoName($end < strlen($value) ? Chars::at($value, $end) : $next)) {
+            return false;
+        }
+        $runsOn = $end === strlen($value) && $next >= 0 && $next < 0x80 && str_contains(self::NAME, chr($next));
         if ($len === 0) {
             return $runsOn;
         }

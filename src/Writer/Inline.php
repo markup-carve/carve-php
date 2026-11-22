@@ -1223,7 +1223,12 @@ final class Inline
      */
     private static function lengthens(string $name, string $value): bool
     {
-        preg_match('/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*/', $name . $value, $m);
+        $whole = $name . $value;
+        $run = strspn($whole, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.');
+        if ($run < strlen($whole) && Text::endsNoName(Chars::at($whole, $run))) {
+            return true;
+        }
+        preg_match('/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*/', $whole, $m);
 
         return strlen(rtrim($m[0] ?? '', '.-')) > strlen($name);
     }
@@ -2054,6 +2059,9 @@ final class Inline
             $this->w->lose($path, $type, null);
         } elseif ($type !== 'symbol' && $next >= 0 && $next < 0x80 && Chars::isWord($next)) {
             $this->w->lose($path, $type, $type === 'tag' ? 'name' : 'target');
+        } elseif ($type !== 'symbol' && Text::endsNoName($next)) {
+            // C2-W-117: no backslash keeps a letter, number or mark outside ASCII from the name.
+            $this->w->lose($path, $type, null);
         }
 
         return $out;
