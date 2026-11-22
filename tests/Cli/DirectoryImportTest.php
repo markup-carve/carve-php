@@ -97,6 +97,19 @@ final class DirectoryImportTest extends TestCase
         self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][3]['reason']);
     }
 
+    public function testRecasesHeadingFragmentAsLegacyMigrationDid(): void
+    {
+        file_put_contents($this->root . '/src/a.md', "[Next](b.md#next)\n");
+        file_put_contents($this->root . '/src/b.md', "# Next\n");
+        [$status, , $err] = self::call([
+            '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/dst',
+        ]);
+        self::assertSame(0, $status, $err);
+        self::assertSame("[Next](b.crv#Next)\n", file_get_contents($this->root . '/dst/a.crv'));
+        $report = json_decode((string)file_get_contents($this->root . '/dst/migration-report.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame([], $report['review']);
+    }
+
     public function testFragmentIdsComeFromHtmlElementsNotComments(): void
     {
         file_put_contents($this->root . '/src/a.md', "[Real](b.md#real)\n\n[Fake](b.md#fake)\n");
