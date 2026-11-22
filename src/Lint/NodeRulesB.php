@@ -1470,6 +1470,8 @@ final class NodeRulesB
             return;
         }
         $ids = null;
+        // C2-A-218: a metadata key creates no HTML target.
+        $treeIds = array_diff_key($c->ids, $c->frontmatterIds);
         foreach ($c->fragmentLinks as [$node, $path]) {
             $href = Support::str($node, 'href');
             if (($node['type'] ?? null) !== 'link' || $href === null) {
@@ -1477,11 +1479,11 @@ final class NodeRulesB
             }
             $fragment = explode(':~:', substr($href, 1), 2)[0];
             $decoded = rawurldecode($fragment);
-            if (strtolower($fragment) === 'top' || isset($c->ids[$fragment]) || isset($c->ids[$decoded])) {
+            if (strtolower($fragment) === 'top' || isset($treeIds[$fragment]) || isset($treeIds[$decoded])) {
                 continue;
             }
             // C2-H-022: footnote, note mark and raw HTML ids are targets too; only a miss pays for the render.
-            $ids ??= self::renderedIds($c);
+            $ids ??= self::renderedIds($c, $treeIds);
             if (!isset($ids[$fragment]) && !isset($ids[$decoded])) {
                 $candidates = Support::caseOnly($fragment, array_keys($ids));
                 foreach (Support::caseOnly($decoded, array_keys($ids)) as $candidate) {
@@ -1537,15 +1539,16 @@ final class NodeRulesB
      * Every id, and every name of an `a` element, of the rendered HTML, in document order.
      *
      * @param \MarkupCarve\Carve\Lint\Context $c
+     * @param array<string, true> $treeIds
      *
      * @return array<string, true>
      */
-    private static function renderedIds(Context $c): array
+    private static function renderedIds(Context $c, array $treeIds): array
     {
         try {
             $html = Carve::render($c->source, array_intersect_key($c->options, ['includes' => true, 'headingIds' => true]));
         } catch (Throwable) {
-            return $c->ids;
+            return $treeIds;
         }
         preg_match_all('/<[a-zA-Z][^>]*?\sid="([^"]*)"|<a\b[^>]*?\sname="([^"]*)"/', $html, $matches, PREG_SET_ORDER);
         $ids = [];
@@ -1554,7 +1557,7 @@ final class NodeRulesB
             $ids[html_entity_decode($id, ENT_QUOTES | ENT_HTML5, 'UTF-8')] = true;
         }
 
-        return $ids + $c->ids;
+        return $ids + $treeIds;
     }
 
     private static function finishReferences(Context $c): void

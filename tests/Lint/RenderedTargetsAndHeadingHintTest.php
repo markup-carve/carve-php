@@ -26,4 +26,11 @@ final class RenderedTargetsAndHeadingHintTest extends TestCase
         self::assertCount(1, $messages);
         self::assertStringContainsString('; the label Big Title differs only in case,', $messages[0]);
     }
+
+    public function testMetadataKeyIsNoFragmentTarget(): void
+    {
+        $codes = array_map(static fn ($d): string => $d->code, Carve::lint("a\n\n{#m}\n---yaml\nk: v\n---\n\n[x](#m)\n"));
+
+        self::assertSame(['broken-fragment-link'], $codes);
+    }
 }
