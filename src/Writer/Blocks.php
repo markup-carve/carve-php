@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\Standard;
@@ -642,8 +643,57 @@ final class Blocks
      */
     private function paragraph(array $node, string $path, string $prefix): void
     {
-        $this->textLeaf($node, $path, $prefix, '', '');
+        $text = $this->textLeaf($node, $path, $prefix, '', '');
+        $role = is_string($node['role'] ?? null) ? $node['role'] : null;
+        if ($text !== null && self::readRole($text, $node) !== $role) {
+            $this->w->lose($path, 'paragraph', 'role', $role !== null);
+        }
         $this->caption($node['caption'] ?? null, $path . '/caption', $prefix);
+    }
+
+    /**
+     * C2-B-157, C2-B-158, C2-B-198: the role a paragraph written as `$text` reads back with. The reader gives it to a
+     * paragraph of one line that is a block image or display math, and keeps it when that is its one child.
+     *
+     * @param string $text
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function readRole(string $text, array $node): ?string
+    {
+        $line = ltrim(rtrim($text, "\n"), " \t");
+        $n = strlen($line);
+        if ($n === 0 || str_contains($line, "\n")) {
+            return null;
+        }
+        $role = match (true) {
+            LineShapes::isBlockImage($line, 0, $n) => 'image',
+            LineShapes::isDisplayMath($line, 0, $n) => 'math',
+            default => null,
+        };
+        // A break, or text of only spaces and tabs, is no child of a one-line paragraph on read-back.
+        $children = array_values(array_filter(
+            is_array($node['children'] ?? null) ? $node['children'] : [],
+            static fn (mixed $child): bool => !is_array($child) || !self::vanishes($child),
+        ));
+        $only = $children[0] ?? null;
+
+        return count($children) === 1 && is_array($only) && ($only['type'] ?? '') === $role ? $role : null;
+    }
+
+    /**
+     * @param array<mixed> $child
+     *
+     * @return bool
+     */
+    private static function vanishes(array $child): bool
+    {
+        $type = $child['type'] ?? '';
+        $value = $child['value'] ?? null;
+
+        return $type === 'soft_break' || $type === 'hard_break'
+            || ($type === 'text' && is_string($value) && trim($value, " \t") === '');
     }
 
     /**
@@ -653,15 +703,15 @@ final class Blocks
      * @param string $mark
      * @param string $indent
      *
-     * @return void
+     * @return string|null The written content, null when the leaf is lost.
      */
-    private function textLeaf(array $node, string $path, string $prefix, string $mark, string $indent): void
+    private function textLeaf(array $node, string $path, string $prefix, string $mark, string $indent): ?string
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
         if ($children === []) {
             $this->w->lose($path, Inline::str($node, 'type'), null);
 
-            return;
+            return null;
         }
         $this->attributeLine($node, $path, $prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
@@ -670,7 +720,10 @@ final class Blocks
         if ($mark === '') {
             $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
         }
-        $this->w->emitLines($prefix, $indent, self::endContent($text, $children, $c));
+        $text = self::endContent($text, $children, $c);
+        $this->w->emitLines($prefix, $indent, $text);
+
+        return $text;
     }
 
     /**

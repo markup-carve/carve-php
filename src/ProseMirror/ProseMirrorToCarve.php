@@ -170,7 +170,26 @@ final class ProseMirrorToCarve
      */
     public function convert(array|string $doc, array $options = []): string
     {
-        return Carve::write($this->toTree($doc), null, $options);
+        return Carve::write(self::withRoles($this->toTree($doc)), null, $options);
+    }
+
+    /**
+     * The tree with the role on every paragraph that its content gives on read-back (C2-B-157, C2-B-158). The saved
+     * tree leaves `role` as the editor kit does; the source must not lose it.
+     *
+     * @param array<mixed> $node
+     *
+     * @return array<mixed>
+     */
+    private static function withRoles(array $node): array
+    {
+        foreach ($node as $key => $value) {
+            if (is_array($value)) {
+                $node[$key] = self::withRoles($value);
+            }
+        }
+
+        return ($node['type'] ?? null) === 'paragraph' ? self::withRole($node) : $node;
     }
 
     /**
@@ -606,6 +625,35 @@ final class ProseMirrorToCarve
             }
         }
         $node['children'] = $this->inlines(self::content($pm), $pointer);
+
+        return $node;
+    }
+
+    /**
+     * A paragraph that holds one image or one display math, and no other node but blank text, reads as an image or
+     * math paragraph. The editor edits the content, so the role follows it.
+     *
+     * @param array<mixed> $node
+     *
+     * @return array<mixed>
+     */
+    private static function withRole(array $node): array
+    {
+        unset($node['role']);
+        $kept = [];
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            $type = is_array($child) ? ($child['type'] ?? '') : '';
+            $value = is_array($child) ? ($child['value'] ?? null) : null;
+            $blank = $type === 'text' && is_string($value) && trim($value, " \t") === '';
+            if (!$blank) {
+                $kept[] = $child;
+            }
+        }
+        $only = count($kept) === 1 && is_array($kept[0]) ? $kept[0] : [];
+        $type = $only['type'] ?? null;
+        if ($type === 'image' || ($type === 'math' && ($only['display'] ?? false) === true)) {
+            $node = ['type' => 'paragraph', 'role' => $type] + $node;
+        }
 
         return $node;
     }
