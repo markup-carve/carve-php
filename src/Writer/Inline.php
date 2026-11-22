@@ -93,7 +93,19 @@ final class Inline
      */
     private int $textPrefix = 0;
 
+    /**
+     * @var string
+     */
+    private const ASCII_PUNCT = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+
     private int $leafDepth = 0;
+
+    /**
+     * C2-W-088: the characters of the leaf's text that the last write left bare.
+     *
+     * @var array<string, true>
+     */
+    private array $bareLeads = [];
 
     private string $textValue = '';
 
@@ -192,11 +204,13 @@ final class Inline
     {
         $first = clone $c;
         $kinds = [];
+        $this->bareLeads = [];
         $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
         $reported = $out;
         $afterReported = $kinds === [] ? null : clone $c;
         $applied = [];
-        while (array_diff_key($kinds, $applied) !== []) {
+        while (array_diff_key($kinds, $applied) !== [] && $this->leftBare($kinds)) {
+            $this->bareLeads = [];
             $applied += $kinds;
             $again = clone $first;
             $again->kinds = $applied;
@@ -258,10 +272,27 @@ final class Inline
             }
             $c->writerState = $start->writerState;
         }
-        $kinds = self::writtenKinds($c->runLog, $out);
+        $kinds = $this->writtenKinds($c->runLog, $out);
         $c->runLog = [];
 
         return $out;
+    }
+
+    /**
+     * Whether a character of a kind stands bare in the leaf's text, so a round has an opener to escape.
+     *
+     * @param array<string, true> $kinds
+     */
+    private function leftBare(array $kinds): bool
+    {
+        foreach ($kinds as $kind => $_) {
+            $lead = str_starts_with($kind, 'line') ? $kind[4] : $kind[0];
+            if (isset($this->bareLeads[$lead])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -320,16 +351,23 @@ final class Inline
     /**
      * C2-W-088: the kinds of the repair escapes in the last write of each text node.
      *
-     * @param array<array{path: string, kinds?: array<int, string>}> $log
+     * @param array<array{path: string, value: string, escaped: array<int, bool>, kinds?: array<int, string>}> $log
      * @param string $out The content as written; a backslash a later step took out gives no kind.
      *
      * @return array<string, true>
      */
-    private static function writtenKinds(array $log, string $out): array
+    private function writtenKinds(array $log, string $out): array
     {
         $last = [];
         foreach ($log as $entry) {
             $last[$entry['path']] = $entry['kinds'] ?? [];
+            $value = $entry['value'];
+            $length = strlen($value);
+            for ($at = strcspn($value, self::ASCII_PUNCT); $at < $length; $at += 1 + strcspn($value, self::ASCII_PUNCT, $at + 1)) {
+                if (!($entry['escaped'][$at] ?? false)) {
+                    $this->bareLeads[$value[$at]] = true;
+                }
+            }
         }
         $kinds = [];
         foreach ($last as $written) {
