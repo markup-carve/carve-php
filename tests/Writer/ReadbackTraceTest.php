@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Writer;
+
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Writer\ReadbackRound;
+use MarkupCarve\Carve\Writer\Writer;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+final class ReadbackTraceTest extends TestCase
+{
+    #[DataProvider('cases')]
+    public function testOneReadbackReportsAllUnexpectedOpeners(string $input, int $openers, int $remainingSpans): void
+    {
+        $parsed = Carve::parseWithLayout($input);
+        $tree = TreeEncoder::decodedForWriter($parsed->tree);
+        $candidate = Writer::bareCandidate($tree, $parsed->layout);
+        $unmarked = Writer::bareCandidate($tree, $parsed->layout, [], [], false);
+        self::assertSame($unmarked['source'], $candidate['source']);
+
+        $first = ReadbackRound::inspect($candidate, $tree);
+        self::assertSame($openers, array_sum(array_map('count', $first['openers'])));
+        self::assertFalse($first['equal']);
+
+        $repaired = Writer::bareCandidate($tree, $parsed->layout, [], $first['openers']);
+        $second = ReadbackRound::inspect($repaired, $tree);
+        self::assertSame([], $second['openers']);
+        self::assertCount($remainingSpans, $second['moved']);
+        self::assertFalse($second['equal']);
+    }
+
+    public static function cases(): iterable
+    {
+        $cases = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
+            true,
+            4096,
+            JSON_THROW_ON_ERROR,
+        )['cases'];
+        foreach ($cases as $case) {
+            if (($case['id'] ?? '') === 'CC-1566') {
+                yield 'CC-1566' => [$case['input'], 158, 2];
+            } elseif (($case['id'] ?? '') === 'CC-1568') {
+                yield 'CC-1568' => [$case['input'], 9, 1];
+            }
+        }
+    }
+}
