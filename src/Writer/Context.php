@@ -222,7 +222,7 @@ final class Context
     /**
      * C2-W-146: each text node and soft break of the content as written, in order, for the pair test of a run.
      *
-     * @var array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string}>
+     * @var array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string, kinds?: array<int, string>}>
      */
     public array $runLog = [];
 
@@ -235,4 +235,23 @@ final class Context
      * @var array<string, true> The keys of the document's link definitions (C2-W-094).
      */
     public array $labels = [];
+
+    /**
+     * C2-W-088: the opener kinds whose every potential opener in the leaf takes a backslash.
+     *
+     * @var array<string, true>
+     */
+    public array $kinds = [];
+
+    /**
+     * Whether the node written before the current text is text too, so a run of its characters goes on.
+     */
+    public bool $afterText = false;
+
+    /**
+     * C2-W-088: the kind of each repair escape of the text being written, by offset.
+     *
+     * @var array<int, string>
+     */
+    public array $escapeKinds = [];
 }

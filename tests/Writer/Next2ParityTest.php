@@ -29,7 +29,7 @@ final class Next2ParityTest extends TestCase
             ],
             'mark inside emphasis cannot close outside' => [
                 [$t('a {#'), ['type' => 'emphasis', 'children' => [$t('#x')]], $t('b')],
-                "a {#{/\\#x/}b\n",
+                "a {\\#{/\\#x/}b\n",
             ],
             'balanced brackets in citation' => [
                 [['type' => 'inline_extension', 'name' => 'cite', 'children' => [$t('a [b] c')]]],
