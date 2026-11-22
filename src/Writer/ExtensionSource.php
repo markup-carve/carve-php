@@ -28,16 +28,17 @@ final class ExtensionSource
         $source = is_array($node['source'] ?? null) ? $node['source'] : [];
         $form = Inline::str($source, 'form');
         $state?->chargeRepair($path, 'extension-core', $text);
-        $core = self::parse($text, []);
+        $keys = $state?->labels ?? [];
+        $core = self::parse($text, [], $keys);
         $claimed = $form === 'inline' ? self::onlyInline($core) : self::only($core);
-        if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'))) {
+        if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'), $keys)) {
             return false;
         }
         if ($extensions === []) {
             return true;
         }
         $state?->chargeRepair($path, 'extension-registered', $text);
-        $extended = self::parse($text, $extensions);
+        $extended = self::parse($text, $extensions, $keys);
         $back = $form === 'inline' ? self::onlyInline($extended) : self::only($extended);
 
         return $back !== null && TreeEquality::equal(self::bare($back), self::bare($node));
@@ -48,16 +49,17 @@ final class ExtensionSource
      * @param string $form
      * @param string $name
      * @param string $body
+     * @param array<string, true> $keys
      *
      * @return bool
      */
-    private static function isClaimed(array $node, string $form, string $name, string $body): bool
+    private static function isClaimed(array $node, string $form, string $name, string $body, array $keys): bool
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
 
         return match ($form) {
             'fence' => ($node['type'] ?? '') === 'code_block' && ($node['syntax'] ?? '') === $name && ($node['value'] ?? '') === $body,
-            'div' => self::divName($node) === $name && Writer::writeBlocks($children) === $body,
+            'div' => self::divName($node) === $name && Writer::writeBlocks($children, ['linkKeys' => $keys]) === $body,
             'inline' => ($node['type'] ?? '') === 'inline_extension' && ($node['name'] ?? '') === $name
                 && self::inlineBody($name, $children) === $body,
             default => false,
@@ -99,12 +101,18 @@ final class ExtensionSource
     /**
      * @param string $text
      * @param array<mixed> $extensions
+     * @param array<string, true> $keys
      *
      * @return array<mixed>
      */
-    private static function parse(string $text, array $extensions): array
+    private static function parse(string $text, array $extensions, array $keys): array
     {
         $options = $extensions === [] ? [] : ['extensions' => $extensions];
+        // Definition values are immaterial here. The inline pass needs their keys
+        // while reading the source form, even when the definitions live elsewhere.
+        foreach (array_keys($keys) as $key) {
+            $text .= "\n[" . $key . "]: /\n";
+        }
         $tree = json_decode(Carve::toJson($text, $options), true, 100000);
 
         return is_array($tree) ? $tree : [];
@@ -119,7 +127,12 @@ final class ExtensionSource
     {
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
 
-        return count($children) === 1 && is_array($children[0]) ? $children[0] : null;
+        $content = array_values(array_filter(
+            $children,
+            static fn ($node): bool => is_array($node) && ($node['type'] ?? '') !== 'link_reference_definition',
+        ));
+
+        return count($content) === 1 && is_array($content[0]) ? $content[0] : null;
     }
 
     /**

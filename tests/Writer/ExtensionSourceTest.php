@@ -154,6 +154,19 @@ final class ExtensionSourceTest extends TestCase
         $this->assertSame("= A\n\n- b\n", Writer::writeBlocks(is_array($blocks) ? $blocks : []));
     }
 
+    public function testTabsSourceUsesDocumentLinkKeys(): void
+    {
+        foreach (['see [r0].', '\\[r0] lit'] as $body) {
+            $source = "[r0]: http://x/0\n\n:::: tabs\n::: tab \"T0\"\n$body\n:::\n::::\n";
+            $result = Writer::formatWithDiagnostics($source, ['extensions' => ['carve.tabs']]);
+            $this->assertSame($source, $result->source);
+            $this->assertSame([], $result->codes());
+            $again = Writer::formatWithDiagnostics($result->source, ['extensions' => ['carve.tabs']]);
+            $this->assertSame($source, $again->source);
+            $this->assertSame([], $again->codes());
+        }
+    }
+
     /**
      * @param array<array<string, mixed>> $children
      *
