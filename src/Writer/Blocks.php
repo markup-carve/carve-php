@@ -645,11 +645,40 @@ final class Blocks
     private function paragraph(array $node, string $path, string $prefix): void
     {
         $text = $this->textLeaf($node, $path, $prefix, '', '');
+        if ($text !== null) {
+            $this->loseMetadataLead($node, $path, $text);
+        }
         $role = is_string($node['role'] ?? null) ? $node['role'] : null;
         if ($text !== null && self::readRole($text, $node) !== $role) {
             $this->w->lose($path, 'paragraph', 'role', $role !== null);
         }
         $this->caption($node['caption'] ?? null, $path . '/caption', $prefix);
+    }
+
+    /**
+     * C2-B-232, C2-W-117: a top-level paragraph whose first line is a typed opener reads back as metadata. Text takes
+     * a backslash; an em dash node before a format name cannot, so it is lost.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $text
+     *
+     * @return void
+     */
+    private function loseMetadataLead(array $node, string $path, string $text): void
+    {
+        $children = $node['children'] ?? null;
+        $first = is_array($children) ? ($children[0] ?? null) : null;
+        if (
+            !is_array($first) || ($first['type'] ?? null) !== 'smart_punctuation' || ($first['source'] ?? null) !== '---'
+            || preg_match('#^/children/\d+$#', $path) !== 1
+        ) {
+            return;
+        }
+        $end = strcspn($text, "\n");
+        if (LineShapes::typedFrontmatter($text, 0, $end) !== null) {
+            $this->w->lose($path . '/children/0', 'smart_punctuation', null);
+        }
     }
 
     /**

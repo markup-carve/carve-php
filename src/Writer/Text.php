@@ -136,6 +136,7 @@ final class Text
     public static function escape(string $value, Context $c, int $next): string
     {
         $n = strlen($value);
+        $c->escapeKinds = [];
         if ($n === 0) {
             return '';
         }
@@ -165,16 +166,95 @@ final class Text
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
-            $escape = ($i === $c->escapeFollowingPipeAt && $ch === '|') || ($i === 0 && self::atomRunGoesOn($value, $c, $next))
-                || $i === $marks || isset($c->pairEscapes[$i]) || (str_contains(self::PUNCT, $ch)
+            $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]);
+            $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
+                || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
-                && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next));
+                && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next)));
+            $escape = $own || $repair;
+            if ($repair && !str_contains(self::ALWAYS, $ch)) {
+                $c->escapeKinds[$i] = self::kindOf($value, $i, $i === $marks, $after);
+            } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
+                $escape = self::potential($value, $i, $prev, $after, $c, $marks < 0);
+            }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
             $prev = $byte;
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-088: the kind of an escaped opener: its character, a braced opener with its mark, the second hyphen of a
+     * run, or the line kind of a block opener.
+     */
+    private static function kindOf(string $value, int $i, bool $line, int $after): string
+    {
+        $ch = $value[$i];
+        if ($line) {
+            // The second hyphen of a hyphen run and the delimiter of an ordered marker stand for the line.
+            return 'line' . ($ch === '-' || ctype_punct($value[0]) ? $value[0] : $ch);
+        }
+        if ($ch === '{' && $after > 0 && $after < 0x80 && self::isPunct(chr($after))) {
+            return '{' . chr($after);
+        }
+
+        return $ch === '-' ? '--' : $ch;
+    }
+
+    /**
+     * C2-W-088: a place where an opener of a kind of the leaf stands unescaped.
+     */
+    private static function potential(string $value, int $i, int $prev, int $after, Context $c, bool $bareLine): bool
+    {
+        $ch = $value[$i];
+        if ($bareLine && $c->lineStart && self::lineOpenerAt($value, $c) === $i) {
+            return true;
+        }
+
+        return match (true) {
+            $ch === '{' => ($after > 0 && $after < 0x80 && isset($c->kinds['{' . chr($after)]))
+                || (isset($c->kinds['{']) && $prev !== 0x7B),
+            $ch === '-' => isset($c->kinds['--']) && self::secondHyphen($value, $i, $prev, $c),
+            $ch === '/' || $ch === '*' => isset($c->kinds[$ch]) && $prev !== ord($ch) && ($value[$i + 1] ?? '') !== $ch
+                && !Chars::isWord($prev) && !Chars::isSpace($after),
+            default => isset($c->kinds[$ch]) && ($prev !== ord($ch) || ($i === 0 && !$c->afterText)),
+        };
+    }
+
+    /**
+     * C2-W-088: the second hyphen of a run of unescaped hyphens.
+     */
+    private static function secondHyphen(string $value, int $i, int $prev, Context $c): bool
+    {
+        if ($i === 0) {
+            return $prev === 0x2D && $c->hyphensBefore === 1;
+        }
+        if ($value[$i - 1] !== '-' || ($c->escapedAt[$i - 1] ?? false)) {
+            return false;
+        }
+        if ($i === 1) {
+            return $c->last !== 0x2D || $c->lineStart;
+        }
+
+        return $value[$i - 2] !== '-' || ($c->escapedAt[$i - 2] ?? false);
+    }
+
+    /**
+     * C2-W-088, C2-W-090: where a line of the leaf with a reported line kind takes its escape: the first character,
+     * the second hyphen of a hyphen run, or the delimiter of an ordered marker; -1 for none.
+     */
+    private static function lineOpenerAt(string $value, Context $c): int
+    {
+        $first = $value[0];
+        if (isset($c->kinds['line' . $first])) {
+            return $first === '-' && ($value[1] ?? '') === '-' ? 1 : 0;
+        }
+        $at = strspn($value, '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
+        $delimiter = $value[$at] ?? '';
+
+        return $at > 0 && $at <= 9 && ($delimiter === '.' || $delimiter === ')') && isset($c->kinds['line' . $delimiter]) ? $at : -1;
     }
 
     /**
@@ -1303,6 +1383,18 @@ final class Text
         return self::nameFollows($value . $tail, $i, $after);
     }
 
+    /**
+     * C2-I-092: a letter, number or mark outside ASCII behind the run of a name makes its sigil start no form.
+     *
+     * @param int $cp
+     *
+     * @return bool
+     */
+    public static function endsNoName(int $cp): bool
+    {
+        return $cp >= 0x80 && (Chars::isWord($cp) || Chars::inRanges($cp, Tables::UNICODE_MARK_RANGES));
+    }
+
     private static function isLetterOrNumber(int $cp): bool
     {
         return $cp >= 0 && Chars::isWord($cp);
@@ -1361,7 +1453,11 @@ final class Text
             return false;
         }
         $len = strspn($value, self::NAME, $i + 1);
-        $runsOn = $i + 1 + $len === strlen($value) && $next >= 0 && $next < 0x80 && str_contains(self::NAME, chr($next));
+        $end = $i + 1 + $len;
+        if ($len > 0 && self::endsNoName($end < strlen($value) ? Chars::at($value, $end) : $next)) {
+            return false;
+        }
+        $runsOn = $end === strlen($value) && $next >= 0 && $next < 0x80 && str_contains(self::NAME, chr($next));
         if ($len === 0) {
             return $runsOn;
         }

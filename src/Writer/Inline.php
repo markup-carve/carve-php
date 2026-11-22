@@ -7,6 +7,9 @@ namespace MarkupCarve\Carve\Writer;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use MarkupCarve\Carve\Inline\InlineContext;
+use MarkupCarve\Carve\Inline\InlineRunner;
+use MarkupCarve\Carve\Inline\Scanner;
 use MarkupCarve\Carve\Node;
 
 /**
@@ -90,6 +93,20 @@ final class Inline
      */
     private int $textPrefix = 0;
 
+    /**
+     * @var string
+     */
+    private const ASCII_PUNCT = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+
+    private int $leafDepth = 0;
+
+    /**
+     * C2-W-088: the characters of the leaf's text that the last write left bare.
+     *
+     * @var array<string, true>
+     */
+    private array $bareLeads = [];
+
     private string $textValue = '';
 
     public function __construct(private State $w)
@@ -153,9 +170,84 @@ final class Inline
         if ($c->flat !== null) {
             return $this->contentOnce($nodes, $path, $c, $next);
         }
+        // C2-W-088: a leaf whose repair escapes report kinds is written again with every potential opener of those
+        // kinds escaped, until the kinds settle; the rounds are bounded by the kinds.
+        // The kinds belong to the leaf block: content nested in it, as link text, reports them to the leaf.
+        $outer = $c->runLog;
+        $c->runLog = [];
+        if ($this->leafDepth > 0) {
+            $kinds = [];
+            $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
+            $outer[] = ['path' => $path . '#', 'out' => '', 'prefix' => 0, 'escaped' => [], 'value' => '', 'kinds' => array_keys($kinds)];
+            $c->runLog = $outer;
+
+            return $out;
+        }
+        $this->leafDepth++;
+        try {
+            return $this->leafContent($nodes, $path, $c, $next);
+        } finally {
+            $this->leafDepth--;
+            $c->runLog = $outer;
+        }
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return string
+     */
+    private function leafContent(array $nodes, string $path, Context $c, int $next): string
+    {
+        $first = clone $c;
+        $kinds = [];
+        $this->bareLeads = [];
+        $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
+        $reported = $out;
+        $afterReported = $kinds === [] ? null : clone $c;
+        $applied = [];
+        while (array_diff_key($kinds, $applied) !== [] && $this->leftBare($kinds)) {
+            $this->bareLeads = [];
+            $applied += $kinds;
+            $again = clone $first;
+            $again->kinds = $applied;
+            // The first write charged the reparse of its first line; the same line again is no new repair state.
+            $again->writerState = null;
+            $out = $this->contentPairs($nodes, $path, $again, $next, clone $again, $kinds);
+            foreach (get_object_vars($again) as $name => $field) {
+                $c->{$name} = $field;
+            }
+            $c->writerState = $first->writerState;
+        }
+        // C2-W-088: a leaf whose kind rounds would read back as other inline content keeps the reported escapes only.
+        if ($afterReported !== null && $out !== $reported && !$this->sameInlines($reported, $out, $c)) {
+            foreach (get_object_vars($afterReported) as $name => $field) {
+                $c->{$name} = $field;
+            }
+            $out = $reported;
+        }
+        $c->kinds = [];
+
+        return $out;
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     * @param \MarkupCarve\Carve\Writer\Context $start
+     * @param array<string, true> $kinds Set to the kinds of the repair escapes of the final write.
+     *
+     * @return string
+     */
+    private function contentPairs(array $nodes, string $path, Context $c, int $next, Context $start, array &$kinds): string
+    {
         // C2-W-146: a pair across the text nodes of a run is tested on the whole content, which is written again
         // with the backslashes it asks for.
-        $start = clone $c;
         $out = $this->contentOnce($nodes, $path, $c, $next);
         $forced = [];
         for ($round = 0; $round < 64; $round++) {
@@ -180,9 +272,114 @@ final class Inline
             }
             $c->writerState = $start->writerState;
         }
+        $kinds = $this->writtenKinds($c->runLog, $out);
         $c->runLog = [];
 
         return $out;
+    }
+
+    /**
+     * Whether a character of a kind stands bare in the leaf's text, so a round has an opener to escape.
+     *
+     * @param array<string, true> $kinds
+     */
+    private function leftBare(array $kinds): bool
+    {
+        foreach ($kinds as $kind => $_) {
+            $lead = str_starts_with($kind, 'line') ? $kind[4] : $kind[0];
+            if (isset($this->bareLeads[$lead])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<mixed>|null $node
+     */
+    private static function isText(?array $node): bool
+    {
+        return $node !== null && ($node['type'] ?? null) === 'text';
+    }
+
+    /**
+     * Whether two spellings of one leaf's content parse to the same inline nodes.
+     */
+    private function sameInlines(string $a, string $b, Context $c): bool
+    {
+        $context = new InlineContext();
+        $context->linkKeys = $c->labels;
+        $mode = $c->inCell ? Scanner::CELL : 0;
+
+        return self::shape(InlineRunner::parse($a, self::lineSpans($a), $context, 0, $mode))
+        === self::shape(InlineRunner::parse($b, self::lineSpans($b), $context, 0, $mode));
+    }
+
+    /**
+     * @return array<int>
+     */
+    private static function lineSpans(string $text): array
+    {
+        $spans = [];
+        $at = 0;
+        foreach (explode("\n", $text) as $line) {
+            $spans[] = $at;
+            $spans[] = $at + strlen($line);
+            $at += strlen($line) + 1;
+        }
+
+        return $spans;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Node> $nodes
+     */
+    private static function shape(array $nodes): string
+    {
+        $out = '';
+        foreach ($nodes as $node) {
+            $fields = $node->f;
+            ksort($fields);
+            $out .= '(' . $node->type . (string)json_encode($fields, JSON_PARTIAL_OUTPUT_ON_ERROR)
+                . self::shape($node->children ?? []) . ')';
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-W-088: the kinds of the repair escapes in the last write of each text node.
+     *
+     * @param array<array{path: string, value: string, escaped: array<int, bool>, kinds?: array<int, string>}> $log
+     * @param string $out The content as written; a backslash a later step took out gives no kind.
+     *
+     * @return array<string, true>
+     */
+    private function writtenKinds(array $log, string $out): array
+    {
+        $last = [];
+        foreach ($log as $entry) {
+            $last[$entry['path']] = $entry['kinds'] ?? [];
+            $value = $entry['value'];
+            $length = strlen($value);
+            for ($at = strcspn($value, self::ASCII_PUNCT); $at < $length; $at += 1 + strcspn($value, self::ASCII_PUNCT, $at + 1)) {
+                if (!($entry['escaped'][$at] ?? false)) {
+                    $this->bareLeads[$value[$at]] = true;
+                }
+            }
+        }
+        $kinds = [];
+        foreach ($last as $written) {
+            foreach ($written as $kind) {
+                $escaped = str_starts_with($kind, 'line') ? $kind[4] : ($kind === '--' ? '-' : $kind[0]);
+                if (str_contains($out, '\\' . $escaped)) {
+                    $kinds[$kind] = true;
+                }
+            }
+        }
+
+        return $kinds;
     }
 
     /**
@@ -220,6 +417,7 @@ final class Inline
             self::dotNeighbors($c, $type, $dots, $dotsAhead, $at);
             self::resetFollowingPipe($c, $type);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
+            $c->afterText = self::isText($visibleNode);
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
             $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
@@ -1068,6 +1266,7 @@ final class Inline
                     'prefix' => $this->textPrefix,
                     'escaped' => $c->escapedAt,
                     'value' => $this->textValue,
+                    'kinds' => $c->escapeKinds,
                 ];
             }
             // C2-W-016: a CR at the end of a line is part of the line ending.
@@ -1223,7 +1422,12 @@ final class Inline
      */
     private static function lengthens(string $name, string $value): bool
     {
-        preg_match('/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*/', $name . $value, $m);
+        $whole = $name . $value;
+        $run = strspn($whole, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.');
+        if ($run < strlen($whole) && Text::endsNoName(Chars::at($whole, $run))) {
+            return true;
+        }
+        preg_match('/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*/', $whole, $m);
 
         return strlen(rtrim($m[0] ?? '', '.-')) > strlen($name);
     }
@@ -2054,6 +2258,9 @@ final class Inline
             $this->w->lose($path, $type, null);
         } elseif ($type !== 'symbol' && $next >= 0 && $next < 0x80 && Chars::isWord($next)) {
             $this->w->lose($path, $type, $type === 'tag' ? 'name' : 'target');
+        } elseif ($type !== 'symbol' && Text::endsNoName($next)) {
+            // C2-W-117: no backslash keeps a letter, number or mark outside ASCII from the name.
+            $this->w->lose($path, $type, null);
         }
 
         return $out;

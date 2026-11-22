@@ -1209,6 +1209,14 @@ final class Scanner
             return $this->caption && $t[$i] === '#' && ($i + 1 >= $this->n || strspn($t[$i + 1], $chars) === 0)
                 ? $this->captionMark($i) : -1;
         }
+        // The run is read before a trailing dot or hyphen is trimmed: `#tag-é` and `#tag.é` are text.
+        $run = $i + 1 + strspn($t, $chars . '.', $i + 1);
+        if ($run > $i + 1 && $run < $this->n && ord($t[$run]) >= 0x80) {
+            $cp = Chars::at($t, $run);
+            if (Chars::isWord($cp) || Chars::inRanges($cp, Tables::UNICODE_MARK_RANGES)) {
+                return $run;
+            }
+        }
         $j = $i + 1;
         while (true) {
             $k = strspn($t, $chars, $j);
