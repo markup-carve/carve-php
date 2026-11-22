@@ -167,6 +167,15 @@ final class ExtensionSourceTest extends TestCase
         }
     }
 
+    public function testInlineExtensionBesideDefinitionKeepsItsSource(): void
+    {
+        $source = "[r0]: http://x/0\n\n:wiki[Page]\n";
+        $tree = Carve::parse($source, ['extensions' => ['carve.wiki']]);
+        $result = Carve::writeWithDiagnostics($tree, null, ['extensions' => ['carve.wiki']]);
+        $this->assertSame($source, $result->source);
+        $this->assertSame([], $result->codes());
+    }
+
     /**
      * @param array<array<string, mixed>> $children
      *

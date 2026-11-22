@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Json\TreeEquality;
 
 /**
@@ -27,9 +28,10 @@ final class ExtensionSource
     {
         $source = is_array($node['source'] ?? null) ? $node['source'] : [];
         $form = Inline::str($source, 'form');
-        $state?->chargeRepair($path, 'extension-core', $text);
         $keys = $state === null ? [] : $state->labels;
-        $core = self::parse($text, [], $keys);
+        $probe = self::withDefinitions($text, $keys);
+        $state?->chargeRepair($path, 'extension-core', $probe);
+        $core = self::parse($probe, []);
         $claimed = $form === 'inline' ? self::onlyInline($core) : self::only($core);
         if ($claimed === null || !self::isClaimed($claimed, $form, Inline::str($source, 'name'), Inline::str($source, 'body'), $keys)) {
             return false;
@@ -37,8 +39,8 @@ final class ExtensionSource
         if ($extensions === []) {
             return true;
         }
-        $state?->chargeRepair($path, 'extension-registered', $text);
-        $extended = self::parse($text, $extensions, $keys);
+        $state?->chargeRepair($path, 'extension-registered', $probe);
+        $extended = self::parse($probe, $extensions);
         $back = $form === 'inline' ? self::onlyInline($extended) : self::only($extended);
 
         return $back !== null && TreeEquality::equal(self::bare($back), self::bare($node));
@@ -101,21 +103,46 @@ final class ExtensionSource
     /**
      * @param string $text
      * @param array<mixed> $extensions
-     * @param array<string, true> $keys
      *
      * @return array<mixed>
      */
-    private static function parse(string $text, array $extensions, array $keys): array
+    private static function parse(string $text, array $extensions): array
     {
         $options = $extensions === [] ? [] : ['extensions' => $extensions];
-        // Definition values are immaterial here. The inline pass needs their keys
-        // while reading the source form, even when the definitions live elsewhere.
-        foreach (array_keys($keys) as $key) {
-            $text .= "\n[" . $key . "]: /\n";
-        }
         $tree = json_decode(Carve::toJson($text, $options), true, 100000);
 
         return is_array($tree) ? $tree : [];
+    }
+
+    /**
+     * The probe needs only definitions whose bracket labels occur in this source form.
+     *
+     * @param string $text
+     * @param array<string, true> $keys
+     *
+     * @return string
+     */
+    private static function withDefinitions(string $text, array $keys): string
+    {
+        if ($keys === [] || !str_contains($text, '[')) {
+            return $text;
+        }
+        preg_match_all('/\[([^\]]+)\]/', $text, $matches);
+        $possible = [];
+        foreach ($matches[1] as $label) {
+            $possible[Chars::fold($label)] = true;
+        }
+        // A quoted closing bracket can extend a key past the first closer.
+        $needed = str_contains($text, '\\]') ? $keys : array_intersect_key($keys, $possible);
+        if ($needed === []) {
+            return $text;
+        }
+        $text .= "\n";
+        foreach (array_keys($needed) as $key) {
+            $text .= "\n[" . $key . "]: /\n";
+        }
+
+        return $text;
     }
 
     /**
