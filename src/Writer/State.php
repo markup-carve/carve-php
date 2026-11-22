@@ -235,12 +235,13 @@ final class State
      * @param string $path
      * @param string $type
      * @param string|null $field
+     * @param bool $present Whether the node has the field; a field it lacks is reported at the node.
      *
      * @return void
      */
-    public function lose(string $path, string $type, ?string $field): void
+    public function lose(string $path, string $type, ?string $field, bool $present = true): void
     {
-        $where = $field === null ? $path : $path . '/' . $field;
+        $where = $field === null || !$present ? $path : $path . '/' . $field;
         if (isset($this->lost[$where])) {
             return;
         }
