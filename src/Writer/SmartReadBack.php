@@ -28,15 +28,22 @@ final class SmartReadBack
      * @param array<mixed> $inlines
      * @param string $path The path of the leaf.
      * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param string $host `paragraph`, `caption` for the paragraph of a caption, or `line` for a line of a line block.
      *
      * @return string
      */
-    public static function content(Inline $inline, State $w, array $inlines, string $path, Context $c): string
+    public static function content(Inline $inline, State $w, array $inlines, string $path, Context $c, string $host = 'paragraph'): string
     {
         $outer = $w->takeSmartRun();
         $text = $inline->content($inlines, $path . '/children', $c, -1);
         if ($w->takeSmartRun()) {
-            self::check($inlines, $text . "\n", $path, 'paragraph', $w);
+            // The leaf is read back in a host of its own kind, which keeps a caption number and the indent of a line.
+            $source = match ($host) {
+                'caption' => "![](x)\n^ " . str_replace("\n", "\n  ", $text) . "\n",
+                'line' => "::: |\n" . $text . "\n:::\n",
+                default => $text . "\n",
+            };
+            self::check($inlines, $source, $path, $host, $w);
         }
         $w->smartRun = $outer;
 
@@ -61,7 +68,7 @@ final class SmartReadBack
         if ($parsed === null) {
             return;
         }
-        self::compareList(array_values($children), $parsed->children ?? [], $path . '/children', $path, $type, $w);
+        self::compareList(array_values($children), $parsed->children ?? [], $path . '/children', $path, $parsed->type, $w);
     }
 
     /**
@@ -122,26 +129,40 @@ final class SmartReadBack
     }
 
     /**
-     * The leaf of the read-back document, where it is the only block of the type the writer wrote.
+     * The leaf of the read-back document, where it is the only one in the host the writer read it in.
      *
      * @param \MarkupCarve\Carve\Node $document
+     * @param string $host
+     *
+     * @return \MarkupCarve\Carve\Node|null
+     */
+    private static function leaf(Node $document, string $host): ?Node
+    {
+        $block = self::only($document, 'document');
+        $caption = $block?->f['caption'] ?? null;
+        [$leaf, $type] = match ($host) {
+            'definition_term' => [$block === null ? null : self::only($block, 'definition_list'), $host],
+            'caption' => [$caption instanceof Node ? self::only($caption, 'caption') : null, 'paragraph'],
+            'line' => [$block === null ? null : self::only($block, 'line_block'), $host],
+            default => [$block, $host],
+        };
+
+        return $leaf !== null && $leaf->type === $type ? $leaf : null;
+    }
+
+    /**
+     * The only child of `node`, where it has the type `type`.
+     *
+     * @param \MarkupCarve\Carve\Node $node
      * @param string $type
      *
      * @return \MarkupCarve\Carve\Node|null
      */
-    private static function leaf(Node $document, string $type): ?Node
+    private static function only(Node $node, string $type): ?Node
     {
-        $blocks = $document->children ?? [];
-        $block = $blocks[0] ?? null;
-        if (count($blocks) !== 1 || $block === null) {
-            return null;
-        }
-        if ($type === 'definition_term') {
-            $terms = $block->children ?? [];
-            $block = $block->type === 'definition_list' && count($terms) === 1 ? $terms[0] : null;
-        }
+        $children = $node->children ?? [];
 
-        return $block !== null && $block->type === $type ? $block : null;
+        return $node->type === $type && count($children) === 1 ? $children[0] : null;
     }
 
     /**

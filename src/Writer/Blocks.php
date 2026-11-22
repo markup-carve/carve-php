@@ -944,7 +944,7 @@ final class Blocks
         foreach ($blocks as $at => $block) {
             $inlines = is_array($block) && is_array($block['children'] ?? null) ? $block['children'] : [];
             $c = $this->context($inlines, false);
-            $part = SmartReadBack::content($this->inline, $this->w, $inlines, $path . '/children/' . $at, $c);
+            $part = SmartReadBack::content($this->inline, $this->w, $inlines, $path . '/children/' . $at, $c, 'caption');
             // A text number mark at the caption lead would read back as caption_number.
             if (str_starts_with($part, '#') && is_array($inlines[0] ?? null) && ($inlines[0]['type'] ?? '') === 'text') {
                 $part = '\\' . $part;
@@ -1719,7 +1719,7 @@ final class Blocks
                 }
                 $c = $this->context($inlines, true);
                 $c->inLineBlock = true;
-                $text = SmartReadBack::content($this->inline, $this->w, $inlines, $path . '/children/' . $at, $c);
+                $text = SmartReadBack::content($this->inline, $this->w, $inlines, $path . '/children/' . $at, $c, 'line');
                 if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $text) === 1) {
                     $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
                     $this->w->lose('', 'document', null);
