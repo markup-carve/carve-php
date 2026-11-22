@@ -150,23 +150,6 @@ final class TreeEncoder
     }
 
     /**
-     * Match json_decode(..., true) for object-valued node fields without serializing the tree.
-     *
-     * @return void
-     */
-    private static function decodedValue(mixed &$value): void
-    {
-        if ($value instanceof stdClass) {
-            $value = get_object_vars($value);
-        }
-        if (!is_array($value)) {
-            return;
-        }
-
-        self::decodedArray($value);
-    }
-
-    /**
      * @param array<mixed> $value
      *
      * @return void
@@ -174,7 +157,12 @@ final class TreeEncoder
     private static function decodedArray(array &$value): void
     {
         foreach ($value as &$item) {
-            self::decodedValue($item);
+            if ($item instanceof stdClass) {
+                $item = get_object_vars($item);
+            }
+            if (is_array($item)) {
+                self::decodedArray($item);
+            }
         }
         unset($item);
     }
