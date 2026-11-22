@@ -15,7 +15,6 @@ use League\CommonMark\Extension\Footnote\Node\FootnoteBackref;
 use League\CommonMark\Extension\Footnote\Node\FootnoteContainer;
 use League\CommonMark\Extension\Footnote\Node\FootnoteRef;
 use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
-use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\Extension\TaskList\TaskListExtension;
 use League\CommonMark\MarkdownConverter;
 use MarkupCarve\Carve\Generated\Tables;
@@ -39,21 +38,24 @@ final class MarkdownHtml
     public static function html(string $input, bool $gfm, Sink $sink): string
     {
         $input = self::frontmatter($input, $sink);
+        $maxNesting = Tables::BLOCK_DEPTH + self::UNCOUNTED_LEVELS;
         $environment = new Environment([
             // league/commonmark opens a run of containers on one line in quadratic time (8,000 `> - ` took 5 s). A tree
             // past BLOCK_DEPTH containers is refused anyway (C2-A-171); the margin covers the levels that count none
             // (table section, row and cell, paragraph, footnote container).
-            'max_nesting_level' => Tables::BLOCK_DEPTH + self::UNCOUNTED_LEVELS,
+            'max_nesting_level' => $maxNesting,
             'html_input' => 'allow',
             'allow_unsafe_links' => true,
             ...($gfm ? ['footnote' => ['container_add_hr' => false, 'enable_inline_footnotes' => false]] : []),
         ]);
         $environment->addExtension(new CommonMarkCoreExtension());
+        $budget = new InlineBudgetParser($environment, $maxNesting);
+        $environment->addBlockStartParser($budget, PHP_INT_MAX);
         // GFM without the tag filter: raw HTML stays raw in the tree, and the render decides what reaches the output.
         if ($gfm) {
             $environment->addExtension(new AutolinkExtension());
             $environment->addExtension(new StrikethroughExtension());
-            $environment->addExtension(new TableExtension());
+            $environment->addExtension(new BudgetTableExtension($budget));
             $environment->addExtension(new TaskListExtension());
             $environment->addExtension(new FootnoteExtension());
             $environment->addBlockStartParser(new FootnoteStartParser(), self::PRIORITY);
