@@ -30,6 +30,11 @@ final class State
     public ?string $bareDotLead = null;
 
     /**
+     * C2-W-078: the leaf being written holds a smart punctuation node with a run character beside it.
+     */
+    public bool $smartRun = false;
+
+    /**
      * C2-W-121: the block being written follows a description list among its siblings.
      */
     public bool $afterDescriptions = false;
@@ -283,6 +288,19 @@ final class State
         }
 
         return false;
+    }
+
+    /**
+     * Whether a smart punctuation node with a run character beside it was written since the last call.
+     *
+     * @return bool
+     */
+    public function takeSmartRun(): bool
+    {
+        $taken = $this->smartRun;
+        $this->smartRun = false;
+
+        return $taken;
     }
 
     /**

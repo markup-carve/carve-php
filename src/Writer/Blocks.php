@@ -747,11 +747,16 @@ final class Blocks
         $this->attributeLine($node, $path, $prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $c = $this->context($children, $mark === '', $prefix);
+        $outer = $this->w->takeSmartRun();
         $text = $this->inline->content($children, $path . '/children', $c, -1);
         if ($mark === '') {
             $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
         }
         $text = self::endContent($text, $children, $c);
+        if ($this->w->takeSmartRun()) {
+            SmartReadBack::leafReadBack($this->w, $children, $text, $path, Inline::str($node, 'type'), $mark, $indent);
+        }
+        $this->w->smartRun = $outer;
         $this->w->emitLines($prefix, $indent, $text);
 
         return $text;
@@ -791,17 +796,49 @@ final class Blocks
         if (self::readsAsParagraph($head . $text, $children, true, $nested)) {
             return $text;
         }
+
+        return self::escapedLead($text, $children, $head, $referenceLead, $afterReference, $nested);
+    }
+
+    /**
+     * The earliest escape of a text punctuation that keeps the line a paragraph with the same children.
+     *
+     * @param string $text
+     * @param array<mixed> $children
+     * @param string $head
+     * @param bool $referenceLead
+     * @param int $afterReference
+     * @param array<string> $nested
+     *
+     * @return string
+     */
+    private static function escapedLead(
+        string $text,
+        array $children,
+        string $head,
+        bool $referenceLead,
+        int $afterReference,
+        array $nested,
+    ): string {
+        // C2-W-078: an ordered marker beside a smart punctuation run that reads back as other nodes keeps no escape
+        // with the same children. The first one that keeps the paragraph is written, and the read-back reports the run.
+        $paragraph = null;
+        $marker = ctype_alnum($text[0]);
         for ($i = 0, $n = strlen($text); $i < $n; $i++) {
             if ($i < $afterReference || !Text::isPunct($text[$i]) || ($i > 0 && $text[$i - 1] === '\\')) {
                 continue;
             }
             $candidate = substr($text, 0, $i) . '\\' . substr($text, $i);
-            if (self::readsAsParagraph($head . $candidate, $children, $referenceLead, $nested)) {
+            $isParagraph = false;
+            if (self::readsAsParagraph($head . $candidate, $children, $referenceLead, $nested, $isParagraph)) {
                 return $candidate;
+            }
+            if ($isParagraph && $marker) {
+                $paragraph ??= $candidate;
             }
         }
 
-        return $text;
+        return $paragraph ?? $text;
     }
 
     private static function mayOpenBlock(string $text): bool
@@ -822,12 +859,14 @@ final class Blocks
      * @param array<mixed> $children
      * @param bool $allowUnresolvedReference
      * @param array<string> $containers The containers the line's head opens, which the paragraph stands in.
+     * @param bool $isParagraph Set to whether the line reads as a paragraph, whatever its children.
      */
     private static function readsAsParagraph(
         string $line,
         array $children,
         bool $allowUnresolvedReference = false,
         array $containers = [],
+        bool &$isParagraph = false,
     ): bool {
         $tree = TreeEncoder::decoded(Carve::parse($line . "\n"));
         $rootChildren = is_array($tree['children'] ?? null) ? $tree['children'] : [];
@@ -840,8 +879,9 @@ final class Blocks
             $node = $nested[0] ?? null;
         }
 
-        return is_array($node) && ($node['type'] ?? '') === 'paragraph'
-            && ($allowUnresolvedReference || TreeEquality::equal($node['children'] ?? [], $children));
+        $isParagraph = is_array($node) && ($node['type'] ?? '') === 'paragraph';
+
+        return $isParagraph && ($allowUnresolvedReference || TreeEquality::equal($node['children'] ?? [], $children));
     }
 
     /**
@@ -938,11 +978,16 @@ final class Blocks
         foreach ($blocks as $at => $block) {
             $inlines = is_array($block) && is_array($block['children'] ?? null) ? $block['children'] : [];
             $c = $this->context($inlines, false);
+            $outer = $this->w->takeSmartRun();
             $part = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
             // A text number mark at the caption lead would read back as caption_number.
             if (str_starts_with($part, '#') && is_array($inlines[0] ?? null) && ($inlines[0]['type'] ?? '') === 'text') {
                 $part = '\\' . $part;
             }
+            if ($this->w->takeSmartRun()) {
+                SmartReadBack::leafReadBack($this->w, $inlines, $part, $path . '/children/' . $at, 'caption');
+            }
+            $this->w->smartRun = $outer;
             $parts[] = $part;
         }
         $this->w->lead = ($this->w->lead ?? $prefix) . '^ ';
@@ -1507,7 +1552,12 @@ final class Blocks
         if (is_array($node['title'] ?? null)) {
             $c = $this->context($node['title'], false);
             $c->blockLines = false;
+            $outer = $this->w->takeSmartRun();
             $title = $this->inline->content($node['title'], $path . '/title', $c, 0x22);
+            if ($this->w->takeSmartRun()) {
+                SmartReadBack::leafReadBack($this->w, $node['title'], $title, $path, 'title');
+            }
+            $this->w->smartRun = $outer;
         }
 
         return $this->openerTail($node, $path, $title, $title ?? '');
@@ -1713,12 +1763,18 @@ final class Blocks
                 }
                 $c = $this->context($inlines, true);
                 $c->inLineBlock = true;
+                $outer = $this->w->takeSmartRun();
                 $text = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
                 if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $text) === 1) {
                     $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
                     $this->w->lose('', 'document', null);
                 }
-                $this->w->emit($prefix, self::endContent($text, $inlines, $c));
+                $text = self::endContent($text, $inlines, $c);
+                if ($this->w->takeSmartRun()) {
+                    SmartReadBack::leafReadBack($this->w, $inlines, $text, $path . '/children/' . $at, 'line');
+                }
+                $this->w->smartRun = $outer;
+                $this->w->emit($prefix, $text);
             }
             $this->bareBreaks = false;
         });

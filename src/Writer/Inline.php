@@ -46,6 +46,23 @@ final class Inline
     private const BARRIERS = ['link', 'image', 'span', 'inline_footnote', 'inline_extension', 'citation_group'];
 
     /**
+     * The characters a run of smart punctuation can continue with (data/smart-punctuation.json): `!+-.<=>()`.
+     *
+     * @var array<int, true>
+     */
+    private const SMART_RUN = [
+        0x21 => true,
+        0x28 => true,
+        0x29 => true,
+        0x2B => true,
+        0x2D => true,
+        0x2E => true,
+        0x3C => true,
+        0x3D => true,
+        0x3E => true,
+    ];
+
+    /**
      * The first character of the written form of a node, where it does not depend on its fields.
      *
      * @var array<string, string>
@@ -2292,6 +2309,12 @@ final class Inline
     {
         $source = self::str($node, 'source');
         if ($source !== '"' && $source !== "'") {
+            // C2-W-078: a run character beside the node can lengthen or change its run.
+            $afterRun = isset(self::SMART_RUN[$this->visibleLast]) && is_array($this->before) && self::isText($this->before);
+            if ($afterRun || isset(self::SMART_RUN[$this->visibleNext])) {
+                $this->w->smartRun = true;
+            }
+
             return $source;
         }
         $prev = $this->before;
