@@ -81,6 +81,13 @@ dropped, reference links become inline links, a code fence keeps only its langua
 its glyph. Findings name no byte range, as the HTML they point into is not the caller's input. BBCode import is
 JavaScript only (`@markup-carve/carve/import`).
 
+A Markdown or GFM import refuses with `Import\ImportInputError` (`import-input-invalid` on the command line) when one
+inline block (a paragraph across all its lines, a heading or a table row) holds more than 16,384 inline candidate
+positions, the places an inline parser of `league/commonmark` could start: brackets, `*`, `_`, a backtick, a
+backslash, `$`, `~`, an autolink, an entity, a tag or a line break between two lines. `league/commonmark` keeps 1.3 to
+2.7 KB for each one, so without the limit one long paragraph of punctuation passes a 128 MB `memory_limit`; at the
+limit it stays under about 40 MB. Code blocks do not count, and each block counts on its own.
+
 ## Tree JSON
 
 `encodeTree()` gives the bare tree, `encodeEnvelope()` the envelope for storage, and `decodeTree()` reads either one

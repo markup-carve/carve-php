@@ -758,7 +758,8 @@ final class Carve
      * @param array<string, mixed> $options `from`, `rawHtml`, `strictLosses`.
      *
      * @throws \MarkupCarve\Carve\OptionError
-     * @throws \MarkupCarve\Carve\Import\ImportInputError ! An input the library or the HTML importer refuses, or a missing library.
+     * @throws \MarkupCarve\Carve\Import\ImportInputError ! An input the library or the HTML importer refuses, a missing
+     *   library, or a Markdown inline block past 16,384 inline candidate positions.
      *
      * @return \MarkupCarve\Carve\Import\ImportResult
      */
