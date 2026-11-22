@@ -26,6 +26,11 @@ final class DataModel
         'comment_block' => true,
     ];
 
+    public static function isLineLeaf(string $type): bool
+    {
+        return isset(self::LEAVES[$type]);
+    }
+
     /**
      * @var array<string, true>
      */
@@ -138,7 +143,9 @@ final class DataModel
      * @param \MarkupCarve\Carve\Lint\Context $context
      * @param \Closure(\stdClass): void $onInline
      * @param \Closure(\stdClass): void $onBlock
-     * @param \Closure(string, string, string): bool $acceptBlock
+     * @param \Closure(string, string, string, array<string, mixed>, int, int): bool $acceptBlock
+     * @param \Closure(string, string): bool $mightUseBlock
+     * @param \Closure(string, array<string, mixed>|null, int, int): bool $mightUseInline
      * @param bool $textRuns
      */
     public function __construct(
@@ -146,6 +153,8 @@ final class DataModel
         private Closure $onInline,
         private Closure $onBlock,
         private Closure $acceptBlock,
+        private Closure $mightUseBlock,
+        private Closure $mightUseInline,
         private bool $textRuns,
     ) {
         $this->build();
@@ -314,12 +323,11 @@ final class DataModel
                         $open = $openRuns[$key] ?? null;
                         $pos = Support::pos($item['node']);
                         if ($pos !== null) {
-                            if ($open !== null && $open->next === $item['index']) {
-                                $open->end = $pos['endOffset'];
-                                $open->next = $item['index'] + 1;
-                                $open->text = substr($c->source, $open->start, $open->end - $open->start);
+                            if ($open !== null && $runs[$open]['next'] === $item['index']) {
+                                $runs[$open]['end'] = $pos['endOffset'];
+                                $runs[$open]['next'] = $item['index'] + 1;
                             } else {
-                                $run = (object)[
+                                $runs[] = [
                                     'type' => 'text_run',
                                     'path' => $key,
                                     'parent' => $parentType,
@@ -327,13 +335,11 @@ final class DataModel
                                     'start' => $pos['startOffset'],
                                     'end' => $pos['endOffset'],
                                     'next' => $item['index'] + 1,
-                                    'text' => substr($c->source, $pos['startOffset'], $pos['endOffset'] - $pos['startOffset']),
                                 ];
-                                $runs[] = $run;
-                                $openRuns[$key] = $run;
+                                $openRuns[$key] = array_key_last($runs);
                             }
-                        } elseif ($open !== null && $open->next === $item['index']) {
-                            $open->next = $item['index'] + 1;
+                        } elseif ($open !== null && $runs[$open]['next'] === $item['index']) {
+                            $runs[$open]['next'] = $item['index'] + 1;
                         }
                     } else {
                         unset($openRuns[$key]);
@@ -346,7 +352,10 @@ final class DataModel
             }
             if ($parentHolder !== null && $parentHolder['inline']) {
                 $pos = Support::pos($item['node']);
-                if ($pos !== null && $item['path'] !== '') {
+                if (
+                    $pos !== null && $item['path'] !== ''
+                    && ($this->mightUseInline)($type, $item['node'], $pos['startOffset'], $pos['endOffset'])
+                ) {
                     $inline = [
                         'type' => $type,
                         'path' => $item['path'],
@@ -373,7 +382,10 @@ final class DataModel
             }
         }
         foreach ($runs as $run) {
-            ($this->onInline)($run);
+            if (($this->mightUseInline)('text_run', null, $run['start'], $run['end'])) {
+                $run['text'] = substr($c->source, $run['start'], $run['end'] - $run['start']);
+                ($this->onInline)((object)$run);
+            }
         }
         $pipeTables = [];
         $rows = [];
@@ -507,8 +519,20 @@ final class DataModel
             }
         }
         unset($holders, $held, $record, $sourceLine, $node, $pos, $item);
-        $this->buildNodes();
-        $this->markColonContainers();
+        $needBounds = str_contains($c->source, ':::');
+        if (!$needBounds) {
+            foreach ($this->lines as $line) {
+                if ($line->path === '') {
+                    $needBounds = true;
+
+                    break;
+                }
+            }
+        }
+        $this->buildNodes($needBounds);
+        if ($needBounds) {
+            $this->markColonContainers();
+        }
     }
 
     private static function shape(string $body): string
@@ -652,10 +676,12 @@ final class DataModel
     // Node records retain the shape-specific fields required by the shared data grammar.
     // phpcs:ignore Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
-    private function buildNodes(): void
+    private function buildNodes(bool $needBounds): void
     {
         $c = $this->context;
         foreach ($this->blockWalked as $item) {
+            $lastLine = null;
+            $openerText = null;
             $node = $item['node'];
             if ($item['path'] === '') {
                 continue;
@@ -677,6 +703,24 @@ final class DataModel
             if ($line === null) {
                 continue;
             }
+            $parentType = $c->nodeTypes[$item['parent']] ?? 'document';
+            if (
+                !(($this->mightUseBlock)($type, $parentType))
+                && !in_array($type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)
+            ) {
+                // All blocks still contribute their source spans to line ownership, even when no rule can read a record.
+                if ($needBounds) {
+                    $this->blocks[] = (object)[
+                        'type' => $type,
+                        'path' => $item['path'],
+                        'start' => $start,
+                        'end' => $end,
+                        'opener_start' => $start,
+                    ];
+                }
+
+                continue;
+            }
             $quotes = $this->quoteDepth($item['path']);
             $ownerPath = $item['parent'];
             while (($c->nodeTypes[$ownerPath] ?? '') === 'definition_list' && $ownerPath !== '') {
@@ -690,11 +734,6 @@ final class DataModel
                 $itemPath = '';
             }
             $opener = $node['attrs'] ?? null ? $this->openerStart($start, $quotes) : $start;
-            $endLine = strpos($c->source, "\n", $opener);
-            $feed = $opener > 0 ? strrpos($c->source, "\n", $opener - 1 - strlen($c->source)) : false;
-            $openerLine = $feed === false ? 0 : $feed + 1;
-            $openerText = self::trimEnd(substr($c->source, $opener, ($endLine === false ? strlen($c->source) : $endLine) - $opener));
-            $lastLine = $this->lines[($span === null ? $pos['endLine'] : $c->lineOf(max($start, $end - 1))) - 1] ?? $line;
             $bounds = [
                 'type' => $type,
                 'path' => $item['path'],
@@ -703,16 +742,29 @@ final class DataModel
                 'opener_start' => $opener,
             ];
             if (in_array($type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)) {
+                $endLine = strpos($c->source, "\n", $opener);
+                $openerText = self::trimEnd(substr($c->source, $opener, ($endLine === false ? strlen($c->source) : $endLine) - $opener));
+                $lastLine = $this->lines[($span === null ? $pos['endLine'] : $c->lineOf(max($start, $end - 1))) - 1] ?? $line;
                 $bounds['opener_text'] = $openerText;
                 $bounds['line'] = $line;
                 $bounds['last_line'] = $lastLine;
             }
-            $this->blocks[] = (object)$bounds;
-            $parentType = $c->nodeTypes[$item['parent']] ?? 'document';
+            if ($needBounds) {
+                $this->blocks[] = (object)$bounds;
+            }
             $itemOwnerType = $c->nodeTypes[$itemPath] ?? 'document';
-            if (!(($this->acceptBlock)($type, $parentType, $itemOwnerType))) {
+            if (!(($this->acceptBlock)($type, $parentType, $itemOwnerType, $node, $start, $end))) {
                 continue;
             }
+            if ($lastLine === null) {
+                $lastLine = $this->lines[($span === null ? $pos['endLine'] : $c->lineOf(max($start, $end - 1))) - 1] ?? $line;
+            }
+            if ($openerText === null) {
+                $endLine = strpos($c->source, "\n", $opener);
+                $openerText = self::trimEnd(substr($c->source, $opener, ($endLine === false ? strlen($c->source) : $endLine) - $opener));
+            }
+            $feed = $opener > 0 ? strrpos($c->source, "\n", $opener - 1 - strlen($c->source)) : false;
+            $openerLine = $feed === false ? 0 : $feed + 1;
             $column = $c->layout->columnOf($start, $quotes);
             $markColumn = $c->layout->columnOf($opener, $quotes);
             $prevPath = $item['index'] > 0 && preg_match('~/[0-9]+$~', $item['path'])

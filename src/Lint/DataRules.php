@@ -12,7 +12,9 @@ use stdClass;
 
 /**
  * @phpstan-type Rule array{
- *     id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null, when: mixed, pre: array<mixed>, key: string,
+ *     id: string, over: string, verbatim: array<mixed>, types: array<mixed>|null, when: mixed,
+ *     pre: array<mixed>, early: list<array{0: string, 1: string, 2: mixed}>, key: string,
+ *     let?: mixed, each?: mixed,
  * } & array<string, mixed>
  */
 final class DataRules
@@ -199,6 +201,7 @@ final class DataRules
                 $rule['when'] = $rule['when'] ?? null;
                 $over = (string)$rule['over'];
                 $rule['pre'] = self::prefilter($rule['when'], $over);
+                $rule['early'] = self::earlyTerms($rule['when'], $over);
                 $rule['key'] = $over . ' ' . $rule['id'];
                 $rules[] = $rule;
             }
@@ -254,6 +257,115 @@ final class DataRules
 
         return is_array($literal) ? [] : [[$op, $field, $literal]];
     }
+
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * Unconditional terms that can reject a block before its full data record is built.
+     * Terms under `any` and `not` cannot reject it on their own.
+     *
+     * @return list<array{0: string, 1: string, 2: mixed}>
+     */
+    private static function earlyTerms(mixed $when, string $over): array
+    {
+        if (!is_array($when) || array_is_list($when)) {
+            return [];
+        }
+        if (is_array($when['all'] ?? null)) {
+            $terms = [];
+            foreach ($when['all'] as $part) {
+                array_push($terms, ...self::earlyTerms($part, $over));
+            }
+
+            return $terms;
+        }
+        if (is_string($when['has'] ?? null) && str_starts_with($when['has'], 'node.')) {
+            return [['has', substr($when['has'], 5), null]];
+        }
+        foreach (['eq', 'in', 'starts', 'contains', 'matches'] as $op) {
+            $args = $when[$op] ?? null;
+            if (!is_array($args) || !is_array($args[0] ?? null) || !is_string($args[0]['f'] ?? null)) {
+                continue;
+            }
+            $field = $args[0]['f'];
+            $literal = $args[1] ?? null;
+            if (
+                ($field === 'text' || ($over === 'line' && $field === 'body'))
+                && is_string($literal) && in_array($op, ['eq', 'starts', 'contains', 'matches'], true)
+            ) {
+                return [[$op, $field, $op === 'matches' ? self::pattern($literal, is_string($args[2] ?? null) ? $args[2] : '') : $literal]];
+            }
+            if (
+                str_starts_with($field, 'node.') && in_array($op, ['eq', 'in'], true)
+                && ($op === 'in' ? (is_string($literal) || (is_array($literal) && array_is_list($literal))) : !is_array($literal))
+            ) {
+                return [[$op, substr($field, 5), $op === 'in' ? self::set($literal) : $literal]];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param list<array{0: string, 1: string, 2: mixed}> $terms
+     * @param array<mixed>|null $node
+     * @param string|null $lineBody
+     * @param string|null $lineText
+     * @param int $end
+     * @param int $start
+     * @param string $source
+     */
+    private static function earlyPasses(
+        array $terms,
+        ?array $node,
+        string $source,
+        int $start,
+        int $end,
+        ?string $lineText = null,
+        ?string $lineBody = null,
+    ): bool {
+        $text = null;
+        foreach ($terms as [$op, $path, $literal]) {
+            if ($path === 'text') {
+                $value = $lineText ?? ($text ??= substr($source, $start, $end - $start));
+            } elseif ($path === 'body') {
+                $value = $lineBody;
+            } else {
+                if ($node === null) {
+                    continue;
+                }
+                $value = $node;
+                foreach (explode('.', $path) as $part) {
+                    if (!is_array($value)) {
+                        $value = null;
+
+                        break;
+                    }
+                    $index = ctype_digit($part) || (str_starts_with($part, '-') && ctype_digit(substr($part, 1)))
+                        ? (int)$part : $part;
+                    if (is_int($index) && $index < 0 && array_is_list($value)) {
+                        $index += count($value);
+                    }
+                    $value = $value[$index] ?? null;
+                }
+            }
+            $pass = match ($op) {
+                'has' => $value !== null,
+                'eq' => $value === $literal,
+                'in' => is_array($literal) && in_array($value, $literal, true),
+                'starts' => is_string($value) && is_string($literal) && str_starts_with($value, $literal),
+                'contains' => is_string($value) && is_string($literal) && str_contains($value, $literal),
+                default => is_string($value) && is_string($literal) && preg_match($literal, $value) !== 0,
+            };
+            if (!$pass) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * @param array<mixed> $terms The terms of `prefilter()`.
@@ -755,6 +867,34 @@ final class DataRules
             $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
             $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves,
         ] = self::$plans[self::activeKey($context)] ??= self::plan($context);
+        if (isset($needInline['*'])) {
+            $wildcardNeeded = false;
+            foreach (array_merge($byKind['line'], $byKind['block'], $byKind['inline']) as $rule) {
+                $blocks = [];
+                $inline = [];
+                self::lookupTypes($rule, $blocks, $inline);
+                if (!isset($inline['*'])) {
+                    continue;
+                }
+                $leafs = $rule['over'] === 'line' ? self::requiredValues($rule['when'], 'leaf') : null;
+                if ($leafs === null) {
+                    $wildcardNeeded = true;
+
+                    break;
+                }
+                foreach ($context->lines as $line) {
+                    $type = $context->nodeTypes[$line->path] ?? null;
+                    if ($type === null || !DataModel::isLineLeaf($type) || isset($leafs[$type])) {
+                        $wildcardNeeded = true;
+
+                        break 2;
+                    }
+                }
+            }
+            if (!$wildcardNeeded) {
+                unset($needInline['*']);
+            }
+        }
         $self = self::$interpreter ??= new self($context);
         $self->context = $context;
         $deferredBlocks = [];
@@ -800,19 +940,76 @@ final class DataRules
             string $type,
             string $parentType,
             string $itemOwnerType,
+            array $node,
+            int $start,
+            int $end,
         ) use (
-            $typedBlocks,
+            $typedRules,
             $genericBlocks,
             $needBlocks,
+            $context,
         ): bool {
-            if (isset($typedBlocks[$type]) || isset($needBlocks[$type]) || isset($needBlocks['*'])) {
+            if (isset($needBlocks[$type]) || isset($needBlocks['*'])) {
                 return true;
+            }
+            foreach ($typedRules['block'][$type] ?? [] as $rule) {
+                if (self::earlyPasses($rule['early'], $node, $context->source, $start, $end)) {
+                    return true;
+                }
             }
             foreach ($genericBlocks as $filter) {
                 if (
                     ($filter['parents'] === null || isset($filter['parents'][$parentType]))
                     && ($filter['itemOwners'] === null || isset($filter['itemOwners'][$itemOwnerType]))
                 ) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+        $mightUseBlock = static function (
+            string $type,
+            string $parentType,
+        ) use (
+            $typedRules,
+            $genericBlocks,
+            $needBlocks,
+        ): bool {
+            if (
+                isset($typedRules['block'][$type]) || isset($needBlocks[$type]) || isset($needBlocks['*'])
+            ) {
+                return true;
+            }
+            foreach ($genericBlocks as $filter) {
+                if ($filter['parents'] === null || isset($filter['parents'][$parentType])) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+        $mightUseInline = static function (
+            string $type,
+            ?array $node,
+            int $start,
+            int $end,
+        ) use (
+            $typedRules,
+            $untypedRules,
+            $needInline,
+            $context,
+        ): bool {
+            if (isset($needInline['*']) || isset($needInline[$type])) {
+                return true;
+            }
+            foreach ($typedRules['inline'][$type] ?? [] as $rule) {
+                if (self::earlyPasses($rule['early'], $node, $context->source, $start, $end)) {
+                    return true;
+                }
+            }
+            foreach ($untypedRules['inline'] as $rule) {
+                if (self::earlyPasses($rule['early'], $node, $context->source, $start, $end)) {
                     return true;
                 }
             }
@@ -840,6 +1037,8 @@ final class DataRules
                 }
             },
             $acceptBlock,
+            $mightUseBlock,
+            $mightUseInline,
             isset($typedRules['inline']['text_run']),
         );
         // The rules that look records up run once the walk has made every record they can find.
@@ -852,16 +1051,24 @@ final class DataRules
             $apply($record, 'block', true);
         }
         $deferredBlocks = $deferredInline = [];
-        foreach ($byKind['line'] as $rule) {
-            $filter = $lineFilters[$rule['id']];
-            foreach ($model->lines as $record) {
-                if (
-                    ($filter['leafs'] !== null && !isset($filter['leafs'][$record->leaf]))
-                    || ($filter['shapes'] !== null && !isset($filter['shapes'][$record->shape]))
-                ) {
-                    continue;
+        $lineCandidates = [];
+        foreach ($model->lines as $record) {
+            $key = $record->leaf . "\0" . $record->shape;
+            if (!isset($lineCandidates[$key])) {
+                $lineCandidates[$key] = [];
+                foreach ($byKind['line'] as $rule) {
+                    $filter = $lineFilters[$rule['id']];
+                    if (
+                        ($filter['leafs'] !== null && !isset($filter['leafs'][$record->leaf]))
+                        || ($filter['shapes'] !== null && !isset($filter['shapes'][$record->shape]))
+                    ) {
+                        continue;
+                    }
+                    $lineCandidates[$key][] = [$rule, $filter['texts']];
                 }
-                foreach ($filter['texts'] as [$field, $operator, $literal]) {
+            }
+            foreach ($lineCandidates[$key] as [$rule, $texts]) {
+                foreach ($texts as [$field, $operator, $literal]) {
                     $value = $record->$field;
                     $matches = match ($operator) {
                         'eq' => $value === $literal,
@@ -890,21 +1097,37 @@ final class DataRules
     }
 
     /**
+     * @phpstan-param Rule $rule
+     *
      * @param array<string, mixed> $rule
      * @param \stdClass $record
      */
     private function apply(array $rule, stdClass $record): void
     {
+        if (
+            $rule['early'] !== []
+            && !self::earlyPasses(
+                $rule['early'],
+                is_array($record->nodeSource ?? null) ? $record->nodeSource : null,
+                $this->context->source,
+                $record->start,
+                $record->end,
+                isset($record->number) ? $record->text : null,
+                isset($record->number) ? $record->body : null,
+            )
+        ) {
+            return;
+        }
         $this->vars = is_array($rule['let'] ?? null) ? $rule['let'] : [];
         $this->letValues = [];
         $this->groups = [];
         $this->base = 0;
-        if (is_array($rule['pre'] ?? null) && $rule['pre'] !== [] && !self::passes($rule['pre'], $record)) {
+        if ($rule['pre'] !== [] && !self::passes($rule['pre'], $record)) {
             return;
         }
         if (
             isset($rule['when'])
-            && !($this->compiledWhen[is_string($rule['key'] ?? null) ? $rule['key'] : '']
+            && !($this->compiledWhen[$rule['key']]
                 ??= $this->compile($rule['when'], $this->vars))($record)
         ) {
             return;
@@ -1310,8 +1533,12 @@ final class DataRules
             return $record->$path ?? null;
         }
         static $parts = [];
-        $value = $record;
-        foreach ($parts[$path] ??= explode('.', $path) as $part) {
+        $segments = $parts[$path] ??= explode('.', $path);
+        // A named field can be read from the source tree. Building the whole projected `node` for one scalar field
+        // copies every field named by every rule for this type, even when the current rule only needs one path.
+        $direct = $segments[0] === 'node' && isset($record->nodeSource);
+        $value = $direct ? $record->nodeSource : $record;
+        foreach ($direct ? array_slice($segments, 1) : $segments as $part) {
             if (is_object($value)) {
                 if (
                     $value instanceof stdClass && ($part === 'ancestors' || $part === 'ancestor_ids')
