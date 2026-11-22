@@ -1743,10 +1743,20 @@ final class DataRules
     private function field(string $path, stdClass $record): mixed
     {
         if (!str_contains($path, '.')) {
+            $this->blockScalar($record, $path);
+            if ($path === 'quote_marks' && property_exists($record, 'quote_marks') && $record->quote_marks === null) {
+                $record->quote_marks = DataModel::quoteMarks($record->text);
+            }
+            if ($path === 'lazy' && property_exists($record, 'lazy') && $record->lazy === null) {
+                $record->lazy = DataModel::lazy($this->context, $record);
+            }
             if ($path === 'node' && isset($record->nodeSource) && $record->node === null) {
                 $record->node = $this->compactNode($record->nodeSource);
             }
             if (($path === 'ancestors' || $path === 'ancestor_ids') && !property_exists($record, $path)) {
+                if (property_exists($record, 'ancestor_path') && !property_exists($record, 'ancestors')) {
+                    $record->ancestors = DataModel::ancestors($this->context, $record->ancestor_path);
+                }
                 $this->populateAncestors($record);
             }
             if ($path === 'text' && property_exists($record, 'text') && $record->text === null) {
@@ -1766,10 +1776,22 @@ final class DataRules
         $value = $direct ? $record->nodeSource : $record;
         foreach ($direct ? array_slice($segments, 1) : $segments as $part) {
             if (is_object($value)) {
+                if ($value instanceof stdClass) {
+                    $this->blockScalar($value, $part);
+                    if ($part === 'quote_marks' && property_exists($value, 'quote_marks') && $value->quote_marks === null) {
+                        $value->quote_marks = DataModel::quoteMarks($value->text);
+                    }
+                    if ($part === 'lazy' && property_exists($value, 'lazy') && $value->lazy === null) {
+                        $value->lazy = DataModel::lazy($this->context, $value);
+                    }
+                }
                 if (
                     $value instanceof stdClass && ($part === 'ancestors' || $part === 'ancestor_ids')
                     && !property_exists($value, $part)
                 ) {
+                    if (property_exists($value, 'ancestor_path') && !property_exists($value, 'ancestors')) {
+                        $value->ancestors = DataModel::ancestors($this->context, $value->ancestor_path);
+                    }
                     $this->populateAncestors($value);
                 }
                 if ($part === 'node' && $value instanceof stdClass && isset($value->nodeSource) && $value->node === null) {
@@ -1798,6 +1820,52 @@ final class DataRules
         }
 
         return $value;
+    }
+
+    private function blockScalar(stdClass $record, string $field): void
+    {
+        if (!isset($record->quote_depth_internal) || !property_exists($record, $field) || $record->$field !== null) {
+            return;
+        }
+        $layout = $this->context->layout;
+        $source = $this->context->source;
+        $quotes = $record->quote_depth_internal;
+        switch ($field) {
+            case 'column':
+                $record->column = $layout->columnOf($record->start, $quotes);
+
+                return;
+            case 'mark_column':
+                $record->mark_column = $layout->columnOf($record->opener_start, $quotes);
+
+                return;
+            case 'opener_column':
+                $record->opener_column = $layout->markerColumn($record->path) ?? $layout->columnOf($record->start, $quotes);
+
+                return;
+            case 'opener_text':
+                $end = strpos($source, "\n", $record->opener_start);
+                $record->opener_text = rtrim(substr(
+                    $source,
+                    $record->opener_start,
+                    ($end === false ? strlen($source) : $end) - $record->opener_start,
+                ), " \t");
+
+                return;
+            case 'after_quote_mark':
+                $opener = $record->opener_start;
+                $feed = $opener > 0 ? strrpos($source, "\n", $opener - 1 - strlen($source)) : false;
+                $lineStart = $feed === false ? 0 : $feed + 1;
+                $record->after_quote_mark = str_ends_with(substr($source, $lineStart, $opener - $lineStart), '> ');
+
+                return;
+            case 'prev_type':
+                $index = $record->index ?? 0;
+                $path = $record->path;
+                $previous = $index > 0 && preg_match('~/[0-9]+$~', $path)
+                    ? preg_replace('~/[0-9]+$~', '/' . ($index - 1), $path) : null;
+                $record->prev_type = $previous === null ? null : ($this->context->nodeTypes[$previous] ?? null);
+        }
     }
 
     private function populateAncestors(stdClass $record): void
@@ -1883,7 +1951,12 @@ final class DataRules
         $op = array_key_first($expr);
         $arg = $expr[$op];
         if ($op === 'f' && is_string($arg)) {
-            if (!str_contains($arg, '.') && !in_array($arg, ['ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref'], true)) {
+            $lazyFields = [
+                'ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref',
+                'column', 'mark_column', 'opener_column', 'opener_text', 'after_quote_mark', 'prev_type',
+                'lazy', 'quote_marks',
+            ];
+            if (!str_contains($arg, '.') && !in_array($arg, $lazyFields, true)) {
                 return static fn (stdClass $record): mixed => $record->$arg ?? null;
             }
             $parts = explode('.', $arg);
@@ -1894,7 +1967,7 @@ final class DataRules
                     ['parent', 'owner', 'item_owner', 'line', 'last_line', 'prev', 'prev2', 'next', 'next2', 'item'],
                     true,
                 )
-                && !in_array($parts[1], ['ancestors', 'ancestor_ids', 'text', 'node', 'layout', 'raw_ref'], true)
+                && !in_array($parts[1], $lazyFields, true)
             ) {
                 [$outer, $inner] = $parts;
 

@@ -472,12 +472,12 @@ final class DataModel
                 'row_path' => null,
                 'attached_here' => isset($c->attachedLines[$i + 1]),
                 'closes_container' => false,
-                'ancestors' => $this->ancestors($linePath),
+                'ancestor_path' => $linePath,
                 'quote_depth' => $this->quoteDepth($path),
-                'quote_marks' => 0,
+                'quote_marks' => null,
                 'quote_prefix' => str_contains(substr($sourceLine->text, 0, $start - $sourceLine->start), '>'),
                 'raw_body' => $rawBody,
-                'lazy' => false,
+                'lazy' => null,
                 'open_colon' => [],
                 'shape' => self::shape($body),
                 'path' => $linePath,
@@ -496,8 +496,6 @@ final class DataModel
             } else {
                 $record->leaf_next = $record->next;
             }
-            $record->quote_marks = $this->quoteMarks($record->text);
-            $record->lazy = $this->lazy($record);
         }
         // A table row's lines name the row, as carve-js marks them (C2-W-138).
         foreach ($rows as [$first, $last, $rowPath]) {
@@ -584,20 +582,20 @@ final class DataModel
     /**
      * @return list<string>
      */
-    private function ancestors(string $path): array
+    public static function ancestors(Context $context, string $path): array
     {
         $types = [];
         while ($path !== '') {
             $path = self::pathParent($path);
-            if (isset($this->context->nodeTypes[$path])) {
-                $types[] = $this->context->nodeTypes[$path];
+            if (isset($context->nodeTypes[$path])) {
+                $types[] = $context->nodeTypes[$path];
             }
         }
 
         return $types;
     }
 
-    private function quoteMarks(string $text): int
+    public static function quoteMarks(string $text): int
     {
         $at = 0;
         $marks = 0;
@@ -611,7 +609,7 @@ final class DataModel
         }
     }
 
-    private function lazy(stdClass $line): bool
+    public static function lazy(Context $context, stdClass $line): bool
     {
         if (
             $line->leaf_first || !in_array(
@@ -622,13 +620,14 @@ final class DataModel
         ) {
             return false;
         }
+        $line->quote_marks ??= self::quoteMarks($line->text);
         if ($line->quote_marks < $line->quote_depth) {
             return true;
         }
         $path = $line->leaf_id;
         while ($path !== '') {
             $path = self::pathParent($path);
-            $content = $this->context->layout->contentColumn($path);
+            $content = $context->layout->contentColumn($path);
             if ($content !== null) {
                 return $line->body_start - $line->start < $content;
             }
@@ -788,16 +787,6 @@ final class DataModel
             if ($lastLine === null) {
                 $lastLine = $this->lines[($span === null ? $pos['endLine'] : $c->lineOf(max($start, $end - 1))) - 1] ?? $line;
             }
-            if ($openerText === null) {
-                $endLine = strpos($c->source, "\n", $opener);
-                $openerText = self::trimEnd(substr($c->source, $opener, ($endLine === false ? strlen($c->source) : $endLine) - $opener));
-            }
-            $feed = $opener > 0 ? strrpos($c->source, "\n", $opener - 1 - strlen($c->source)) : false;
-            $openerLine = $feed === false ? 0 : $feed + 1;
-            $column = $c->layout->columnOf($start, $quotes);
-            $markColumn = $c->layout->columnOf($opener, $quotes);
-            $prevPath = $item['index'] > 0 && preg_match('~/[0-9]+$~', $item['path'])
-                ? preg_replace('~/[0-9]+$~', '/' . ($item['index'] - 1), $item['path']) : null;
             $record = (object)[
                 'type' => $type,
                 'path' => $item['path'],
@@ -807,9 +796,10 @@ final class DataModel
                 'text' => null,
                 'line' => $line,
                 'last_line' => $lastLine,
-                'column' => $column,
-                'opener_column' => $c->layout->markerColumn($item['path']) ?? $column,
-                'mark_column' => $markColumn,
+                'column' => null,
+                'opener_column' => null,
+                'mark_column' => null,
+                'quote_depth_internal' => $quotes,
                 'opener_start' => $opener,
                 'opener_text' => $openerText,
                 'owner' => $this->container($ownerPath, $quotes),
@@ -818,8 +808,8 @@ final class DataModel
                 'index' => $item['index'],
                 'attributed' => isset($node['attrs']),
                 'image_line' => $type === 'paragraph' && self::imageLine($node),
-                'after_quote_mark' => str_ends_with(substr($c->source, $openerLine, $opener - $openerLine), '> '),
-                'prev_type' => $prevPath === null ? null : ($c->nodeTypes[$prevPath] ?? null),
+                'after_quote_mark' => null,
+                'prev_type' => null,
             ];
             if (in_array($type, ['table', 'table_row', 'table_cell'], true)) {
                 $tablePath = $item['path'];
