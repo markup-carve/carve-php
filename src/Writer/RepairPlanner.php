@@ -35,6 +35,24 @@ final class RepairPlanner
 
     private int $read = 0;
 
+    /**
+     * C2-W-088: whether a round escapes every potential opener of a reported kind, or the reported openers only.
+     */
+    private bool $kindRounds = true;
+
+    /**
+     * @var array<string, array<string, true>> The kinds already escaped, by leaf path.
+     */
+    private array $kindsDone = [];
+
+    /**
+     * @var array<string>
+     */
+    private const INLINE_CONTAINERS = [
+        'superscript', 'subscript', 'emphasis', 'strong', 'underline', 'strike', 'highlight', 'insert', 'delete',
+        'link', 'image', 'span', 'inline_footnote', 'inline_extension', 'citation', 'abbreviation', 'quote',
+    ];
+
     private int $limit;
 
     /**
@@ -100,7 +118,13 @@ final class RepairPlanner
             }
         }
         $this->addAsked($comparison['openers']);
-        $this->addAsked($asked);
+        if ($this->kindRounds && $comparison['openers'] !== []) {
+            // The kind escapes go first; a closer escape CompareRound asks for (C2-W-125) gives no kind and waits for a
+            // later round, which asks for it again only if the kinds did not make it needless.
+            $this->escapeKinds($comparison['openers']);
+        } else {
+            $this->addAsked($asked);
+        }
         $moved = $this->probeMoved($candidate, $comparison['moved']);
         $moved = $this->ownerMoved($comparison['moved']) || $moved;
         if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
@@ -112,6 +136,94 @@ final class RepairPlanner
         $this->addAsked($differences);
 
         return $differences !== [] || $moved;
+    }
+
+    /**
+     * C2-W-088: each reported opener's kind escapes every potential opener of that kind in its leaf block.
+     *
+     * @param array<string, array<int, true>> $reported
+     */
+    private function escapeKinds(array $reported): void
+    {
+        foreach ($reported as $path => $offsets) {
+            $value = self::nodeAt($this->tree, $path)['value'] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $leaf = $this->leafOf($path);
+            foreach ($offsets as $offset => $_) {
+                $kind = self::kindAt($value, $offset);
+                if ($kind === null || isset($this->kindsDone[$leaf][$kind])) {
+                    continue;
+                }
+                $this->kindsDone[$leaf][$kind] = true;
+                foreach ($this->textOrder as $text => $_order) {
+                    if (!str_starts_with($text, $leaf . '/') || $this->leafOf($text) !== $leaf) {
+                        continue;
+                    }
+                    $other = self::nodeAt($this->tree, $text)['value'] ?? null;
+                    if (is_string($other)) {
+                        foreach (self::kindOffsets($kind, $other) as $at) {
+                            $this->addEscape($text, $at);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private function leafOf(string $path): string
+    {
+        while (($cut = strrpos($path, '/children/')) !== false) {
+            $path = substr($path, 0, $cut);
+            $type = self::nodeAt($this->tree, $path)['type'] ?? null;
+            if (!in_array($type, self::INLINE_CONTAINERS, true)) {
+                return $path;
+            }
+        }
+
+        return $path;
+    }
+
+    private static function kindAt(string $value, int $offset): ?string
+    {
+        $ch = $value[$offset] ?? '';
+        if ($ch === '' || !ctype_punct($ch)) {
+            return null;
+        }
+        if ($ch === '{' && ctype_punct($value[$offset + 1] ?? 'a')) {
+            return '{' . $value[$offset + 1];
+        }
+
+        return $ch === '-' ? '--' : $ch;
+    }
+
+    /**
+     * C2-W-088: the potential openers of a kind in a text: the first character of each run of its characters, the
+     * brace of a braced opener, the second hyphen of a hyphen run, and a `/` or `*` its neighbors let open.
+     *
+     * @return array<int>
+     */
+    private static function kindOffsets(string $kind, string $value): array
+    {
+        $offsets = [];
+        $n = strlen($value);
+        $ch = $kind[0];
+        for ($i = strpos($value, $ch === '{' ? '{' : ($kind === '--' ? '-' : $ch)); $i !== false && $i < $n; $i = strpos($value, $value[$i], $i + 1)) {
+            $prev = $value[$i - 1] ?? '';
+            $open = match (true) {
+                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1],
+                $kind === '--' => $prev === '-' && ($value[$i - 2] ?? '') !== '-' && ($value[$i + 1] ?? '') !== '',
+                $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
+                    && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),
+                default => $prev !== $ch,
+            };
+            if ($open) {
+                $offsets[] = $i;
+            }
+        }
+
+        return $offsets;
     }
 
     private function addEscape(string $path, int $offset): bool
