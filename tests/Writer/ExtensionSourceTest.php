@@ -6,7 +6,10 @@ namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\Tabs;
+use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Test\Support\WriterGate;
+use MarkupCarve\Carve\Writer\ExtensionSource;
+use MarkupCarve\Carve\Writer\State;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -165,6 +168,27 @@ final class ExtensionSourceTest extends TestCase
             $this->assertSame($source, $again->source);
             $this->assertSame([], $again->codes());
         }
+    }
+
+    public function testRepeatedExtensionReadBackParsesOnlyOncePerDocument(): void
+    {
+        $text = ":::: tabs\n::: tab \"T0\"\nsee [r0].\n:::\n::::\n";
+        $source = "[r0]: http://x/0\n\n" . $text;
+        $parsed = Carve::parseWithLayout($source, ['extensions' => ['carve.tabs']]);
+        $tree = TreeEncoder::decodedForWriter($parsed->tree);
+        $children = $tree['children'] ?? null;
+        if (!is_array($children) || !is_array($children[1] ?? null)) {
+            self::fail('Expected a decoded tabs extension');
+        }
+        $node = $children[1];
+        $state = new State([], false, false);
+        $state->labels = ['r0' => true];
+        $state->extensions = ['carve.tabs'];
+
+        for ($i = 0; $i < 200; ++$i) {
+            self::assertTrue(ExtensionSource::readsBack($node, $text, $state->extensions, $state));
+        }
+        self::assertSame(2, $state->extensionReadBackParses);
     }
 
     public function testInlineExtensionBesideDefinitionKeepsItsSource(): void

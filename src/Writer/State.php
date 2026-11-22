@@ -87,6 +87,32 @@ final class State
     public array $extensions = [];
 
     /**
+     * Read-back results are valid only within this document: registrations and link keys
+     * are fixed for the lifetime of the state. Keep at most a small set of short records.
+     *
+     * @var array<string, bool>
+     */
+    private array $extensionReadBack = [];
+
+    /**
+     * Actual extension source parses in this write, for the scaling gate.
+     */
+    public int $extensionReadBackParses = 0;
+
+    public function cachedExtensionReadBack(string $key): ?bool
+    {
+        return $this->extensionReadBack[$key] ?? null;
+    }
+
+    public function rememberExtensionReadBack(string $key, bool $result): void
+    {
+        if (count($this->extensionReadBack) >= 128) {
+            $this->extensionReadBack = [];
+        }
+        $this->extensionReadBack[$key] = $result;
+    }
+
+    /**
      * @var int
      */
     private const REPAIR_FLOOR = 24_000_000;
