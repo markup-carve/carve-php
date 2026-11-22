@@ -20,6 +20,30 @@ use MarkupCarve\Carve\NulReplacer;
 final class SmartReadBack
 {
     /**
+     * The content of an inline leaf that is no paragraph, heading or term, read back as a paragraph where a smart
+     * punctuation node in it has a run character beside it. A leaf that does not read as one paragraph is not judged.
+     *
+     * @param \MarkupCarve\Carve\Writer\Inline $inline
+     * @param \MarkupCarve\Carve\Writer\State $w
+     * @param array<mixed> $inlines
+     * @param string $path The path of the leaf.
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return string
+     */
+    public static function content(Inline $inline, State $w, array $inlines, string $path, Context $c): string
+    {
+        $outer = $w->takeSmartRun();
+        $text = $inline->content($inlines, $path . '/children', $c, -1);
+        if ($w->takeSmartRun()) {
+            self::check($inlines, $text . "\n", $path, 'paragraph', $w);
+        }
+        $w->smartRun = $outer;
+
+        return $text;
+    }
+
+    /**
      * Reads `source`, the written leaf, back and reports the children that do not read back as themselves.
      *
      * @param array<mixed> $children
@@ -181,6 +205,10 @@ final class SmartReadBack
      */
     private static function compareNode(array $e, string $type, ?Node $a, string $at, State $w): bool
     {
+        // C2-A-068: a bare line break reads as a hard break only inside its hard-break container.
+        if ($a !== null && $type === 'hard_break' && $a->type === 'soft_break') {
+            return true;
+        }
         if ($a === null || $a->type !== $type) {
             // The leaf is read without the definitions of its document, so only a run can be judged here.
             if ($type === 'smart_punctuation') {

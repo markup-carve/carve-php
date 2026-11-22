@@ -129,4 +129,65 @@ final class SmartNeighborNodesTest extends TestCase
         $paths = array_map(static fn ($d): string => $d->path, $result->diagnostics);
         $this->assertSame([$path . $at . '/kind', $path . ($at + 1) . '/kind'], $paths);
     }
+
+    /**
+     * @return array<string, array{string, list<string>}>
+     */
+    public static function leafCases(): array
+    {
+        $kinds = static fn (string $leaf, int $at): array => ["$leaf/children/$at/kind", "$leaf/children/" . ($at + 1) . '/kind'];
+
+        return [
+            'a caption' => ["![a](i.png)\n^ x-----y\n", $kinds('/children/0/caption/children/0', 1)],
+            'a hard-break block' => ["::: \\\na\nx-----y\n:::\n", $kinds('/children/0/children/0', 3)],
+            'a line block' => ["::: |\na\nx-----y\n:::\n", $kinds('/children/0/children/1', 1)],
+            'a table cell' => ["| a | x-----y |\n", $kinds('/children/0/children/0/children/0/children/1/children/0', 1)],
+        ];
+    }
+
+    /**
+     * Each leaf that holds inline content is judged, read back in the context it needs.
+     *
+     * @param string $source
+     * @param list<string> $paths
+     *
+     * @return void
+     */
+    #[DataProvider('leafCases')]
+    public function testARunInAnyLeafIsJudged(string $source, array $paths): void
+    {
+        $tree = TreeEncoder::decoded(Carve::parse($source));
+        $this->assertSame([], Writer::writeWithDiagnostics($tree)->diagnostics);
+        // An en dash before an em dash is written the same and reads back as an em dash and an en dash.
+        self::swapDashes($tree);
+        $result = Writer::writeWithDiagnostics($tree);
+        $this->assertSame($source, $result->source);
+        $this->assertSame($paths, array_map(static fn ($d): string => $d->path, $result->diagnostics));
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return void
+     */
+    private static function swapDashes(array &$node): void
+    {
+        foreach ($node as &$value) {
+            if (is_array($value)) {
+                self::swapDashes($value);
+            }
+        }
+        unset($value);
+        $children = $node['children'] ?? null;
+        if (!is_array($children) || !array_is_list($children)) {
+            return;
+        }
+        $last = count($children) - 1;
+        for ($at = 0; $at < $last; $at++) {
+            if (($children[$at]['kind'] ?? '') === 'em_dash' && ($children[$at + 1]['kind'] ?? '') === 'en_dash') {
+                [$children[$at], $children[$at + 1]] = [$children[$at + 1], $children[$at]];
+            }
+        }
+        $node['children'] = $children;
+    }
 }
