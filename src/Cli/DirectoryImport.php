@@ -420,6 +420,11 @@ final class DirectoryImport
             return null;
         }
         $newPath = preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath);
+        if ($mapped !== $normalized && $newPath === $rawPath) {
+            $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'encoded extension needs manual rewrite'];
+
+            return null;
+        }
         $newHref = $newPath . (isset($parts['query']) ? '?' . $parts['query'] : '')
             . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
         $links[] = ['target' => $href, 'status' => $newHref === $href ? 'valid' : 'rewritten'];

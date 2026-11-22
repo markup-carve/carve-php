@@ -81,7 +81,9 @@ final class DirectoryImportTest extends TestCase
 
     public function testChecksFragmentsAndRawHtmlLinks(): void
     {
-        file_put_contents($this->root . '/src/a.md', "[Good](b.md#Next)\n\n[Bad](b.md#Absent)\n\n<a href=\"b.md\">raw</a>\n");
+        $source = "[Good](b.md#Next)\n\n[Bad](b.md#Absent)\n\n[Encoded](b%2Emd)\n\n"
+            . "<a href=\"b.md\">raw</a>\n";
+        file_put_contents($this->root . '/src/a.md', $source);
         file_put_contents($this->root . '/src/b.md', "# Next\n");
         [$status, , $err] = self::call([
             '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/dst',
@@ -91,7 +93,8 @@ final class DirectoryImportTest extends TestCase
         self::assertSame(['a.md'], $report['review']);
         self::assertSame('rewritten', $report['files'][0]['links'][0]['status']);
         self::assertSame('fragment missing from target', $report['files'][0]['links'][1]['reason']);
-        self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][2]['reason']);
+        self::assertSame('encoded extension needs manual rewrite', $report['files'][0]['links'][2]['reason']);
+        self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][3]['reason']);
     }
 
     public function testRefusesNestedTargetAndCaseCollision(): void
