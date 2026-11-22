@@ -39,7 +39,12 @@ final class Writer
      * @param array<string, array<int, true>> $escapes
      * @param bool $mark
      *
-     * @return array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>}
+     * @return array{
+     *     source: string,
+     *     text: array<int, array{string, int}>,
+     *     nodes: array<int, array{string, string, int, int}>,
+     *     ranges: array<string, array{int, int}>
+     * }
      */
     public static function bareCandidate(
         array $tree,

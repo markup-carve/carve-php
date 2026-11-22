@@ -16,6 +16,11 @@ final class RepairTrace
     private array $text = [];
 
     /**
+     * @var array<int, string>
+     */
+    private array $textNodes = [];
+
+    /**
      * @var array<int, array{string, string}>
      */
     private array $nodes = [];
@@ -32,6 +37,11 @@ final class RepairTrace
     public function bareText(string $value, string $path): string
     {
         $out = '';
+        $nodeId = count($this->textNodes);
+        if ($this->mark) {
+            $this->textNodes[] = $path;
+            $out .= $this->marker . 's' . $nodeId . "\x02";
+        }
         for ($at = 0, $length = strlen($value); $at < $length; $at++) {
             $char = $value[$at];
             if (isset($this->escapes[$path][$at])) {
@@ -49,6 +59,10 @@ final class RepairTrace
             $out .= $char;
         }
 
+        if ($this->mark) {
+            $out .= $this->marker . 'f' . $nodeId . "\x02";
+        }
+
         return $out;
     }
 
@@ -64,13 +78,19 @@ final class RepairTrace
     }
 
     /**
-     * @return array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>}
+     * @return array{
+     *     source: string,
+     *     text: array<int, array{string, int}>,
+     *     nodes: array<int, array{string, string, int, int}>,
+     *     ranges: array<string, array{int, int}>
+     * }
      */
     public function decode(string $marked): array
     {
         $source = '';
         $text = [];
         $nodes = [];
+        $ranges = [];
         $length = strlen($marked);
         for ($at = 0; $at < $length;) {
             if ($this->marker === '' || substr_compare($marked, $this->marker, $at, strlen($this->marker)) !== 0) {
@@ -104,6 +124,10 @@ final class RepairTrace
                 $nodes[$id] = [$path, $type, $place, -1];
             } elseif ($kind === 'e' && isset($nodes[$id])) {
                 $nodes[$id][3] = $place;
+            } elseif ($kind === 's' && isset($this->textNodes[$id])) {
+                $ranges[$this->textNodes[$id]] = [$place, -1];
+            } elseif ($kind === 'f' && isset($this->textNodes[$id], $ranges[$this->textNodes[$id]])) {
+                $ranges[$this->textNodes[$id]][1] = $place;
             } else {
                 $source .= $marked[$at];
                 $at++;
@@ -113,6 +137,6 @@ final class RepairTrace
             $at = $close + 1;
         }
 
-        return ['source' => $source, 'text' => $text, 'nodes' => $nodes];
+        return ['source' => $source, 'text' => $text, 'nodes' => $nodes, 'ranges' => $ranges];
     }
 }
