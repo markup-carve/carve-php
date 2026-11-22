@@ -38,6 +38,27 @@ final class ReadbackTraceTest extends TestCase
         self::assertSame($input, $marked['source']);
     }
 
+    public function testTracePreservesPairedFormAfterTrailingWhitespace(): void
+    {
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'emphasis', 'children' => [['type' => 'text', 'value' => "a\t"]]],
+                        ['type' => 'strong', 'children' => [['type' => 'text', 'value' => '[']]],
+                    ],
+                ],
+            ],
+        ];
+        $marked = Writer::bareCandidate($tree);
+        $plain = Writer::bareCandidate($tree, null, [], [], false);
+        self::assertSame($plain['source'], $marked['source']);
+        self::assertSame("{/a\t/}*[*\n", $marked['source']);
+    }
+
     public function testRepairGroupKeepsLaterLiteralTableSpanMark(): void
     {
         $cases = json_decode(

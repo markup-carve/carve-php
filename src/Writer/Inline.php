@@ -1269,7 +1269,8 @@ final class Inline
         $c->spanTexts = $spanTexts;
         $c->open = $open;
         $c->marks = $marks;
-        $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($inner, $mark, $prev, $next);
+        $visibleInner = $this->w->repairTrace?->decode($inner)['source'] ?? $inner;
+        $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($visibleInner, $mark, $prev, $next);
 
         return $bare ? $mark . $inner . $mark : '{' . $mark . $inner . $mark . '}';
     }
