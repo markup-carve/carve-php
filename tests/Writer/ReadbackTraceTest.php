@@ -251,6 +251,28 @@ final class ReadbackTraceTest extends TestCase
         self::fail('CC-1568 is missing from the pinned clause cases');
     }
 
+    public function testFailedBareRepairKeepsAValidNormalWrite(): void
+    {
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'superscript', 'children' => [['type' => 'text', 'value' => 'a']]],
+                        ['type' => 'subscript', 'children' => [['type' => 'text', 'value' => '{']]],
+                        ['type' => 'superscript', 'children' => [['type' => 'text', 'value' => '$']]],
+                        ['type' => 'text', 'value' => '^'],
+                    ],
+                ],
+            ],
+        ];
+        $result = Writer::writeWithDiagnostics($tree);
+        self::assertSame([], $result->codes());
+        self::assertSame("{^a^}{,\\{,}{^$^}^\n", $result->source);
+    }
+
     #[DataProvider('cases')]
     public function testOneReadbackReportsOuterUnexpectedOpener(string $input, int $remainingSpans): void
     {

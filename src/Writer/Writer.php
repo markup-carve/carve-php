@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Options;
 
 /**
@@ -52,6 +53,12 @@ final class Writer
         $repaired = (new RepairPlanner($tree, $layout, $options))->repair();
 
         if ($repaired === null) {
+            $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+            $read = TreeEncoder::decodedForWriter(Carve::parse($result->source, $parseOptions));
+            if (TreeEquality::equal($tree, $read)) {
+                return $result;
+            }
+
             return new WriteResult($result->source, [
                 new Diagnostic('writer-refused', 'warning', 'render-loss', 'Writer repair stopped for this block group', ''),
             ]);
