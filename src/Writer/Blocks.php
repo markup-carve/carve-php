@@ -1594,7 +1594,7 @@ final class Blocks
 
     private static function blankText(mixed $node): bool
     {
-        return is_array($node) && ($node['type'] ?? '') === 'text' && count($node) === 2
+        return is_array($node) && ($node['type'] ?? '') === 'text' && array_diff(array_keys($node), ['type', 'value', 'pos']) === []
             && is_string($node['value'] ?? null) && trim($node['value'], " \t") === '';
     }
 

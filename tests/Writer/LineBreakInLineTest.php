@@ -35,6 +35,11 @@ final class LineBreakInLineTest extends TestCase
             ],
             'a hard break that ends the line' => [[$a, $hard], "::: |\na\\\n:::\n", []],
             'a hard break before spaces only' => [[$a, $hard, ['type' => 'text', 'value' => '  ']], "::: |\na\\\n:::\n", []],
+            'a hard break before positioned spaces' => [
+                [$a, $hard, ['type' => 'text', 'value' => ' ', 'pos' => ['startOffset' => 1, 'endOffset' => 2]]],
+                "::: |\na\\\n:::\n",
+                [],
+            ],
             'one text' => [[$a], "::: |\na\n:::\n", []],
         ];
     }
