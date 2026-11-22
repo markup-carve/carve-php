@@ -46,4 +46,30 @@ final class MetadataBlockTest extends TestCase
 
         self::assertSame($source, Carve::format($source));
     }
+
+    public function testAnEmDashBeforeAFormatNameIsALoss(): void
+    {
+        $tree = [
+
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'x']]],
+                [
+
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'smart_punctuation', 'kind' => 'em_dash', 'glyph' => "\u{2014}", 'source' => '---'],
+                        ['type' => 'text', 'value' => 'yaml'],
+                    ],
+                ],
+            ],
+        ];
+        $result = Carve::writeWithDiagnostics($tree);
+
+        self::assertSame(
+            [['structure-unspellable', '/children/1/children/0']],
+            array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics),
+        );
+    }
 }
