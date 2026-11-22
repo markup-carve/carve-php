@@ -394,9 +394,10 @@
     {
       "name": "opener_start",
       "type": "offset",
-      "means": "where the opening mark of the block starts: start, or for an attributed block the first character after its attribute lines, the spaces, tabs and the quote marks of the quotes that hold the block before it skipped",
+      "means": "where the opening mark of the block starts: start, or for an attributed block the first character after its attribute lines and any comment-only lines between them and the block, the spaces, tabs and the quote marks of the quotes that hold the block before it skipped",
       "clauses": [
         "C2-B-090",
+        "C2-B-137",
         "C2-W-138"
       ]
     },
@@ -744,9 +745,10 @@
     {
       "name": "opener_start",
       "type": "offset",
-      "means": "for a block: where its own text starts behind its attribute lines, behind the indent and the quote marks of the quotes that hold it; for an item, a cell or an inline node, its start",
+      "means": "for a block: where its own text starts behind its attribute lines and any comment-only lines between them and the block, behind the indent and the quote marks of the quotes that hold it; for an item, a cell or an inline node, its start",
       "clauses": [
         "C2-B-090",
+        "C2-B-137",
         "C2-A-148"
       ]
     },
@@ -1387,26 +1389,14 @@
             "key": {
               "if": [
                 {
-                  "all": [
-                    {
-                      "eq": [
-                        {
-                          "f": "item.parent"
-                        },
-                        "paragraph"
-                      ]
-                    },
-                    {
-                      "not": {
-                        "eq": [
-                          {
-                            "f": "item.type"
-                          },
-                          "text"
-                        ]
-                      }
-                    }
-                  ]
+                  "not": {
+                    "eq": [
+                      {
+                        "f": "item.type"
+                      },
+                      "text"
+                    ]
+                  }
                 },
                 {
                   "f": "item.start"
@@ -1964,7 +1954,7 @@
                 {
                   "f": "raw_body"
                 },
-                "^>[ \\t]"
+                "^> "
               ]
             }
           }
@@ -3505,7 +3495,17 @@
       "let": {
         "width": {
           "count": {
-            "in": "node.children.0.children.0.children",
+            "in": {
+              "find": {
+                "in": {
+                  "f": "node.children"
+                },
+                "where": {
+                  "has": "item.children.0"
+                },
+                "field": "children.0.children"
+              }
+            },
             "where": true
           }
         }
@@ -7076,7 +7076,7 @@
                 {
                   "f": "text"
                 },
-                "^[ \\t]*>(?:[^ \\t\\[]|\\[[^!])"
+                "^[ \\t]*>(?:[^ \\t\\[]|\\[(?:[^!]|!(?:[^NTIWC]|N(?:[^O]|O(?:[^T]|T(?:[^E]|E[^\\]])))|T(?:[^I]|I(?:[^P]|P[^\\]]))|I(?:[^M]|M(?:[^P]|P(?:[^O]|O(?:[^R]|R(?:[^T]|T(?:[^A]|A(?:[^N]|N(?:[^T]|T[^\\]]))))))))|W(?:[^A]|A(?:[^R]|R(?:[^N]|N(?:[^I]|I(?:[^N]|N(?:[^G]|G[^\\]]))))))|C(?:[^A]|A(?:[^U]|U(?:[^T]|T(?:[^I]|I(?:[^O]|O(?:[^N]|N[^\\]])))))))))"
               ]
             }
           },

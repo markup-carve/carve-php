@@ -54,7 +54,6 @@ final class HandwrittenRunPairsTest extends TestCase
                 ":: t\n  {_u_} b\n",
                 [
                     ['description-term-multi-line', '/children/0/children/0', 7, 14],
-                    ['block-marker-as-text', '/children/0/children/0', 7, 14],
                 ],
             ],
             'underline span on a later line of a paragraph' => [

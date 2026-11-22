@@ -1194,8 +1194,13 @@ final class DataRules
             }
             $after = $end + $width;
             [, , $afterEnd] = self::charAt($text, $after);
+            $backslashStart = $start;
+            while ($backslashStart > 0 && $text[$backslashStart - 1] === '\\') {
+                --$backslashStart;
+            }
 
             yield [
+                'backslashes' => [$backslashStart, $start],
                 'open' => [$start, $start + $width],
                 'inner' => [$start + $width, $end],
                 'close' => [$end, $after],
@@ -1872,7 +1877,9 @@ final class DataRules
                     $copy = clone $record;
                     $copy->item = $item;
                     if ($this->value($arg['where'] ?? null, $copy)) {
-                        return $item;
+                        $field = $arg['field'] ?? null;
+
+                        return is_string($field) ? $this->field($field, (object)$item) : $item;
                     }
                 }
 

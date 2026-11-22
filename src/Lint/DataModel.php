@@ -631,7 +631,9 @@ final class DataModel
     {
         $s = $this->context->source;
         $at = $start;
-        while (($s[$at] ?? '') === '{') {
+        $sawAttribute = false;
+        while (($s[$at] ?? '') === '{' || ($sawAttribute && substr($s, $at, 2) === '%%')) {
+            $sawAttribute = true;
             $end = strpos($s, "\n", $at);
             if ($end === false) {
                 return $start;
