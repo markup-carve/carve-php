@@ -28,6 +28,8 @@ final class Options
 
     public bool $rawHtml = false;
 
+    public bool $xhtml = false;
+
     /**
      * C2-M-102: the editor that wrote the imported HTML.
      */
@@ -162,11 +164,11 @@ final class Options
         $o->setUrlPolicy([]);
         foreach ($options as $name => $value) {
             try {
-                $reads = Tables::OPTIONS[$name]['readBy'] ?? null;
+                $reads = $name === 'xhtml' ? ['render'] : (Tables::OPTIONS[$name]['readBy'] ?? null);
                 if ($stages !== null && $reads !== null && array_intersect((array)$reads, $stages) === []) {
                     throw new OptionError('option ' . $name . ' is not read by this call');
                 }
-                $o->set((string)$name, $value);
+                self::assign($o, (string)$name, $value);
             } catch (OptionError $error) {
                 $pointer = '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$name);
 
@@ -187,6 +189,19 @@ final class Options
         }
 
         return $o;
+    }
+
+    private static function assign(self $o, string $name, mixed $value): void
+    {
+        if ($name === 'xhtml') {
+            if (!is_bool($value)) {
+                throw new OptionError('option xhtml: not a boolean');
+            }
+            $o->xhtml = $value;
+
+            return;
+        }
+        $o->set($name, $value);
     }
 
     /**

@@ -26,6 +26,7 @@ converter.
 | `$converter->parseWithSourceLayout($source)` | `Carve::parseWithLayout($source)` |
 | `$converter->convertFile($path)`, `parseFile($path)` | gone: read the file, pass `includes` with `FileResolver::forRoot(dirname($path))` |
 | `$converter->setProfile($profile)`, `getProfile()` | option `profile`: `full`, `article`, `comment`, `minimal` |
+| `new CarveConverter(xhtml: true)` | `Carve::render($source, ['xhtml' => true])`; the CLI keeps `-x` and `--xhtml` |
 | `$converter->setSafeMode(...)`, `SafeMode` | option `profile` plus `urlPolicy`; raw HTML is off unless `rawHtml` |
 | `$converter->setRenderMode($mode)`, `getRenderMode()` | option `mode`: `interactive` or `static` |
 | `SmartTypographyMode` | option `smartTypography` (on by default); locale quotes through `Extension\SmartQuotes` |

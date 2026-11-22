@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Html;
 
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Walk;
 
@@ -113,7 +114,7 @@ final class Profile
 
     public ?RenderState $renderState = null;
 
-    public function __construct(private string $name, private RenderLog $log)
+    public function __construct(private string $name, private RenderLog $log, private ?Options $o = null)
     {
         $spec = Tables::PROFILES[$name] ?? [];
         if (isset($spec['allowed_block'])) {
@@ -610,7 +611,7 @@ final class Profile
      */
     private function tableText(Node $table): string
     {
-        return implode("<br>\n", array_map(Escape::text(...), $this->tableRows($table)));
+        return implode($this->o?->xhtml ? "<br />\n" : "<br>\n", array_map(Escape::text(...), $this->tableRows($table)));
     }
 
     /**

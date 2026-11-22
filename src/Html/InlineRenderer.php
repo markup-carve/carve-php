@@ -336,6 +336,11 @@ final class InlineRenderer
         }
     }
 
+    private function fixed(string $type): string
+    {
+        return $type === 'hard_break' && $this->o->xhtml ? "<br />\n" : self::FIXED[$type];
+    }
+
     private function nodeContent(Node $node, int $depth): string
     {
         $type = $node->type;
@@ -343,10 +348,10 @@ final class InlineRenderer
             return Escape::text(PlainText::str($node->f['value'] ?? ''));
         }
         if (isset(self::FIXED[$type])) {
-            return self::FIXED[$type];
+            return $this->fixed($type);
         }
         if ($type === 'soft_break') {
-            return self::SOFT_BREAKS[$this->o->softBreak];
+            return $this->o->softBreak === 'br' && $this->o->xhtml ? "<br />\n" : self::SOFT_BREAKS[$this->o->softBreak];
         }
         $attrs = $node->f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? $attrs : null;
@@ -574,7 +579,8 @@ final class InlineRenderer
                 $structural = $i === $last && $rest->get($target) !== null ? [] : [[$target, $derived]];
             }
             $attr = $i === $last
-                ? $this->aw->build($structural, null, $rest, $lang, dir: AttrWriter::dirOf($node)) : AttrWriter::join($structural);
+                ? $this->aw->build($structural, null, $rest, $lang, dir: AttrWriter::dirOf($node))
+                : AttrWriter::join($structural, $this->o->xhtml);
             $inner = '<' . $key . $attr . '>' . $inner . '</' . $key . '>';
         }
 
@@ -872,7 +878,9 @@ final class InlineRenderer
             $structural = array_merge($structural, self::refCarriers($node, $key));
         }
 
-        return '<img' . $this->aw->build($structural, null, $merged, $lang, sourceLine: $sourceLine, dir: AttrWriter::dirOf($node)) . '>';
+        $attributes = $this->aw->build($structural, null, $merged, $lang, sourceLine: $sourceLine, dir: AttrWriter::dirOf($node));
+
+        return '<img' . $attributes . ($this->o->xhtml ? ' />' : '>');
     }
 
     /**
@@ -1093,7 +1101,7 @@ final class InlineRenderer
         $n = $node->f['n'] ?? null;
         $text = is_int($n) ? (string)$n : '#';
         if ($this->o->roundtrip && is_int($n)) {
-            return '<span data-carve-caption-number>' . $text . '</span>';
+            return '<span data-carve-caption-number' . ($this->o->xhtml ? '=""' : '') . '>' . $text . '</span>';
         }
 
         return $text;
