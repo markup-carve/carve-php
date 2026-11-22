@@ -1335,8 +1335,8 @@ final class Blocks
         $task = is_array($node['task'] ?? null) ? $node['task'] : null;
         $box = $task === null ? '' : '[' . (is_string($task['mark'] ?? null) ? $task['mark'] : ' ') . '] ';
         $this->w->boxLead = $task === null ? ($this->w->lead ?? $prefix) . $head . $gap : null;
-        // C2-B-043: a bare dot behind a bare dot on one line opens no list, so a list first in this body takes numbers.
-        $this->w->bareDotLead = $marker === '.';
+        // C2-B-043: a bare dot right behind a bare dot opens no list, so a list first in this body takes numbers.
+        $this->w->bareDotLead = $marker === '.' && $task === null;
         $this->body($node, $path, $prefix, $head . $gap . $box, strlen($marker) + strlen($gap), $tight);
     }
 

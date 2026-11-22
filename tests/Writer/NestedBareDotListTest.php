@@ -57,6 +57,14 @@ final class NestedBareDotListTest extends TestCase
     }
 
     /**
+     * @return void
+     */
+    public function testATaskBoxKeepsTheInnerBareDot(): void
+    {
+        $this->assertSame(". [ ] . a\n", Writer::format(". [ ] . a\n"));
+    }
+
+    /**
      * The block types and the text, without positions or facts.
      *
      * @param array<mixed> $nodes
