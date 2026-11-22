@@ -137,6 +137,13 @@ final class Context
     public array $ids = [];
 
     /**
+     * C2-I-096, C2-B-207: the ids of headings and numbered caption owners, the targets of a cross-reference.
+     *
+     * @var array<string, true>
+     */
+    public array $xrefIds = [];
+
+    /**
      * C2-A-218: ids of top-level frontmatter, lookup keys and no cross-reference target.
      *
      * @var array<string, true>

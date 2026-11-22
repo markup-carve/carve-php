@@ -287,6 +287,9 @@ final class Linter
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
             $c->ids[$attrs['id']] = true;
+            if ($type === 'heading' || DataModel::numberedCaption($node)) {
+                $c->xrefIds[$attrs['id']] = true;
+            }
         }
         $pos = Support::pos($node);
         if ($c->dataRules) {
@@ -298,6 +301,7 @@ final class Linter
         }
         if ($type === 'heading' && is_string($node['generatedId'] ?? null)) {
             $c->ids[$node['generatedId']] = true;
+            $c->xrefIds[$node['generatedId']] = true;
         }
         if ($pos !== null) {
             self::placed($node, $type, $path, $pos, $c, $controls);
