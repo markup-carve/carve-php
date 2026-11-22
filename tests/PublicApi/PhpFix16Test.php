@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\PublicApi;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\RenderResult;
 use MarkupCarve\Carve\Extension\Claim;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\RenderHost;
@@ -23,7 +25,7 @@ final class PhpFix16Test extends TestCase
             'suppressedDiagnostics' => 0,
         ], Carve::renderWithDiagnostics('Hello')->toArray());
 
-        $result = new \MarkupCarve\Carve\RenderResult('x', [new \MarkupCarve\Carve\Diagnostics\Diagnostic('sample', 'warning', 'parse', 'sample message')], 2);
+        $result = new RenderResult('x', [new Diagnostic('sample', 'warning', 'parse', 'sample message')], 2);
         $this->assertSame([
             'html' => 'x',
             'diagnostics' => [['code' => 'sample', 'severity' => 'warning', 'channel' => 'parse', 'message' => 'sample message']],
