@@ -68,7 +68,9 @@ final class RepairTrace
 
     public function inlineNode(string $source, string $path, string $type): string
     {
-        if (!$this->mark) {
+        // A marker after a terminal break hides its newline from the block writer.
+        // Breaks have no paired boundary to probe, so they need no node span.
+        if (!$this->mark || $type === 'soft_break' || $type === 'hard_break') {
             return $source;
         }
         $id = count($this->nodes);

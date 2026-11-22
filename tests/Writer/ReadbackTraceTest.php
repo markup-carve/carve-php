@@ -14,6 +14,33 @@ use PHPUnit\Framework\TestCase;
 
 final class ReadbackTraceTest extends TestCase
 {
+    #[DataProvider('terminalBreaks')]
+    public function testTracePreservesTerminalBreak(string $break): void
+    {
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => 'a'],
+                        ['type' => $break],
+                    ],
+                ],
+            ],
+        ];
+        $marked = Writer::bareCandidate($tree);
+        $plain = Writer::bareCandidate($tree, null, [], [], false);
+        self::assertSame($plain['source'], $marked['source']);
+    }
+
+    public static function terminalBreaks(): iterable
+    {
+        yield 'soft break' => ['soft_break'];
+        yield 'hard break' => ['hard_break'];
+    }
+
     public function testLiteralControlBytesSurviveTraceDecoding(): void
     {
         $value = "a\x010\x02\x030\x04\x050\x06b";
