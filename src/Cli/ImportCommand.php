@@ -50,7 +50,10 @@ final class ImportCommand
             return self::fail($err, 'usage', 'import requires --from=markdown|gfm|djot|html and at most one file', 2);
         }
         if ($directory !== null) {
-            if (!in_array($from, ['markdown', 'gfm'], true) || $output === null || $files !== []) {
+            if (
+                !in_array($from, ['markdown', 'gfm'], true) || $output === null || $files !== []
+                || $options !== ['rawHtml' => false]
+            ) {
                 return self::fail($err, 'usage', 'directory import requires --from gfm --directory SOURCE --output TARGET', 2);
             }
             try {

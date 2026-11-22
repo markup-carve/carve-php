@@ -79,6 +79,21 @@ final class DirectoryImportTest extends TestCase
         self::assertSame('unresolved', $report['files'][0]['links'][1]['status']);
     }
 
+    public function testChecksFragmentsAndRawHtmlLinks(): void
+    {
+        file_put_contents($this->root . '/src/a.md', "[Good](b.md#Next)\n\n[Bad](b.md#Absent)\n\n<a href=\"b.md\">raw</a>\n");
+        file_put_contents($this->root . '/src/b.md', "# Next\n");
+        [$status, , $err] = self::call([
+            '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/dst',
+        ]);
+        self::assertSame(0, $status, $err);
+        $report = json_decode((string)file_get_contents($this->root . '/dst/migration-report.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['a.md'], $report['review']);
+        self::assertSame('rewritten', $report['files'][0]['links'][0]['status']);
+        self::assertSame('fragment missing from target', $report['files'][0]['links'][1]['reason']);
+        self::assertSame('raw HTML link needs manual rewrite', $report['files'][0]['links'][2]['reason']);
+    }
+
     public function testRefusesNestedTargetAndCaseCollision(): void
     {
         file_put_contents($this->root . '/src/A.md', 'one');
@@ -89,5 +104,10 @@ final class DirectoryImportTest extends TestCase
         self::assertSame(2, $status);
         self::assertStringContainsString('same output', $err);
         self::assertDirectoryDoesNotExist($this->root . '/dst');
+        [$status, , $err] = self::call([
+            '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/src/missing/../dst',
+        ]);
+        self::assertSame(2, $status);
+        self::assertStringContainsString('output', $err);
     }
 }

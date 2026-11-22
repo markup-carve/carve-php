@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Cli;
 
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use FilesystemIterator;
 use MarkupCarve\Carve\Carve;
 use RecursiveDirectoryIterator;
@@ -97,7 +100,11 @@ final class DirectoryImport
             if ($parent === $candidate) {
                 throw new RuntimeException("cannot resolve output path: $path");
             }
-            array_unshift($missing, basename($candidate));
+            $name = basename($candidate);
+            if ($name === '.' || $name === '..') {
+                throw new RuntimeException("output path traverses a missing directory: $path");
+            }
+            array_unshift($missing, $name);
             $candidate = $parent;
         }
         $ancestor = realpath($candidate);
@@ -242,8 +249,21 @@ final class DirectoryImport
     private static function checkLinks(string $stage, array &$files, array $assets): array
     {
         $outputs = array_fill_keys(array_merge(array_column($files, 'output'), $assets), true);
+        $ids = [];
+        foreach ($files as $file) {
+            $source = file_get_contents($stage . '/' . $file['output']);
+            if ($source === false) {
+                throw new RuntimeException('cannot read converted output');
+            }
+            $html = Carve::render($source, ['rawHtml' => true]);
+            preg_match_all('/\s(?:id|name)="([^"]*)"/i', $html, $matches);
+            $ids[$file['output']] = array_fill_keys(array_map(html_entity_decode(...), $matches[1]), true);
+        }
         $review = [];
         foreach ($files as &$file) {
+            if ($file['diagnostics'] !== []) {
+                $review[] = $file['source'];
+            }
             $path = $stage . '/' . $file['output'];
             $source = file_get_contents($path);
             if ($source === false) {
@@ -255,7 +275,7 @@ final class DirectoryImport
             }
             $changed = false;
             $links = [];
-            self::rewriteNode($tree, $file['source'], $outputs, $links, $changed);
+            self::rewriteNode($tree, $file['source'], $outputs, $ids, $links, $changed);
             $file['links'] = $links;
             foreach ($links as $link) {
                 if ($link['status'] === 'unresolved') {
@@ -274,6 +294,7 @@ final class DirectoryImport
             }
         }
         unset($file);
+        $review = array_values(array_unique($review));
         sort($review, SORT_STRING);
 
         return $review;
@@ -283,16 +304,18 @@ final class DirectoryImport
      * @param array<mixed> $node
      * @param string $source
      * @param array<string, true> $outputs
+     * @param array<string, array<string, true>> $ids
      * @param array<array<string, string>> $links
      * @param bool $changed
      */
-    private static function rewriteNode(array &$node, string $source, array $outputs, array &$links, bool &$changed): void
+    private static function rewriteNode(array &$node, string $source, array $outputs, array $ids, array &$links, bool &$changed): void
     {
+        self::checkRawNode($node, $source, $outputs, $ids, $links);
         $key = match ($node['type'] ?? null) {
             'link' => 'href', 'image' => 'src', default => null
         };
         if ($key !== null && isset($node[$key]) && is_string($node[$key])) {
-            $replacement = self::checkDestination($node[$key], $source, $outputs, $links);
+            $replacement = self::checkDestination($node[$key], $source, $outputs, $ids, $links);
             if ($replacement !== null && $replacement !== $node[$key]) {
                 $node[$key] = $replacement;
                 $changed = true;
@@ -305,26 +328,54 @@ final class DirectoryImport
             if (array_is_list($value)) {
                 foreach ($value as &$child) {
                     if (is_array($child)) {
-                        self::rewriteNode($child, $source, $outputs, $links, $changed);
+                        self::rewriteNode($child, $source, $outputs, $ids, $links, $changed);
                     }
                 }
                 unset($child);
             } else {
-                self::rewriteNode($value, $source, $outputs, $links, $changed);
+                self::rewriteNode($value, $source, $outputs, $ids, $links, $changed);
             }
         }
         unset($value);
     }
 
     /**
+     * @param array<mixed> $node
+     * @param string $source
+     * @param array<string, true> $outputs
+     * @param array<string, array<string, true>> $ids
+     * @param array<array<string, string>> $links
+     */
+    private static function checkRawNode(array $node, string $source, array $outputs, array $ids, array &$links): void
+    {
+        if (
+            !in_array($node['type'] ?? null, ['raw_inline', 'raw_block'], true)
+            || ($node['format'] ?? null) !== 'html' || !is_string($node['value'] ?? null)
+        ) {
+            return;
+        }
+        foreach (self::rawUrls($node['value']) as $href) {
+            $replacement = self::checkDestination($href, $source, $outputs, $ids, $links);
+            if ($replacement !== null && $replacement !== $href) {
+                $links[array_key_last($links)] = [
+                    'target' => $href,
+                    'status' => 'unresolved',
+                    'reason' => 'raw HTML link needs manual rewrite',
+                ];
+            }
+        }
+    }
+
+    /**
      * @param string $href
      * @param string $source
      * @param array<string, true> $outputs
+     * @param array<string, array<string, true>> $ids
      * @param array<array<string, string>> $links
      */
-    private static function checkDestination(string $href, string $source, array $outputs, array &$links): ?string
+    private static function checkDestination(string $href, string $source, array $outputs, array $ids, array &$links): ?string
     {
-        if (str_starts_with($href, '#') || preg_match('~^[a-z][a-z0-9+.-]*:|^//~i', $href) === 1) {
+        if (preg_match('~^[a-z][a-z0-9+.-]*:|^//~i', $href) === 1) {
             return null;
         }
         if (str_starts_with($href, '/')) {
@@ -339,11 +390,17 @@ final class DirectoryImport
             return null;
         }
         $rawPath = $parts['path'] ?? '';
-        $relative = dirname($source) === '.' ? $rawPath : dirname($source) . '/' . $rawPath;
+        $relative = $rawPath === '' ? $source : (dirname($source) === '.' ? $rawPath : dirname($source) . '/' . $rawPath);
         $normalized = self::normalizePath(rawurldecode($relative));
         $mapped = $normalized === null ? null : preg_replace('/\.(md|markdown)$/i', '.crv', $normalized);
         if ($mapped === null || !isset($outputs[$mapped])) {
             $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'target missing from output'];
+
+            return null;
+        }
+        $fragment = rawurldecode($parts['fragment'] ?? '');
+        if ($fragment !== '' && !isset($ids[$mapped][$fragment])) {
+            $links[] = ['target' => $href, 'status' => 'unresolved', 'reason' => 'fragment missing from target'];
 
             return null;
         }
@@ -353,6 +410,35 @@ final class DirectoryImport
         $links[] = ['target' => $href, 'status' => $newHref === $href ? 'valid' : 'rewritten'];
 
         return $newHref;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function rawUrls(string $html): array
+    {
+        $document = new DOMDocument();
+        $before = libxml_use_internal_errors(true);
+        try {
+            $document->loadHTML('<?xml encoding="UTF-8"><body>' . $html, LIBXML_NONET);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($before);
+        }
+        $out = [];
+        $nodes = (new DOMXPath($document))->query('//*[@href or @src or @poster or @action or @formaction]');
+        foreach ($nodes ?: [] as $element) {
+            if (!$element instanceof DOMElement) {
+                continue;
+            }
+            foreach (['href', 'src', 'poster', 'action', 'formaction'] as $name) {
+                if ($element->hasAttribute($name)) {
+                    $out[] = $element->getAttribute($name);
+                }
+            }
+        }
+
+        return $out;
     }
 
     private static function normalizePath(string $path): ?string

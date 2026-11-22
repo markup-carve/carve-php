@@ -114,6 +114,7 @@ The bridge keeps its class names and moves to the schema of the 0.2 Tiptap kit i
 | `convertWithReport($html)`, `convertWithFidelityReport($html)` | `Carve::importDocument($html)->diagnostics` |
 | `convertToAst($html)` | `Carve::importDocument($html)->document` |
 | `(new MarkdownToCarve())->convert($md)` | `Carve::importDocument($md, ['from' => 'markdown'])->source` (`'gfm'` for GitHub Markdown) |
+| `carve migrate --from markdown --directory SRC --output DST` | `carve import --from gfm --directory SRC --output DST`; writes converted `.crv` files, copies assets, checks links, and writes `migration-report.json` |
 | `DjotToCarve::convert($djot)` | `Carve::importDocument($djot, ['from' => 'djot'])->source` |
 | `BbcodeToCarve` | not in PHP 0.2; BBCode import is JavaScript only (`@markup-carve/carve/import`) |
 | `MigrationResult`, `MigrationDiagnostic` | `ImportResult` and its diagnostics |
