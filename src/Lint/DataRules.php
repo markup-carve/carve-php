@@ -900,6 +900,43 @@ final class DataRules
         return is_int($current) && is_int($previous) && $current >= $previous;
     }
 
+    private function rejectsListMarkerBelowColumn(stdClass $record): bool
+    {
+        $path = $record->path ?? null;
+        if (!is_string($path)) {
+            return false;
+        }
+        $at = strrpos($path, '/children/');
+        if ($at === false) {
+            return false;
+        }
+        $parent = substr($path, 0, $at);
+        $index = $record->index ?? null;
+        if ($index === 0) {
+            $listAt = strrpos($parent, '/children/');
+            if ($listAt !== false) {
+                $listIndex = substr($parent, $listAt + 10);
+                if (ctype_digit($listIndex)) {
+                    if ((int)$listIndex === 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+        $at = strrpos($parent, '/children/');
+        if ($at === false) {
+            return true;
+        }
+        $outer = substr($parent, 0, $at);
+        if (($this->context->nodeTypes[$outer] ?? null) !== 'list_item') {
+            return true;
+        }
+        $outerColumn = $this->context->layoutEntries[$outer]['markerColumn'] ?? null;
+        $column = $this->context->layoutEntries[$path]['markerColumn'] ?? null;
+
+        return is_int($outerColumn) && is_int($column) && $column <= $outerColumn;
+    }
+
     public static function run(Context $context): void
     {
         if (self::rules() === []) {
@@ -1059,6 +1096,12 @@ final class DataRules
                     if ($rule['id'] === 'uneven-list-indent' && $self->rejectsUnevenListIndent($record)) {
                         continue;
                     }
+                    if (
+                        $rule['id'] === 'list-marker-below-content-column'
+                        && $self->rejectsListMarkerBelowColumn($record)
+                    ) {
+                        continue;
+                    }
                     $self->apply($rule, $record);
                 }
             }
@@ -1097,6 +1140,13 @@ final class DataRules
                 $parents = $typedBlockParents[$rule['id']] ?? null;
                 if ($parents !== null && !isset($parents[$parentType])) {
                     continue;
+                }
+                if ($rule['id'] === 'block-opener-overindented' && !isset($node['attrs'])) {
+                    $feed = $start > 0 ? strrpos($context->source, "\n", $start - 1 - strlen($context->source)) : false;
+                    $lineStart = $feed === false ? 0 : $feed + 1;
+                    if (str_ends_with(substr($context->source, $lineStart, $start - $lineStart), '> ')) {
+                        continue;
+                    }
                 }
                 if (
                     $rule['id'] === 'html-comment-renders-as-text'

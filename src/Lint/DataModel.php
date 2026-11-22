@@ -1027,20 +1027,15 @@ final class DataModel
             while (isset($pathBlocks[$nextPath]) && $pathBlocks[$nextPath]->start <= $line->body_start) {
                 $openPaths[] = $pathBlocks[$nextPath++];
             }
+            while ($openPaths !== [] && $openPaths[array_key_last($openPaths)]->end < $line->start) {
+                array_pop($openPaths);
+            }
             if ($line->path === '') {
-                foreach ($openPaths as $i => $block) {
-                    if ($block->end < $line->start) {
-                        unset($openPaths[$i]);
-                    } elseif (strlen($block->path) > strlen($line->path)) {
-                        $line->path = $block->path;
-                    }
-                }
-            } else {
-                foreach ($openPaths as $i => $block) {
-                    if ($block->end < $line->start) {
-                        unset($openPaths[$i]);
-                    }
-                }
+                $line->path = $openPaths === [] ? '' : $openPaths[array_key_last($openPaths)]->path;
+            }
+            // Only a bare colon run reads open-colon metadata or can close a container.
+            if ($line->shape !== 'div_bare_run') {
+                continue;
             }
             $boundary = self::boundaryAt($line->body_start, $bounds, $nextBound, $openBounds);
             while (isset($colon[$nextColon]) && $colon[$nextColon]->start < $line->body_start) {
@@ -1068,13 +1063,11 @@ final class DataModel
                 }
             }
             usort($line->open_colon, static fn (stdClass $a, stdClass $b): int => $b->start <=> $a->start);
-            if ($line->shape === 'div_bare_run') {
-                foreach ($line->open_colon as $entry) {
-                    if ($entry->width <= strlen($line->body)) {
-                        $line->closes_container = true;
+            foreach ($line->open_colon as $entry) {
+                if ($entry->width <= strlen($line->body)) {
+                    $line->closes_container = true;
 
-                        break;
-                    }
+                    break;
                 }
             }
         }
