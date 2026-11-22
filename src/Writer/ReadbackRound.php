@@ -16,6 +16,7 @@ final class ReadbackRound
     /**
      * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
      * @param array<string, mixed> $expected
+     * @param array<string, mixed> $options
      *
      * @return array{
      *     equal: bool,
@@ -24,10 +25,11 @@ final class ReadbackRound
      *     read: array<string, mixed>
      * }
      */
-    public static function inspect(array $candidate, array $expected): array
+    public static function inspect(array $candidate, array $expected, array $options = []): array
     {
         $source = $candidate['source'];
-        $read = TreeEncoder::decodedWithPositions(Carve::parse($source), $source);
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        $read = TreeEncoder::decodedWithPositions(Carve::parse($source, $parseOptions), $source);
         $actual = [];
         $openers = [];
         self::readNodes($read, $candidate['text'], $actual, $openers);

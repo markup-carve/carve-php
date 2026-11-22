@@ -33,7 +33,7 @@ final class Writer
             return $result;
         }
         $bare = self::bareCandidate($tree, $layout, $options);
-        if (ReadbackRound::inspect($bare, $tree)['equal']) {
+        if (ReadbackRound::inspect($bare, $tree, $options)['equal']) {
             return $result;
         }
         $repaired = (new RepairPlanner($tree, $layout, $options))->repair();
@@ -129,7 +129,7 @@ final class Writer
         $trace = new RepairTrace($escapes, true, $marker);
         $result = self::writeInternal($tree, $layout, $options, $trace);
 
-        return $trace->decode($result->source);
+        return RepairAlignment::onto($trace->decode($result->source), $bare);
     }
 
     /**

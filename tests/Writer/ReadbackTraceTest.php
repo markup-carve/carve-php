@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\Writer;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Writer\ReadbackRound;
+use MarkupCarve\Carve\Writer\RepairAlignment;
 use MarkupCarve\Carve\Writer\RepairPlanner;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -36,6 +37,33 @@ final class ReadbackTraceTest extends TestCase
         $plain = Writer::bareCandidate($tree, $parsed->layout, [], [], false);
         self::assertSame($plain['source'], $marked['source']);
         self::assertSame($input, $marked['source']);
+    }
+
+    public function testTraceDoesNotChangeAParagraphLineMarker(): void
+    {
+        $input = "/a/ [x] /b/\n\n| a \\|\n";
+        $parsed = Carve::parseWithLayout($input);
+        $tree = TreeEncoder::decodedForWriter($parsed->tree);
+        $marked = Writer::bareCandidate($tree, $parsed->layout);
+        $plain = Writer::bareCandidate($tree, $parsed->layout, [], [], false);
+        self::assertSame($plain['source'], $marked['source']);
+        self::assertSame("/a/ [x] /b/\n\n\\| a |\n", $marked['source']);
+        self::assertArrayHasKey((int)strpos($marked['source'], '| a'), $marked['text']);
+    }
+
+    public function testTracePositionsFollowTheUnmarkedSourceAfterAnInsertedEscape(): void
+    {
+        $candidate = [
+            'source' => 'a|b',
+            'text' => [1 => ['/children/0/children/0', 0]],
+            'nodes' => [['/children/0/children/1', 'emphasis', 1, 3]],
+            'ranges' => ['/children/0/children/0' => [1, 2]],
+        ];
+        $aligned = RepairAlignment::onto($candidate, 'a\\|b');
+        self::assertSame('a\\|b', $aligned['source']);
+        self::assertSame([2 => ['/children/0/children/0', 0]], $aligned['text']);
+        self::assertSame([['/children/0/children/1', 'emphasis', 2, 4]], $aligned['nodes']);
+        self::assertSame(['/children/0/children/0' => [2, 3]], $aligned['ranges']);
     }
 
     public function testTracePreservesPairedFormAfterTrailingWhitespace(): void
@@ -195,6 +223,28 @@ final class ReadbackTraceTest extends TestCase
             $tree = TreeEncoder::decodedForWriter($parsed->tree);
             $source = (new RepairPlanner($tree, $parsed->layout))->repair();
             self::assertSame($case['expected']['carve'], $source);
+
+            return;
+        }
+        self::fail('CC-1568 is missing from the pinned clause cases');
+    }
+
+    public function testReadbackUsesTheActiveExtensionSet(): void
+    {
+        $cases = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
+            true,
+            4096,
+            JSON_THROW_ON_ERROR,
+        )['cases'];
+        foreach ($cases as $case) {
+            if (($case['id'] ?? '') !== 'CC-1568') {
+                continue;
+            }
+            $source = $case['input'] . ":wiki[Page]\n";
+            $result = Carve::formatWithDiagnostics($source, ['extensions' => ['carve.wiki']]);
+            self::assertSame([], $result->codes());
+            self::assertSame($case['expected']['carve'] . ":wiki[Page]\n", $result->source);
 
             return;
         }

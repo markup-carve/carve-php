@@ -67,7 +67,7 @@ final class RepairPlanner
                 return null;
             }
             $seen[$key] = true;
-            $comparison = ReadbackRound::inspect($candidate, $this->tree);
+            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options);
             if ($comparison['equal']) {
                 return $source;
             }
@@ -565,7 +565,7 @@ final class RepairPlanner
         if (!$this->charge($source)) {
             return [];
         }
-        $read = TreeEncoder::decodedWithPositions(Carve::parse($source), $source);
+        $read = TreeEncoder::decodedWithPositions(Carve::parse($source, $this->parseOptions()), $source);
         $found = [];
         $pending = [$read];
         while ($pending !== []) {
@@ -684,7 +684,15 @@ final class RepairPlanner
             return null;
         }
 
-        return TreeEncoder::decodedForWriter(Carve::parse($source));
+        return TreeEncoder::decodedForWriter(Carve::parse($source, $this->parseOptions()));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function parseOptions(): array
+    {
+        return isset($this->options['extensions']) ? ['extensions' => $this->options['extensions']] : [];
     }
 
     /**
