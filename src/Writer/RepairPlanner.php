@@ -28,6 +28,11 @@ final class RepairPlanner
      */
     private array $textOrder = [];
 
+    /**
+     * @var array<string, array<int, true>>
+     */
+    private array $trialEscapes = [];
+
     private int $read = 0;
 
     private int $limit;
@@ -85,31 +90,113 @@ final class RepairPlanner
      */
     private function applyRound(array $candidate, array $comparison): bool
     {
+        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes);
         $missing = self::missingSiblings($candidate, $comparison['read']);
         $trial = $this->nextTrial($candidate, $comparison['read'], $missing);
         if ($trial !== null && $this->keepTrial($trial)) {
             foreach ($trial as [$path, $offset]) {
-                $this->escapes[$path][$offset] = true;
+                $this->addEscape($path, $offset);
+                $this->trialEscapes[$path][$offset] = true;
             }
         }
-        foreach ($comparison['openers'] as $path => $offsets) {
-            foreach ($offsets as $offset => $_) {
-                $this->escapes[$path][$offset] = true;
-            }
-        }
-        if ($comparison['openers'] !== [] || $missing !== []) {
-            return $comparison['openers'] !== [] || $trial !== null;
+        $this->addAsked($comparison['openers']);
+        $this->addAsked($asked);
+        $this->probeMoved($candidate, $comparison['moved']);
+        $this->ownerMoved($comparison['moved']);
+        if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
+            return $comparison['openers'] !== [] || $trial !== null || $asked !== [];
         }
 
         $differences = [];
         self::textDifferences($this->tree, $comparison['read'], '', $differences);
-        foreach ($differences as $path => $offsets) {
+        $this->addAsked($differences);
+
+        return $differences !== [];
+    }
+
+    private function addEscape(string $path, int $offset): bool
+    {
+        if (isset($this->escapes[$path][$offset])) {
+            return false;
+        }
+        $this->escapes[$path][$offset] = true;
+
+        return true;
+    }
+
+    /**
+     * @param array<string, array<int, true>> $asked
+     */
+    private function addAsked(array $asked): bool
+    {
+        $added = false;
+        foreach ($asked as $path => $offsets) {
             foreach ($offsets as $offset => $_) {
-                $this->escapes[$path][$offset] = true;
+                $added = $this->addEscape($path, $offset) || $added;
             }
         }
 
-        return $differences !== [];
+        return $added;
+    }
+
+    /**
+     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array<int, array{string, string, int, int, int}> $moved
+     */
+    private function probeMoved(array $candidate, array $moved): bool
+    {
+        $added = false;
+        foreach ($moved as $position => [$path, , , $end, $readEnd]) {
+            if ($position === 0) {
+                continue;
+            }
+            if ($readEnd <= $end) {
+                continue;
+            }
+            foreach ($this->probeAcrossCloser($candidate, $path, $end) as [$owner, $offset]) {
+                $added = $this->addEscape($owner, $offset) || $added;
+            }
+        }
+
+        return $added;
+    }
+
+    /**
+     * @param array<int, array{string, string, int, int, int}> $moved
+     */
+    private function ownerMoved(array $moved): bool
+    {
+        [$path, , , $end, $readEnd] = $moved[0] ?? [null, '', 0, 0, 0];
+        if ($path === null || $readEnd <= $end || !self::hasLaterOverrun($moved, $path)) {
+            return false;
+        }
+        $parts = explode('/', $path);
+        $index = (int)array_pop($parts);
+        $nextPath = implode('/', $parts) . '/' . ($index + 1);
+        $next = self::nodeAt($this->tree, $nextPath);
+        $owner = self::nodeAt($this->tree, $path);
+        if ($next === null || $owner === null) {
+            return false;
+        }
+        $mark = self::firstMark($next, $nextPath, self::closer($owner), $this->escapes);
+
+        return $mark !== null && $this->addEscape($mark[0], $mark[1]);
+    }
+
+    /**
+     * @param array<int, array{string, string, int, int, int}> $moved
+     * @param string $path
+     */
+    private static function hasLaterOverrun(array $moved, string $path): bool
+    {
+        $parent = substr($path, 0, (int)strrpos($path, '/'));
+        foreach (array_slice($moved, 1) as [$otherPath, , , $otherEnd, $otherReadEnd]) {
+            if ($otherReadEnd > $otherEnd && substr($otherPath, 0, (int)strrpos($otherPath, '/')) === $parent) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -443,6 +530,127 @@ final class RepairPlanner
         }
 
         return $found;
+    }
+
+    /**
+     * A construct inside a paired node may read across its closer only when the content and
+     * following inlines are parsed together. Probe that suffix independently so an outer parse
+     * does not hide its nested openers. As in C2-W-125, a probe takes at most 32 rounds.
+     *
+     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param int $end
+     * @param string $path
+     *
+     * @return array<array{string, int}>
+     */
+    private function probeAcrossCloser(array $candidate, string $path, int $end): array
+    {
+        $node = self::nodeAt($this->tree, $path);
+        if ($node === null || self::closer($node) === '') {
+            return [];
+        }
+        [$candidate, $end] = $this->probeCandidate($candidate, $path, $end);
+        $first = null;
+        foreach ($candidate['text'] as $position => [$owner]) {
+            if (str_starts_with($owner, $path . '/')) {
+                $first = $position;
+
+                break;
+            }
+        }
+        if ($first === null) {
+            return [];
+        }
+        $source = 'x ' . substr($candidate['source'], $first);
+        if (!$this->charge($source)) {
+            return [];
+        }
+        $read = TreeEncoder::decodedWithPositions(Carve::parse($source), $source);
+        $found = [];
+        $pending = [$read];
+        while ($pending !== []) {
+            $item = array_pop($pending);
+            if (!is_array($item)) {
+                continue;
+            }
+            foreach (is_array($item['children'] ?? null) ? $item['children'] : [] as $child) {
+                $pending[] = $child;
+            }
+            $opener = $this->probeOpener($candidate, $item, $path, $end, $first, self::closer($node));
+            if ($opener !== null) {
+                [$start, $owned] = $opener;
+                $found[$start] = $owned;
+            }
+        }
+        ksort($found);
+
+        return array_slice(array_values($found), 0, 32);
+    }
+
+    /**
+     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param int $end
+     * @param string $path
+     *
+     * @return array{array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>}, int}
+     */
+    private function probeCandidate(array $candidate, string $path, int $end): array
+    {
+        $probeEscapes = $this->escapes;
+        $changed = false;
+        foreach ($this->trialEscapes as $owner => $offsets) {
+            if (!str_starts_with($owner, $path . '/')) {
+                continue;
+            }
+            foreach ($offsets as $at => $_) {
+                unset($probeEscapes[$owner][$at]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $candidate = Writer::bareCandidate($this->tree, $this->layout, $this->options, $probeEscapes);
+            foreach ($candidate['nodes'] as [$nodePath, , , $nodeEnd]) {
+                if ($nodePath === $path) {
+                    $end = $nodeEnd;
+
+                    break;
+                }
+            }
+        }
+
+        return [$candidate, $end];
+    }
+
+    /**
+     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array<mixed> $item
+     * @param string $closer
+     * @param int $first
+     * @param int $end
+     * @param string $path
+     *
+     * @return array{int, array{string, int}}|null
+     */
+    private function probeOpener(array $candidate, array $item, string $path, int $end, int $first, string $closer): ?array
+    {
+        $pos = is_array($item['pos'] ?? null) ? $item['pos'] : [];
+        $startOffset = $pos['startOffset'] ?? null;
+        $endOffset = $pos['endOffset'] ?? null;
+        if (!is_int($startOffset) || !is_int($endOffset)) {
+            return null;
+        }
+        $start = $startOffset + $first - 2;
+        $finish = $endOffset + $first - 2;
+        $owned = $candidate['text'][$start] ?? null;
+        if (
+            $owned === null || !str_starts_with($owned[0], $path . '/') || $start >= $end || $finish <= $end
+            || !str_contains('[`<{$:', $candidate['source'][$start])
+            || $candidate['source'][$start] === $closer || isset($this->escapes[$owned[0]][$owned[1]])
+        ) {
+            return null;
+        }
+
+        return [$start, $owned];
     }
 
     private function trialChangesTree(string $path, int $offset): bool

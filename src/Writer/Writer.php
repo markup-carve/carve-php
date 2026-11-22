@@ -27,7 +27,62 @@ final class Writer
      */
     public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
     {
-        return self::writeInternal($tree, $layout, $options, null);
+        $result = self::writeInternal($tree, $layout, $options, null);
+        if ($result->diagnostics !== [] || !self::hasRoundRisk($tree)) {
+            return $result;
+        }
+        $bare = self::bareCandidate($tree, $layout, $options);
+        if (ReadbackRound::inspect($bare, $tree)['equal']) {
+            return $result;
+        }
+        $repaired = (new RepairPlanner($tree, $layout, $options))->repair();
+
+        return $repaired === null ? $result : new WriteResult($repaired, []);
+    }
+
+    /**
+     * Neighboring paired inlines can read each other's delimiters after their local writes.
+     * Only those groups need a whole-group read-back on top of the local writer.
+     *
+     * @param array<mixed> $tree
+     */
+    private static function hasRoundRisk(array $tree): bool
+    {
+        /** @var array<array{array<mixed>, bool, bool}> $pending */
+        $pending = [[$tree, false, false]];
+        while ($pending !== []) {
+            [$node, $pairedBefore, $bracketedBefore] = array_pop($pending);
+            $paired = 0;
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            foreach ($children as $child) {
+                if (
+                    is_array($child) && in_array($child['type'] ?? '', [
+                        'superscript', 'subscript', 'emphasis', 'strong', 'underline', 'strike', 'highlight',
+                        'insert', 'delete', 'link', 'span', 'inline_footnote', 'inline_extension',
+                    ], true)
+                ) {
+                    $paired++;
+                }
+            }
+            $pairedHere = $pairedBefore || $paired >= 2;
+            $bracketed = $bracketedBefore || in_array($node['type'] ?? '', [
+                'link', 'image', 'span', 'inline_footnote', 'inline_extension',
+            ], true);
+            if (
+                $pairedHere && !$bracketed && ($node['type'] ?? '') === 'text'
+                && is_string($node['value'] ?? null) && strpbrk($node['value'], '[`<{$:') !== false
+            ) {
+                return true;
+            }
+            foreach ($children as $child) {
+                if (!is_array($child)) {
+                    continue;
+                }
+                $pending[] = [$child, $pairedHere, $bracketed];
+            }
+        }
+
+        return false;
     }
 
     /**
