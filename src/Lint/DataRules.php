@@ -1877,7 +1877,9 @@ final class DataRules
                     $copy = clone $record;
                     $copy->item = $item;
                     if ($this->value($arg['where'] ?? null, $copy)) {
-                        return $item;
+                        $field = $arg['field'] ?? null;
+
+                        return is_string($field) ? $this->field($field, (object)$item) : $item;
                     }
                 }
 
