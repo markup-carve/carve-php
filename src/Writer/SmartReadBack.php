@@ -47,7 +47,8 @@ final class SmartReadBack
         $source = match ($host) {
             'caption' => "![](x)\n^ " . str_replace("\n", "\n  ", $text) . "\n",
             'line' => "::: |\n" . $text . "\n:::\n",
-            'cell' => '| ' . $text . " |\n",
+            // C2-L-020: a wrapped cell goes on in a continuation line.
+            'cell' => '| ' . str_replace("\n", " |\n+ ", $text) . " |\n",
             'title' => '::: note "' . $text . "\"\n:::\n",
             default => $mark . str_replace("\n", "\n" . $indent, $text) . "\n",
         };

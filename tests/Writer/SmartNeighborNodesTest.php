@@ -193,6 +193,23 @@ final class SmartNeighborNodesTest extends TestCase
     }
 
     /**
+     * A wrapped table cell goes on in a continuation line, which the read-back keeps.
+     *
+     * @return void
+     */
+    public function testARunInAWrappedCellIsJudged(): void
+    {
+        $source = "| x |\n+ -----y |\n";
+        $read = Carve::parseWithLayout($source);
+        $tree = TreeEncoder::decoded($read->tree);
+        $this->assertSame([], Writer::writeWithDiagnostics($tree, $read->layout)->diagnostics);
+        self::swapDashes($tree);
+        $result = Writer::writeWithDiagnostics($tree, $read->layout);
+        $this->assertSame($source, $result->source);
+        $this->assertCount(2, $result->diagnostics);
+    }
+
+    /**
      * @param array<mixed> $node
      *
      * @return void
