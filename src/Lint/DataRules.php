@@ -98,6 +98,25 @@ final class DataRules
      */
     private static ?self $interpreter = null;
 
+    private static ?bool $markerOnlyWildcardInlineLookup = null;
+
+    private static function markerOnlyWildcardInlineLookup(): bool
+    {
+        if (self::$markerOnlyWildcardInlineLookup !== null) {
+            return self::$markerOnlyWildcardInlineLookup;
+        }
+        foreach (self::rules() as $rule) {
+            $blocks = [];
+            $inline = [];
+            self::lookupTypes($rule, $blocks, $inline);
+            if (isset($inline['*']) && $rule['id'] !== 'block-marker-as-text') {
+                return self::$markerOnlyWildcardInlineLookup = false;
+            }
+        }
+
+        return self::$markerOnlyWildcardInlineLookup = true;
+    }
+
     /**
      * @var array<string, mixed>
      */
@@ -844,6 +863,17 @@ final class DataRules
         return $out;
     }
 
+    private static function mightBeDescription(string $text): bool
+    {
+        $at = strspn($text, " \t");
+        while (substr($text, $at, 2) === '> ') {
+            $at += 2;
+            $at += strspn($text, " \t", $at);
+        }
+
+        return ($text[$at] ?? '') === ':';
+    }
+
     public static function run(Context $context): void
     {
         if (self::rules() === []) {
@@ -867,6 +897,34 @@ final class DataRules
             $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
             $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves,
         ] = self::$plans[self::activeKey($context)] ??= self::plan($context);
+        $plainTableCellGate = !isset($needBlocks['*']) && !isset($needBlocks['table_cell']);
+        foreach ($genericBlocks as $filter) {
+            if ($filter['parents'] === null || isset($filter['parents']['table_row'])) {
+                $plainTableCellGate = false;
+            }
+        }
+        $knownCellRules = [
+            'deprecated-cell-alignment' => true,
+            'table-marker-run-padding' => true,
+            'table-span-marker-attribute' => true,
+            'table-span-marker-blocked' => true,
+        ];
+        foreach ($typedRules['block']['table_cell'] ?? [] as $rule) {
+            if (!isset($knownCellRules[$rule['id']])) {
+                $plainTableCellGate = false;
+            }
+        }
+        // These literals are required by the rules' lookup conditions, regardless of the record being tested.
+        $absentRule = [
+            'heading-marker-mixed' => !str_contains($context->source, '='),
+            'comment-splits-table-row' => !str_contains($context->source, '+'),
+            'description-separator-below-content-column' => preg_match('/^[ \t]*(?:> [ \t]*)*:/m', $context->source) !== 1,
+            'quote-fence-ends-the-quote-above' => !str_contains($context->source, '::: >'),
+            'github-alert-marker' => !str_contains($context->source, '[!'),
+            'setext-heading-underline' => !str_contains($context->source, '===') && !str_contains($context->source, '---'),
+            'thematic-break-spelling' => !str_contains($context->source, '---') && !str_contains($context->source, '___'),
+            'blockquote-marker-without-space' => !str_contains($context->source, '>'),
+        ];
         if (isset($needInline['*'])) {
             $wildcardNeeded = false;
             foreach (array_merge($byKind['line'], $byKind['block'], $byKind['inline']) as $rule) {
@@ -893,6 +951,27 @@ final class DataRules
             }
             if (!$wildcardNeeded) {
                 unset($needInline['*']);
+            }
+        }
+        $textRunNeedles = '';
+        $wildcardTextRunLookup = isset($needInline['*']) && (!self::markerOnlyWildcardInlineLookup()
+            || str_contains($context->source, '~~~') || str_contains($context->source, ':::') || str_contains($context->source, '{'));
+        if (!$wildcardTextRunLookup && !isset($needInline['text_run']) && $untypedRules['inline'] === []) {
+            foreach ($typedRules['inline']['text_run'] ?? [] as $rule) {
+                $literal = null;
+                foreach ($rule['early'] as [$op, $field, $value]) {
+                    if ($field === 'text' && in_array($op, ['contains', 'starts', 'eq'], true) && is_string($value) && $value !== '') {
+                        $literal = $value;
+
+                        break;
+                    }
+                }
+                if ($literal === null) {
+                    $textRunNeedles = '';
+
+                    break;
+                }
+                $textRunNeedles .= $literal[0];
             }
         }
         $self = self::$interpreter ??= new self($context);
@@ -924,14 +1003,15 @@ final class DataRules
             $typedRules,
             $untypedRules,
             $lookupRules,
+            $absentRule,
         ): void {
             foreach ($typedRules[$kind][$record->type ?? ''] ?? [] as $rule) {
-                if ($lookupRules[$rule['id']] === $lookups) {
+                if ($lookupRules[$rule['id']] === $lookups && !($absentRule[$rule['id']] ?? false)) {
                     $self->apply($rule, $record);
                 }
             }
             foreach ($untypedRules[$kind] as $rule) {
-                if ($lookupRules[$rule['id']] === $lookups) {
+                if ($lookupRules[$rule['id']] === $lookups && !($absentRule[$rule['id']] ?? false)) {
                     $self->apply($rule, $record);
                 }
             }
@@ -948,9 +1028,16 @@ final class DataRules
             $genericBlocks,
             $needBlocks,
             $context,
+            $plainTableCellGate,
         ): bool {
             if (isset($needBlocks[$type]) || isset($needBlocks['*'])) {
                 return true;
+            }
+            if (
+                $plainTableCellGate && $type === 'table_cell' && !isset($node['span']) && $end >= $start
+                && strcspn($context->source, '<>~?{^', $start, $end - $start) === $end - $start
+            ) {
+                return false;
             }
             foreach ($typedRules['block'][$type] ?? [] as $rule) {
                 if (self::earlyPasses($rule['early'], $node, $context->source, $start, $end)) {
@@ -1040,6 +1127,8 @@ final class DataRules
             $mightUseBlock,
             $mightUseInline,
             isset($typedRules['inline']['text_run']),
+            $textRunNeedles,
+            $plainTableCellGate,
         );
         // The rules that look records up run once the walk has made every record they can find.
         $self->lookupRecords['line'] = $model->lines;
@@ -1057,6 +1146,9 @@ final class DataRules
             if (!isset($lineCandidates[$key])) {
                 $lineCandidates[$key] = [];
                 foreach ($byKind['line'] as $rule) {
+                    if ($absentRule[$rule['id']] ?? false) {
+                        continue;
+                    }
                     $filter = $lineFilters[$rule['id']];
                     if (
                         ($filter['leafs'] !== null && !isset($filter['leafs'][$record->leaf]))
@@ -1067,7 +1159,50 @@ final class DataRules
                     $lineCandidates[$key][] = [$rule, $filter['texts']];
                 }
             }
+            $leadText = ltrim($record->text, " \t")[0] ?? '';
             foreach ($lineCandidates[$key] as [$rule, $texts]) {
+                if (
+                    $record->leaf_first
+                    && in_array($rule['id'], ['block-opener-without-blank-line', 'markdown-definition-paragraph'], true)
+                ) {
+                    continue;
+                }
+                if ($rule['id'] === 'github-alert-marker' && $leadText !== '>') {
+                    continue;
+                }
+                if ($rule['id'] === 'quote-fence-ends-the-quote-above' && $leadText !== ':') {
+                    continue;
+                }
+                if (
+                    $rule['id'] === 'setext-heading-underline'
+                    && ($leadText === '' || !str_contains('>=-', $leadText))
+                ) {
+                    continue;
+                }
+                if ($rule['id'] === 'empty-reference-definition' && ($record->body[0] ?? '') !== '[') {
+                    continue;
+                }
+                if ($rule['id'] === 'blockquote-marker-without-space' && ($record->text[0] ?? '') !== '>') {
+                    continue;
+                }
+                if (
+                    $rule['id'] === 'deprecated-spaced-thematic-break'
+                    && !str_contains('-*_', $record->body[0] ?? '')
+                ) {
+                    continue;
+                }
+                if (
+                    $rule['id'] === 'thematic-break-spelling'
+                    && !str_contains('-_', $record->body[0] ?? '')
+                ) {
+                    continue;
+                }
+                if (
+                    $rule['id'] === 'description-separator-below-content-column'
+                    && !self::mightBeDescription($record->text)
+                ) {
+                    continue;
+                }
                 foreach ($texts as [$field, $operator, $literal]) {
                     $value = $record->$field;
                     $matches = match ($operator) {
@@ -1789,7 +1924,7 @@ final class DataRules
             };
         }
         if ($op === 'lookup' && is_array($arg)) {
-            $site = json_encode($arg, JSON_THROW_ON_ERROR);
+            $site = self::lookupSite($arg, $let);
             $value = isset($arg['value']) ? $this->compile($arg['value'], $let) : null;
 
             return fn (stdClass $record): mixed => $this->lookup($arg, $record, $site, $value);
@@ -2162,7 +2297,7 @@ final class DataRules
         if (!in_array($over, ['block', 'inline', 'id', 'line'], true)) {
             return null;
         }
-        $site ??= json_encode($expr, JSON_THROW_ON_ERROR);
+        $site ??= self::lookupSite($expr, $this->vars);
         if (!isset($this->lookupIndexes[$site])) {
             $index = [];
             $records = $over === 'line' ? $this->lineRecords() : $this->lookupRecords[$over];
@@ -2219,6 +2354,23 @@ final class DataRules
         }
 
         return $this->lookupField($field, $chosen);
+    }
+
+    /**
+     * Lookups with the same source, type filter, key, and rule bindings use the same record index even if their returned
+     * fields or selection positions differ.
+     *
+     * @param array<mixed> $expr
+     * @param array<mixed> $vars
+     */
+    private static function lookupSite(array $expr, array $vars): string
+    {
+        return json_encode([
+            $expr['over'] ?? null,
+            $expr['types'] ?? null,
+            $expr['key'] ?? null,
+            $vars,
+        ], JSON_THROW_ON_ERROR);
     }
 
     private function lookupField(string $field, stdClass $found): mixed
