@@ -59,6 +59,38 @@ final class ReadbackTraceTest extends TestCase
         self::assertSame("{/a\t/}*[*\n", $marked['source']);
     }
 
+    #[DataProvider('leadingCaretHosts')]
+    public function testTracePreservesLeadingCaretInBracketedLabel(string $type, string $suffix): void
+    {
+        $label = ['type' => $type, 'children' => [['type' => 'text', 'value' => '^']]];
+        if ($type === 'link') {
+            $label['href'] = 'u';
+        }
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'emphasis', 'children' => [['type' => 'text', 'value' => 'a']]],
+                        $label,
+                    ],
+                ],
+            ],
+        ];
+        $marked = Writer::bareCandidate($tree);
+        $plain = Writer::bareCandidate($tree, null, [], [], false);
+        self::assertSame($plain['source'], $marked['source']);
+        self::assertSame('/a/[\\^]' . $suffix . "\n", $marked['source']);
+    }
+
+    public static function leadingCaretHosts(): iterable
+    {
+        yield 'link' => ['link', '(u)'];
+        yield 'span' => ['span', '{}'];
+    }
+
     public function testRepairGroupKeepsLaterLiteralTableSpanMark(): void
     {
         $cases = json_decode(

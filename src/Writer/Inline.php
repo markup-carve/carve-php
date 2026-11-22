@@ -1393,7 +1393,7 @@ final class Inline
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of span text would read as a footnote reference.
-        if ($open === '[' && str_starts_with($inner, '^')) {
+        if ($open === '[' && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')) {
             $inner = '\\' . $inner;
         }
 
@@ -1512,7 +1512,7 @@ final class Inline
         }
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of link text would read as a footnote reference.
-        if (str_starts_with($inner, '^')) {
+        if (str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')) {
             $inner = '\\' . $inner;
         }
 
