@@ -70,7 +70,9 @@ assert(Carve::importDocument("_hi_ *there*\n", ['from' => 'djot'])->source === "
 
 Markdown (`markdown`, CommonMark 0.31), GFM (`gfm`) and Djot (`djot`) are imported through the HTML importer, as in
 carve-js: `league/commonmark` or `php-collective/djot` renders HTML and the HTML importer reads it, so every format
-follows the same tree rules. The step in between keeps what the library HTML cannot carry: raw HTML and Djot raw
+follows the same tree rules. Both libraries are optional Composer suggestions: install `league/commonmark` for
+`markdown` and `gfm`, `php-collective/djot` for `djot`. A format whose library is missing throws `ImportInputError`
+with the `composer require` command, and HTML import keeps working. The step in between keeps what the library HTML cannot carry: raw HTML and Djot raw
 content stay raw nodes, a tight list stays tight when an item holds a second block, Markdown frontmatter (YAML or
 TOML), math (`$x$`, `$$`), container directives (`:::note[Title]`) and GitHub alerts (`> [!NOTE]`) become
 frontmatter, math, admonitions and divs, and a Djot list keeps a start of `0`. Generated Djot heading ids are left to

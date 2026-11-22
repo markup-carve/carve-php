@@ -20,19 +20,15 @@ final class HubWithoutLibrariesTest extends TestCase
         $report = json_decode($output, true);
         $this->assertIsArray($report, $output);
 
+        $commonmark = 'import requires the league/commonmark package: composer require league/commonmark';
+        $djot = 'djot import requires the php-collective/djot package: composer require php-collective/djot';
         $this->assertFalse($report['libraries']);
-        $this->assertSame('markdown import requires the league/commonmark package: composer require league/commonmark', $report['markdown']);
-        $this->assertSame('gfm import requires the league/commonmark package: composer require league/commonmark', $report['gfm']);
-        $this->assertSame('djot import requires the php-collective/djot package: composer require php-collective/djot', $report['djot']);
+        $this->assertSame('markdown ' . $commonmark, $report['markdown']);
+        $this->assertSame('gfm ' . $commonmark, $report['gfm']);
+        $this->assertSame($djot, $report['djot']);
         $this->assertSame("Hi\n", $report['html']);
-        $this->assertSame(
-            [2, '', "carve[import-input-invalid]: <stdin>: djot import requires the php-collective/djot package: composer require php-collective/djot\n"],
-            $report['cli'],
-        );
-        $this->assertSame(
-            [2, '', "carve[input-invalid]: gfm import requires the league/commonmark package: composer require league/commonmark\n"],
-            $report['directory'],
-        );
+        $this->assertSame([2, '', "carve[import-input-invalid]: <stdin>: $djot\n"], $report['cli']);
+        $this->assertSame([2, '', "carve[input-invalid]: gfm $commonmark\n"], $report['directory']);
         $this->assertFalse($report['directoryOutput']);
     }
 }
