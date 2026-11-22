@@ -33,7 +33,7 @@ final class NestedBareDotListTest extends TestCase
             'two levels' => [$list([$list([$paragraph('a')])]), ". 1. a\n"],
             'three levels' => [$list([$list([$list([$paragraph('a')])])]), ". 1. . a\n"],
             'in a quote' => [$quote([$list([$list([$paragraph('a')])])]), "> . 1. a\n"],
-            'a quote between' => [$list([$quote([$list([$paragraph('a')])])]), ". > 1. a\n"],
+            'a quote between' => [$list([$quote([$list([$paragraph('a')])])]), ". > . a\n"],
             'second inner item' => [$list([$list([$paragraph('a')], [$paragraph('b')])]), ". 1. a\n  2. b\n"],
             'after a paragraph' => [$list([$paragraph('a'), $list([$paragraph('b')])]), ". a\n  . b\n"],
         ];

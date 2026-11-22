@@ -23,9 +23,9 @@ final class State
     public ?string $lead = null;
 
     /**
-     * C2-W-044: a bare-dot item marker waits on this line.
+     * C2-W-044: the lead that ends in a bare-dot item marker, while nothing else follows it on the line.
      */
-    public bool $bareDotLead = false;
+    public ?string $bareDotLead = null;
 
     /**
      * C2-W-121: the block being written follows a description list among its siblings.
@@ -295,7 +295,7 @@ final class State
     {
         $head = $this->lead ?? $prefix;
         $this->lead = null;
-        $this->bareDotLead = false;
+        $this->bareDotLead = null;
         $this->boxLead = null;
         $this->lines[] = $text === '' ? rtrim($head, " \t") : $head . $text;
     }
