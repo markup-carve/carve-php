@@ -13,6 +13,22 @@ use PHPUnit\Framework\TestCase;
 
 final class ReadbackTraceTest extends TestCase
 {
+    public function testLiteralControlBytesSurviveTraceDecoding(): void
+    {
+        $value = "a\x010\x02\x030\x04\x050\x06b";
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => $value]]],
+            ],
+        ];
+        $marked = Writer::bareCandidate($tree);
+        $plain = Writer::bareCandidate($tree, null, [], [], false);
+        self::assertSame($plain['source'], $marked['source']);
+        self::assertSame($value . "\n", $marked['source']);
+    }
+
     #[DataProvider('cases')]
     public function testOneReadbackReportsAllUnexpectedOpeners(string $input, int $openers, int $remainingSpans): void
     {

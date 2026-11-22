@@ -23,8 +23,9 @@ final class RepairTrace
     /**
      * @param array<string, array<int, true>> $escapes Text paths and byte offsets escaped by prior rounds.
      * @param bool $mark
+     * @param string $marker A byte sequence absent from the unmarked candidate.
      */
-    public function __construct(private array $escapes = [], private bool $mark = true)
+    public function __construct(private array $escapes = [], private bool $mark = true, private string $marker = '')
     {
     }
 
@@ -36,7 +37,7 @@ final class RepairTrace
             if ($this->mark && Text::isPunct($char)) {
                 $id = count($this->text);
                 $this->text[] = [$path, $at];
-                $out .= "\x01" . $id . "\x02";
+                $out .= $this->marker . 't' . $id . "\x02";
             }
             if (isset($this->escapes[$path][$at])) {
                 $out .= '\\';
@@ -59,7 +60,7 @@ final class RepairTrace
         $id = count($this->nodes);
         $this->nodes[] = [$path, $type];
 
-        return "\x03" . $id . "\x04" . $source . "\x05" . $id . "\x06";
+        return $this->marker . 'n' . $id . "\x02" . $source . $this->marker . 'e' . $id . "\x02";
     }
 
     /**
@@ -72,42 +73,42 @@ final class RepairTrace
         $nodes = [];
         $length = strlen($marked);
         for ($at = 0; $at < $length;) {
-            $first = $marked[$at];
-            $end = match ($first) {
-                "\x01" => "\x02",
-                "\x03" => "\x04",
-                "\x05" => "\x06",
-                default => null,
-            };
-            if ($end === null) {
-                $source .= $first;
+            if ($this->marker === '' || substr_compare($marked, $this->marker, $at, strlen($this->marker)) !== 0) {
+                $source .= $marked[$at];
                 $at++;
 
                 continue;
             }
-            $close = strpos($marked, $end, $at + 1);
+            $kindAt = $at + strlen($this->marker);
+            $kind = $marked[$kindAt] ?? '';
+            $close = strpos($marked, "\x02", $kindAt + 1);
             if ($close === false) {
-                $source .= $first;
+                $source .= $marked[$at];
                 $at++;
 
                 continue;
             }
-            $digits = substr($marked, $at + 1, $close - $at - 1);
+            $digits = substr($marked, $kindAt + 1, $close - $kindAt - 1);
             if ($digits === '' || strspn($digits, '0123456789') !== strlen($digits)) {
-                $source .= $first;
+                $source .= $marked[$at];
                 $at++;
 
                 continue;
             }
             $id = (int)$digits;
             $place = strlen($source);
-            if ($first === "\x01" && isset($this->text[$id])) {
+            if ($kind === 't' && isset($this->text[$id])) {
                 $text[$place] = $this->text[$id];
-            } elseif ($first === "\x03" && isset($this->nodes[$id])) {
+            } elseif ($kind === 'n' && isset($this->nodes[$id])) {
                 [$path, $type] = $this->nodes[$id];
                 $nodes[$id] = [$path, $type, $place, -1];
-            } elseif ($first === "\x05" && isset($nodes[$id])) {
+            } elseif ($kind === 'e' && isset($nodes[$id])) {
                 $nodes[$id][3] = $place;
+            } else {
+                $source .= $marked[$at];
+                $at++;
+
+                continue;
             }
             $at = $close + 1;
         }

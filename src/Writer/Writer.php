@@ -48,7 +48,18 @@ final class Writer
         array $escapes = [],
         bool $mark = true,
     ): array {
-        $trace = new RepairTrace($escapes, $mark);
+        if (!$mark) {
+            $trace = new RepairTrace($escapes, false);
+            $result = self::writeInternal($tree, $layout, $options, $trace);
+
+            return $trace->decode($result->source);
+        }
+        $plain = new RepairTrace($escapes, false);
+        $bare = self::writeInternal($tree, $layout, $options, $plain)->source;
+        do {
+            $marker = "\x01" . random_bytes(16) . "\x03";
+        } while (str_contains($bare, $marker));
+        $trace = new RepairTrace($escapes, true, $marker);
         $result = self::writeInternal($tree, $layout, $options, $trace);
 
         return $trace->decode($result->source);
