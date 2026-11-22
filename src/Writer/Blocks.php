@@ -662,7 +662,7 @@ final class Blocks
      */
     private static function readRole(string $text, array $node): ?string
     {
-        $line = rtrim($text, "\n");
+        $line = ltrim(rtrim($text, "\n"), " \t");
         $n = strlen($line);
         if ($n === 0 || str_contains($line, "\n")) {
             return null;
@@ -672,14 +672,28 @@ final class Blocks
             LineShapes::isDisplayMath($line, 0, $n) => 'math',
             default => null,
         };
-        // A break at the end of the one line is not written, so it is no child on read-back.
+        // A break, or text of only spaces and tabs, is no child of a one-line paragraph on read-back.
         $children = array_values(array_filter(
             is_array($node['children'] ?? null) ? $node['children'] : [],
-            static fn (mixed $child): bool => !is_array($child) || !in_array($child['type'] ?? '', ['soft_break', 'hard_break'], true),
+            static fn (mixed $child): bool => !is_array($child) || !self::vanishes($child),
         ));
         $only = $children[0] ?? null;
 
         return count($children) === 1 && is_array($only) && ($only['type'] ?? '') === $role ? $role : null;
+    }
+
+    /**
+     * @param array<mixed> $child
+     *
+     * @return bool
+     */
+    private static function vanishes(array $child): bool
+    {
+        $type = $child['type'] ?? '';
+        $value = $child['value'] ?? null;
+
+        return $type === 'soft_break' || $type === 'hard_break'
+            || ($type === 'text' && is_string($value) && trim($value, " \t") === '');
     }
 
     /**
