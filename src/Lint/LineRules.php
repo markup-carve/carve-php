@@ -375,7 +375,7 @@ final class LineRules
 
     private static function tildeFence(Line $line, Context $c): void
     {
-        if (!$line->paragraph) {
+        if (!$line->paragraph && ($c->nodeTypes[$line->path] ?? null) !== 'line') {
             return;
         }
         $first = ($c->firstLines[$line->path] ?? null) === $line->number;
@@ -934,7 +934,8 @@ final class LineRules
         if (!in_array($c->nodeTypes[$line->path] ?? null, ['paragraph', 'heading', 'table_row', 'table_cell'], true)) {
             return;
         }
-        if (!str_contains($line->text, '[!') || preg_match('/^[ \t]*>(?:[^ \t\[]|\[[^!])/', $line->text) === 1) {
+        $gluedNonAlert = '/^[ \t]*>(?=[^ \t])(?!(?:\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]))/';
+        if (!str_contains($line->text, '[!') || preg_match($gluedNonAlert, $line->text) === 1) {
             return;
         }
         $pattern = '/^[ \t]*(?:>[ \t]*)+(?:(?:[-*]|[0-9]+[.)]|[A-Za-z][.)])[ \t]*>[ \t]*)?(?:\[[^\]]+\]:[ \t]*>[ \t]*)?'
