@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\OptionError;
 
@@ -180,14 +181,13 @@ final class Linter
         unset($childCounts, $tree, $root);
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
-        self::runHandwrittenLines($c);
 
         if ($c->dataRules) {
             DataRules::run($c);
             DataRules::runAttributes($c);
         }
 
-        $findings = self::ordered(self::filter($c, $controls));
+        $findings = self::ordered(self::filter($c, $controls), $c->nodeTypes);
         $dataRules = $c->dataRules;
         unset($c);
         if ($dataRules && memory_get_usage(true) - memory_get_usage(false) > 16 * 1024 * 1024) {
@@ -195,25 +195,6 @@ final class Linter
         }
 
         return $findings;
-    }
-
-    private static function runHandwrittenLines(Context $c): void
-    {
-        $maskCursor = 0;
-        $lineRules = array_values(array_filter(LineRules::all(), static fn (array $rule): bool => $c->active($rule[0])));
-        if ($lineRules === []) {
-            return;
-        }
-        foreach ($c->lines as $line) {
-            // The one hand-written line rule reads only a paragraph line that starts with a space.
-            if ($line->opaque || !$line->paragraph || ($line->text[0] ?? '') !== ' ') {
-                continue;
-            }
-            $scan = self::masked($line, $c, $maskCursor);
-            foreach ($lineRules as [, $check]) {
-                $check($scan, $c);
-            }
-        }
     }
 
     /**
@@ -516,32 +497,6 @@ final class Linter
         }
     }
 
-    private static function masked(Line $line, Context $c, int &$cursor): Line
-    {
-        $text = $line->text;
-        $changed = false;
-        $count = count($c->leafMask);
-        while ($cursor < $count && $c->leafMask[$cursor][1] <= $line->start) {
-            $cursor++;
-        }
-        $end = $line->start + strlen($text);
-        for ($i = $cursor; $i < $count && $c->leafMask[$i][0] < $end; $i++) {
-            [$from, $to] = $c->leafMask[$i];
-            $a = max($from, $line->start);
-            $b = min($to, $end);
-            if ($a < $b) {
-                $text = substr_replace($text, str_repeat("\0", $b - $a), $a - $line->start, $b - $a);
-                $changed = true;
-            }
-        }
-
-        if (!$changed) {
-            return $line;
-        }
-
-        return new Line($text, $line->start, $line->end, $line->number, $line->path, $line->opaque, $line->paragraph, $line->content);
-    }
-
     /**
      * C2-B-216: the findings no control comment suppresses.
      *
@@ -602,18 +557,67 @@ final class Linter
     }
 
     /**
-     * In position order, findings at one offset in the order they were made.
+     * In position order, findings at one offset in the order they were made, except that the node findings among them
+     * follow the visit order of their node, as carve-js orders them.
      *
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics
+     * @param array<string, string> $nodeTypes
      *
      * @return array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
      */
-    private static function ordered(array $diagnostics): array
+    private static function ordered(array $diagnostics, array $nodeTypes = []): array
     {
         $keys = array_keys($diagnostics);
         usort($keys, static fn (int $a, int $b): int => [$diagnostics[$a]->startOffset, $a] <=> [$diagnostics[$b]->startOffset, $b]);
+        $out = array_map(static fn (int $k) => $diagnostics[$k], $keys);
+        if ($nodeTypes === []) {
+            return $out;
+        }
+        $lineIds = DataRules::lineIds();
+        $visit = null;
+        $count = count($out);
+        for ($from = 0; $from < $count; $from = $to) {
+            $to = $from + 1;
+            while ($to < $count && $out[$to]->startOffset === $out[$from]->startOffset) {
+                $to++;
+            }
+            if ($to - $from < 2) {
+                continue;
+            }
+            $slots = [];
+            $nodes = [];
+            for ($i = $from; $i < $to; $i++) {
+                if ($out[$i]->channel === 'lint' && !isset($lineIds[$out[$i]->code])) {
+                    $visit ??= array_flip(array_map('strval', array_keys($nodeTypes)));
+                    $slots[] = $i;
+                    $nodes[] = [$visit[self::origin($out[$i])] ?? 0, $i, $out[$i]];
+                }
+            }
+            if (count($nodes) < 2) {
+                continue;
+            }
+            sort($nodes);
+            foreach ($slots as $n => $slot) {
+                $out[$slot] = $nodes[$n][2];
+            }
+        }
 
-        return array_map(static fn (int $k) => $diagnostics[$k], $keys);
+        return $out;
+    }
+
+    /**
+     * The node a finding sorts by: its own, or for `table-row-cell-count` the table that holds its row.
+     */
+    private static function origin(Diagnostic $diagnostic): string
+    {
+        $path = $diagnostic->path ?? '';
+        if ($diagnostic->code !== 'table-row-cell-count') {
+            return $path;
+        }
+        $row = strrpos($path, '/children/');
+        $group = $row === false || $row === 0 ? false : strrpos($path, '/children/', $row - strlen($path) - 1);
+
+        return $group === false ? $path : substr($path, 0, $group);
     }
 
     /**

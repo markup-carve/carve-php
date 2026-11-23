@@ -194,6 +194,23 @@ final class DataRules
     }
 
     /**
+     * The ids of the data rules over line records.
+     *
+     * @return array<string, true>
+     */
+    public static function lineIds(): array
+    {
+        $ids = [];
+        foreach (self::rules() as $rule) {
+            if ($rule['over'] === 'line') {
+                $ids[$rule['id']] = true;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function data(): array

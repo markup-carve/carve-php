@@ -802,7 +802,7 @@
    "findings": [
     [
      "djot-intraword-underscore",
-     "/children/0/children/0",
+     "/children/0",
      1,
      4,
      "Djot emphasizes this intraword `_x_`; the migration leaves it literal, so the emphasis is lost. Brace it as `{/x/}` if it was meant."
@@ -1537,7 +1537,7 @@
    "findings": [
     [
      "emphasis-marker-before-attributes",
-     "/children/0/children/0",
+     "/children/0",
      1,
      9,
      "This * closes no span, so it and the attribute block after it stay text. Brace the span you mean ({*text*}{…}) to attach the block, or escape the * to keep both as text."
@@ -1935,7 +1935,7 @@
    "findings": [
     [
      "sigil-after-letter",
-     "/children/0/children/0",
+     "/children/0",
      2,
      3,
      "A mention or tag does not start directly after a letter or number. Put a space or punctuation before it."
@@ -2053,7 +2053,7 @@
    "findings": [
     [
      "unattached-inline-attribute",
-     "/children/0/children/0",
+     "/children/0",
      4,
      8,
      "This attribute block is attached to nothing and renders as text. Glue it to a span, link or code span, or escape the brace."
@@ -2061,13 +2061,13 @@
    ]
   },
   "unclosed-braced-comment": {
-   "trigger": "a {% oops\n",
-   "near": "a \n",
+   "trigger": "a {% oops\n| b |\nc %}\n",
+   "near": "a \n| b |\nc %}\n",
    "options": {},
    "findings": [
     [
      "unclosed-braced-comment",
-     "/children/0/children/0",
+     "/children/0",
      2,
      9,
      "This braced comment is not closed before the next block starts, so it stays text. Close it inside its block, or use %% line comments."

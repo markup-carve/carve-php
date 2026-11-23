@@ -574,7 +574,7 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'unattached-inline-attribute',
-                    '/children/0/children/0',
+                    '/children/0',
                     5,
                     11,
                     'This attribute block is attached to nothing and renders as text. Glue it to a span, link or code '

@@ -48,7 +48,7 @@ final class NodeRulesBTest extends TestCase
                 'a_x_b',
                 [
                     'djot-intraword-underscore',
-                    '/children/0/children/0',
+                    '/children/0',
                     1,
                     4,
                     'Djot emphasizes this intraword `_x_`; the migration leaves it literal, so the emphasis is '
@@ -61,7 +61,7 @@ final class NodeRulesBTest extends TestCase
                 "a*{_k=b_}\n",
                 [
                     'emphasis-marker-before-attributes',
-                    '/children/0/children/0',
+                    '/children/0',
                     1,
                     9,
                     'This * closes no span, so it and the attribute block after it stay text. Brace the span '
@@ -74,7 +74,7 @@ final class NodeRulesBTest extends TestCase
                 'x/{a} y',
                 [
                     'emphasis-marker-before-attributes',
-                    '/children/0/children/0',
+                    '/children/0',
                     1,
                     5,
                     'This / closes no span, so it and the attribute block after it stay text. Brace the span '
@@ -200,10 +200,10 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'unclosed-braced-comment' => [
-                "a {% oops\n",
+                "a {% oops\n| b |\nc %}\n",
                 [
                     'unclosed-braced-comment',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     9,
                     'This braced comment is not closed before the next block starts, so it stays text. Close it '
@@ -241,7 +241,7 @@ final class NodeRulesBTest extends TestCase
                 'ü@bob',
                 [
                     'sigil-after-letter',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     3,
                     'A mention or tag does not start directly after a letter or number. Put a space or '
@@ -254,7 +254,7 @@ final class NodeRulesBTest extends TestCase
                 'ü#1a',
                 [
                     'sigil-after-letter',
-                    '/children/0/children/0',
+                    '/children/0',
                     2,
                     3,
                     'A mention or tag does not start directly after a letter or number. Put a space or '
