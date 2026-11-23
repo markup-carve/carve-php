@@ -452,8 +452,14 @@ final class Inline
             $this->bareLeads += self::bareMarks($entry->value, $entry->escaped);
         }
         $kinds = [];
+        $seen = [];
         foreach ($last as $written) {
             foreach ($written as $kind) {
+                // Each kind scans the content once, not once per escape of it.
+                if (isset($seen[$kind])) {
+                    continue;
+                }
+                $seen[$kind] = true;
                 $escaped = str_starts_with($kind, 'line') ? $kind[4] : ($kind === '--' ? '-' : $kind[0]);
                 if (str_contains($out, '\\' . $escaped)) {
                     $kinds[$kind] = true;
@@ -2273,6 +2279,7 @@ final class Inline
      * Pair brackets in text across emphasis and other unbracketed nodes. Nested bracketed constructs own their pairs.
      * C2-W-094: a pair inside one text that forms a construct of its own (its label resolves, a link tail, label or
      * brace block follows, or a caret makes it a footnote) is no balanced text and keeps its backslashes.
+     * C2-I-118: where the brackets inside reach the depth cap with the bracket around them, none is paired.
      *
      * @param array<mixed> $nodes
      * @param string $path
@@ -2286,9 +2293,10 @@ final class Inline
         $open = [];
         $nested = [];
         $paired = [];
-        self::pairWalk($nodes, $path, $open, $nested, $paired, $labels, $notes);
+        $deepest = 0;
+        self::pairWalk($nodes, $path, $open, $nested, $paired, $labels, $notes, $deepest);
 
-        return $paired;
+        return $deepest + 1 >= Tables::INLINE_DEPTH ? [] : $paired;
     }
 
     /**
@@ -2302,6 +2310,7 @@ final class Inline
      * @param array<string, array<int, true>> $paired
      * @param array<string, true> $labels
      * @param bool $notes
+     * @param int $deepest The most brackets open at once so far.
      */
     private static function pairWalk(
         array $list,
@@ -2311,6 +2320,7 @@ final class Inline
         array &$paired,
         array $labels,
         bool $notes,
+        int &$deepest,
     ): void {
         foreach ($list as $at => $node) {
             if (!is_array($node)) {
@@ -2320,14 +2330,14 @@ final class Inline
             $key = $base . '/' . $at;
             if ($type === 'text') {
                 $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-                self::pairText($value, $key, $open, $nested, $paired, $labels, $notes);
+                self::pairText($value, $key, $open, $nested, $paired, $labels, $notes, $deepest);
             } elseif ($type === 'link') {
                 // A nested link's own bracketed spelling ends any pair that was
                 // still open in the containing label.
                 $open = [];
                 $nested = [];
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
-                self::pairWalk($node['children'], $key . '/children', $open, $nested, $paired, $labels, $notes);
+                self::pairWalk($node['children'], $key . '/children', $open, $nested, $paired, $labels, $notes, $deepest);
             }
         }
     }
@@ -2343,6 +2353,7 @@ final class Inline
      * @param array<string, array<int, true>> $paired
      * @param array<string, true> $labels
      * @param bool $notes
+     * @param int $deepest The most brackets open at once so far.
      */
     private static function pairText(
         string $value,
@@ -2352,11 +2363,13 @@ final class Inline
         array &$paired,
         array $labels,
         bool $notes,
+        int &$deepest,
     ): void {
         for ($i = 0, $n = strlen($value); $i < $n; $i++) {
             if ($value[$i] === '[') {
                 $open[] = [$key, $i];
                 $nested[] = false;
+                $deepest = max($deepest, count($open));
             } elseif ($value[$i] === ']' && $open !== []) {
                 [$other, $offset] = array_pop($open);
                 $inner = array_pop($nested) === true;
