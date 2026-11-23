@@ -294,6 +294,11 @@ final class MetadataBlockTest extends TestCase
             'description list' => [":: t\n: d\n", " :: t\n : d\n\n - b\n\n ---yaml\nk: v\n---\n"],
             'list' => ["* a\n", " * a\n\n - b\n\n ---yaml\nk: v\n---\n"],
             'list ending in a fence' => ["* ```\n  x\n  ```\n", " * ```\n   x\n   ```\n\n - b\n\n ---yaml\nk: v\n---\n"],
+            // A comment block at column 0 closes the footnote (C2-B-053), so the list alone is written one space in.
+            'footnote and a comment block' => [
+                "a[^n]\n\n[^n]: x\n\n%%%\nz\n%%%\n",
+                "a[^n]\n\n[^n]: x\n\n%%%\nz\n%%%\n\n - b\n\n ---yaml\nk: v\n---\n",
+            ],
         ];
     }
 

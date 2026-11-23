@@ -277,7 +277,8 @@ final class Blocks
     }
 
     /**
-     * The index of the last block above `at` that is no comment (C2-B-053), or null.
+     * The index of the last block above `at` that is no comment-only line, or null. Comment-only lines are not seen by
+     * block structure (C2-B-137); a comment block at column 0 closes the containers above (C2-B-053).
      *
      * @param array<mixed> $nodes
      * @param int $at
@@ -287,7 +288,7 @@ final class Blocks
     private static function aboveAt(array $nodes, int $at): ?int
     {
         for ($index = $at - 1; $index >= 0; $index--) {
-            if (is_array($nodes[$index]) && ($nodes[$index]['type'] ?? '') !== 'comment') {
+            if (is_array($nodes[$index]) && !self::isCommentLine($nodes[$index])) {
                 return $index;
             }
         }
