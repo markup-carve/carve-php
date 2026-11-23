@@ -48,7 +48,10 @@ final class ReadbackRound
     {
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 
-        return TreeEncoder::decodedWithOffsets(Carve::parse($source, $parseOptions), $source);
+        $parsed = Carve::parse($source, $parseOptions);
+        HeapPages::release();
+
+        return TreeEncoder::decodedWithOffsets($parsed, $source);
     }
 
     /**
