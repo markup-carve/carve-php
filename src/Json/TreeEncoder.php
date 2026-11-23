@@ -180,7 +180,8 @@ final class TreeEncoder
     }
 
     /**
-     * The decoded AST shape whose `pos` is `[startOffset, endOffset]`, for the writer's read-back of its own candidate.
+     * The decoded AST shape whose `pos` is `startOffset << 32 | endOffset` (`offsets()` reads it back), for the writer's
+     * read-back of its own candidate: one integer per node and not an array keeps a 128 KB read-back a third smaller.
      * The children of `$root` are released while it is encoded.
      *
      * @return array<string, mixed>
@@ -193,6 +194,25 @@ final class TreeEncoder
         self::decodedArray($tree);
 
         return $tree;
+    }
+
+    /**
+     * The start and end offset of a `pos` of `decodedWithOffsets()`; a `[start, end]` array is read as it is.
+     *
+     * @param mixed $pos
+     *
+     * @return array{int, int}|null
+     */
+    public static function offsets(mixed $pos): ?array
+    {
+        if (is_int($pos)) {
+            return [$pos >> 32, $pos & 0xFFFFFFFF];
+        }
+        if (is_array($pos) && is_int($pos[0] ?? null) && is_int($pos[1] ?? null)) {
+            return [$pos[0], $pos[1]];
+        }
+
+        return null;
     }
 
     /**
@@ -466,7 +486,7 @@ final class TreeEncoder
             $out['children'] = $children;
         }
         if ($positions && $node->start >= 0 && $node->type !== 'document' && $this->offsetsOnly) {
-            $out['pos'] = [$node->start, $node->end];
+            $out['pos'] = $node->start << 32 | $node->end;
         } elseif ($positions && $node->start >= 0 && $node->type !== 'document') {
             $file = $node->file ?? '';
             if ($file !== $this->currentFile && isset($this->sources[$file])) {

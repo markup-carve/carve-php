@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use MarkupCarve\Carve\Json\TreeEncoder;
+
 /**
  * Compare inline lists in source order. A read-back construct may hide later nodes; stepping
  * over its spelling lets the same repair round report escapes behind the first mismatch.
@@ -141,10 +143,9 @@ final class CompareRound
 
     private static function offset(mixed $node, int $key): ?int
     {
-        $pos = is_array($node) && is_array($node['pos'] ?? null) ? $node['pos'] : [];
-        $offset = $pos[$key] ?? null;
+        $pos = is_array($node) ? TreeEncoder::offsets($node['pos'] ?? null) : null;
 
-        return is_int($offset) ? $offset : null;
+        return $pos === null ? null : $pos[$key];
     }
 
     /**
@@ -243,12 +244,11 @@ final class CompareRound
             $at += 2;
         }
         $this->ask($path, $at);
-        $pos = is_array($other['pos'] ?? null) ? $other['pos'] : [];
-        $startOffset = $pos[0] ?? null;
-        $endOffset = $pos[1] ?? null;
-        if (!is_int($startOffset) || !is_int($endOffset)) {
+        $pos = TreeEncoder::offsets($other['pos'] ?? null);
+        if ($pos === null) {
             return false;
         }
+        [$startOffset, $endOffset] = $pos;
         $end = $this->spelledEnd($value, $path, $vi, $endOffset - $startOffset);
         if ($end === null) {
             return false;

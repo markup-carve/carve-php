@@ -895,11 +895,11 @@ final class RepairPlanner
      */
     private static function actualSpans(array $node, ?array $parent, array &$starts): void
     {
-        $pos = is_array($node['pos'] ?? null) ? $node['pos'] : null;
+        $pos = TreeEncoder::offsets($node['pos'] ?? null);
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        if ($pos !== null && isset($pos[0], $pos[1])) {
-            $start = (int)$pos[0];
-            $starts[$type . ':' . $start] = [(int)$pos[1], $parent];
+        if ($pos !== null) {
+            $start = $pos[0];
+            $starts[$type . ':' . $start] = [$pos[1], $parent];
             $parent = [$type, $start];
         }
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
@@ -1502,12 +1502,11 @@ final class RepairPlanner
      */
     private function probeOpener(array $candidate, array $item, string $path, int $end, int $first, string $closer): ?array
     {
-        $pos = is_array($item['pos'] ?? null) ? $item['pos'] : [];
-        $startOffset = $pos[0] ?? null;
-        $endOffset = $pos[1] ?? null;
-        if (!is_int($startOffset) || !is_int($endOffset)) {
+        $pos = TreeEncoder::offsets($item['pos'] ?? null);
+        if ($pos === null) {
             return null;
         }
+        [$startOffset, $endOffset] = $pos;
         $start = $startOffset + $first - 2;
         $finish = $endOffset + $first - 2;
         $owned = RepairTrace::owner($candidate, $start);

@@ -147,13 +147,13 @@ final class ReadbackRound
      */
     private static function noteNode(array $node, array $text, array &$actual, array &$openers): bool
     {
-        $pos = $node['pos'] ?? null;
-        if (!is_array($pos) || !isset($pos[0], $pos[1])) {
+        $pos = TreeEncoder::offsets($node['pos'] ?? null);
+        if ($pos === null) {
             return false;
         }
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        $start = (int)$pos[0];
-        $actual[$type . "\0" . $start] = (int)$pos[1];
+        [$start, $end] = $pos;
+        $actual[$type . "\0" . $start] = $end;
         if (in_array($type, ['text', 'paragraph', 'cell_paragraph'], true)) {
             return false;
         }
