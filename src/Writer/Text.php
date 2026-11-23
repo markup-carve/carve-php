@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use MarkupCarve\Carve\Inline\Scanner;
 use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Lint\NodeRulesA;
 use MarkupCarve\Carve\Node;
@@ -1661,7 +1662,7 @@ final class Text
         return match ($value[$i]) {
             '@', '#' => !self::isLetterOrNumber($prev) && self::sigilName($value, $i, $c, $next),
             ':' => !self::isLetterOrNumber($prev) && self::colonOpens($value, $i, $c, $next),
-            '<' => $after === 0x2F || $after === 0x2D || $after === 0x3D || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after))),
+            '<' => self::angle($value, $i, $after, $next, $c),
             '>', '!' => $after === 0x3D,
             '=' => self::ahead($value, $i + 1, 2, $c, $next) === '=>',
             '+' => $after === 0x2D,
@@ -1670,6 +1671,94 @@ final class Text
             '%' => $after === 0x25 && ($prev === -1 || $prev === 10 || Chars::isSpace($prev) || ($i === 0 && $c->lineStart)),
             default => false,
         };
+    }
+
+    /**
+     * C2-W-095: `<=`, and `<--` or `<-->` but not a longer hyphen run (C2-I-115), or the `<` opens an atom.
+     *
+     * @param string $value
+     * @param int $i
+     * @param int $after
+     * @param int $next
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function angle(string $value, int $i, int $after, int $next, Context $c): bool
+    {
+        if ($after === 0x3D) {
+            return true;
+        }
+        if ($after === 0x2D) {
+            return preg_match('/^<--(?!-)/', self::ahead($value, $i, 4, $c, $next)) === 1;
+        }
+
+        return ($after === 0x2F || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after)))) && self::angleOpens($value, $i, $next, $c);
+    }
+
+    /**
+     * C2-I-073, C2-I-096, C2-I-122 to C2-I-124: the `<` opens an autolink or a cross-reference. A body that runs to the
+     * end of the text may go on behind it, so that `<` keeps the backslash unless nothing follows.
+     *
+     * @param string $value
+     * @param int $i
+     * @param int $next The character after the text.
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function angleOpens(string $value, int $i, int $next, Context $c): bool
+    {
+        $gt = $i + 1 + strcspn($value, "> \t\n<", $i + 1);
+        if ($gt >= strlen($value)) {
+            if ($c->here < 0 ? $next === -1 : $c->here + strlen($value) >= strlen((string)$c->flat)) {
+                return false;
+            }
+            $following = self::ahead($value, strlen($value), 1, $c, $next);
+
+            return $following === '' || self::bodyStarts(substr($value, $i + 1) . $following);
+        }
+        if ($value[$gt] !== '>') {
+            return false;
+        }
+        $body = substr($value, $i + 1, $gt - $i - 1);
+        if (str_starts_with($body, '/#')) {
+            return strlen($body) > 2;
+        }
+
+        return Scanner::isUrl($body) || Scanner::isEmail($body);
+    }
+
+    /**
+     * Whether `$head` can start the body of an autolink or a cross-reference.
+     *
+     * @param string $head
+     *
+     * @return bool
+     */
+    private static function bodyStarts(string $head): bool
+    {
+        $n = strlen($head);
+        if ($head[0] === '/') {
+            return $n === 1 || $head[1] === '#';
+        }
+        $local = strspn($head, Tables::AUTOLINK_EMAIL_CHARS);
+        if ($local === $n || $head[$local] === '@') {
+            return true;
+        }
+        if (strspn($head[0], Tables::AUTOLINK_SCHEME_FIRST) === 0) {
+            return false;
+        }
+        $colon = 1 + strspn($head, Tables::AUTOLINK_SCHEME_REST, 1);
+        if ($colon === $n) {
+            return true;
+        }
+        if ($head[$colon] !== ':') {
+            return false;
+        }
+        $end = $colon + 1 + strspn($head, Tables::AUTOLINK_URL_CHARS, $colon + 1);
+
+        return $end === $n || ord($head[$end]) >= 0x80;
     }
 
     /**

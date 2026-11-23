@@ -1954,7 +1954,8 @@ final class Inline
     }
 
     /**
-     * C2-W-070, C2-I-053: the content holds its own kind, or text with its own delimiter character.
+     * C2-W-070, C2-I-053: the content holds its own kind, or its own delimiter where it can open, close or stand
+     * between two word characters.
      *
      * @param array<mixed> $nodes
      * @param string $type
@@ -1964,15 +1965,67 @@ final class Inline
      */
     private static function holds(array $nodes, string $type, string $mark): bool
     {
+        return self::holdsKind($nodes, $type) || self::holdsMark($nodes, $mark);
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param string $type
+     *
+     * @return bool
+     */
+    private static function holdsKind(array $nodes, string $type): bool
+    {
         foreach ($nodes as $node) {
             if (!is_array($node)) {
                 continue;
             }
-            if (($node['type'] ?? '') === $type || (($node['type'] ?? '') === 'text' && str_contains(self::str($node, 'value'), $mark))) {
+            if (($node['type'] ?? '') === $type || (is_array($node['children'] ?? null) && self::holdsKind($node['children'], $type))) {
                 return true;
             }
-            if (is_array($node['children'] ?? null) && self::holds($node['children'], $type, $mark)) {
-                return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * A bracket bounds the delimiter stack, so the text inside one does not count, and a mark between two word
+     * characters inside a braced span is text for the pair around it (C2-I-053). A mark between two spaces and a run of
+     * two (C2-I-049) are text.
+     *
+     * @param array<mixed> $nodes
+     * @param string $mark
+     * @param bool $words Whether a mark between two word characters counts.
+     *
+     * @return bool
+     */
+    private static function holdsMark(array $nodes, string $mark, bool $words = true): bool
+    {
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = self::str($node, 'type');
+            if ($type === 'text') {
+                $value = self::str($node, 'value');
+                $n = strlen($value);
+                for ($at = strpos($value, $mark); $at !== false; $at = strpos($value, $mark, $at + 1)) {
+                    if (($value[$at + 1] ?? '') === $mark || ($at > 0 && $value[$at - 1] === $mark)) {
+                        continue;
+                    }
+                    $before = $at > 0 ? Chars::before($value, $at) : 0;
+                    $after = $at + 1 < $n ? Chars::at($value, $at + 1) : 0;
+                    $counts = Chars::isWord($before) && Chars::isWord($after)
+                        ? $words
+                        : !(Chars::isSpace($before) && Chars::isSpace($after));
+                    if ($counts) {
+                        return true;
+                    }
+                }
+            } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
+                if (self::holdsMark($node['children'], $mark, $words && !isset(self::BRACED[$type]))) {
+                    return true;
+                }
             }
         }
 
