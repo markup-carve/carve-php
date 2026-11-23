@@ -12,7 +12,8 @@ final class RepairAlignment
     /**
      * @param array{
      *     source: string,
-     *     text: array<int, array{string, int}>,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>,
      *     ranges: array<string, array{int, int}>
      * } $candidate
@@ -20,7 +21,8 @@ final class RepairAlignment
      *
      * @return array{
      *     source: string,
-     *     text: array<int, array{string, int}>,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>,
      *     ranges: array<string, array{int, int}>
      * }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Json;
 
+use HashContext;
 use MarkupCarve\Carve\Generated\Tables;
 
 /**
@@ -20,6 +21,65 @@ final class TreeEquality
     public static function equal(mixed $a, mixed $b): bool
     {
         return self::normalize($a) === self::normalize($b);
+    }
+
+    /**
+     * A key that two trees share exactly when `equal()` holds for them, so a tree can be dropped before the other is
+     * built.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    public static function fingerprint(mixed $value): string
+    {
+        $context = hash_init('xxh128');
+        self::feed($context, $value, false);
+
+        return hash_final($context);
+    }
+
+    /**
+     * Hashes what `normalize()` returns for the value without building it.
+     *
+     * @param \HashContext $context
+     * @param mixed $value
+     * @param bool $spanMarks
+     *
+     * @return void
+     */
+    private static function feed(HashContext $context, mixed $value, bool $spanMarks): void
+    {
+        if (!is_array($value)) {
+            hash_update($context, serialize($value));
+
+            return;
+        }
+        if (array_is_list($value)) {
+            $items = self::coalesced($value);
+            hash_update($context, 'l' . count($items) . ':');
+            foreach ($items as $item) {
+                self::feed($context, $item, $spanMarks);
+            }
+
+            return;
+        }
+        $type = is_string($value['type'] ?? null) ? $value['type'] : null;
+        if ($type === 'table') {
+            $spanMarks = self::hasSpanMarks($value);
+        }
+        $names = [];
+        foreach ($value as $name => $_) {
+            if ($type === null || !self::skipped($value, $type, (string)$name, $spanMarks)) {
+                $names[$name] = true;
+            }
+        }
+        ksort($names);
+        hash_update($context, 'm' . count($names) . ':');
+        foreach ($names as $name => $_) {
+            hash_update($context, serialize($name));
+            self::feed($context, $value[$name], $spanMarks);
+        }
     }
 
     /**

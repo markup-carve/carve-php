@@ -84,6 +84,11 @@ final class TreeEncoder
     private int $omittedPosBytes = 0;
 
     /**
+     * Positions as the list `[startOffset, endOffset]` only.
+     */
+    private bool $offsetsOnly = false;
+
+    /**
      * @var array<int, array<bool>>
      */
     private array $omittedAbbreviationExpansions = [];
@@ -161,13 +166,30 @@ final class TreeEncoder
 
     /**
      * The decoded AST shape with the positions of `$source`, without canonical JSON.
+     * The children of `$root` are released while it is encoded.
      *
      * @return array<string, mixed>
      */
     public static function decodedWithPositions(Node $root, string $source): array
     {
         $encoder = new self();
-        $tree = $encoder->encode($root, $source);
+        $tree = $encoder->encodeReleasing($root, $source);
+        self::decodedArray($tree);
+
+        return $tree;
+    }
+
+    /**
+     * The decoded AST shape whose `pos` is `[startOffset, endOffset]`, for the writer's read-back of its own candidate.
+     * The children of `$root` are released while it is encoded.
+     *
+     * @return array<string, mixed>
+     */
+    public static function decodedWithOffsets(Node $root, string $source): array
+    {
+        $encoder = new self();
+        $encoder->offsetsOnly = true;
+        $tree = $encoder->encodeReleasing($root, $source);
         self::decodedArray($tree);
 
         return $tree;
@@ -443,7 +465,9 @@ final class TreeEncoder
         if ($children !== null) {
             $out['children'] = $children;
         }
-        if ($positions && $node->start >= 0 && $node->type !== 'document') {
+        if ($positions && $node->start >= 0 && $node->type !== 'document' && $this->offsetsOnly) {
+            $out['pos'] = [$node->start, $node->end];
+        } elseif ($positions && $node->start >= 0 && $node->type !== 'document') {
             $file = $node->file ?? '';
             if ($file !== $this->currentFile && isset($this->sources[$file])) {
                 $this->setSource($file);

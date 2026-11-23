@@ -111,7 +111,7 @@ final class CompareRound
      */
     private function resync(array $want, array $have, string $path, int &$i, int &$j): bool
     {
-        $failedEnd = self::offset($have[$j] ?? null, 'endOffset');
+        $failedEnd = self::offset($have[$j] ?? null, 1);
         if ($failedEnd === null) {
             return false;
         }
@@ -125,10 +125,10 @@ final class CompareRound
             if ($start === null || $start < $failedEnd) {
                 continue;
             }
-            while (is_array($have[$next] ?? null) && (self::offset($have[$next], 'startOffset') ?? -1) < $start) {
+            while (is_array($have[$next] ?? null) && (self::offset($have[$next], 0) ?? -1) < $start) {
                 $next++;
             }
-            if (self::offset($have[$next] ?? null, 'startOffset') === $start) {
+            if (self::offset($have[$next] ?? null, 0) === $start) {
                 $i = $k;
                 $j = $next;
 
@@ -139,7 +139,7 @@ final class CompareRound
         return false;
     }
 
-    private static function offset(mixed $node, string $key): ?int
+    private static function offset(mixed $node, int $key): ?int
     {
         $pos = is_array($node) && is_array($node['pos'] ?? null) ? $node['pos'] : [];
         $offset = $pos[$key] ?? null;
@@ -244,8 +244,8 @@ final class CompareRound
         }
         $this->ask($path, $at);
         $pos = is_array($other['pos'] ?? null) ? $other['pos'] : [];
-        $startOffset = $pos['startOffset'] ?? null;
-        $endOffset = $pos['endOffset'] ?? null;
+        $startOffset = $pos[0] ?? null;
+        $endOffset = $pos[1] ?? null;
         if (!is_int($startOffset) || !is_int($endOffset)) {
             return false;
         }

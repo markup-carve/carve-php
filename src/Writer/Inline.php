@@ -381,13 +381,7 @@ final class Inline
         $last = [];
         foreach ($log as $entry) {
             $last[$entry['path']] = $entry['kinds'] ?? [];
-            $value = $entry['value'];
-            $length = strlen($value);
-            for ($at = strcspn($value, self::ASCII_PUNCT); $at < $length; $at += 1 + strcspn($value, self::ASCII_PUNCT, $at + 1)) {
-                if (!($entry['escaped'][$at] ?? false)) {
-                    $this->bareLeads[$value[$at]] = true;
-                }
-            }
+            $this->bareLeads += self::bareMarks($entry['value'], $entry['escaped']);
         }
         $kinds = [];
         foreach ($last as $written) {
@@ -400,6 +394,31 @@ final class Inline
         }
 
         return $kinds;
+    }
+
+    /**
+     * The ASCII punctuation marks of a text that stand bare: the text holds more of the mark than it escapes.
+     *
+     * @param string $value
+     * @param array<int, bool> $escaped
+     *
+     * @return array<string, true>
+     */
+    private static function bareMarks(string $value, array $escaped): array
+    {
+        $counts = [];
+        foreach (array_filter($escaped) as $at => $_) {
+            $counts[$value[$at] ?? ''] = ($counts[$value[$at] ?? ''] ?? 0) + 1;
+        }
+        $present = count_chars($value, 1);
+        $bare = [];
+        foreach (str_split(self::ASCII_PUNCT) as $mark) {
+            if (($present[ord($mark)] ?? 0) > ($counts[$mark] ?? 0)) {
+                $bare[$mark] = true;
+            }
+        }
+
+        return $bare;
     }
 
     /**
@@ -1408,7 +1427,12 @@ final class Inline
      */
     private function loseEmptyContent(array $node, string $path, string $type): void
     {
-        if (self::onlyEmptyText($node['children'] ?? null) || self::endsInLoneEmptyText($node['children'] ?? null)) {
+        $children = $node['children'] ?? null;
+        if (!is_array($children) || $children === []) {
+            return;
+        }
+        $children = array_values($children);
+        if (self::onlyEmptyText($children) || self::emptyTextRun($children, count($children) - 1) !== null) {
             $this->w->lose($path, $type, null);
         }
     }
@@ -1425,17 +1449,30 @@ final class Inline
         if (!is_array($children) || $children === []) {
             return false;
         }
+        // The flat test first, so a deep nest is not walked again at every level.
+        $nested = [];
         foreach ($children as $child) {
             if (!is_array($child)) {
                 return false;
             }
             $type = is_string($child['type'] ?? null) ? $child['type'] : '';
+            if ($type === 'text') {
+                if (($child['value'] ?? '') !== '') {
+                    return false;
+                }
+
+                continue;
+            }
             // An empty link or span still writes its brackets.
-            $writesNothing = isset(self::PAIRED[$type]) || isset(self::BRACED[$type]);
-            $empty = $type === 'text'
-                ? ($child['value'] ?? '') === ''
-                : $writesNothing && (($child['children'] ?? null) === [] || self::onlyEmptyText($child['children'] ?? null));
-            if (!$empty) {
+            if (!isset(self::PAIRED[$type]) && !isset(self::BRACED[$type])) {
+                return false;
+            }
+            if (($child['children'] ?? null) !== []) {
+                $nested[] = $child['children'] ?? null;
+            }
+        }
+        foreach ($nested as $inner) {
+            if (!self::onlyEmptyText($inner)) {
                 return false;
             }
         }

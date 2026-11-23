@@ -102,6 +102,11 @@ final class Text
     private const ALWAYS = '`"\'';
 
     /**
+     * The characters that start a symbol name or an inline extension name.
+     */
+    private const NAME_STARTS = Tables::SIGIL_SYMBOL_FIRST . Tables::SIGIL_INLINE_EXTENSION_FIRST;
+
+    /**
      * Every first character of an escape trigger this class decides; WriterTablesTest holds it to the data file.
      *
      * @var string
@@ -120,6 +125,13 @@ final class Text
      * @var string
      */
     public const DECIDED = '!"#$%\'(*+-./:<=>@[\\]^`{|}';
+
+    /**
+     * While set, the offsets each text path's last escape placed a backslash before, by path.
+     *
+     * @var array<string, array<int, true>>|null
+     */
+    public static ?array $recorded = null;
 
     public static function isPunct(string $c): bool
     {
@@ -144,6 +156,16 @@ final class Text
 
     private static function escapeText(string $value, Context $c, int $next): string
     {
+        $out = self::escapedText($value, $c, $next);
+        if (self::$recorded !== null) {
+            self::$recorded[$c->textPath] = array_filter($c->escapedAt);
+        }
+
+        return $out;
+    }
+
+    private static function escapedText(string $value, Context $c, int $next): string
+    {
         $n = strlen($value);
         $c->escapeKinds = [];
         if ($n === 0) {
@@ -160,9 +182,7 @@ final class Text
         $c->escapedAt = [];
         $out = '';
         $prev = $c->last;
-        $balanced = $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [];
-        $c->localPartners = $c->here < 0 ? self::pairedMarks($value) : null;
-        $ticks = !$c->inCell ? self::tickEscapes($value, $c) : null;
+        [$balanced, $ticks, $lineOpener] = self::loopFacts($value, $marks, $c);
         for ($i = 0; $i < $n; $i++) {
             $ch = $value[$i];
             $byte = ord($ch);
@@ -175,6 +195,16 @@ final class Text
                 continue;
             }
             $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
+            if ($byte === 0x3A) {
+                $last = self::innerColons($value, $i, $prev, [$marks, $lineOpener], $c->pairEscapes);
+                if ($last >= $i) {
+                    $c->escapedAt += array_fill($i, $last - $i + 1, false);
+                    $out .= str_repeat(':', $last - $i + 1);
+                    $i = $last;
+
+                    continue;
+                }
+            }
             $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]);
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
                 || (str_contains(self::PUNCT, $ch)
@@ -184,7 +214,7 @@ final class Text
             if ($repair && !str_contains(self::ALWAYS, $ch)) {
                 $c->escapeKinds[$i] = self::kindOf($value, $i, $i === $marks, $after);
             } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
-                $escape = self::potential($value, $i, $prev, $after, $c, $marks < 0);
+                $escape = self::potential($value, $i, $prev, $after, $c, $lineOpener);
             }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
@@ -192,6 +222,61 @@ final class Text
         }
 
         return $out;
+    }
+
+    /**
+     * C2-I-093, C2-I-094: a colon between two colons opens nothing and is no potential opener of its kind. The last
+     * offset of the colons from `$i` on that stand so, before the first offset a mark, a line opener or a pair escape
+     * takes; below `$i` when there is none.
+     *
+     * @param string $value
+     * @param int $i
+     * @param int $prev
+     * @param array<int> $taken
+     * @param array<int, mixed> $pairEscapes
+     *
+     * @return int
+     */
+    private static function innerColons(string $value, int $i, int $prev, array $taken, array $pairEscapes): int
+    {
+        // At the start of the text the colon before it belongs to another node (C2-W-095).
+        if ($i === 0 || $prev !== 0x3A) {
+            return -1;
+        }
+        $last = $i + strspn($value, ':', $i) - 2;
+        foreach ($taken as $at) {
+            if ($at >= $i && $at <= $last) {
+                $last = $at - 1;
+            }
+        }
+        for ($at = $i; $at <= $last; $at++) {
+            if (isset($pairEscapes[$at])) {
+                return $at - 1;
+            }
+        }
+
+        return $last;
+    }
+
+    /**
+     * What the escape loop reads of the context, which the loop does not change: the balanced brackets of the text, the
+     * backticks that take a backslash, and the line opener a reported line kind escapes. Sets the local pair partners.
+     *
+     * @param string $value
+     * @param int $marks
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array{array<int, mixed>, array<int, true>|null, int}
+     */
+    private static function loopFacts(string $value, int $marks, Context $c): array
+    {
+        $c->localPartners = $c->here < 0 ? self::pairedMarks($value) : null;
+
+        return [
+            $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [],
+            !$c->inCell ? self::tickEscapes($value, $c) : null,
+            $marks < 0 && $c->lineStart && $c->kinds !== [] ? self::lineOpenerAt($value, $c) : -1,
+        ];
     }
 
     /**
@@ -215,10 +300,10 @@ final class Text
     /**
      * C2-W-088: a place where an opener of a kind of the leaf stands unescaped.
      */
-    private static function potential(string $value, int $i, int $prev, int $after, Context $c, bool $bareLine): bool
+    private static function potential(string $value, int $i, int $prev, int $after, Context $c, int $lineOpener): bool
     {
         $ch = $value[$i];
-        if ($bareLine && $c->lineStart && self::lineOpenerAt($value, $c) === $i) {
+        if ($lineOpener === $i) {
             return true;
         }
 
@@ -525,7 +610,7 @@ final class Text
             '/', '*' => self::pairs($value, $i, $prev, $after, $c),
             '-' => self::hyphen($value, $i, $c, $next),
             '.' => self::dot($value, $i, $c),
-            default => self::sigil($value, $i, [$prev, $after, $next], $c),
+            default => self::sigil($value, $i, $prev, $after, $next, $c),
         };
     }
 
@@ -931,15 +1016,15 @@ final class Text
      *
      * @param string $value
      * @param int $i
-     * @param array{0: int, 1: int, 2: int} $around The characters before and after this one, and after the text.
+     * @param int $prev The character before this one.
+     * @param int $after The character after this one.
+     * @param int $next The character after the text.
      * @param \MarkupCarve\Carve\Writer\Context $c
      *
      * @return bool
      */
-    private static function sigil(string $value, int $i, array $around, Context $c): bool
+    private static function sigil(string $value, int $i, int $prev, int $after, int $next, Context $c): bool
     {
-        [$prev, $after, $next] = $around;
-
         return match ($value[$i]) {
             '@', '#' => !self::isLetterOrNumber($prev) && self::sigilName($value, $i, $c, $next),
             ':' => !self::isLetterOrNumber($prev) && self::colonOpens($value, $i, $c, $next),
@@ -1237,6 +1322,11 @@ final class Text
      */
     private static function colonOpens(string $value, int $i, Context $c, int $next): bool
     {
+        // A character inside the text that starts neither a symbol name nor an extension name opens nothing.
+        $first = $value[$i + 1] ?? '';
+        if ($first !== '' && strspn($first, self::NAME_STARTS) === 0) {
+            return false;
+        }
         $len = strspn($value, Tables::SIGIL_SYMBOL_REST, $i + 1);
         if ($i + 1 + $len === strlen($value)) {
             [$tail, $next] = self::nameOn($value, $c, $next);

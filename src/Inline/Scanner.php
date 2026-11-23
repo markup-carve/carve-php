@@ -41,6 +41,22 @@ final class Scanner
     public const ATTR = 3;
 
     /**
+     * Token slot of the frame count of a delimiter or bracket token, read under C2-I-118.
+     *
+     * Integer slots keep a token a packed array: a string key turns it into a hash table of twice the size.
+     *
+     * @var int
+     */
+    public const FRAMES = 9;
+
+    /**
+     * Token slot of the cap depth of a delimiter token that no cap delimiter tracks.
+     *
+     * @var int
+     */
+    public const CAP_DEPTH = 10;
+
+    /**
      * @var int
      */
     public const BARE = 0;
@@ -258,12 +274,19 @@ final class Scanner
                 break;
             }
             $next = $this->special($i);
+            if ($next < 0 && $t[$i] === ':') {
+                // C2-I-093, C2-I-094: a colon followed by a colon opens nothing, so only the last of a run is read.
+                $next = $i + max(1, strspn($t, ':', $i) - 1);
+            }
             $i = $next < 0 ? $i + 1 : $next;
         }
         $this->flush($n);
         $this->frames = [];
+        $tokens = $this->tok;
+        // The caller consumes the list; the scanner keeps no second reference to it.
+        $this->tok = [];
 
-        return $this->tok;
+        return $tokens;
     }
 
     /**
@@ -1081,12 +1104,12 @@ final class Scanner
             }
         }
         if ($this->capTracking) {
-            $token['frames'] = count($this->frames);
+            $token[self::FRAMES] = count($this->frames);
             // A later failed bracket can flatten this token's list. Its opener
             // decision still uses the entries open when the scanner read it.
             $capDepth = $this->depth + count($this->frames) + count($this->capDelims);
             if (!$this->trackCapDelimiter($token)) {
-                $token['capDepth'] = $capDepth;
+                $token[self::CAP_DEPTH] = $capDepth;
             }
         }
 
@@ -1443,7 +1466,7 @@ final class Scanner
         $this->tok[] = [
             self::NODE, $node, $start, $end, true,
             new TokenList($node->type === 'image' ? [] : $inner, $frame[3], $close),
-            'frames' => count($this->frames),
+            self::FRAMES => count($this->frames),
         ];
         $this->textStart = $end;
 
