@@ -112,16 +112,16 @@ final class TableWriter
             }
         }
         $groups = $this->groups($node);
+        $counts = self::rowCounts($groups);
         if ($delimited) {
-            $head = count($groups['table_head'] ?? []);
+            $head = $counts['table_head'];
             $fact = $this->w->fact($path, 'headerRows');
-            $rows = count($groups['table_head'] ?? []) + count($groups['table_body'] ?? []) + count($groups['table_foot'] ?? []);
-            if ($head !== min(1, $rows) || ($fact === $head)) {
+            if ($head !== min(1, array_sum($counts)) || ($fact === $head)) {
                 $keys[] = ['header-rows', (string)$head];
             }
         }
-        if (isset($groups['table_foot'])) {
-            $keys[] = ['footer-rows', (string)count($groups['table_foot'])];
+        if (in_array('table_foot', array_column($groups, 0), true)) {
+            $keys[] = ['footer-rows', (string)$counts['table_foot']];
         }
 
         return $keys;
@@ -237,9 +237,11 @@ final class TableWriter
     }
 
     /**
+     * Every row group in source order; a table may hold several bodies (C2-W-136).
+     *
      * @param array<mixed> $node
      *
-     * @return array<string, array<array<string, mixed>>>
+     * @return array<array{0: string, 1: array<array<string, mixed>>}>
      */
     private function groups(array $node): array
     {
@@ -254,10 +256,25 @@ final class TableWriter
                     $rows[] = $row;
                 }
             }
-            $groups[(string)$group['type']] = $rows;
+            $groups[] = [(string)$group['type'], $rows];
         }
 
         return $groups;
+    }
+
+    /**
+     * @param array<array{0: string, 1: array<array<string, mixed>>}> $groups
+     *
+     * @return array<string, int>
+     */
+    private static function rowCounts(array $groups): array
+    {
+        $counts = array_fill_keys(self::GROUPS, 0);
+        foreach ($groups as [$type, $rows]) {
+            $counts[$type] += count($rows);
+        }
+
+        return $counts;
     }
 
     /**
@@ -290,8 +307,7 @@ final class TableWriter
      */
     private function table(array $node, string $path, string $prefix, bool $prewritten): void
     {
-        $groups = $this->groups($node);
-        $rows = array_sum(array_map('count', $groups));
+        $rows = array_sum(self::rowCounts($this->groups($node)));
         $format = $this->w->fact($path, 'sourceFormat');
         $wanted = in_array($format, ['csv', 'tsv'], true) || ($format === null && $this->pipeCannotSpell($node));
         // C2-W-066: span marks have no delimited form, so a table that needs them is a pipe table.
@@ -769,7 +785,7 @@ final class TableWriter
      */
     private function pipeCannotSpell(array $node): bool
     {
-        foreach ($this->groups($node) as $rows) {
+        foreach ($this->groups($node) as [, $rows]) {
             foreach ($rows as $row) {
                 foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
                     $text = is_array($cell) ? self::plainCell($cell) : null;
@@ -792,7 +808,7 @@ final class TableWriter
      */
     private function allowsDelimited(array $node): bool
     {
-        foreach ($this->groups($node) as $type => $rows) {
+        foreach ($this->groups($node) as [$type, $rows]) {
             foreach ($rows as $row) {
                 if (isset($row['attrs'])) {
                     return false;
@@ -855,7 +871,7 @@ final class TableWriter
         }
         $separator = $format === 'tsv' ? "\t" : ',';
         $body = [];
-        $all = array_merge(...array_values($this->groups($node)));
+        $all = array_merge(...array_column($this->groups($node), 1));
         $last = count($all) - 1;
         foreach ($all as $r => $row) {
             $cells = is_array($row['children'] ?? null) ? $row['children'] : [];
