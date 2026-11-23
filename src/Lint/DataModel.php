@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use Closure;
+use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Carve;
 use stdClass;
 use Throwable;
@@ -745,7 +747,8 @@ final class DataModel
 
                 break;
             case '{':
-                if (preg_match('/^\{[ \t]*(?:[.#_A-Za-z])[^{}]*\}$/', $body)) {
+                // C2-B-090: glued valid blocks and trailing whitespace, read with the attribute grammar.
+                if (LineShapes::attributeLine($body, 0, strlen($body), new Attrs())) {
                     return 'attribute_line';
                 }
 
