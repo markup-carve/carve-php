@@ -968,7 +968,15 @@ final class Blocks
         array $containers = [],
         bool &$isParagraph = false,
     ): bool {
-        $tree = TreeEncoder::decoded(Carve::parse($line . "\n"));
+        $parsed = Carve::parse($line . "\n");
+        if ($allowUnresolvedReference) {
+            // Only the block kinds are read, so the node tree is enough and its decoded copy is not built.
+            $isParagraph = self::firstBlockIsParagraph($parsed, $containers);
+
+            return $isParagraph;
+        }
+        $tree = TreeEncoder::decoded($parsed);
+        unset($parsed);
         $rootChildren = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         $node = $rootChildren[0] ?? null;
         foreach ($containers as $type) {
@@ -981,7 +989,26 @@ final class Blocks
 
         $isParagraph = is_array($node) && ($node['type'] ?? '') === 'paragraph';
 
-        return $isParagraph && ($allowUnresolvedReference || TreeEquality::equal($node['children'] ?? [], $children));
+        return $isParagraph && TreeEquality::equal($node['children'] ?? [], $children);
+    }
+
+    /**
+     * Whether the first block of a parsed line is a paragraph inside the given containers, outermost first.
+     *
+     * @param \MarkupCarve\Carve\Node $root
+     * @param array<string> $containers
+     */
+    private static function firstBlockIsParagraph(Node $root, array $containers): bool
+    {
+        $node = $root->children[0] ?? null;
+        foreach ($containers as $type) {
+            if ($node === null || $node->type !== $type) {
+                return false;
+            }
+            $node = $node->children[0] ?? null;
+        }
+
+        return $node !== null && $node->type === 'paragraph';
     }
 
     /**

@@ -36,6 +36,12 @@ final class TreeDecoder
     private static bool $jsonNumbers = false;
 
     /**
+     * Whether `node()` drops each child list from its object once it is read, so the decoded objects are freed while
+     * the nodes are built.
+     */
+    private static bool $consume = false;
+
+    /**
      * @param string $json
      * @param int $depth
      *
@@ -70,6 +76,24 @@ final class TreeDecoder
     }
 
     /**
+     * `object()` for a decoded value the caller owns and drops: the child lists are removed from the objects as they
+     * are read, so the decoded tree and the node tree are not both held in full.
+     *
+     * @param \stdClass $node
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    public static function consume(stdClass $node): Node
+    {
+        self::$consume = true;
+        try {
+            return self::object($node);
+        } finally {
+            self::$consume = false;
+        }
+    }
+
+    /**
      * @param array<string, mixed> $tree A tree decoded with associative arrays.
      *
      * @return \MarkupCarve\Carve\Node|null
@@ -89,6 +113,11 @@ final class TreeDecoder
     private static function node(stdClass $o): Node
     {
         $node = new Node(is_string($o->type) ? $o->type : '');
+        if (self::$consume && property_exists($o, 'children')) {
+            $children = $o->children;
+            unset($o->children);
+            $node->children = is_array($children) ? self::consumeList($children) : [];
+        }
         foreach (get_object_vars($o) as $key => $value) {
             if ($key === 'type') {
                 continue;
@@ -131,6 +160,28 @@ final class TreeDecoder
             if ($item instanceof stdClass) {
                 $out[] = self::node($item);
             }
+        }
+
+        return $out;
+    }
+
+    /**
+     * `nodeList()` that empties the list as it reads it, so each decoded object is freed once its node is built.
+     *
+     * @param array<mixed> $list
+     *
+     * @return array<\MarkupCarve\Carve\Node>
+     */
+    private static function consumeList(array &$list): array
+    {
+        $out = [];
+        foreach (array_keys($list) as $at) {
+            $item = $list[$at];
+            unset($list[$at]);
+            if ($item instanceof stdClass) {
+                $out[] = self::node($item);
+            }
+            unset($item);
         }
 
         return $out;

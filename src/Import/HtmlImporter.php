@@ -127,6 +127,10 @@ final class HtmlImporter
         if ($finish !== null) {
             $children = $finish($children);
         }
+        // The DOM is done with. Its parent links are cycles, so it is collected before the tree is decoded.
+        unset($root, $reader, $child);
+        gc_collect_cycles();
+        gc_mem_caches();
         $document = ['type' => 'document', 'astVersion' => '2.0', 'children' => $children];
         if ($context->rootLang !== null) {
             $document['lang'] = $context->rootLang;
