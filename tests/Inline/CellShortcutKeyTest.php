@@ -32,6 +32,30 @@ final class CellShortcutKeyTest extends TestCase
         $this->assertStringContainsString($cell, Carve::toHtml($source));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unchanged(): array
+    {
+        return [
+            'shortcut image' => ["| ![r\\|s] |\n\n[r|s]: /u\n"],
+            'collapsed image' => ["| ![r\\|s][] |\n\n[r|s]: /u\n"],
+            'inline image' => ["| ![a\\|b](u) |\n"],
+            'pipe behind an escaped backslash' => ["| ![a\\\\\\|b](u) |\n"],
+        ];
+    }
+
+    /**
+     * C2-W-098: an image alt that holds a pipe is spelled in a cell with the pipe escaped, and reports no loss.
+     */
+    #[DataProvider('unchanged')]
+    public function testImageAltWithAPipeWritesBack(string $source): void
+    {
+        $sidecar = Carve::formatWithDiagnostics($source);
+        $this->assertSame($source, $sidecar->source);
+        $this->assertSame([], $sidecar->diagnostics);
+    }
+
     public function testOutsideACellTheKeyKeepsTheBackslash(): void
     {
         $this->assertSame('<p><a href="/u">r|s</a></p>', Carve::toHtml("[r\\|s]\n\n[r\\|s]: /u\n"));
