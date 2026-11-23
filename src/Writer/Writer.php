@@ -42,6 +42,14 @@ final class Writer
      */
     public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
     {
+        // A minimal empty document has no nodes or root fields to audit, and needs only C2-W-022's final line feed.
+        if (
+            $layout === null && $options === [] && count($tree) === 3 && ($tree['type'] ?? null) === 'document'
+            && ($tree['astVersion'] ?? null) === '2.0' && ($tree['children'] ?? null) === []
+        ) {
+            return new WriteResult("\n", []);
+        }
+
         return Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options));
     }
 
@@ -242,7 +250,7 @@ final class Writer
             array_pop($w->lines);
         }
         if ($w->lines === []) {
-            return new WriteResult('', $w->losses);
+            return new WriteResult($children === [] ? "\n" : '', $w->losses);
         }
         $source = implode("\n", $w->lines) . "\n";
         $source = ControlLines::keepAbove($source, ControlLines::source($layout), $w->extensions);
@@ -284,7 +292,9 @@ final class Writer
     {
         $document = ['type' => 'document', 'astVersion' => '2.0', 'children' => array_values($blocks)];
 
-        return self::writeWithDiagnostics($document, null, $options);
+        $result = self::writeWithDiagnostics($document, null, $options);
+
+        return $blocks === [] ? new WriteResult('', $result->diagnostics) : $result;
     }
 
     /**
