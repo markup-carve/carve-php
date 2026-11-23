@@ -270,9 +270,15 @@ final class Writer
         ?string $parsed,
         bool $risk,
     ): ?WriteResult {
-        return $result->diagnostics !== []
-            ? $result
-            : self::checkedGroups($tree, $layout, $options, $result->source, $groups, $parsed, $risk);
+        if ($result->diagnostics !== []) {
+            return $result;
+        }
+        $alone = $risk && $groups !== null ? self::checkedAlone($tree, $layout, $options, $result->source, $groups) : null;
+        if ($alone !== null && ($alone === $parsed || self::readsBack($alone, self::trimmedPrint($tree, $layout, $options), $options))) {
+            return new WriteResult($alone, []);
+        }
+
+        return self::checkedGroups($tree, $layout, $options, $result->source, $groups, $parsed, $risk);
     }
 
     /**
@@ -348,6 +354,125 @@ final class Writer
         return $joined === $parsed || self::readsBack($joined, self::trimmedPrint($tree, $layout, $options), $options)
             ? new WriteResult($joined, [])
             : null;
+    }
+
+    /**
+     * C2-W-133 where no block outside the risky groups feeds their parse or resolve stage: each risky group is checked
+     * as a document of its own, as carve-js repairs group by group, so a round reads only the group it changes. Groups
+     * with the same blocks, sidecar facts and local write take the same form, which is written once. Returns the
+     * joined source, unread, or null where a block may feed another group or a group writes otherwise alone.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param string $source The local write.
+     * @param array<int, array{int, int, int, int, bool}> $groups
+     */
+    private static function checkedAlone(array $tree, ?array $layout, array $options, string $source, array $groups): ?string
+    {
+        $children = is_array($tree['children'] ?? null) ? array_values($tree['children']) : [];
+        $risky = self::aloneRisky($children, $groups);
+        if ($risky === null) {
+            return null;
+        }
+        $forms = [];
+        $joined = '';
+        $at = 0;
+        foreach ($groups as $g => [$first, $last, $start, $end]) {
+            $joined .= substr($source, $at, $start - $at);
+            $at = $end;
+            $text = substr($source, $start, $end - $start);
+            if (!isset($risky[$g])) {
+                $joined .= $text;
+
+                continue;
+            }
+            $sub = $tree;
+            $sub['children'] = array_slice($children, $first, $last - $first + 1);
+            $subLayout = self::remapRoot($layout, array_flip(range($first, $last)));
+            // A control comment reads the lines of the whole source around it (`ControlLines::keepAbove()`).
+            $key = str_contains($text, 'carve-lint-')
+                ? null
+                : md5(serialize([$sub['children'], self::facts($subLayout), $text]));
+            $form = $key !== null && array_key_exists($key, $forms)
+                ? $forms[$key]
+                : self::aloneForm($sub, $subLayout, $options, $text, $last - $first);
+            if ($form === null) {
+                return null;
+            }
+            if ($key !== null) {
+                $forms[$key] = $form;
+            }
+            $joined .= $form;
+        }
+
+        return $joined . substr($source, $at);
+    }
+
+    /**
+     * The risky groups where there are at least two and every other block is plain, else null.
+     *
+     * @param array<int, mixed> $children
+     * @param array<int, array{int, int, int, int, bool}> $groups
+     *
+     * @return array<int, true>|null
+     */
+    private static function aloneRisky(array $children, array $groups): ?array
+    {
+        $grouped = [];
+        $risky = [];
+        foreach ($groups as $g => [$first, $last, , , $undecided]) {
+            $risk = $undecided;
+            $plain = true;
+            for ($i = $first; $i <= $last; $i++) {
+                $grouped[$i] = true;
+                $child = $children[$i] ?? null;
+                $risk = $risk || (is_array($child) && self::nodeHasRoundRisk($child, false, false));
+                $plain = $plain && is_array($child) && self::plain($child);
+            }
+            if (!$risk && !$plain) {
+                return null;
+            }
+            $risky += $risk ? [$g => true] : [];
+        }
+        foreach ($children as $i => $child) {
+            if (!isset($grouped[$i]) && (!is_array($child) || !self::plain($child))) {
+                return null;
+            }
+        }
+
+        return count($risky) < 2 ? null : $risky;
+    }
+
+    /**
+     * The checked form of one risky group written as its own document, null where it reports a loss or writes the
+     * group otherwise than the local write of the whole document did.
+     *
+     * @param array<string, mixed> $sub
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param string $text The group in the local write of the whole document.
+     * @param int $last The index of its last block.
+     */
+    private static function aloneForm(array $sub, ?array $layout, array $options, string $text, int $last): ?string
+    {
+        [$result, $captures] = self::recording(static fn (): WriteResult => self::writeChecked($sub, $layout, $options), true);
+        $final = null;
+        foreach ($captures as [$written, $ranges]) {
+            if ($written === $result->source) {
+                $final = $ranges;
+            }
+        }
+        [$local, $localRanges] = $captures[0] ?? ['', null];
+        if (
+            $result->diagnostics !== [] || $localRanges === null || $final === null
+            || self::spans($localRanges) !== [[0, $last]] || self::spans($final) !== [[0, $last]]
+            || substr($local, $localRanges[0][2], $localRanges[0][3] - $localRanges[0][2]) !== $text
+        ) {
+            return null;
+        }
+
+        return substr($result->source, $final[0][2], $final[0][3] - $final[0][2]);
     }
 
     /**
