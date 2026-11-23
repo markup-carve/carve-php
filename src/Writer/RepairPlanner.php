@@ -361,7 +361,11 @@ final class RepairPlanner
             'nodes' => [],
             'ranges' => [],
         ];
-        $kept = $this->keptTrials($trials);
+        $early = $this->escapeEarlyNoteClosers($comparison['openers']);
+        // C2-W-125, case eight: the trials and asked escapes of this round read the note that closed early, which the
+        // closer escape undoes.
+        $kept = $early ? [] : $this->keptTrials($trials);
+        $asked = $early ? [] : $asked;
         $this->roundRead = null;
         foreach ($kept as $trial) {
             foreach ($trial as [$path, $offset]) {
@@ -383,13 +387,273 @@ final class RepairPlanner
             $moved = $this->probeMoved($candidate, $across, $group) || $moved;
             $moved = $this->ownerMoved($group) || $moved;
         }
-        if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
-            return $comparison['openers'] !== [] || $trials !== [] || $asked !== [] || $moved;
+        if ($early || $comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
+            return $early || $comparison['openers'] !== [] || $trials !== [] || $asked !== [] || $moved;
         }
 
         $this->addAsked($differences);
 
         return $differences !== [] || $moved;
+    }
+
+    /**
+     * C2-W-125, case eight: a reported inline footnote at a text `^[` whose span keeps a caret pair of the tree ordinary
+     * (C2-I-089) stays bare, and the bare `]` that closed it early takes the backslash, which gives no kind. Each later
+     * text `^[` before a caret pair takes its early closer in the same round (C2-W-088: the round repairs every note
+     * its parse reports, also those behind a node that did not form). The openers it handles leave `$reported`.
+     *
+     * @param array<string, array<int, true>> $reported
+     */
+    private function escapeEarlyNoteClosers(array &$reported): bool
+    {
+        $fired = false;
+        $this->notesDone = [];
+        foreach ($reported as $path => $offsets) {
+            $cut = strrpos($path, '/children/');
+            if ($cut === false) {
+                continue;
+            }
+            $parent = substr($path, 0, $cut + 10);
+            $siblings = self::childrenOf(self::nodeAt($this->tree, substr($path, 0, $cut)) ?? []);
+            $i = (int)substr($path, $cut + 10);
+            $value = $siblings[$i]['value'] ?? null;
+            if (!is_string($value) || self::lastCaretPair($siblings) <= $i) {
+                continue;
+            }
+            foreach ($offsets as $at => $_) {
+                if (!$this->isTextNote($siblings, $parent, $i, $value, $at)) {
+                    continue;
+                }
+                if (!isset($this->notesDone[$path][$at])) {
+                    $closer = $this->earlyNoteCloser($siblings, $parent, $i, $at + 1);
+                    if ($closer === null || !$this->addEscape(...$closer)) {
+                        continue;
+                    }
+                    $this->laterNoteClosers($siblings, $parent, $i, $at + 1);
+                    $this->bracketedClosers($siblings, $parent, $i);
+                    $fired = true;
+                }
+                unset($reported[$path][$at]);
+            }
+            if ($reported[$path] === []) {
+                unset($reported[$path]);
+            }
+        }
+
+        return $fired;
+    }
+
+    /**
+     * @var array<string, array<int, true>> C2-W-125, case eight: the `[` of each text `^[` whose early closer this round
+     *   escaped.
+     */
+    private array $notesDone = [];
+
+    /**
+     * Whether the reported `[` at `$at` follows a bare caret of the text, which may end the text node before.
+     *
+     * @param array<int, array<mixed>> $siblings
+     * @param string $parent
+     * @param int $i
+     * @param string $value
+     * @param int $at
+     */
+    private function isTextNote(array $siblings, string $parent, int $i, string $value, int $at): bool
+    {
+        if (($value[$at] ?? '') !== '[' || isset($this->escapes[$parent . $i][$at])) {
+            return false;
+        }
+        if ($at > 0) {
+            return $value[$at - 1] === '^' && !isset($this->escapes[$parent . $i][$at - 1]);
+        }
+        $before = $siblings[$i - 1] ?? null;
+        $prior = is_array($before) && ($before['type'] ?? '') === 'text' && is_string($before['value'] ?? null) ? $before['value'] : '';
+
+        return str_ends_with($prior, '^') && !isset($this->escapes[$parent . ($i - 1)][strlen($prior) - 1]);
+    }
+
+    /**
+     * Each later text `^[` of the siblings that stands before a caret pair takes its early closer.
+     *
+     * @param array<int, array<mixed>> $siblings
+     * @param string $parent
+     * @param int $i
+     * @param int $from
+     */
+    private function laterNoteClosers(array $siblings, string $parent, int $i, int $from): void
+    {
+        $last = self::lastCaretPair($siblings);
+        foreach ($siblings as $k => $text) {
+            $value = $text['value'] ?? null;
+            if ($k < $i || $k >= $last || ($text['type'] ?? '') !== 'text' || !is_string($value)) {
+                continue;
+            }
+            for ($at = strpos($value, '^[', $k === $i ? $from : 0); $at !== false; $at = strpos($value, '^[', $at + 2)) {
+                if (isset($this->escapes[$parent . $k][$at]) || isset($this->escapes[$parent . $k][$at + 1])) {
+                    continue;
+                }
+                $closer = $this->earlyNoteCloser($siblings, $parent, $k, $at + 2);
+                if ($closer !== null && $this->addEscape(...$closer)) {
+                    $this->notesDone[$parent . $k][$at + 1] = true;
+                }
+            }
+        }
+    }
+
+    /**
+     * C2-W-125, case five, in the round of case eight: the note that closed early hides the links and spans behind it
+     * from the comparison, so a lone `]` of their content that would end one early takes its backslash in this round.
+     *
+     * @param array<int, array<mixed>> $siblings
+     * @param string $parent
+     * @param int $i
+     */
+    private function bracketedClosers(array $siblings, string $parent, int $i): void
+    {
+        foreach ($siblings as $k => $node) {
+            // A caret pair inside an inline footnote opens nothing (C2-I-089), so a note's content stays as it is.
+            if ($k <= $i || !in_array($node['type'] ?? '', ['link', 'span', 'inline_extension'], true)) {
+                continue;
+            }
+            $depth = 0;
+            foreach (self::childrenOf($node) as $j => $child) {
+                $value = ($child['type'] ?? '') === 'text' && is_string($child['value'] ?? null) ? $child['value'] : '';
+                $path = $parent . $k . '/children/' . $j;
+                $n = strlen($value);
+                for ($at = strcspn($value, '[]'); $at < $n; $at += 1 + strcspn($value, '[]', $at + 1)) {
+                    if (isset($this->escapes[$path][$at])) {
+                        continue;
+                    }
+                    if ($value[$at] === '[') {
+                        $depth++;
+                    } elseif ($depth > 0) {
+                        $depth--;
+                    } else {
+                        $this->addEscape($path, $at);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The bare `]` from sibling `$i` at `$from` on that no bare `[` there pairs with, as a path and an offset. A node of
+     * the tree between, as a strong, a code span or a link, holds no bracket of the note.
+     *
+     * @param array<int, array<mixed>> $siblings
+     * @param string $parent
+     * @param int $i
+     * @param int $from
+     *
+     * @return array{string, int}|null
+     */
+    private function earlyNoteCloser(array $siblings, string $parent, int $i, int $from): ?array
+    {
+        $depth = 0;
+        foreach ($siblings as $k => $text) {
+            $value = $text['value'] ?? null;
+            if ($k < $i || ($text['type'] ?? '') !== 'text' || !is_string($value)) {
+                continue;
+            }
+            $escaped = $this->escapes[$parent . $k] ?? [];
+            $n = strlen($value);
+            $start = $k === $i ? min($from, $n) : 0;
+            for ($at = $start + strcspn($value, '[]', $start); $at < $n; $at += 1 + strcspn($value, '[]', $at + 1)) {
+                if (isset($escaped[$at])) {
+                    continue;
+                }
+                if ($value[$at] === '[') {
+                    $depth++;
+                } elseif ($depth-- === 0) {
+                    return [$parent . $k, $at];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The last sibling that is, or holds below it, link or span text starting with a caret, the bracket of which forms
+     * `[^`; -1 for none. One inside an inline footnote opens nothing there (C2-I-089), so it does not count.
+     *
+     * @param array<int, array<mixed>> $siblings
+     */
+    private static function lastCaretPair(array $siblings): int
+    {
+        for ($k = array_key_last($siblings) ?? -1; $k >= 0; $k--) {
+            if (isset($siblings[$k]) && self::holdsCaretPair($siblings[$k])) {
+                return $k;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * C2-W-125, case eight: whether a text `^[` of the tree stands before a sibling that holds a caret pair, which the
+     * span of that `^[` keeps ordinary (C2-I-089). Escaping the bracket of that `^[` would let the caret pair open.
+     *
+     * @param array<mixed> $node
+     */
+    public static function hasTextNoteBeforeCaretPair(array $node): bool
+    {
+        if (self::textNoteBeforeCaretPair($node)) {
+            return true;
+        }
+        foreach (self::childrenOf($node) as $child) {
+            if (self::hasTextNoteBeforeCaretPair($child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * `hasTextNoteBeforeCaretPair()` for the children of `$node` only.
+     *
+     * @param array<mixed> $node
+     */
+    private static function textNoteBeforeCaretPair(array $node): bool
+    {
+        $children = self::childrenOf($node);
+        $prior = '';
+        foreach ($children as $k => $child) {
+            $value = ($child['type'] ?? '') === 'text' && is_string($child['value'] ?? null) ? $child['value'] : null;
+            if ($value !== null && (str_contains($value, '^[') || (str_ends_with($prior, '^') && str_starts_with($value, '[')))) {
+                // The first such text has the most siblings behind it.
+                return $k < self::lastCaretPair($children);
+            }
+            $prior = $value ?? '';
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<mixed> $node
+     */
+    private static function holdsCaretPair(array $node): bool
+    {
+        $type = $node['type'] ?? '';
+        $first = self::childrenOf($node)[0] ?? null;
+        if (
+            ($type === 'link' || $type === 'span') && is_array($first) && ($first['type'] ?? '') === 'text'
+            && str_starts_with(is_string($first['value'] ?? null) ? $first['value'] : '', '^')
+        ) {
+            return true;
+        }
+        if ($type === 'inline_footnote') {
+            return false;
+        }
+        foreach (self::childrenOf($node) as $child) {
+            if (self::holdsCaretPair($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
