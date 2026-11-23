@@ -106,6 +106,12 @@ final class Context
     public ?bool $neighborTick = null;
 
     /**
+     * @var array<array{int, int, bool}>|null The backtick runs of this leaf in order: the offset in `$flat` of the
+     *   text or node that holds each, its length, and whether it is text.
+     */
+    public ?array $tickRuns = null;
+
+    /**
      * C2-W-080: a hard break is the bare line ending.
      */
     public bool $bareBreaks = false;
