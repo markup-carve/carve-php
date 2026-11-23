@@ -57,6 +57,14 @@ final class TreeDecoder
     private static array $shared = [];
 
     /**
+     * The fields of the short texts seen in this read, shared the way `$shared` shares strings: a text's one-key
+     * array costs more than its node, and a paragraph repeats the same few spaces and marks (carve-php#5722).
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private static array $textFields = [];
+
+    /**
      * @param string $json
      * @param int $depth
      *
@@ -72,6 +80,7 @@ final class TreeDecoder
             return self::node($value);
         } finally {
             self::$shared = [];
+            self::$textFields = [];
         }
     }
 
@@ -157,6 +166,9 @@ final class TreeDecoder
                 continue;
             }
             $node->f[self::shared((string)$key)] = isset(self::OPAQUE[$key]) ? self::opaque($value) : self::value($value);
+        }
+        if ($node->type === 'text' && count($node->f) === 1 && is_string($node->f['value'] ?? null) && strlen($node->f['value']) <= 32) {
+            $node->f = self::$textFields[$node->f['value']] ??= $node->f;
         }
 
         return $node;

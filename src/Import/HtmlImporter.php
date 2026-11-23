@@ -111,6 +111,9 @@ final class HtmlImporter
         if ($finish !== null) {
             $children = $finish($children);
         }
+        $texts = [];
+        self::shareTexts($children, $texts);
+        unset($texts);
         // The DOM is done with. Its parent links are cycles, so it is collected before the tree is decoded.
         unset($root, $reader, $child);
         gc_collect_cycles();
@@ -134,6 +137,8 @@ final class HtmlImporter
         // The array and the Node tree are never held together: the tree is read from the JSON text alone.
         $json = self::encode($document);
         unset($document, $children);
+        // Return the pages the arrays held, so the tree's nodes can take them.
+        gc_mem_caches();
         $tree = self::readJson($json);
         [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
@@ -155,6 +160,37 @@ final class HtmlImporter
         }
 
         return new ImportResult($tree, [], $diagnostics, $source, $suppressed, $json);
+    }
+
+    /**
+     * Gives equal short texts one shared array. The tree is a value, so a later change to one copies it; a paragraph
+     * repeats the same spaces between its inline nodes thousands of times (carve-php#5722).
+     *
+     * @param array<mixed> $values
+     * @param array<string, array<mixed>> $texts
+     */
+    private static function shareTexts(array &$values, array &$texts): void
+    {
+        // By key, not by value: a foreach copy of the list would make every write below copy the whole list.
+        foreach (array_keys($values) as $key) {
+            $value = $values[$key];
+            if (!is_array($value)) {
+                continue;
+            }
+            $text = $value['value'] ?? null;
+            if (
+                count($value) === 2 && array_key_first($value) === 'type' && $value['type'] === 'text'
+                && is_string($text) && strlen($text) <= 32
+            ) {
+                $values[$key] = $texts[$text] ??= $value;
+
+                continue;
+            }
+            // Taken out of the list, the value is its only holder and changes in place.
+            $values[$key] = null;
+            self::shareTexts($value, $texts);
+            $values[$key] = $value;
+        }
     }
 
     /**

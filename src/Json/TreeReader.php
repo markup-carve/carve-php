@@ -178,9 +178,13 @@ final class TreeReader
      */
     public static function exceedsDepth(array $tree): bool
     {
-        $stack = [[$tree, 0, 0]];
-        while ($stack !== []) {
-            [$node, $blocks, $inlines] = array_pop($stack);
+        // Parallel lists, as in `checkTree()`: a three-item array per pending node costs about 200 bytes.
+        $nodes = [$tree];
+        $levels = [0, 0];
+        while ($nodes !== []) {
+            $node = array_pop($nodes);
+            $inlines = array_pop($levels) ?? 0;
+            $blocks = array_pop($levels) ?? 0;
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             if (isset(self::INLINE[$type])) {
                 $inlines += isset($node['children']) ? 1 : 0;
@@ -195,7 +199,9 @@ final class TreeReader
                 $blocks = 0;
             }
             foreach (self::arrayNodes($node) as $child) {
-                $stack[] = [$child, $blocks, $inlines];
+                $nodes[] = $child;
+                $levels[] = $blocks;
+                $levels[] = $inlines;
             }
         }
 
@@ -369,11 +375,15 @@ final class TreeReader
      */
     private static function checkTree(stdClass $root, array $declared, string $prefix, bool $standardTabs): void
     {
-        $stack = [[$root, $prefix, 0, 0, 0, 0]];
+        // The stack as parallel lists, with four counters per node: one small array per pending node held about
+        // 300 bytes for each child of a long paragraph (carve-php#5722).
+        $nodes = [$root];
+        $paths = [$prefix];
+        $counters = [0, 0, 0, 0];
         $annotationIds = [];
         $acceptedTabs = [];
-        while ($stack !== []) {
-            [$node, $path, $blocks, $inlines, $qualified, $unqualified] = array_pop($stack);
+        while ($nodes !== []) {
+            [$node, $path, $blocks, $inlines, $qualified, $unqualified] = self::popFrame($nodes, $paths, $counters);
             self::checkNode($node, $path, $declared);
             self::checkAnnotationIds($node, $path, $annotationIds);
             $type = is_string($node->type ?? null) ? $node->type : '';
@@ -406,8 +416,29 @@ final class TreeReader
                 // C2-A-171: the children of an expanded include start again at level 0.
                 $blocks = 0;
             }
-            self::pushNodes($node, $path, $blocks, $inlines, $qualified, $unqualified, $stack);
+            self::pushNodes($node, $path, [$blocks, $inlines, $qualified, $unqualified], $nodes, $paths, $counters);
         }
+    }
+
+    /**
+     * The last pending node of `checkTree()` with its path and counters. The lists move in step, so the fallbacks are
+     * never taken.
+     *
+     * @param-out array<\stdClass> $nodes
+     *
+     * @param non-empty-array<\stdClass> $nodes
+     * @param array<string> $paths
+     * @param array<int> $counters
+     *
+     * @return array{\stdClass, string, int, int, int, int}
+     */
+    private static function popFrame(array &$nodes, array &$paths, array &$counters): array
+    {
+        $unqualified = array_pop($counters) ?? 0;
+        $qualified = array_pop($counters) ?? 0;
+        $inlines = array_pop($counters) ?? 0;
+
+        return [array_pop($nodes), array_pop($paths) ?? '', array_pop($counters) ?? 0, $inlines, $qualified, $unqualified];
     }
 
     /**
@@ -719,42 +750,46 @@ final class TreeReader
     /**
      * @param \stdClass $node
      * @param string $path
-     * @param int $blocks
-     * @param int $inlines
-     * @param int $qualified
-     * @param int $unqualified
-     * @param array<array{\stdClass, string, int, int, int, int}> $stack
+     * @param array{int, int, int, int} $levels The block, inline, qualified and unqualified extension counts.
+     * @param array<\stdClass> $nodes
+     * @param array<string> $paths
+     * @param array<int> $counters
      */
     private static function pushNodes(
         stdClass $node,
         string $path,
-        int $blocks,
-        int $inlines,
-        int $qualified,
-        int $unqualified,
-        array &$stack,
+        array $levels,
+        array &$nodes,
+        array &$paths,
+        array &$counters,
     ): void {
         foreach (get_object_vars($node) as $key => $value) {
             if (isset(self::OPAQUE_FIELDS[$key]) || (!is_array($value) && !$value instanceof stdClass)) {
                 continue;
             }
-            $pending = [[$value, $path . '/' . self::escape($key)]];
+            $pending = [$value];
+            $pendingPaths = [$path . '/' . self::escape($key)];
             while ($pending !== []) {
-                [$current, $currentPath] = array_pop($pending);
+                $current = array_pop($pending);
+                $currentPath = array_pop($pendingPaths) ?? '';
                 if ($current instanceof stdClass) {
                     if (isset($current->type) && is_string($current->type)) {
-                        $stack[] = [$current, $currentPath, $blocks, $inlines, $qualified, $unqualified];
+                        $nodes[] = $current;
+                        $paths[] = $currentPath;
+                        array_push($counters, ...$levels);
                     } else {
                         foreach (get_object_vars($current) as $k => $v) {
                             if (is_array($v) || $v instanceof stdClass) {
-                                $pending[] = [$v, $currentPath . '/' . self::escape((string)$k)];
+                                $pending[] = $v;
+                                $pendingPaths[] = $currentPath . '/' . self::escape((string)$k);
                             }
                         }
                     }
                 } elseif (is_array($current)) {
                     foreach ($current as $k => $v) {
                         if (is_array($v) || $v instanceof stdClass) {
-                            $pending[] = [$v, $currentPath . '/' . $k];
+                            $pending[] = $v;
+                            $pendingPaths[] = $currentPath . '/' . $k;
                         }
                     }
                 }

@@ -134,6 +134,13 @@ final class Inline
      */
     private array $bareLeads = [];
 
+    /**
+     * The paths of nested content that logged repair kinds; see `content()`.
+     *
+     * @var array<string, true>
+     */
+    private array $kindPaths = [];
+
     private string $textValue = '';
 
     public function __construct(private State $w)
@@ -208,7 +215,12 @@ final class Inline
         if ($this->leafDepth > 0) {
             $kinds = [];
             $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
-            $outer[] = new RunEntry($path . '#', '', 0, [], '', array_keys($kinds));
+            // An entry without kinds adds nothing unless it replaces an earlier one of the same path: the pair test
+            // reads it as a run of one, and the kind count takes the last entry of each path (carve-php#5722).
+            if ($kinds !== [] || isset($this->kindPaths[$path])) {
+                $outer[] = new RunEntry($path . '#', '', 0, [], '', array_keys($kinds));
+                $this->kindPaths[$path] = true;
+            }
             $c->runLog = $outer;
 
             return $out;
@@ -1029,7 +1041,10 @@ final class Inline
             $spelled = self::spelledDots($nodes[$at]);
             $lead = $spelled === null ? 0 : strspn($spelled, '.');
             $run = $spelled !== null && $lead === strlen($spelled) ? $lead + $run : $lead;
-            $ahead[$at] = $run;
+            // Only the runs: the reader takes a missing index as none, and a long paragraph has few (carve-php#5722).
+            if ($run !== 0) {
+                $ahead[$at] = $run;
+            }
         }
 
         return $ahead;
@@ -2227,29 +2242,50 @@ final class Inline
         $open = [];
         $nested = [];
         $paired = [];
-        $walk = static function (array $list, string $base) use (&$walk, &$open, &$nested, &$paired, $labels, $notes): void {
-            foreach ($list as $at => $node) {
-                if (!is_array($node)) {
-                    continue;
-                }
-                $type = $node['type'] ?? '';
-                $key = $base . '/' . $at;
-                if ($type === 'text') {
-                    $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-                    self::pairText($value, $key, $open, $nested, $paired, $labels, $notes);
-                } elseif ($type === 'link') {
-                    // A nested link's own bracketed spelling ends any pair that was
-                    // still open in the containing label.
-                    $open = [];
-                    $nested = [];
-                } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
-                    $walk($node['children'], $key . '/children');
-                }
-            }
-        };
-        $walk($nodes, $path);
+        self::pairWalk($nodes, $path, $open, $nested, $paired, $labels, $notes);
 
         return $paired;
+    }
+
+    /**
+     * The walk of `pairedBrackets()`. A method, not a closure that captures itself: that closure is a reference cycle,
+     * and one per bracketed node held a long paragraph's memory until the cycle collector ran (carve-php#5722).
+     *
+     * @param array<mixed> $list
+     * @param string $base
+     * @param array<int, array{string, int}> $open
+     * @param array<int, bool> $nested
+     * @param array<string, array<int, true>> $paired
+     * @param array<string, true> $labels
+     * @param bool $notes
+     */
+    private static function pairWalk(
+        array $list,
+        string $base,
+        array &$open,
+        array &$nested,
+        array &$paired,
+        array $labels,
+        bool $notes,
+    ): void {
+        foreach ($list as $at => $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? '';
+            $key = $base . '/' . $at;
+            if ($type === 'text') {
+                $value = is_string($node['value'] ?? null) ? $node['value'] : '';
+                self::pairText($value, $key, $open, $nested, $paired, $labels, $notes);
+            } elseif ($type === 'link') {
+                // A nested link's own bracketed spelling ends any pair that was
+                // still open in the containing label.
+                $open = [];
+                $nested = [];
+            } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
+                self::pairWalk($node['children'], $key . '/children', $open, $nested, $paired, $labels, $notes);
+            }
+        }
     }
 
     /**

@@ -1184,7 +1184,7 @@ final class Blocks
         $head ??= '';
         $key = null;
         if (self::$leadMemo !== null) {
-            $key = hash('xxh128', $head . "\0" . $text . "\0" . serialize($children));
+            $key = self::leadKey($head, $text, $children);
             if (isset(self::$leadMemo[$key])) {
                 return self::$leadMemo[$key];
             }
@@ -1202,6 +1202,27 @@ final class Blocks
         }
 
         return $lead;
+    }
+
+    /**
+     * The memo key of a lead decision. The children are hashed one at a time: the serialized list of a long paragraph
+     * is a string of several megabytes (carve-php#5722).
+     *
+     * @param string $head
+     * @param string $text
+     * @param array<mixed> $children
+     *
+     * @return string
+     */
+    private static function leadKey(string $head, string $text, array $children): string
+    {
+        $hash = hash_init('xxh128');
+        hash_update($hash, $head . "\0" . $text . "\0" . count($children) . "\0");
+        foreach ($children as $at => $child) {
+            hash_update($hash, serialize($at) . serialize($child));
+        }
+
+        return hash_final($hash);
     }
 
     /**
