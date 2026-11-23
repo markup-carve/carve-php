@@ -210,6 +210,36 @@ final class HubImporterTest extends TestCase
     }
 
     /**
+     * @return array<string, array{string, string, array<string>}>
+     */
+    public static function djotDestinations(): array
+    {
+        return [
+            'denied image is the only item content' => ["- ![](data:x)\n", "- %%\n", ['import-destination-denied']],
+            'denied link keeps its text' => ["[l](data:y)\n", "l\n", ['import-destination-denied']],
+            'denied image with alt' => ["a ![x](javascript:alert(1)) c\n", "a x c\n", ['import-destination-denied']],
+            'denied reference link in a quote' => ["> [t][r]\n>\n> [r]: vbscript:x\n", "> t\n", ['import-destination-denied']],
+            'denied autolink' => ["<javascript:x>\n", "javascript:x\n", ['import-destination-denied']],
+            'allowed link' => ["[l](https://e.com)\n", "[l](https://e.com)\n", []],
+        ];
+    }
+
+    /**
+     * carve-php#5698, C2-M-051, C2-M-082: the library does not blank a Djot destination, so a denied one is reported.
+     *
+     * @param string $input
+     * @param string $expected
+     * @param array<string> $codes
+     */
+    #[DataProvider('djotDestinations')]
+    public function testReportsADeniedDjotDestination(string $input, string $expected, array $codes): void
+    {
+        $result = Carve::importDocument($input, ['from' => 'djot']);
+        $this->assertSame($expected, $result->source);
+        $this->assertSame($codes, array_values(array_unique(array_map(static fn ($d): string => $d->code, $result->diagnostics))));
+    }
+
+    /**
      * @return array<string, array{string, string, string, array<string>}>
      */
     public static function emptiedItems(): array
