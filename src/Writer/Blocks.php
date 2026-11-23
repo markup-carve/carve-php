@@ -1456,7 +1456,26 @@ final class Blocks
             $this->w->lose($path, 'heading', 'level');
             $level = 6;
         }
-        $this->textLeaf($node, $path, $prefix, str_repeat('=', max(1, $level)) . ' ', str_repeat(' ', max(1, $level) + 1));
+        // C2-B-154: on a marker line whose lead is wider than the body column, the continuation stands past the marker.
+        $mark = str_repeat('=', max(1, $level)) . ' ';
+        $this->textLeaf($node, $path, $prefix, $mark, str_repeat(' ', $this->leadColumns($prefix) + strlen($mark)));
+    }
+
+    /**
+     * How many columns (C2-B-003) the pending lead reaches past `prefix`, or 0 without a lead.
+     *
+     * @param string $prefix
+     *
+     * @return int
+     */
+    private function leadColumns(string $prefix): int
+    {
+        $lead = $this->w->lead;
+        if ($lead === null) {
+            return 0;
+        }
+
+        return max(0, mb_strlen($lead, 'UTF-8') - mb_strlen(substr($lead, 0, $this->w->leadSkip), 'UTF-8') - mb_strlen($prefix, 'UTF-8'));
     }
 
     /**
