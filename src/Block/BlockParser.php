@@ -255,8 +255,12 @@ final class BlockParser
             return;
         }
         $s = $this->s;
-        if ($j === $ls && $s[$j] === '-' && !$forced && LineShapes::typedFrontmatter($s, $j, $le) !== null && $this->listsOnly()) {
-            // C2-B-232: a column-0 typed opener ends the lists before it, whether or not it opens a block.
+        if (
+            $j === $ls && $s[$j] === '-' && !$forced && ($leaf === null || $leaf->kind !== Frame::PARAGRAPH)
+            && LineShapes::typedFrontmatter($s, $j, $le) !== null && $this->listsOnly()
+        ) {
+            // C2-B-232: with no paragraph open, a column-0 typed opener ends the lists before it (C2-B-026);
+            // below an open paragraph it is a lazy line of that paragraph (C2-B-024).
             $this->closeTo(0);
             $owner = 0;
             $top = 0;

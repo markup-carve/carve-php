@@ -50,6 +50,11 @@ final class Blocks
     private Inline $inline;
 
     /**
+     * @var array<mixed>|null The block written above the current top-level block.
+     */
+    private ?array $above = null;
+
+    /**
      * C2-W-080: inside a hard-break block or a line block a hard break is the bare line ending.
      */
     public bool $bareBreaks = false;
@@ -190,6 +195,7 @@ final class Blocks
         string $prefix,
         int $layout,
     ): void {
+        $this->above = $path === '/children' ? $before : null;
         $node = is_array($nodes[$at]) ? $nodes[$at] : [];
         $following = is_array($nodes[$followingAt] ?? null) ? $nodes[$followingAt] : null;
         $followingPath = $path . '/' . $followingAt;
@@ -275,7 +281,77 @@ final class Blocks
                 && $this->listAttributes($node, Lists::markers($node, $this->w, $path)[1]) !== '' ? 1 : 0;
         }
 
+        if (self::directBelowList($before, $node, $path)) {
+            return 0;
+        }
+
         return $nested ? 0 : 1;
+    }
+
+    /**
+     * C2-W-154: a top-level paragraph that would open with a typed opener, below a list whose last block takes no
+     * lazy line, is written on the line directly after the list; the opener closes the list and stays text (C2-B-026).
+     *
+     * @param array<mixed> $before
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return bool
+     */
+    private static function directBelowList(array $before, array $node, string $path): bool
+    {
+        return ($before['type'] ?? '') === 'list' && ($node['type'] ?? '') === 'paragraph'
+            && preg_match('#^/children/\d+$#', $path) === 1 && BraceBlock::of($node) === ''
+            && self::listEnd($before) === 'closed' && self::opensWithTypedLead($node);
+    }
+
+    /**
+     * How the block a list ends on treats a column-0 line directly below it: `lazy` where the line would continue it
+     * (C2-B-024), `closed` where the line closes the list (C2-B-026), or `unknown`.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string
+     */
+    private static function listEnd(array $node): string
+    {
+        $type = $node['type'] ?? '';
+        if ($type === 'list' || $type === 'list_item' || $type === 'block_quote') {
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            $last = end($children);
+
+            return is_array($last) ? self::listEnd($last) : 'unknown';
+        }
+        if ($type === 'paragraph') {
+            return 'lazy';
+        }
+
+        return in_array($type, ['code_block', 'raw_block', 'div', 'table', 'heading'], true) && !isset($node['caption'])
+            ? 'closed' : 'unknown';
+    }
+
+    /**
+     * Whether the paragraph `node` starts with an em dash node of source `---` and a format name (C2-B-232).
+     *
+     * @param array<mixed> $node
+     *
+     * @return bool
+     */
+    private static function opensWithTypedLead(array $node): bool
+    {
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $first = $children[0] ?? null;
+        $next = $children[1] ?? null;
+        if (
+            !is_array($first) || ($first['type'] ?? null) !== 'smart_punctuation' || ($first['source'] ?? null) !== '---'
+            || !is_array($next) || ($next['type'] ?? null) !== 'text'
+        ) {
+            return false;
+        }
+        $line = '---' . Inline::str($next, 'value');
+        $line = substr($line, 0, strcspn($line, "\n"));
+
+        return LineShapes::typedFrontmatter($line, 0, strlen($line)) !== null;
     }
 
     /**
@@ -646,9 +722,6 @@ final class Blocks
     private function paragraph(array $node, string $path, string $prefix): void
     {
         $text = $this->textLeaf($node, $path, $prefix, '', '');
-        if ($text !== null) {
-            $this->loseMetadataLead($node, $path, $text);
-        }
         $role = is_string($node['role'] ?? null) ? $node['role'] : null;
         if ($text !== null && self::readRole($text, $node) !== $role) {
             $this->w->lose($path, 'paragraph', 'role', $role !== null);
@@ -657,29 +730,52 @@ final class Blocks
     }
 
     /**
-     * C2-B-232, C2-W-117: a top-level paragraph whose first line is a typed opener reads back as metadata. Text takes
-     * a backslash; an em dash node before a format name cannot, so it is lost.
+     * C2-W-154: the first line indented by one space; directly below a list that ends in a closed block it stays at
+     * column 0. Below a list that ends in a block taking lazy lines, or another open container, it has no spelling.
      *
      * @param array<mixed> $node
      * @param string $path
      * @param string $text
+     * @param bool $attributes
      *
-     * @return void
+     * @return string
      */
-    private function loseMetadataLead(array $node, string $path, string $text): void
+    private function metadataLeadText(array $node, string $path, string $text, bool $attributes): string
     {
-        $children = $node['children'] ?? null;
-        $first = is_array($children) ? ($children[0] ?? null) : null;
+        $above = $this->above;
+        if ($attributes || $above === null || !$this->isOpenContainer($above)) {
+            return ' ' . $text;
+        }
+        if (self::directBelowList($above, $node, $path)) {
+            return $text;
+        }
+        // Below a blank line the indented line would be a block of the open container above (C2-B-026).
+        $this->w->lose($path . '/children/0', 'smart_punctuation', null);
+
+        return ' ' . $text;
+    }
+
+    /**
+     * C2-W-154: a top-level paragraph whose first line would read as a typed opener (C2-B-232) and starts with an em
+     * dash node, which no backslash keeps, is written with that line indented by one space.
+     *
+     * @param array<mixed> $children
+     * @param string $path
+     * @param string $text
+     *
+     * @return bool
+     */
+    private static function metadataLead(array $children, string $path, string $text): bool
+    {
+        $first = $children[0] ?? null;
         if (
             !is_array($first) || ($first['type'] ?? null) !== 'smart_punctuation' || ($first['source'] ?? null) !== '---'
             || preg_match('#^/children/\d+$#', $path) !== 1
         ) {
-            return;
+            return false;
         }
-        $end = strcspn($text, "\n");
-        if (LineShapes::typedFrontmatter($text, 0, $end) !== null) {
-            $this->w->lose($path . '/children/0', 'smart_punctuation', null);
-        }
+
+        return LineShapes::typedFrontmatter($text, 0, strcspn($text, "\n")) !== null;
     }
 
     /**
@@ -744,6 +840,7 @@ final class Blocks
 
             return null;
         }
+        $lines = count($this->w->lines);
         $this->attributeLine($node, $path, $prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $c = $this->context($children, $mark === '', $prefix);
@@ -753,6 +850,9 @@ final class Blocks
             $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
         }
         $text = self::endContent($text, $children, $c);
+        if ($mark === '' && ($node['type'] ?? null) === 'paragraph' && self::metadataLead($children, $path, $text)) {
+            $text = $this->metadataLeadText($node, $path, $text, count($this->w->lines) > $lines);
+        }
         if ($this->w->takeSmartRun()) {
             SmartReadBack::leafReadBack($this->w, $children, $text, $path, Inline::str($node, 'type'), $mark, $indent);
         }
