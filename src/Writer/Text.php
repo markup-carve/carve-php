@@ -807,7 +807,7 @@ final class Text
         if ($c->here < 0 || $c->inBracket) {
             return true;
         }
-        $c->brackets ??= self::brackets((string)$c->flat, $c->labels);
+        $c->brackets ??= self::brackets((string)$c->flat, $c->labels, $c->flatFirst);
 
         return $c->brackets[$c->here + $i] ?? true;
     }
@@ -819,10 +819,11 @@ final class Text
      *
      * @param string $flat
      * @param array<string, true> $labels
+     * @param array<int, int> $nodeFirst
      *
      * @return array<int, bool>
      */
-    private static function brackets(string $flat, array $labels): array
+    private static function brackets(string $flat, array $labels, array $nodeFirst): array
     {
         $out = [];
         $open = [];
@@ -839,7 +840,7 @@ final class Text
                 // C2-I-076: a footnote label ends at the first closing bracket.
                 $pair = $open === [] ? PHP_INT_MAX : $open[count($open) - 1];
                 $close = ($flat[$k + 1] ?? '') === '^' ? $first : $pair;
-                $out[$k] = self::forms($flat, $k, $close, $node, $labels);
+                $out[$k] = self::forms($flat, $k, $close, $node, $labels, $nodeFirst);
                 if (!$out[$k] && $open !== []) {
                     array_pop($open);
                 }
@@ -855,16 +856,21 @@ final class Text
      * @param int $close
      * @param int $node
      * @param array<string, true> $labels
+     * @param array<int, int> $nodeFirst
      *
      * @return bool
      */
-    private static function forms(string $flat, int $at, int $close, int $node, array $labels): bool
+    private static function forms(string $flat, int $at, int $close, int $node, array $labels, array $nodeFirst): bool
     {
         if ($close === PHP_INT_MAX) {
             // The written form of a node behind the bracket may hold its pair.
             return $node !== PHP_INT_MAX;
         }
         $tail = $flat[$close + 1] ?? '';
+        // A node glued behind the pair continues it only where its written form starts with `(`, `[` or `{`.
+        if ($tail === "\0" && ($nodeFirst[$close + 1] ?? -1) >= 0) {
+            $tail = chr(min(0x7F, $nodeFirst[$close + 1]));
+        }
         if ($node < $close || ($tail !== '' && str_contains("([{\0", $tail))) {
             return true;
         }
