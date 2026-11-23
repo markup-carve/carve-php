@@ -1414,10 +1414,11 @@ final class Blocks
         $lines = $this->valueLines($node, $path);
         $run = str_repeat('`', max(3, self::longestBareRun($lines, '`') + 1));
         $info = $this->fenceInfo($node, $path);
+        $inner = $this->bodyPrefix($prefix, $lines);
         $this->w->emit($prefix, $run . $info);
-        $this->verbatim($lines, $prefix);
+        $this->verbatim($lines, $inner);
         if (!isset($this->w->openFences[$path])) {
-            $this->w->emit($prefix, $run);
+            $this->w->emit($inner, $run);
         }
         if ($withCaption && ($node['type'] ?? '') === 'code_block') {
             $this->caption($node['caption'] ?? null, $path . '/caption', $prefix);
@@ -1457,6 +1458,42 @@ final class Blocks
         }
 
         return $syntax . $this->openerTail($node, $path, $title, $title === null ? '' : substr(BraceBlock::quoted($title), 1, -1));
+    }
+
+    /**
+     * How far the lead of the current line reaches past `prefix`: a task box, a label or attributes on a marker line.
+     *
+     * @param string $prefix
+     *
+     * @return int
+     */
+    private function leadIndent(string $prefix): int
+    {
+        return $this->w->lead === null ? 0 : max(0, strlen($this->w->lead) - $this->w->leadSkip - strlen($prefix));
+    }
+
+    /**
+     * C2-B-029: an opener behind a lead strips up to its indent from each line. Where a line starts with whitespace, the
+     * lines and the closer stand at the opener's column (C2-W-033); otherwise at the content column (C2-W-024).
+     *
+     * @param string $prefix
+     * @param array<string> $lines
+     *
+     * @return string
+     */
+    private function bodyPrefix(string $prefix, array $lines): string
+    {
+        $indent = $this->leadIndent($prefix);
+        if ($indent === 0) {
+            return $prefix;
+        }
+        foreach ($lines as $line) {
+            if (str_starts_with($line, ' ') || str_starts_with($line, "\t")) {
+                return $prefix . str_repeat(' ', $indent);
+            }
+        }
+
+        return $prefix;
     }
 
     /**
@@ -1525,10 +1562,11 @@ final class Blocks
         }
         $lines = $value === '' ? [] : explode("\n", $value);
         $run = str_repeat('%', max(3, self::longestBareRun($lines, '%') + 1));
+        $inner = $this->bodyPrefix($prefix, $lines);
         $this->w->emit($prefix, $run);
-        $this->verbatim($lines, $prefix);
+        $this->verbatim($lines, $inner);
         if (!isset($this->w->openFences[$path])) {
-            $this->w->emit($prefix, $run);
+            $this->w->emit($inner, $run);
         }
     }
 
@@ -1665,7 +1703,7 @@ final class Blocks
     private function body(array $node, string $path, string $prefix, string $mark, int $width, bool $tight): void
     {
         // C2-B-229: a body opened on the marker line of another body has its content column behind its own marker.
-        $behind = $this->w->lead === null ? 0 : max(0, strlen($this->w->lead) - $this->w->leadSkip - strlen($prefix));
+        $behind = $this->leadIndent($prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
         $priorOwner = $this->bodyOwner;
