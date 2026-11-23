@@ -278,6 +278,7 @@ final class Scanner
 
     /**
      * C2-I-118 does not apply: a scan that only finds where brackets close, whose frames the final scan may not open.
+     * It builds no tokens.
      */
     private bool $uncapped = false;
 
@@ -465,7 +466,7 @@ final class Scanner
      */
     private function flush(int $ts): void
     {
-        if ($ts > $this->textStart) {
+        if ($ts > $this->textStart && !$this->uncapped) {
             $this->tok[] = [self::TEXT, substr($this->t, $this->textStart, $ts - $this->textStart), $this->textStart, $ts, false];
         }
     }
@@ -479,7 +480,9 @@ final class Scanner
     {
         assert(is_int($token[2]) && is_int($token[3]));
         $this->flush($token[2]);
-        $this->tok[] = $token;
+        if (!$this->uncapped) {
+            $this->tok[] = $token;
+        }
         $this->textStart = $token[3];
 
         return $token[3];
@@ -1477,7 +1480,9 @@ final class Scanner
         }
         $this->flush($ts);
         $this->frames[] = [$kind, count($this->tok), $ts, $cs, $name, $this->capDelims, $this->capPoison];
-        $this->tok[] = [self::TEXT, substr($this->t, $ts, $cs - $ts), $ts, $cs, false];
+        if (!$this->uncapped) {
+            $this->tok[] = [self::TEXT, substr($this->t, $ts, $cs - $ts), $ts, $cs, false];
+        }
         $this->textStart = $cs;
 
         return $cs;
@@ -1664,6 +1669,11 @@ final class Scanner
     {
         $this->capDelims = $frame[5];
         $this->capPoison = $frame[6];
+        if ($this->uncapped) {
+            $this->textStart = $end;
+
+            return $end;
+        }
         $this->flush($close);
         $inner = array_slice($this->tok, $frame[1] + 1);
         for ($k = count($this->tok) - 1; $k >= $frame[1]; $k--) {
