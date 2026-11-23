@@ -31,6 +31,16 @@ final class HubImporterTest extends TestCase
         $this->assertSame("- ```\n  code\n  ```\n\n2\\. y\n", self::source("- ```\n  code\n[a]: /x\n2. y\n", 'markdown'));
     }
 
+    public function testEmptyHubDocumentKeepsTheFinalLineEnding(): void
+    {
+        foreach (['markdown', 'gfm', 'djot', 'html'] as $format) {
+            $this->assertSame("\n", Carve::importDocument('', ['from' => $format])->source);
+        }
+        $this->assertSame("\n", Carve::importDocument("[^a]: note\n", ['from' => 'gfm'])->source);
+        $this->assertSame("\n", Carve::importDocument('<input type="checkbox">', ['from' => 'html'])->source);
+        $this->assertSame("\n", Carve::format(''));
+    }
+
     private static function source(string $input, string $from): string
     {
         return Carve::importDocument($input, ['from' => $from])->source;

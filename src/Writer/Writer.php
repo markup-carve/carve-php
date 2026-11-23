@@ -242,7 +242,7 @@ final class Writer
             array_pop($w->lines);
         }
         if ($w->lines === []) {
-            return new WriteResult('', $w->losses);
+            return new WriteResult($children === [] ? "\n" : '', $w->losses);
         }
         $source = implode("\n", $w->lines) . "\n";
         $source = ControlLines::keepAbove($source, ControlLines::source($layout), $w->extensions);
@@ -284,7 +284,9 @@ final class Writer
     {
         $document = ['type' => 'document', 'astVersion' => '2.0', 'children' => array_values($blocks)];
 
-        return self::writeWithDiagnostics($document, null, $options);
+        $result = self::writeWithDiagnostics($document, null, $options);
+
+        return $blocks === [] ? new WriteResult('', $result->diagnostics) : $result;
     }
 
     /**
