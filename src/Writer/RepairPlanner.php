@@ -408,16 +408,22 @@ final class RepairPlanner
     {
         $fired = false;
         $this->notesDone = [];
+        // The reported texts of one leaf share their siblings; each list is read and walked once per round.
+        $lists = [];
         foreach ($reported as $path => $offsets) {
             $cut = strrpos($path, '/children/');
             if ($cut === false) {
                 continue;
             }
             $parent = substr($path, 0, $cut + 10);
-            $siblings = self::childrenOf(self::nodeAt($this->tree, substr($path, 0, $cut)) ?? []);
+            if (!isset($lists[$parent])) {
+                $children = self::childrenOf(self::nodeAt($this->tree, substr($path, 0, $cut)) ?? []);
+                $lists[$parent] = [$children, self::lastCaretPair($children)];
+            }
+            [$siblings, $last] = $lists[$parent];
             $i = (int)substr($path, $cut + 10);
             $value = $siblings[$i]['value'] ?? null;
-            if (!is_string($value) || self::lastCaretPair($siblings) <= $i) {
+            if (!is_string($value) || $last <= $i) {
                 continue;
             }
             foreach ($offsets as $at => $_) {
@@ -429,7 +435,7 @@ final class RepairPlanner
                     if ($closer === null || !$this->addEscape(...$closer)) {
                         continue;
                     }
-                    $this->laterNoteClosers($siblings, $parent, $i, $at + 1);
+                    $this->laterNoteClosers($siblings, $parent, $i, $at + 1, $last);
                     $this->bracketedClosers($siblings, $parent, $i);
                     $fired = true;
                 }
@@ -479,10 +485,10 @@ final class RepairPlanner
      * @param string $parent
      * @param int $i
      * @param int $from
+     * @param int $last The `lastCaretPair()` of the siblings.
      */
-    private function laterNoteClosers(array $siblings, string $parent, int $i, int $from): void
+    private function laterNoteClosers(array $siblings, string $parent, int $i, int $from, int $last): void
     {
-        $last = self::lastCaretPair($siblings);
         foreach ($siblings as $k => $text) {
             $value = $text['value'] ?? null;
             if ($k < $i || $k >= $last || ($text['type'] ?? '') !== 'text' || !is_string($value)) {
