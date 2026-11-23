@@ -145,6 +145,12 @@ final class RepairPlanner
     }
 
     /**
+     * @param-out array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>
+     * } $comparison
+     *
      * @param array{
      *     source: string,
      *     text: array<int, int>,
@@ -158,11 +164,17 @@ final class RepairPlanner
      *     read: array<string, mixed>
      * } $comparison
      */
-    private function applyRound(array $candidate, array $comparison): bool
+    private function applyRound(array $candidate, array &$comparison): bool
     {
         $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed);
         $missing = self::missingSiblings($candidate, $comparison['read']);
         $trial = $this->nextTrial($candidate, $comparison['read'], $missing);
+        $differences = [];
+        if ($comparison['openers'] === [] && $missing === [] && $asked === []) {
+            self::textDifferences($this->tree, $comparison['read'], '', $differences);
+        }
+        // The trial below parses the whole document again; the read-back is not needed past this point.
+        unset($comparison['read']);
         if ($trial !== null && $this->keepTrial($trial)) {
             foreach ($trial as [$path, $offset]) {
                 $this->addEscape($path, $offset);
@@ -184,8 +196,6 @@ final class RepairPlanner
             return $comparison['openers'] !== [] || $trial !== null || $asked !== [] || $moved;
         }
 
-        $differences = [];
-        self::textDifferences($this->tree, $comparison['read'], '', $differences);
         $this->addAsked($differences);
 
         return $differences !== [] || $moved;

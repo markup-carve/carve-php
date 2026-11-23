@@ -46,7 +46,7 @@ final class LineEndBlanks
     {
         $removed = [];
 
-        return self::node($tree, '', $formats, $removed);
+        return self::node($tree, '', $formats, $removed) ?? $tree;
     }
 
     /**
@@ -110,37 +110,43 @@ final class LineEndBlanks
      * @param array<string, mixed> $formats
      * @param array<string, array<int>> $removed
      *
-     * @return array<mixed>
+     * @return array<mixed>|null Null when nothing changed, so an unchanged part is not copied.
      */
-    private static function node(array $node, string $path, array $formats, array &$removed): array
+    private static function node(array $node, string $path, array $formats, array &$removed): ?array
     {
         $type = $node['type'] ?? null;
         if ($type === 'text') {
-            return $node;
+            return null;
         }
         $holder = is_string($type) && isset(self::LINE_HOLDERS[$type]);
+        $any = false;
         foreach ($node as $key => $value) {
             if ($key === 'type' || !is_array($value) || $value === []) {
                 continue;
             }
             $slot = $path . '/' . $key;
             if (is_string($value['type'] ?? null)) {
-                $node[$key] = self::node($value, $slot, $formats, $removed);
+                $changed = self::node($value, $slot, $formats, $removed);
+                if ($changed !== null) {
+                    $node[$key] = $changed;
+                    $any = true;
+                }
 
                 continue;
             }
             if (!array_is_list($value) || !is_array($value[0]) || !is_string($value[0]['type'] ?? null)) {
                 continue;
             }
-            if ($type === 'table' && $key === 'children') {
-                $node[$key] = self::cells($node, $value, $slot, $path, $formats, $removed);
-
-                continue;
+            $changed = $type === 'table' && $key === 'children'
+                ? self::cells($node, $value, $slot, $path, $formats, $removed)
+                : self::list($value, $slot, $holder && $key === 'children', $formats, $removed);
+            if ($changed !== null) {
+                $node[$key] = $changed;
+                $any = true;
             }
-            $node[$key] = self::list($value, $slot, $holder && $key === 'children', $formats, $removed);
         }
 
-        return $node;
+        return $any ? $node : null;
     }
 
     /**
@@ -151,24 +157,49 @@ final class LineEndBlanks
      * @param array<string, mixed> $formats
      * @param array<string, array<int>> $removed
      *
-     * @return array<mixed>
+     * @return array<mixed>|null Null when nothing changed, so an unchanged part is not copied.
      */
-    private static function cells(array $table, array $groups, string $slot, string $path, array $formats, array &$removed): array
+    private static function cells(array $table, array $groups, string $slot, string $path, array $formats, array &$removed): ?array
     {
         $format = $formats[$path] ?? null;
         $spans = SpanMarks::of($table, $path) !== null;
         if (TableWriter::writesDelimited($table, $format, $spans)) {
-            return $groups;
+            return null;
         }
         $cells = [];
         $trimmed = self::list($groups, $slot, false, $formats, $cells);
+        if ($trimmed === null) {
+            return null;
+        }
         $table['children'] = $trimmed;
         if (TableWriter::writesDelimited($table, $format, $spans)) {
-            return $groups;
+            return null;
         }
         $removed += $cells;
 
         return $trimmed;
+    }
+
+    /**
+     * The value a text keeps when it ends a line and its spaces and tabs go; null when it stays as it is.
+     *
+     * @param array<mixed> $text
+     * @param mixed $after
+     * @param bool $atLineEnd
+     */
+    private static function kept(array $text, mixed $after, bool $atLineEnd): ?string
+    {
+        if (array_intersect_key($text, array_flip(self::KEEPING_FIELDS)) !== []) {
+            return null;
+        }
+        $endsLine = $after === null ? $atLineEnd : is_array($after) && ($after['type'] ?? null) === 'soft_break';
+        if (!$endsLine) {
+            return null;
+        }
+        $value = is_string($text['value'] ?? null) ? $text['value'] : '';
+        $kept = rtrim($value, " \t");
+
+        return $kept === $value ? null : $kept;
     }
 
     /**
@@ -180,12 +211,13 @@ final class LineEndBlanks
      * @param array<string, mixed> $formats
      * @param array<string, array<int>> $removed
      *
-     * @return array<mixed>
+     * @return array<mixed>|null Null when nothing changed, so an unchanged part is not copied.
      */
-    private static function list(array $nodes, string $slot, bool $atLineEnd, array $formats, array &$removed): array
+    private static function list(array $nodes, string $slot, bool $atLineEnd, array $formats, array &$removed): ?array
     {
         $next = null;
         $dropped = [];
+        $any = false;
         for ($i = count($nodes) - 1; $i >= 0; $i--) {
             $child = $nodes[$i];
             $after = $next;
@@ -194,25 +226,22 @@ final class LineEndBlanks
                 continue;
             }
             if (($child['type'] ?? null) !== 'text') {
-                $nodes[$i] = self::node($child, $slot . '/' . $i, $formats, $removed);
+                $changed = self::node($child, $slot . '/' . $i, $formats, $removed);
+                if ($changed !== null) {
+                    $nodes[$i] = $changed;
+                    $any = true;
+                }
 
                 continue;
             }
-            if (array_intersect_key($child, array_flip(self::KEEPING_FIELDS)) !== []) {
-                continue;
-            }
-            $endsLine = $after === null ? $atLineEnd : is_array($after) && ($after['type'] ?? null) === 'soft_break';
-            if (!$endsLine) {
-                continue;
-            }
-            $value = is_string($child['value'] ?? null) ? $child['value'] : '';
-            $kept = rtrim($value, " \t");
-            if ($kept === $value) {
+            $kept = self::kept($child, $after, $atLineEnd);
+            if ($kept === null) {
                 continue;
             }
             if ($kept !== '') {
                 $child['value'] = $kept;
                 $nodes[$i] = $child;
+                $any = true;
 
                 continue;
             }
@@ -221,7 +250,7 @@ final class LineEndBlanks
             $dropped[] = $i;
         }
         if ($dropped === []) {
-            return $nodes;
+            return $any ? $nodes : null;
         }
         $removed[$slot] = $dropped;
 
