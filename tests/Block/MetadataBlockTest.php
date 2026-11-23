@@ -331,6 +331,39 @@ final class MetadataBlockTest extends TestCase
     }
 
     /**
+     * carve#6446 (C2-B-137, C2-B-232): a comment-only line is no line for block structure, so the blank line above
+     * it still separates the opener; only the containers the column-0 line belongs to can refuse it.
+     *
+     * @return array<string, array{0: string, 1: array<string>}>
+     */
+    public static function closedContainers(): array
+    {
+        return [
+            'comment after a blank line' => ["a\n\n%% c\n---yaml\nk: v\n---\n", ['paragraph', 'comment', 'frontmatter']],
+            'comment without a blank line stays a paragraph' => ["a\n%% c\n---yaml\nk: v\n---\n", ['paragraph']],
+            'footnote ending in a comment' => ["[^n]: q\n\n  %% c\n---json\nk: v\n---\n", ['footnote', 'frontmatter']],
+            'footnote after a blank line' => ["[^n]: q\n\n---json\nk: v\n---\n", ['footnote', 'frontmatter']],
+            'quote ending in a marked blank line' => ["> q\n>\n---yaml\nk: v\n---\n", ['block_quote', 'frontmatter']],
+            'quote ending in a comment' => ["> q\n>\n> %% c\n---yaml\nk: v\n---\n", ['block_quote', 'frontmatter']],
+            'list ending in a quote' => ["- a\n\n  > q\n  >\n  > %% c\n---yaml\nk: v\n---\n", ['list', 'frontmatter']],
+            'description ending in a comment' => [":: t\n: d\n\n  %% c\n---toml\nk = 1\n---\n", ['definition_list', 'frontmatter']],
+            'inside a div stays text' => ["::: d\nx\n\n%% c\n---yaml\nk: v\n---\n:::\n", ['div']],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param array<string> $types
+     */
+    #[DataProvider('closedContainers')]
+    public function testOpenerBelowAClosedContainer(string $source, array $types): void
+    {
+        $tree = json_decode(Carve::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame($types, array_column($tree['children'], 'type'));
+    }
+
+    /**
      * @param string $source
      *
      * @return mixed
