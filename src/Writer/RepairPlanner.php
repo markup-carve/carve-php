@@ -191,8 +191,9 @@ final class RepairPlanner
             $this->addAsked($asked);
         }
         $moved = false;
+        $spans = $comparison['moved'] === [] ? [] : self::spans($candidate);
         foreach ($this->movedByLeaf($comparison['moved']) as $group) {
-            $moved = $this->probeMoved($candidate, $group) || $moved;
+            $moved = $this->probeMoved($candidate, $spans, $group) || $moved;
             $moved = $this->ownerMoved($group) || $moved;
         }
         if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
@@ -411,12 +412,12 @@ final class RepairPlanner
      *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>
      * } $candidate
+     * @param array<string, array{int, int}> $spans The spans of the candidate, shared by every leaf of the round.
      * @param array<int, array{string, string, int, int, int}> $moved
      */
-    private function probeMoved(array $candidate, array $moved): bool
+    private function probeMoved(array $candidate, array $spans, array $moved): bool
     {
         $added = false;
-        $spans = $moved === [] ? [] : self::spans($candidate);
         foreach ($moved as $position => [$path, , , $end, $readEnd]) {
             if ($position === 0) {
                 continue;
