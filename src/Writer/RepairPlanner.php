@@ -168,14 +168,14 @@ final class RepairPlanner
     {
         $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed);
         $missing = self::missingSiblings($candidate, $comparison['read']);
-        $trial = $this->nextTrial($candidate, $comparison['read'], $missing);
+        $trials = $this->nextTrials($candidate, $comparison['read'], $missing);
         $differences = [];
         if ($comparison['openers'] === [] && $missing === [] && $asked === []) {
             self::textDifferences($this->tree, $comparison['read'], '', $differences);
         }
         // The trial below parses the whole document again; the read-back is not needed past this point.
         unset($comparison['read']);
-        if ($trial !== null && $this->keepTrial($trial)) {
+        foreach ($this->keptTrials($trials) as $trial) {
             foreach ($trial as [$path, $offset]) {
                 $this->addEscape($path, $offset);
                 $this->trialEscapes[$path][$offset] = true;
@@ -190,10 +190,13 @@ final class RepairPlanner
         } else {
             $this->addAsked($asked);
         }
-        $moved = $this->probeMoved($candidate, $comparison['moved']);
-        $moved = $this->ownerMoved($comparison['moved']) || $moved;
+        $moved = false;
+        foreach ($this->movedByLeaf($comparison['moved']) as $group) {
+            $moved = $this->probeMoved($candidate, $group) || $moved;
+            $moved = $this->ownerMoved($group) || $moved;
+        }
         if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
-            return $comparison['openers'] !== [] || $trial !== null || $asked !== [] || $moved;
+            return $comparison['openers'] !== [] || $trials !== [] || $asked !== [] || $moved;
         }
 
         $this->addAsked($differences);
@@ -429,6 +432,23 @@ final class RepairPlanner
     }
 
     /**
+     * The moved nodes grouped by their leaf block, in order, so each leaf repairs its first moved node as its owner.
+     *
+     * @param array<int, array{string, string, int, int, int}> $moved
+     *
+     * @return array<array<int, array{string, string, int, int, int}>>
+     */
+    private function movedByLeaf(array $moved): array
+    {
+        $groups = [];
+        foreach ($moved as $entry) {
+            $groups[$this->leafOf($entry[0])][] = $entry;
+        }
+
+        return array_values($groups);
+    }
+
+    /**
      * @param array<int, array{string, string, int, int, int}> $moved
      */
     private function ownerMoved(array $moved): bool
@@ -476,20 +496,113 @@ final class RepairPlanner
      * @param array<mixed> $actual
      * @param array<array{string, string}> $missing
      *
-     * @return array<array{string, int}>|null
+     * @return array<array<array{string, int}>>
      */
-    private function nextTrial(array $candidate, array $actual, array $missing): ?array
+    private function nextTrials(array $candidate, array $actual, array $missing): array
     {
+        // C2-W-088, C2-W-125: the procedure runs per text in its leaf block, so each leaf takes the trial of its own
+        // first missing node in the same round, and a leaf's escapes do not depend on the leaves around it.
+        $trials = [];
         foreach ($missing as [$path, $prior]) {
+            $leaf = $this->leafOf($path);
+            if (isset($trials[$leaf])) {
+                continue;
+            }
             $step = $this->attempts[$path] ?? 0;
             $trial = $this->trial($candidate, $actual, $path, $prior, $step);
             $this->attempts[$path] = $step;
             if ($trial !== null) {
-                return $trial;
+                $trials[$leaf] = $trial;
             }
         }
 
-        return null;
+        return array_values($trials);
+    }
+
+    /**
+     * The trials that change how their leaf reads. Several trials of one round are tested together: one source without
+     * them and one with all of them, each leaf compared on its own, so a round costs two reads and not two per leaf.
+     *
+     * @param array<array<array{string, int}>> $trials
+     *
+     * @return array<array<array{string, int}>>
+     */
+    private function keptTrials(array $trials): array
+    {
+        $small = array_filter($trials, static fn (array $trial): bool => count($trial) <= 4);
+        if (count($small) < 2) {
+            return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
+        }
+        $first = [];
+        foreach ($small as $k => $trial) {
+            $first[$this->leafOf($trial[0][0])] = $k;
+        }
+        $left = [];
+        foreach ($this->escapes as $owner => $offsets) {
+            $k = $first[$this->leafOf($owner)] ?? null;
+            foreach ($offsets as $at => $_) {
+                if ($k === null || $this->before($owner, $at, $small[$k][0])) {
+                    $left[$owner][$at] = true;
+                }
+            }
+        }
+        $with = $left;
+        foreach ($small as $trial) {
+            foreach ($trial as [$path, $offset]) {
+                $with[$path][$offset] = true;
+            }
+        }
+        $without = $this->readTree($left);
+        $read = $without === null ? null : $this->readTree($with);
+        if ($without === null || $read === null || count(self::childrenOf($without)) !== count(self::childrenOf($read))) {
+            return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
+        }
+        $kept = [];
+        foreach ($trials as $k => $trial) {
+            $leaf = $this->leafOf($trial[0][0]);
+            if (
+                !isset($small[$k])
+                || TreeEquality::fingerprint(self::nodeAt($without, $leaf)) !== TreeEquality::fingerprint(self::nodeAt($read, $leaf))
+            ) {
+                $kept[] = $trial;
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Whether the escape at `$at` of `$owner` stands before the escape `$trial` in the order of the texts.
+     *
+     * @param string $owner
+     * @param int $at
+     * @param array{string, int} $trial
+     *
+     * @return bool
+     */
+    private function before(string $owner, int $at, array $trial): bool
+    {
+        $order = $this->textOrder[$owner] ?? -1;
+        $rank = $this->textOrder[$trial[0]] ?? -1;
+
+        return $order < $rank || ($owner === $trial[0] && $at < $trial[1]);
+    }
+
+    /**
+     * The tree the source written with these escapes reads back as, or null past the budget.
+     *
+     * @param array<string, array<int, true>> $escapes
+     *
+     * @return array<mixed>|null
+     */
+    private function readTree(array $escapes): ?array
+    {
+        $source = Writer::bareCandidate($this->tree, $this->layout, $this->options, $escapes, false)['source'];
+        if (!$this->charge($source)) {
+            return null;
+        }
+
+        return TreeEncoder::decodedForWriter(Carve::parse($source, $this->parseOptions()));
     }
 
     /**
