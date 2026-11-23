@@ -105,7 +105,7 @@ final class WriterReadbackTest extends TestCase
             'C2-I-047 a closer before an opener' => [$p($t('x*a *b')), "x*a *b\n", []],
             'C2-I-047 a star before a node that may hold its pair' => [
                 $p($t('a *b '), ['type' => 'strong', 'children' => [$t('s')]]),
-                "a \\*b *s*\n",
+                "a *b *s*\n",
                 [],
             ],
             'C2-I-035 an attribute block would take the span in' => [
@@ -201,7 +201,7 @@ final class WriterReadbackTest extends TestCase
             'C2-I-043 a closer in the spelling of an atom' => [$p($t('a {-'), $tag, $t(' '), $dash, $t('}')), "a \\{-#tg --}\n", []],
             'C2-I-043 a closer of a strong mark' => [
                 $p($t('a {*x '), ['type' => 'strong', 'children' => [$t('s')]], $t('}')),
-                "a \\{\\*x *s*}\n",
+                "a \\{*x *s*}\n",
                 [],
             ],
             'C2-I-043 a braced comment closes a comment opener' => [

@@ -212,12 +212,12 @@ final class Context
     public ?array $closers = null;
 
     /**
-     * @var array<string, array<int, true>>|null The marks that form a reader pair in the flat leaf.
+     * @var array<string, array<int, bool>>|null The marks that form a reader pair in the flat leaf; false where the read-back decides.
      */
     public ?array $partners = null;
 
     /**
-     * @var array<string, array<int, true>>|null The marks paired within the text currently being escaped inside a node.
+     * @var array<string, array<int, bool>>|null The marks paired within the text currently being escaped inside a node.
      */
     public ?array $localPartners = null;
 

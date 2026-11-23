@@ -104,8 +104,12 @@ final class ReadbackRound
         if (in_array($type, ['text', 'paragraph', 'cell_paragraph'], true)) {
             return false;
         }
-        // C2-W-125 case five: an inline footnote is kept from forming by its bracket, not its caret.
-        $owner = RepairTrace::owner($text, $type === 'inline_footnote' ? $start + 1 : $start);
+        // C2-W-125 case five: an inline footnote is kept from forming by its bracket, not its caret. C2-W-090: so is
+        // an image whose bracket is text; one whose bracket opens a node takes the backslash on its `!`.
+        $owner = RepairTrace::owner($text, $type === 'inline_footnote' || $type === 'image' ? $start + 1 : $start);
+        if ($owner === null && $type === 'image') {
+            $owner = RepairTrace::owner($text, $start);
+        }
         if ($owner !== null) {
             [$path, $offset] = $owner;
             $openers[$path][$offset] = true;
