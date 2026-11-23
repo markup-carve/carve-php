@@ -104,19 +104,20 @@ final class LineShapes
     }
 
     /**
-     * C2-B-122: where text that is no word, title or label starts on an opener; spaces before it are no part of it.
+     * C2-B-122: where text that is no word, title or label starts on an opener; blanks before it are no part of it.
      *
      * @param string $s
      * @param int $k
      * @param int $end
      * @param \MarkupCarve\Carve\Block\Opener $info
+     * @param string $blanks A div opener also skips tabs; a code fence keeps a tab as the start of its words.
      *
      * @return \MarkupCarve\Carve\Block\Opener
      */
-    private static function further(string $s, int $k, int $end, Opener $info): Opener
+    private static function further(string $s, int $k, int $end, Opener $info, string $blanks = ' '): Opener
     {
         if ($k < $end) {
-            $info->extra = $k + strspn($s, " \t", $k, $end - $k);
+            $info->extra = $k + strspn($s, $blanks, $k, $end - $k);
         }
 
         return $info;
@@ -203,26 +204,26 @@ final class LineShapes
                 $info->sigil = $ch;
 
                 // C2-B-122: a sigil div takes no title and no label.
-                return self::further($s, $p + 1, $end, $info);
+                return self::further($s, $p + 1, $end, $info, " \t");
             }
             $w = strspn($s, Tables::CHARS_DIV_NAME, $p, $end - $p);
             if ($w > 0) {
                 $info->name = substr($s, $p, $w);
                 $info->wordEnd = $p + $w;
 
-                return self::further($s, self::titleAndLabel($s, $p + $w, $end, $info, true), $end, $info);
+                return self::further($s, self::titleAndLabel($s, $p + $w, $end, $info, true), $end, $info, " \t");
             }
         }
         // G-blocks-5: a title or label with no name stands after one or more spaces, like a name.
         if ($sp > 0 && $p < $end && ($s[$p] === '[' || $s[$p] === '"')) {
             $stop = self::titleAndLabel($s, $p, $end, $info, false);
             if ($info->title !== null || $info->label !== null) {
-                return self::further($s, $stop, $end, $info);
+                return self::further($s, $stop, $end, $info, " \t");
             }
         }
 
         // C2-B-122: words that fit no name, title or label still leave an anonymous opener.
-        return $sp > 0 ? self::further($s, $p, $end, $info) : null;
+        return $sp > 0 ? self::further($s, $p, $end, $info, " \t") : null;
     }
 
     /**
