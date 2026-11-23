@@ -1319,8 +1319,11 @@ final class Text
             } elseif ($ch === '[') {
                 // C2-I-076: a footnote label ends at the first closing bracket.
                 $pair = $open === [] ? PHP_INT_MAX : $open[count($open) - 1];
-                $close = ($flat[$k + 1] ?? '') === '^' ? $first : $pair;
-                $out[$k] = self::forms($flat, $k, $close, $close === PHP_INT_MAX ? $holder : $node, $labels, $nodeFirst);
+                // C2-I-087: a caret of the text, or the caret an inline footnote glued behind starts with.
+                $caret = ($flat[$k + 1] ?? '') === '^' || (($flat[$k + 1] ?? '') === "\0" && ($nodeFirst[$k + 1] ?? -1) === 0x5E);
+                $close = $caret ? $first : $pair;
+                // A footnote label ends at the first `]` written, a node's own closing bracket too.
+                $out[$k] = self::forms($flat, $k, $close, $close === PHP_INT_MAX && !$caret ? $holder : $node, $labels, $nodeFirst);
                 if (!$out[$k] && $open !== []) {
                     array_pop($open);
                 }
