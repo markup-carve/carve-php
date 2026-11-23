@@ -134,10 +134,8 @@ final class SpecRulingsTest extends TestCase
 
     public function testC2B119TabDoesNotSeparateDivInfo(): void
     {
-        foreach ([":::\tx", "::: \tx"] as $source) {
-            $tree = json_decode(Carve::toJson($source), true, 512, JSON_THROW_ON_ERROR);
-            $this->assertSame('paragraph', $tree['children'][0]['type']);
-        }
+        $tree = json_decode(Carve::toJson(":::\tx"), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('paragraph', $tree['children'][0]['type']);
     }
 
     public function testC2B084AbbreviationSeparatorIsOneSpace(): void
@@ -605,7 +603,24 @@ final class SpecRulingsTest extends TestCase
     public function testC2B119TabDoesNotSeparateDivMarkerAndName(): void
     {
         $this->assertSame("<p>:::\tx\ny</p>", Carve::toHtml(":::\tx\ny"));
-        $this->assertSame("<p>::: \tx\ny</p>\n<div>\n\n</div>", Carve::toHtml("::: \tx\ny\n:::"));
+    }
+
+    /**
+     * carve#6448: behind the spaces a tab and what follows are further words of an anonymous div (C2-B-119, C2-B-122).
+     *
+     * @return void
+     */
+    public function testC2B119TabBehindSpacesOpensAnonymousDiv(): void
+    {
+        foreach (["::: \tnote", ":::  \tnote", "::: \t\"T\"", "::: \t*", "::::  \tx"] as $opener) {
+            $run = substr($opener, 0, strspn($opener, ':'));
+            $this->assertSame("<div>\n  <p>x</p>\n</div>", Carve::toHtml("$opener\nx\n$run"), $opener);
+        }
+        $this->assertSame("<ul>\n  <li>\n    <div>\n      <p>x</p>\n    </div>\n  </li>\n</ul>", Carve::toHtml("- ::: \tnote\n  x\n  :::"));
+        $findings = Carve::parseWithDiagnostics("::: \tnote\nx\n:::\n")->diagnostics;
+        $this->assertCount(1, $findings);
+        $this->assertSame(['fence-title-syntax', 5, 9], [$findings[0]->code, $findings[0]->startOffset, $findings[0]->endOffset]);
+        $this->assertStringContainsString('anonymous div opener', $findings[0]->message);
     }
 
     public function testC2A158LineOfOnlySpacesHasNoPosition(): void

@@ -188,7 +188,7 @@ final class ParseMessages
         if ($code && $type !== '') {
             return Message::fill('fence-title-syntax', $slots + ['title' => $rest], 3);
         }
-        if (!$code && trim($before, ' ') === '') {
+        if (!$code && trim($before, " \t") === '') {
             return Message::fill('fence-title-syntax', [], 0);
         }
 
