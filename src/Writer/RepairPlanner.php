@@ -504,15 +504,48 @@ final class RepairPlanner
 
     private function leafOf(string $path): string
     {
+        // The ancestors are found in one walk down the path: looking each up from the root costs a deep path its
+        // depth squared.
+        $types = self::typesAlong($this->tree, $path);
         while (($cut = strrpos($path, '/children/')) !== false) {
             $path = substr($path, 0, $cut);
-            $type = self::nodeAt($this->tree, $path)['type'] ?? null;
+            $type = array_key_exists($cut, $types) ? $types[$cut] : (self::nodeAt($this->tree, $path)['type'] ?? null);
             if (!in_array($type, self::INLINE_CONTAINERS, true)) {
                 return $path;
             }
         }
 
         return $path;
+    }
+
+    /**
+     * The `type` of the node at each prefix of `path` that ends before a `/`, by the prefix length, as `nodeAt()` reads
+     * it; empty for a path that does not start with a single `/`.
+     *
+     * @param array<mixed> $tree
+     * @param string $path
+     *
+     * @return array<int, mixed>
+     */
+    private static function typesAlong(array $tree, string $path): array
+    {
+        if (!str_starts_with($path, '/') || str_contains($path, '//')) {
+            return [];
+        }
+        $types = [];
+        $node = $tree;
+        $length = 0;
+        foreach (explode('/', substr($path, 1)) as $part) {
+            $length += 1 + strlen($part);
+            if ($node === null || !is_array($node[$part] ?? null)) {
+                $node = null;
+            } else {
+                $node = $node[$part];
+            }
+            $types[$length] = $node === null ? null : ($node['type'] ?? null);
+        }
+
+        return $types;
     }
 
     private static function kindAt(string $value, int $offset): ?string
