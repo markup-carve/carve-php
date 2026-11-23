@@ -530,7 +530,51 @@ final class Text
 
         $firsts = $c->tickReportedOnly ? [] : array_column($runs, 0);
 
-        return self::tickRounds($runs, $firsts, $lead >= 0 ? [$lead => true] : []);
+        $end = strlen($value);
+
+        return self::tickRounds(
+            [...$runs, ...self::verbatimRunsBehind($value, $c)],
+            $firsts,
+            $lead >= 0 ? [$lead => true] : [],
+            static fn (int $at): bool => $at >= $end,
+        );
+    }
+
+    /**
+     * C2-W-088: the backtick runs in the spelling of the verbatim nodes behind the text, at offsets past its end. A
+     * rest of the text's runs can pair with the opening run of such a node, which takes no escape. None where the
+     * text has no place in the leaf or a later text holds a backtick.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<array{int, int}>
+     */
+    private static function verbatimRunsBehind(string $value, Context $c): array
+    {
+        $flat = (string)$c->flat;
+        $from = $c->here + strlen($value);
+        if ($c->here < 0 || str_contains(str_replace("\0", '', substr($flat, $from)), '`')) {
+            return [];
+        }
+        $runs = [];
+        $at = strlen($value) + 1;
+        foreach ($c->flatTypes as $offset => $type) {
+            if ($offset < $from || !in_array($type, self::TICK_ATOMS, true)) {
+                continue;
+            }
+            $code = $c->flatNodes[$offset]['value'] ?? null;
+            if (!is_string($code)) {
+                return [];
+            }
+            preg_match_all('/`+/', Inline::codeSpan($code), $matches);
+            foreach ($matches[0] as $run) {
+                $runs[] = [$at, strlen($run)];
+                $at += strlen($run) + 1;
+            }
+        }
+
+        return $runs;
     }
 
     /**
@@ -586,13 +630,14 @@ final class Text
      * @param array<array{int, int}> $runs
      * @param array<int> $firsts
      * @param array<int, true> $escaped
+     * @param \Closure(int): bool|null $fixed Whether the tick at an offset is a verbatim node's, which takes no escape.
      *
      * @return array<int, true>
      */
-    private static function tickRounds(array $runs, array $firsts, array $escaped): array
+    private static function tickRounds(array $runs, array $firsts, array $escaped, ?Closure $fixed = null): array
     {
         $kind = $firsts === [];
-        while (($open = self::spanOpeners($runs, $escaped)) !== []) {
+        while (($open = self::spanOpeners($runs, $escaped, $fixed)) !== []) {
             if (!$kind) {
                 $kind = true;
                 $escaped += array_fill_keys($firsts, true);
@@ -633,7 +678,7 @@ final class Text
         $c->tickAt = [];
         $flat = '';
         $owners = [];
-        if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners) || $owners === []) {
+        if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true) || $owners === []) {
             return null;
         }
         foreach ($owners as $at => [$path, $offset]) {
@@ -645,8 +690,13 @@ final class Text
         foreach ($matches[0] as [$run, $at]) {
             $length = strlen($run);
             $runs[] = [$at, $length];
-            for ($k = $at; $k < $at + $length; $k++) {
-                if ($k === $at || $owners[$k][0] !== $owners[$k - 1][0]) {
+            // A tick of text glued to the fence of a verbatim node joins its run, which the plan does not measure.
+            $owned = array_intersect_key($owners, array_flip(range($at, $at + $length - 1)));
+            if ($owned !== [] && count($owned) < $length) {
+                return null;
+            }
+            foreach ($owned as $k => [$path]) {
+                if ($k === $at || $path !== $owners[$k - 1][0]) {
                     $firsts[] = $k;
                 }
             }
@@ -656,13 +706,17 @@ final class Text
         $start = 0;
         foreach (explode("\n", $flat) as $line) {
             $lead = strspn($line, " \t");
-            if (($line[$lead] ?? '') === '`' && LineShapes::isFenceLine($line, $lead, strlen($line))) {
+            if (($line[$lead] ?? '') === '`' && isset($owners[$start + $lead]) && LineShapes::isFenceLine($line, $lead, strlen($line))) {
                 $escaped[$start + $lead] = true;
             }
             $start += strlen($line) + 1;
         }
         $plan = [];
-        foreach (array_keys(self::tickRounds($runs, $c->tickReportedOnly ? [] : $firsts, $escaped)) as $at) {
+        $fixed = static fn (int $at): bool => !isset($owners[$at]);
+        foreach (array_keys(self::tickRounds($runs, $c->tickReportedOnly ? [] : $firsts, $escaped, $fixed)) as $at) {
+            if (!isset($owners[$at])) {
+                continue;
+            }
             [$path, $offset] = $owners[$at];
             $plan[$path][$offset] = true;
         }
@@ -679,10 +733,11 @@ final class Text
      * @param string $path
      * @param string $flat
      * @param array<int, array{string, int}> $owners
+     * @param bool $atoms Whether a code span, math or literal node stands in by its spelling, whose ticks have no owner.
      *
      * @return bool
      */
-    private static function planNodes(array $nodes, string $path, string &$flat, array &$owners): bool
+    private static function planNodes(array $nodes, string $path, string &$flat, array &$owners, bool $atoms = false): bool
     {
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
@@ -702,10 +757,12 @@ final class Text
                     return false;
                 }
                 $flat .= "\1";
-                if (!self::planNodes($node['children'], $path . '/' . $k . '/children', $flat, $owners)) {
+                if (!self::planNodes($node['children'], $path . '/' . $k . '/children', $flat, $owners, $atoms)) {
                     return false;
                 }
                 $flat .= "\1";
+            } elseif ($atoms && self::plannedAtom($node) !== null) {
+                $flat .= self::plannedAtom($node);
             } elseif (in_array($type, self::TICK_ATOMS, true) || str_contains(Inline::strings($node), '`')) {
                 return false;
             } else {
@@ -717,15 +774,35 @@ final class Text
     }
 
     /**
+     * The spelling of a code span, math or literal node without attributes, whose ticks a leaf plan reads but does not
+     * escape; null for another node.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function plannedAtom(array $node): ?string
+    {
+        $type = $node['type'] ?? null;
+        if (!is_string($type) || !in_array($type, self::TICK_ATOMS, true) || isset($node['attrs'])) {
+            return null;
+        }
+
+        return self::verbatimSpelling($node, $type);
+    }
+
+    /**
      * The first ticks of the code spans that the text's backtick runs open when the ticks in `$escaped` take a
      * backslash. An escaped tick starts a closer run of its own, since a span's content keeps the backslash.
      *
      * @param array<array{int, int}> $runs
      * @param array<int, true> $escaped
+     * @param \Closure(int): bool|null $fixed Whether the tick at an offset takes no escape; such an opener pairs but is
+     *   not reported.
      *
      * @return array<int>
      */
-    private static function spanOpeners(array $runs, array $escaped): array
+    private static function spanOpeners(array $runs, array $escaped, ?Closure $fixed = null): array
     {
         $parts = [];
         foreach ($runs as [$at, $length]) {
@@ -748,7 +825,9 @@ final class Text
             }
             for ($q = $p + 1; $q < $count; $q++) {
                 if ($parts[$q][1] === $length - $skip) {
-                    $openers[] = $start + $skip;
+                    if ($fixed === null || !$fixed($start + $skip)) {
+                        $openers[] = $start + $skip;
+                    }
                     $p = $q;
 
                     break;
