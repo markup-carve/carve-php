@@ -837,8 +837,49 @@ final class BlockParser
         if ($kind === Frame::TABLE && $owner === $top) {
             return $this->tableLine($leaf, $j);
         }
+        if (($kind === Frame::LINK_DEF || $kind === Frame::ABBR_DEF) && $top === 0 && $j > $this->ls) {
+            return $this->definitionLine($leaf, $j);
+        }
 
         return false;
+    }
+
+    /**
+     * C2-B-083, C2-B-084: an indented line below a link definition that holds exactly the rest of its tail, or any
+     * indented line below an abbreviation definition.
+     *
+     * @param \MarkupCarve\Carve\Block\Frame $def
+     * @param int $j
+     *
+     * @return bool
+     */
+    private function definitionLine(Frame $def, int $j): bool
+    {
+        $end = $this->trimEnd($j);
+        if ($def->kind === Frame::ABBR_DEF) {
+            $def->href .= ' ' . substr($this->s, $j, $end - $j);
+            $def->end = $this->le;
+
+            return true;
+        }
+        if ($def->n === 2) {
+            return false;
+        }
+        $tail = LineShapes::linkDefTail($this->s, $j, $end, $def->n === 0);
+        if ($tail === null) {
+            return false;
+        }
+        if (isset($tail['tooltip'])) {
+            $def->tooltip = $tail['tooltip'];
+        }
+        if (isset($tail['attrs'])) {
+            $def->attrs ??= new Attrs();
+            $def->attrs->merge($tail['attrs']);
+        }
+        $def->n = 2;
+        $def->end = $this->le;
+
+        return true;
     }
 
     /**
@@ -1746,7 +1787,7 @@ final class BlockParser
         $f->href = $def['expansion'];
         $f->end = $this->le;
         $this->take($f);
-        $this->emitLeaf($f);
+        $this->startLeaf($f);
 
         return true;
     }
@@ -1854,7 +1895,9 @@ final class BlockParser
             $f->attrs ??= new Attrs();
             $f->attrs->merge($def['attrs']);
         }
-        $this->emitLeaf($f);
+        // What a tail line may still hold: 0 a title and an attribute block, 1 an attribute block, 2 nothing.
+        $f->n = isset($def['attrs']) ? 2 : (isset($def['tooltip']) ? 1 : 0);
+        $this->startLeaf($f);
 
         return true;
     }
