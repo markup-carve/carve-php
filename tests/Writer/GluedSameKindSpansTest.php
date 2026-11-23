@@ -57,4 +57,24 @@ final class GluedSameKindSpansTest extends TestCase
         $this->assertSame([], $result->diagnostics);
         $this->assertSame($source, $result->source);
     }
+
+    /**
+     * An empty span writes nothing, so the span before it is followed by the text and keeps its own form.
+     *
+     * @return void
+     */
+    public function testAnEmptyNextSpanGluesNothing(): void
+    {
+        $em = ['type' => 'emphasis', 'children' => [['type' => 'text', 'value' => 'a']]];
+        $empty = ['type' => 'emphasis', 'children' => []];
+        $paragraph = ['type' => 'paragraph', 'children' => [$em, $empty, ['type' => 'text', 'value' => 'b']]];
+
+        $result = Writer::writeBlocksWithDiagnostics([$paragraph]);
+
+        $this->assertSame("{/a/}b\n", $result->source);
+        $this->assertSame(
+            ['structure-unspellable /children/0/children/1'],
+            array_map(static fn ($d): string => $d->code . ' ' . $d->path, $result->diagnostics),
+        );
+    }
 }
