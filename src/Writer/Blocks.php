@@ -62,6 +62,11 @@ final class Blocks
     private ?array $above = null;
 
     /**
+     * C2-W-155: the path of the paragraph below a list written one space in.
+     */
+    private ?string $indentedFor = null;
+
+    /**
      * C2-W-080: inside a hard-break block or a line block a hard break is the bare line ending.
      */
     public bool $bareBreaks = false;
@@ -145,7 +150,7 @@ final class Blocks
                 if (($node['type'] ?? '') === 'code_block' && isset($node['caption'])) {
                     $at = $this->captionedCode($nodes, $at, $path, $prefix);
                 } else {
-                    $this->block($node, $path . '/' . $at, $prefix);
+                    $this->sibling($node, $next, $list, $path, $at, $prefix);
                 }
             } catch (RepairRefused $e) {
                 if (!$rootGroup) {
@@ -178,6 +183,27 @@ final class Blocks
                 $list = $node;
             }
         }
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param mixed $next
+     * @param array<mixed>|null $before The last block above `node` that is no comment.
+     * @param string $path
+     * @param int $at
+     * @param string $prefix
+     *
+     * @return void
+     */
+    private function sibling(array $node, mixed $next, ?array $before, string $path, int $at, string $prefix): void
+    {
+        $indent = $path === '/children' && is_array($next) && self::indentedAbove($node, $next, $path . '/' . ($at + 1))
+            // Below a blank line an indented line would join an open container above (C2-B-026).
+            && ($before === null || !$this->isOpenContainer($before));
+        if ($indent) {
+            $this->indentedFor = $path . '/' . ($at + 1);
+        }
+        $this->block($node, $path . '/' . $at, $indent ? $prefix . ' ' : $prefix);
     }
 
     /**
@@ -312,6 +338,24 @@ final class Blocks
             && ($node['type'] ?? '') === 'paragraph'
             && preg_match('#^/children/\d+$#', $path) === 1 && BraceBlock::of($node) === ''
             && self::listEnd($before) === 'closed' && self::opensWithTypedLead($node);
+    }
+
+    /**
+     * C2-W-155: a top-level paragraph that would open with a typed opener, below a list or description list whose last
+     * block takes a lazy line, follows that list written one space in, so its indented first line stays outside it.
+     *
+     * @param array<mixed> $before
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return bool
+     */
+    private static function indentedAbove(array $before, array $node, string $path): bool
+    {
+        return in_array($before['type'] ?? '', ['list', 'definition_list'], true)
+            && ($node['type'] ?? '') === 'paragraph'
+            && preg_match('#^/children/\d+$#', $path) === 1 && BraceBlock::of($node) === ''
+            && self::listEnd($before) === 'lazy' && self::opensWithTypedLead($node);
     }
 
     /**
@@ -740,7 +784,7 @@ final class Blocks
 
     /**
      * C2-W-154: the first line indented by one space; directly below a list, footnote or description that ends in a
-     * closed block it stays at column 0. Below one that ends in a block taking lazy lines it has no spelling.
+     * closed block it stays at column 0. Below a footnote that ends in a block taking lazy lines it has no spelling.
      *
      * @param array<mixed> $node
      * @param string $path
@@ -758,8 +802,11 @@ final class Blocks
         if (self::directBelowContainer($above, $node, $path)) {
             return $text;
         }
+        if ($this->indentedFor === $path) {
+            return ' ' . $text;
+        }
         // Below a blank line the indented line would be a block of the open container above (C2-B-026).
-        $this->w->lose($path . '/children/0', 'smart_punctuation', null);
+        $this->w->lose($path, 'paragraph', null);
 
         return ' ' . $text;
     }
