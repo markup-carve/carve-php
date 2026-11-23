@@ -147,11 +147,11 @@ final class MarkdownHtml
             return strlen($input);
         }
         $next = $break[0][1] + strlen($break[0][0]);
-        if (preg_match('/\r\n|\r|\n/', $input, $break, PREG_OFFSET_CAPTURE, $next) !== 1) {
-            return strlen($input);
+        if (preg_match('/\G(?: {0,3}> ?)* *[0-9]{1,9}[.)](?=[ \t])/', $input, $marker, 0, $next) !== 1) {
+            return $next;
         }
 
-        return $break[0][1] + strlen($break[0][0]);
+        return $next + strlen($marker[0]) + 1;
     }
 
     private static function rawBlockEnd(string $line): ?string
