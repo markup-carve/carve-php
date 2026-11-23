@@ -147,6 +147,13 @@ final class RepairPlanner
     private ?array $roundRead = null;
 
     /**
+     * `roundSource` and the fingerprint of its read-back, while a lone trial of the round is read one source at a time.
+     *
+     * @var array{array<string, array<int, true>>, string, string}|null
+     */
+    private ?array $roundPrint = null;
+
+    /**
      * A source a trial read and its read-back, which the next round takes when it writes the same source.
      *
      * @var array{string, array<string, mixed>}|null
@@ -704,9 +711,18 @@ final class RepairPlanner
     {
         $small = array_filter($trials, static fn (array $trial): bool => count($trial) <= 4);
         if (count($small) < 2) {
+            // Only the fingerprint of the round's read-back is kept, so it is not held beside the trial reads.
+            if ($small !== [] && $this->roundRead !== null) {
+                [$escapes, $source, $read] = $this->roundRead;
+                $this->roundPrint = [$escapes, $source, TreeEquality::fingerprint($read)];
+                unset($read);
+            }
             $this->roundRead = null;
-
-            return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
+            try {
+                return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
+            } finally {
+                $this->roundPrint = null;
+            }
         }
         $first = [];
         foreach ($small as $k => $trial) {
@@ -1561,6 +1577,10 @@ final class RepairPlanner
      */
     private function sourceTree(array $escapes): ?string
     {
+        // The source of the round's own escapes is the round's candidate, read already; it is charged all the same.
+        if ($this->roundPrint !== null && $this->roundPrint[0] === $escapes) {
+            return $this->charge($this->roundPrint[1]) ? $this->roundPrint[2] : null;
+        }
         $source = Writer::bareCandidate($this->tree, $this->layout, $this->options, $escapes, false)['source'];
         if (!$this->charge($source)) {
             return null;
