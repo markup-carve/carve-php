@@ -1725,7 +1725,8 @@ final class Scanner
     }
 
     /**
-     * C2-I-072, C2-I-101, C2-I-125: a shortcut forms only for a defined key; otherwise the pair is text.
+     * C2-I-072, C2-I-101, C2-I-125: a shortcut forms only for a defined key; otherwise the pair is text. In a cell its key
+     * reads an escaped pipe as a pipe (C2-B-224).
      *
      * @param array{0: int, 1: int, 2: int, 3: int, 4: string, 5: array<array{string, int, int, int}>, 6: array<string, int>} $frame
      * @param int $i
@@ -1736,7 +1737,7 @@ final class Scanner
      */
     private function shortcut(array $frame, int $i, string $text, bool $image): int
     {
-        $key = Chars::fold($text);
+        $key = Chars::fold($this->cellPipes($text));
         if ($key === '' || $key[0] === '@' || !isset($this->ctx->linkKeys[$key])) {
             return -1;
         }
