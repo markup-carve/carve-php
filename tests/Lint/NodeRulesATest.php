@@ -476,7 +476,7 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'comment-splits-table-row',
-                    '/children/0',
+                    '/children/0/children/0/children/0',
                     6,
                     10,
                     'This comment stands between a table row and its continuation, so it belongs after the whole row. '
@@ -489,7 +489,7 @@ final class NodeRulesATest extends TestCase
                 [],
                 [
                     'comment-splits-table-row',
-                    '/children/0',
+                    '/children/0/children/0/children/0',
                     5,
                     10,
                     'This comment stands between a table row and its continuation, so it belongs after the whole row. '

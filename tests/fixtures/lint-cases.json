@@ -204,7 +204,7 @@
    "findings": [
     [
      "comment-splits-table-row",
-     "/children/0",
+     "/children/0/children/0/children/0",
      6,
      10,
      "This comment stands between a table row and its continuation, so it belongs after the whole row. Move it above the row or below the continuation."
@@ -1230,7 +1230,7 @@
    "findings": [
     [
      "colon-fence-length-mismatch",
-     "",
+     "/children/0/children/0/children/0",
      15,
      19,
      "Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the container."
@@ -1789,7 +1789,7 @@
    "findings": [
     [
      "list-item-body-below-content-column",
-     "/children/0/children/0",
+     "/children/0/children/0/children/1",
      6,
      7,
      "This line is indented past the list marker but short of the item's text, and it belongs to the item. Indent it to the text, or move it to the column of the list to end the item."
