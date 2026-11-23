@@ -70,7 +70,10 @@ final class NoteRenderer
         $pad = HtmlRenderer::pad($depth);
         $lines = [];
         if ($note->type === 'inline_footnote') {
-            $lines[] = $pad . '  <p>' . $this->r->inline->leaf($note->children ?? [], $depth + 2) . $back . '</p>';
+            $kids = $note->children ?? [];
+            // C2-H-019: content of only comments writes nothing, as a paragraph of them does.
+            $content = $kids !== [] && HtmlRenderer::onlyComments($kids) ? '' : $this->r->inline->leaf($kids, $depth + 2);
+            $lines[] = $pad . '  <p>' . $content . $back . '</p>';
         } else {
             $lines = $this->blocks($note->children ?? [], $depth, $back);
         }
