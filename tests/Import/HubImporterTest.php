@@ -183,6 +183,39 @@ final class HubImporterTest extends TestCase
         $this->assertSame(1, $capped->suppressedDiagnostics);
     }
 
+    /**
+     * @return array<string, array{string, string, string, array<string>}>
+     */
+    public static function emptiedItems(): array
+    {
+        return [
+            'denied image is the only content' => ["- ![](data:x)\n", 'markdown', "- %%\n", ['import-destination-denied']],
+            'denied image under gfm' => ["- ![](javascript:x)\n", 'gfm', "- %%\n", ['import-destination-denied']],
+            'bare marker' => ["-\n", 'markdown', "- %%\n", []],
+            'second item empty' => ["- a\n-\n", 'markdown', "- a\n- %%\n", []],
+            'ordered' => ["1.\n", 'markdown', ". %%\n", []],
+            'in a quote' => ["> -\n", 'markdown', "> - %%\n", []],
+            'nested' => ["- - ![](data:x)\n", 'markdown', "- - %%\n", ['import-destination-denied']],
+            'djot description' => [": t\n\n", 'djot', ":: t\n: %%\n", []],
+        ];
+    }
+
+    /**
+     * carve#6428, C2-A-186, C2-W-057: an item the library leaves empty is written as a marker plus a comment.
+     *
+     * @param string $input
+     * @param string $from
+     * @param string $expected
+     * @param array<string> $codes
+     */
+    #[DataProvider('emptiedItems')]
+    public function testWritesAnEmptiedItemAsAMarkerAndAComment(string $input, string $from, string $expected, array $codes): void
+    {
+        $result = Carve::importDocument($input, ['from' => $from]);
+        $this->assertSame($expected, $result->source);
+        $this->assertSame($codes, array_values(array_unique(array_map(static fn ($d): string => $d->code, $result->diagnostics))));
+    }
+
     public function testCommandLineImportsEachHubFormat(): void
     {
         foreach (['markdown' => "*a*\n", 'gfm' => "~~a~~\n", 'djot' => "_a_\n"] as $from => $input) {
