@@ -249,6 +249,40 @@ final class MetadataBlockTest extends TestCase
     }
 
     /**
+     * @return array<string, array{0: string}>
+     */
+    public static function openContainersAbove(): array
+    {
+        return [
+            'footnote' => ["a[^n]\n\n[^n]: x\n"],
+            'description list' => [":: t\n: d\n"],
+            'list' => ["* a\n"],
+            'list ending in a fence' => ["* ```\n  x\n  ```\n"],
+        ];
+    }
+
+    /**
+     * C2-W-155, C2-B-026: below an open container the list written one space in would join that container after the
+     * blank line, so the list stays at column 0 and the paragraph reports its loss.
+     *
+     * @param string $above
+     */
+    #[DataProvider('openContainersAbove')]
+    public function testNoIndentBelowAnOpenContainer(string $above): void
+    {
+        $first = json_decode(Carve::toJson($above), true, 512, JSON_THROW_ON_ERROR);
+        $rest = json_decode(Carve::toJson(" - b\n\n ---yaml\nk: v\n---\n"), true, 512, JSON_THROW_ON_ERROR);
+        $children = array_merge($first['children'], $rest['children']);
+        $result = Carve::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => $children]);
+
+        self::assertStringContainsString("\n- b\n", $result->source);
+        self::assertSame(
+            [['structure-unspellable', '/children/' . (count($children) - 1)]],
+            array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics),
+        );
+    }
+
+    /**
      * @param string $source
      *
      * @return mixed

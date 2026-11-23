@@ -62,6 +62,11 @@ final class Blocks
     private ?array $above = null;
 
     /**
+     * C2-W-155: the path of the paragraph below a list written one space in.
+     */
+    private ?string $indentedFor = null;
+
+    /**
      * C2-W-080: inside a hard-break block or a line block a hard break is the bare line ending.
      */
     public bool $bareBreaks = false;
@@ -145,7 +150,7 @@ final class Blocks
                 if (($node['type'] ?? '') === 'code_block' && isset($node['caption'])) {
                     $at = $this->captionedCode($nodes, $at, $path, $prefix);
                 } else {
-                    $this->sibling($node, $next, $path, $at, $prefix);
+                    $this->sibling($node, $next, $list, $path, $at, $prefix);
                 }
             } catch (RepairRefused $e) {
                 if (!$rootGroup) {
@@ -183,15 +188,21 @@ final class Blocks
     /**
      * @param array<mixed> $node
      * @param mixed $next
+     * @param array<mixed>|null $before The last block above `node` that is no comment.
      * @param string $path
      * @param int $at
      * @param string $prefix
      *
      * @return void
      */
-    private function sibling(array $node, mixed $next, string $path, int $at, string $prefix): void
+    private function sibling(array $node, mixed $next, ?array $before, string $path, int $at, string $prefix): void
     {
-        $indent = $path === '/children' && is_array($next) && self::indentedAbove($node, $next, $path . '/' . ($at + 1));
+        $indent = $path === '/children' && is_array($next) && self::indentedAbove($node, $next, $path . '/' . ($at + 1))
+            // Below a blank line an indented line would join an open container above (C2-B-026).
+            && ($before === null || !$this->isOpenContainer($before));
+        if ($indent) {
+            $this->indentedFor = $path . '/' . ($at + 1);
+        }
         $this->block($node, $path . '/' . $at, $indent ? $prefix . ' ' : $prefix);
     }
 
@@ -791,7 +802,7 @@ final class Blocks
         if (self::directBelowContainer($above, $node, $path)) {
             return $text;
         }
-        if (self::indentedAbove($above, $node, $path)) {
+        if ($this->indentedFor === $path) {
             return ' ' . $text;
         }
         // Below a blank line the indented line would be a block of the open container above (C2-B-026).
