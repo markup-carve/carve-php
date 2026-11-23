@@ -134,6 +134,7 @@ final class Blocks
             }
             $start = count($this->w->lines);
             $lead = $this->w->lead;
+            $leadSkip = $this->w->leadSkip;
             $bareDotLead = $this->w->bareDotLead;
             $afterDescriptions = $this->w->afterDescriptions;
             $prewritten = $this->w->prewritten;
@@ -160,6 +161,7 @@ final class Blocks
                 array_splice($this->w->starts, $starts);
                 array_splice($this->w->losses, $losses);
                 $this->w->lead = $lead;
+                $this->w->leadSkip = $leadSkip;
                 $this->w->bareDotLead = $bareDotLead;
                 $this->w->afterDescriptions = $afterDescriptions;
                 $this->w->prewritten = $prewritten;
@@ -1497,7 +1499,7 @@ final class Blocks
     private function body(array $node, string $path, string $prefix, string $mark, int $width, bool $tight): void
     {
         // C2-B-229: a body opened on the marker line of another body has its content column behind its own marker.
-        $behind = $this->w->lead === null ? 0 : max(0, strlen($this->w->lead) - strlen($prefix));
+        $behind = $this->w->lead === null ? 0 : max(0, strlen($this->w->lead) - $this->w->leadSkip - strlen($prefix));
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
         $priorOwner = $this->bodyOwner;
@@ -1720,6 +1722,7 @@ final class Blocks
             $this->w->emit($prefix, '>');
         } else {
             $this->w->lead = ($this->w->lead ?? $prefix) . '> ';
+            $this->w->leadSkip = strlen($this->w->lead) - strlen($prefix) - 2;
             $this->blocks($children, $path . '/children', $prefix . '> ');
             if ($this->w->lead !== null) {
                 $this->w->emit($prefix, '');
