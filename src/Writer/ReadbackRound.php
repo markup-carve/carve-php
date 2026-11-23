@@ -98,7 +98,7 @@ final class ReadbackRound
         foreach ($candidate['nodes'] as [$path, $type, $start, $end]) {
             $readEnd = $actual[$type . "\0" . $start] ?? null;
             if ($readEnd !== null && $readEnd !== $end) {
-                $moved[] = [$path, $type, $start, $end, $readEnd];
+                $moved[] = [RepairTrace::unpackPath($path), $type, $start, $end, $readEnd];
             }
         }
 

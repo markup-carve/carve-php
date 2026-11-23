@@ -18,9 +18,14 @@ final class CompareRound
     private array $asks = [];
 
     /**
-     * @var array<string, int> The written start offset of each expected node, by path.
+     * @var array<string, int> The written start offset of each expected text, by path.
      */
     private array $starts = [];
+
+    /**
+     * @var array<string, int> The written start offset of each expected inline node, by `RepairTrace::packPath()`.
+     */
+    private array $nodeStarts = [];
 
     /**
      * The type of the node whose content a probe compares: it owns the probe's paragraph (carve-js `probeRound`).
@@ -57,7 +62,7 @@ final class CompareRound
             $comparison->starts[$path] = $start;
         }
         foreach ($candidate['nodes'] ?? [] as [$path, , $start]) {
-            $comparison->starts[$path] = $start;
+            $comparison->nodeStarts[$path] = $start;
         }
         $comparison->children($expected, $actual, '', '');
 
@@ -118,12 +123,13 @@ final class CompareRound
             return false;
         }
         $count = count($want);
+        $children = RepairTrace::packPath($path . '/children/');
         for ($k = $i + 1, $next = $j; $k < $count; $k++) {
             $type = is_array($want[$k]) ? ($want[$k]['type'] ?? '') : '';
             if ($type === 'soft_break' || $type === 'hard_break') {
                 return false;
             }
-            $start = $this->starts[$path . '/children/' . $k] ?? null;
+            $start = $this->nodeStarts[$children . $k] ?? $this->starts[$path . '/children/' . $k] ?? null;
             if ($start === null || $start < $failedEnd) {
                 continue;
             }
