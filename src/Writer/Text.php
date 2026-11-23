@@ -228,6 +228,25 @@ final class Text
     public static bool $conservative = false;
 
     /**
+     * Whether a conservative write leaves a sigil glued to a node bare, the first retry of an undecided write.
+     */
+    public static bool $bareSigils = false;
+
+    /**
+     * The bracket plan of the last text inside another node, by its value.
+     *
+     * @var array{string, array<string, true>, array<int, bool>}|null
+     */
+    private static ?array $nestedBrackets = null;
+
+    /**
+     * Whether the last leaf around a nested text is near the depth cap, by its flattened text.
+     *
+     * @var array{string, bool}|null
+     */
+    private static ?array $nestedCap = null;
+
+    /**
      * @var array{string, array{int, string}}|null
      */
     private static ?array $lastBlockRead = null;
@@ -282,6 +301,7 @@ final class Text
         $out = '';
         $prev = $c->last;
         [$balanced, $ticks, $lineOpener] = self::loopFacts($value, $marks, $c, $next);
+        $liveTicks = [];
         for ($i = 0; $i < $n; $i++) {
             $ch = $value[$i];
             $byte = ord($ch);
@@ -304,13 +324,16 @@ final class Text
                     continue;
                 }
             }
-            $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i]);
+            $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i])
+                || isset($liveTicks[$i]);
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
                 || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next)));
             $escape = $own || $repair;
-            if ($repair && !str_contains(self::ALWAYS, $ch)) {
+            // C2-W-094: a bracket in the text of a bracketed node pairs with nothing outside it, so its escape is no
+            // kind for the leaf.
+            if ($repair && !str_contains(self::ALWAYS, $ch) && !($ch === '[' && $c->inBracket && $i !== $marks)) {
                 $c->escapeKinds[$i] = self::kindOf($value, $i, $i === $marks, $after);
             } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
                 $escape = self::potential($value, $i, $prev, $after, $c, $lineOpener);
@@ -326,6 +349,9 @@ final class Text
 
                     continue;
                 }
+            }
+            if ($escape && $byte === 0x7B) {
+                $liveTicks += self::liveTicks($value, $i, $c);
             }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
@@ -403,7 +429,7 @@ final class Text
      */
     private static function loopFacts(string $value, int $marks, Context $c, int $next): array
     {
-        $c->localPartners = $c->here < 0 ? self::pairedMarks($value) : null;
+        $c->localPartners = $c->here < 0 ? self::siblingPartners($value, $c) : null;
 
         return [
             $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [],
@@ -453,7 +479,9 @@ final class Text
             $ch === '{' => ($after > 0 && $after < 0x80 && isset($c->kinds['{' . chr($after)]))
                 || (isset($c->kinds['{']) && $prev !== 0x7B),
             $ch === '-' => isset($c->kinds['--']) && self::secondHyphen($value, $i, $prev, $c),
-            $ch === '/' || $ch === '*' => isset($c->kinds[$ch]) && $prev !== ord($ch) && ($value[$i + 1] ?? '') !== $ch
+            // C2-I-055: the mark of a braced opener before the text makes no run with it.
+            $ch === '/' || $ch === '*' => isset($c->kinds[$ch]) && ($prev !== ord($ch) || ($i === 0 && !$c->afterText))
+                && ($value[$i + 1] ?? '') !== $ch
                 && !Chars::isWord($prev) && !Chars::isSpace($after),
             // C2-W-125 case five: a `]` closes only inside a bracketed node, so outside one it is no potential closer.
             $ch === ']' => $c->inBracket && isset($c->kinds[']']) && ($prev !== 0x5D || ($i === 0 && !$c->afterText)),
@@ -631,13 +659,14 @@ final class Text
      * @param array<int> $firsts
      * @param array<int, true> $escaped
      * @param \Closure(int): bool|null $fixed Whether the tick at an offset is a verbatim node's, which takes no escape.
+     * @param array<int, true> $shielded
      *
      * @return array<int, true>
      */
-    private static function tickRounds(array $runs, array $firsts, array $escaped, ?Closure $fixed = null): array
+    private static function tickRounds(array $runs, array $firsts, array $escaped, ?Closure $fixed = null, array $shielded = []): array
     {
         $kind = $firsts === [];
-        while (($open = self::spanOpeners($runs, $escaped, $fixed)) !== []) {
+        while (($open = self::spanOpeners($runs, $escaped, $fixed, $shielded)) !== []) {
             if (!$kind) {
                 $kind = true;
                 $escaped += array_fill_keys($firsts, true);
@@ -678,7 +707,8 @@ final class Text
         $c->tickAt = [];
         $flat = '';
         $owners = [];
-        if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true) || $owners === []) {
+        $shielded = [];
+        if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded) || $owners === []) {
             return null;
         }
         foreach ($owners as $at => [$path, $offset]) {
@@ -713,16 +743,45 @@ final class Text
         }
         $plan = [];
         $fixed = static fn (int $at): bool => !isset($owners[$at]);
-        foreach (array_keys(self::tickRounds($runs, $c->tickReportedOnly ? [] : $firsts, $escaped, $fixed)) as $at) {
+        $firsts = $c->tickReportedOnly ? [] : $firsts;
+        foreach (array_keys(self::tickRounds($runs, $firsts, $escaped, $fixed, $shielded)) as $at) {
             if (!isset($owners[$at])) {
                 continue;
             }
             [$path, $offset] = $owners[$at];
             $plan[$path][$offset] = true;
         }
+        $c->tickShielded = self::unshielded($shielded, $owners, [$runs, $firsts, $escaped, $fixed]);
         $c->tickPlan = $plan;
 
         return $plan;
+    }
+
+    /**
+     * Where the writer escapes the brace of a literal block, its backticks take the plan without the shield.
+     *
+     * @param array<int, true> $shielded
+     * @param array<int, array{string, int}> $owners
+     * @param array{array<array{int, int}>, array<int>, array<int, true>, \Closure(int): bool} $rounds The arguments of the
+     *   plan's rounds.
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function unshielded(array $shielded, array $owners, array $rounds): array
+    {
+        if ($shielded === []) {
+            return [];
+        }
+        $bare = self::tickRounds(...$rounds);
+        $out = [];
+        foreach (array_keys($shielded) as $at) {
+            if (isset($bare[$at], $owners[$at])) {
+                [$path, $offset] = $owners[$at];
+                $out[$path][$offset] = true;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -734,11 +793,18 @@ final class Text
      * @param string $flat
      * @param array<int, array{string, int}> $owners
      * @param bool $atoms Whether a code span, math or literal node stands in by its spelling, whose ticks have no owner.
+     * @param array<int, true> $shielded
      *
      * @return bool
      */
-    private static function planNodes(array $nodes, string $path, string &$flat, array &$owners, bool $atoms = false): bool
-    {
+    private static function planNodes(
+        array $nodes,
+        string $path,
+        string &$flat,
+        array &$owners,
+        bool $atoms = false,
+        array &$shielded = [],
+    ): bool {
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
                 continue;
@@ -746,6 +812,7 @@ final class Text
             $type = $node['type'] ?? null;
             $value = $node['value'] ?? null;
             if ($type === 'text' && is_string($value)) {
+                self::shieldTicks($value, strlen($flat), $flat !== '' && $flat[-1] === "\1", $shielded);
                 for ($i = strpos($value, '`'); $i !== false; $i = strpos($value, '`', $i + 1)) {
                     $owners[strlen($flat) + $i] = [$path . '/' . $k, $i];
                 }
@@ -757,7 +824,7 @@ final class Text
                     return false;
                 }
                 $flat .= "\1";
-                if (!self::planNodes($node['children'], $path . '/' . $k . '/children', $flat, $owners, $atoms)) {
+                if (!self::planNodes($node['children'], $path . '/' . $k . '/children', $flat, $owners, $atoms, $shielded)) {
                     return false;
                 }
                 $flat .= "\1";
@@ -792,6 +859,57 @@ final class Text
     }
 
     /**
+     * C2-I-035: an escaped brace starts no attribute block, so the backticks the plan shielded inside it are live.
+     *
+     * @param string $value
+     * @param int $i The escaped brace.
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<int, true>
+     */
+    private static function liveTicks(string $value, int $i, Context $c): array
+    {
+        $shielded = $c->tickShielded[$c->textPath] ?? [];
+        $end = $shielded === [] ? -1 : self::literalBlockEnd($value, $i);
+        $live = [];
+        foreach (array_keys($shielded) as $k) {
+            if ($k > $i && $k < $end) {
+                $live[$k] = true;
+            }
+        }
+
+        return $live;
+    }
+
+    /**
+     * C2-I-005, C2-I-035: a backtick inside a literal attribute block of the text opens no code span, as the block is
+     * an atom; it can still close a span opened before it. A block glued behind a node may attach and is not trusted.
+     *
+     * @param string $value
+     * @param int $offset Where the text starts in the plan.
+     * @param bool $behindNode
+     * @param array<int, true> $shielded
+     *
+     * @return void
+     */
+    private static function shieldTicks(string $value, int $offset, bool $behindNode, array &$shielded): void
+    {
+        if (!str_contains($value, '`')) {
+            return;
+        }
+        for ($i = strpos($value, '{'); $i !== false; $i = strpos($value, '{', $i + 1)) {
+            $end = $i === 0 && $behindNode ? -1 : self::literalBlockEnd($value, $i);
+            if ($end < 0) {
+                continue;
+            }
+            for ($k = strpos($value, '`', $i); $k !== false && $k < $end; $k = strpos($value, '`', $k + 1)) {
+                $shielded[$offset + $k] = true;
+            }
+            $i = $end - 1;
+        }
+    }
+
+    /**
      * The first ticks of the code spans that the text's backtick runs open when the ticks in `$escaped` take a
      * backslash. An escaped tick starts a closer run of its own, since a span's content keeps the backslash.
      *
@@ -799,10 +917,11 @@ final class Text
      * @param array<int, true> $escaped
      * @param \Closure(int): bool|null $fixed Whether the tick at an offset takes no escape; such an opener pairs but is
      *   not reported.
+     * @param array<int, true> $shielded
      *
      * @return array<int>
      */
-    private static function spanOpeners(array $runs, array $escaped, ?Closure $fixed = null): array
+    private static function spanOpeners(array $runs, array $escaped, ?Closure $fixed = null, array $shielded = []): array
     {
         $parts = [];
         foreach ($runs as [$at, $length]) {
@@ -820,7 +939,7 @@ final class Text
         for ($p = 0; $p < $count; $p++) {
             [$start, $length] = $parts[$p];
             $skip = isset($escaped[$start]) ? 1 : 0;
-            if ($length - $skip === 0) {
+            if ($length - $skip === 0 || isset($shielded[$start + $skip])) {
                 continue;
             }
             for ($q = $p + 1; $q < $count; $q++) {
@@ -1272,11 +1391,11 @@ final class Text
         // C2-W-090: a sigil glued to the bracket or the backtick of a node may form a construct with it, as `![` an
         // image; whether it does depends on that node, so the read-back decides.
         if ($i === strlen($value) - 1 && self::gluedSigil($ch, $next)) {
-            return self::undecided();
+            return !self::$bareSigils && self::undecided();
         }
 
         return match ($ch) {
-            '[' => self::bracket($i, $c),
+            '[' => self::bracket($value, $i, $c),
             '{' => self::brace($value, $i, $c, $after, self::markEscaped($value, $i, $c, $next)),
             // C2-W-097: a backslash before ASCII punctuation, a space or a line end.
             '\\' => $after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && self::isPunct(chr($after))),
@@ -1294,17 +1413,34 @@ final class Text
     /**
      * C2-W-094: an opening bracket of the leaf's own text forms a construct when its pair is followed by a link tail, a
      * label, `[]` or a brace block, when it follows `^` or starts `[^`, or when its label resolves as a reference. A
-     * bracket inside another node takes the backslash.
+     * bracket inside another node is planned on its own text: one that forms a construct there takes the backslash,
+     * and the read-back decides the others.
      *
+     * @param string $value
      * @param int $i
      * @param \MarkupCarve\Carve\Writer\Context $c
      *
      * @return bool
      */
-    private static function bracket(int $i, Context $c): bool
+    private static function bracket(string $value, int $i, Context $c): bool
     {
-        if ($c->here < 0 || $c->inBracket) {
+        if ($c->inBracket) {
             return true;
+        }
+        if ($c->here < 0) {
+            // C2-I-118: near the depth cap the leaf keeps the backslash of every nested bracket.
+            $flat = (string)$c->flat;
+            if (self::$nestedCap === null || self::$nestedCap[0] !== $flat) {
+                self::$nestedCap = [$flat, self::openDepth($flat) >= Tables::INLINE_DEPTH];
+            }
+            if (self::$conservative || self::$nestedCap[1]) {
+                return true;
+            }
+            if (self::$nestedBrackets === null || self::$nestedBrackets[0] !== $value || self::$nestedBrackets[1] !== $c->labels) {
+                self::$nestedBrackets = [$value, $c->labels, self::bracketPlan($value, $c->labels, [], [])];
+            }
+
+            return (self::$nestedBrackets[2][$i] ?? true) || self::undecided();
         }
         $c->brackets ??= self::brackets((string)$c->flat, $c->labels, $c->flatFirst, self::sealed($c));
 
@@ -1589,10 +1725,10 @@ final class Text
         }
         // The run starts behind the mark, which is the first character of an atom at `$from`.
         $start = self::writtenAt($from, $offsets, $shifts) + 1;
-        // C2-I-043: an editorial comment holds at least one character.
+        // C2-I-043: a braced pair other than a comment holds at least one character, so `{==}` forms nothing.
         $last = $closes[$mark] ?? -1;
 
-        return $last >= $start + ($mark === '#' ? 1 : 0);
+        return $last >= $start + ($mark === '%' ? 0 : 1);
     }
 
     /**
@@ -1845,12 +1981,32 @@ final class Text
             '<' => self::angle($value, $i, $after, $next, $c),
             '>', '!' => $after === 0x3D,
             '=' => self::ahead($value, $i + 1, 2, $c, $next) === '=>',
-            '+' => $after === 0x2D,
+            '+' => $after === 0x2D && !self::plusMinusNeighbor($value, $i, $c, $next),
             '(' => strtolower(self::ahead($value, $i, 4, $c, $next)) === '(tm)',
             // C2-I-023
             '%' => $after === 0x25 && ($prev === -1 || $prev === 10 || Chars::isSpace($prev) || ($i === 0 && $c->lineStart)),
             default => false,
         };
+    }
+
+    /**
+     * C2-I-117: `+-` next to another `+` or `-` of the same text stays text.
+     *
+     * @param string $value
+     * @param int $i
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     *
+     * @return bool
+     */
+    private static function plusMinusNeighbor(string $value, int $i, Context $c, int $next): bool
+    {
+        if ($i > 0 && ($value[$i - 1] === '+' || $value[$i - 1] === '-')) {
+            return true;
+        }
+        $third = substr(self::ahead($value, $i, 3, $c, $next), 2);
+
+        return $third === '+' || $third === '-';
     }
 
     /**
@@ -2051,7 +2207,7 @@ final class Text
         for ($at = 0; $at < $n; $at++) {
             $ch = $text[$at];
             if ($ch === "\0") {
-                $before = $at > 0 ? ord($text[$at - 1]) : -1;
+                $before = $at > 0 ? min(ord($text[$at - 1]), 0x80) : -1;
                 self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired, $bracket, $before);
 
                 continue;
@@ -2112,8 +2268,9 @@ final class Text
         $closes = !self::opensOnly($node, $before);
         foreach (['*', '/'] as $mark) {
             if (
-                $open[$mark] !== [] && (str_contains($held, $mark)
-                || ($closes && (($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))))
+                $open[$mark] !== [] && (str_contains($held, $mark) && ($before !== ord($mark) || self::braceHolds($node, $mark))
+                || ($closes && $before !== ord($mark)
+                && (($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))))
             ) {
                 $from = array_pop($open[$mark]);
                 $paired[$mark][$from] = $from > $bracket;
@@ -2122,7 +2279,26 @@ final class Text
     }
 
     /**
-     * C2-I-047: the opening mark of a span after a space, or before a word character, cannot close a pair.
+     * A span behind its own mark is braced: only a mark of its content that can open or close reaches a pair outside.
+     *
+     * @param array<mixed> $node
+     * @param string $mark
+     *
+     * @return bool
+     */
+    private static function braceHolds(array $node, string $mark): bool
+    {
+        $type = $node['type'] ?? '';
+        if (($type !== 'emphasis' || $mark !== '/') && ($type !== 'strong' || $mark !== '*')) {
+            return true;
+        }
+
+        return Inline::holdsMark(is_array($node['children'] ?? null) ? $node['children'] : [], $mark, false);
+    }
+
+    /**
+     * C2-I-047: the opening mark of a span after a space, or before a word character, cannot close a pair. Behind its
+     * own mark the span is braced, and a braced opener closes nothing either.
      *
      * @param array<mixed> $node
      * @param int $before
@@ -2603,6 +2779,34 @@ final class Text
     }
 
     /**
+     * C2-W-093: the marks of a text inside a node that pair, read across the content that holds the text, so a mark
+     * of a sibling node can take its partner.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<string, array<int, bool>>
+     */
+    private static function siblingPartners(string $value, Context $c): array
+    {
+        $at = $c->siblings['at'][$c->textPath] ?? null;
+        if ($c->siblings === null || $at === null || substr_compare($c->siblings['flat'], $value, $at, strlen($value)) !== 0) {
+            return self::pairedMarks($value);
+        }
+        $c->siblings['partners'] ??= self::pairedMarks($c->siblings['flat'], $c->siblings['types'], $c->siblings['nodes']);
+        $local = [];
+        foreach ($c->siblings['partners'] as $mark => $offsets) {
+            foreach ($offsets as $offset => $paired) {
+                if ($offset >= $at && $offset < $at + strlen($value)) {
+                    $local[$mark][$offset - $at] = $paired || self::undecided();
+                }
+            }
+        }
+
+        return $local;
+    }
+
+    /**
      * C2-W-088: the escapes of the block openers that the parse of a line that opens a block starts behind its first
      * opener, on the same line, at the character C2-W-090 escapes.
      *
@@ -2730,6 +2934,10 @@ final class Text
         if ($first <= 0 || $first >= 0x80) {
             return null;
         }
+        // C2-B-166: a line comment ends its line, and a row line keeps it as the row's comment.
+        if ($type === 'comment' && ($node['form'] ?? '') === 'line') {
+            return " %%x\n";
+        }
         if (Inline::spanMark($type) !== null) {
             $inner = self::spanText(array_diff_key($node, ['attrs' => true]));
             if ($inner !== null) {
@@ -2847,7 +3055,8 @@ final class Text
     {
         $flat = '';
         $owners = [];
-        if (!self::planNodes([$node], '', $flat, $owners)) {
+        $shielded = [];
+        if (!self::planNodes([$node], '', $flat, $owners, false, $shielded)) {
             return null;
         }
 

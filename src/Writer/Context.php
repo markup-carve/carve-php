@@ -135,6 +135,12 @@ final class Context
     public array $tickAt = [];
 
     /**
+     * @var array<string, array<int, true>> The backticks inside a literal attribute block of each text that take a
+     *   backslash where the writer escapes the block's brace, by text path.
+     */
+    public array $tickShielded = [];
+
+    /**
      * @var array<int, true> The backticks of the plan's flat leaf that a line-start escape takes, by offset.
      */
     public array $tickForced = [];
@@ -220,6 +226,14 @@ final class Context
      * @var array<string, array<int, bool>>|null The marks paired within the text currently being escaped inside a node.
      */
     public ?array $localPartners = null;
+
+    /**
+     * The content of a node being written, flattened as the leaf is, so its texts pair across their siblings.
+     *
+     * @var array{flat: string, at: array<string, int>, types: array<int, string>, nodes: array<int, array<mixed>>,
+     *   partners?: array<string, array<int, bool>>}|null
+     */
+    public ?array $siblings = null;
 
     /**
      * @var array<string, array<int, true>>|null Brackets paired across the text of the current bracketed content.
