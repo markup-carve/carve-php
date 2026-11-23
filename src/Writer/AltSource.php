@@ -104,6 +104,30 @@ final class AltSource
         if (!is_string($key)) {
             return false;
         }
+        $alt = is_string($node['alt'] ?? null) ? $node['alt'] : '';
+        $form = is_string($node['refForm'] ?? null) ? $node['refForm'] : 'full';
+        $memo = $key . "\0" . $form . "\0" . $alt;
+        $known = self::$readBack['!' . $raw][$memo] ?? null;
+        if ($known !== null) {
+            return $known;
+        }
+        if (count(self::$readBack) >= self::READ_BACK_CACHE) {
+            self::$readBack = [];
+        }
+
+        return self::$readBack['!' . $raw][$memo] = self::readsAs($raw, $key, $form, $alt);
+    }
+
+    /**
+     * @param string $raw
+     * @param string $key
+     * @param string $form
+     * @param string $alt
+     *
+     * @return bool
+     */
+    private static function readsAs(string $raw, string $key, string $form, string $alt): bool
+    {
         $context = new InlineContext();
         $context->linkKeys[$key] = true;
         $source = '!' . $raw;
@@ -111,8 +135,8 @@ final class AltSource
         $image = $read[0][1] ?? null;
 
         return count($read) === 1 && $image instanceof Node && $image->type === 'image'
-            && ($image->f['alt'] ?? null) === ($node['alt'] ?? '') && ($image->f['key'] ?? null) === $key
-            && ($image->f['refForm'] ?? null) === ($node['refForm'] ?? 'full');
+            && ($image->f['alt'] ?? null) === $alt && ($image->f['key'] ?? null) === $key
+            && ($image->f['refForm'] ?? null) === $form;
     }
 
     /**
