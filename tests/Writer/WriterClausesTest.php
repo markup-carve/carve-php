@@ -28,7 +28,8 @@ final class WriterClausesTest extends TestCase
             'C2-I-074 alt text is written as it stands' => ["![p\\*q](/k)\n", "![p\\*q](/k)\n"],
             'C2-W-099 a line of one hyphen needs no escape' => ["-\n", "-\n"],
             'C2-W-099 a dash run keeps every second hyphen escaped' => ["a -\\-\n", "a -\\-\n"],
-            'C2-W-095 a backtick in text' => ["a \\` b\n", "a \\` b\n"],
+            // carve-php#5680 (ruled): a backtick run that forms nothing takes no backslash (C2-W-088, C2-I-017).
+            'C2-W-095 a backtick in text' => ["a \\` b\n", "a ` b\n"],
             'C2-W-090 a sigil glued to a code span' => ["\\!`x`\n", "\\!`x`\n"],
             // C2-W-096: `{#` without its closer `#}` opens nothing, so only the tag sigil takes the backslash (C2-W-088).
             'C2-I-092 a tag name may start with a hyphen' => ["x{#\\-a\n", "x{\\#-a\n"],
