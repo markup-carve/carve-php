@@ -455,10 +455,6 @@ final class LineRules
                 continue;
             }
             $end = $at + strlen($tag[0]) - 1;
-            $inside = substr($line->text, $at + 1, $end - $at - 1);
-            if (str_contains($inside, '://') || str_contains($inside, '@') || str_starts_with($inside, '/#')) {
-                continue;
-            }
             $path = $c->tableRowPaths[$line->number] ?? $line->path;
             $c->report('bare-html-tag', $line->start + $at, $line->start + $end + 1, $path);
 

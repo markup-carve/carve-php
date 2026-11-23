@@ -91,6 +91,11 @@ final class Next2LintRegressionTest extends TestCase
             'ten-digit number after a term mark is not a marker' => [":: 1234567890. x\n", 'definition-term-block-folded', []],
             'tag shape stops at another less-than sign' => ["a <a <b> c\n", 'bare-html-tag', [['bare-html-tag', 5, 8]]],
             'closing slash without a name is not a tag' => ["a </> b\n", 'bare-html-tag', []],
+            'tag shape holding an at sign' => ["<E @>\n", 'bare-html-tag', [['bare-html-tag', 0, 5]]],
+            'attribute value ending in an at sign' => ["<b x@>\n", 'bare-html-tag', [['bare-html-tag', 0, 6]]],
+            'attribute value holding a URL' => ["<a href=http://x>\n", 'bare-html-tag', [['bare-html-tag', 0, 17]]],
+            'email autolink is no tag shape' => ["<user@example.com>\n", 'bare-html-tag', []],
+            'URL autolink is no tag shape' => ["<https://x.y>\n", 'bare-html-tag', []],
             'caption on a later quoted paragraph line below an image' => [
                 "> a ![i](p)\n> : x\n", 'caption-looking-paragraph',
                 [['caption-looking-paragraph', 14, 15]],
