@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Writer;
 
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -65,6 +67,34 @@ final class LineEndBlanksRoundTest extends TestCase
     public function testLineEndBlanksDoNotRefuseTheRound(array $blocks, string $source): void
     {
         $result = Writer::writeBlocksWithDiagnostics($blocks);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($source, $result->source);
+    }
+
+    /**
+     * A dropped text moves the nodes behind it, and their layout facts move with them: the reference keeps its
+     * spelling through the repair.
+     *
+     * @return void
+     */
+    public function testLayoutFactsFollowTheDroppedText(): void
+    {
+        $source = "*a* \\`x\\`/b/\n[hello][ My  Ref ]\n\n[my ref]: /u\n";
+        $moved = static fn (mixed $entry): mixed => is_array($entry) && ($entry['path'] ?? null) === '/children/0/children/4'
+            ? ['path' => '/children/0/children/5'] + $entry
+            : $entry;
+        $layout = Carve::parseWithLayout($source)->layout;
+        $layout['nodes'] = array_map($moved, (array)$layout['nodes']);
+        $text = ['type' => 'text', 'value' => ' '];
+        $tree = TreeEncoder::decodedForWriter(Carve::parse($source));
+        $paragraph = (array)((array)$tree['children'])[0];
+        $inlines = (array)$paragraph['children'];
+        array_splice($inlines, 3, 0, [$text]);
+        $paragraph['children'] = $inlines;
+        $tree['children'] = [$paragraph, ...array_slice((array)$tree['children'], 1)];
+
+        $result = Writer::writeWithDiagnostics($tree, $layout);
 
         $this->assertSame([], $result->diagnostics);
         $this->assertSame($source, $result->source);
