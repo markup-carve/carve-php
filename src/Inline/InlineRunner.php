@@ -275,7 +275,8 @@ final class InlineRunner
             return [Node::text($t, $content->src(0), $content->src($len))];
         }
         [$scanner, $tokens] = self::scan($content, $ctx, $depth, $mode);
-        $items = Delimiters::run($scanner, $tokens, $depth);
+        // Handed over whole: `Delimiters::run()` frees each token as it reads it only while no list here holds it.
+        $items = Delimiters::run($scanner, array_splice($tokens, 0), $depth);
 
         $nodes = (new Finisher($scanner, $ctx))->build($items, -1, true);
 
