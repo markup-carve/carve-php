@@ -243,6 +243,8 @@ final class Inline
         } finally {
             $this->leafDepth--;
             $c->runLog = $outer;
+            // The kept answers hold the leaf's content arrays alive; no later leaf reads them.
+            $this->emptyContent = [];
         }
     }
 
@@ -1623,6 +1625,10 @@ final class Inline
             fn (mixed $inner, int|string $k): bool => is_array($inner) && $this->onlyEmptyAt($inner, $path . '/' . $k . '/children'),
         );
         $this->emptyContent[$path] = [$children, $only];
+        // Each answer is read once, by the level above; a kept one would hold its replaced content alive.
+        foreach ($children as $k => $child) {
+            unset($this->emptyContent[$path . '/' . $k . '/children']);
+        }
 
         return $only;
     }
