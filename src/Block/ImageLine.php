@@ -46,6 +46,17 @@ final class ImageLine
     private array $next = [];
 
     /**
+     * @var array<bool> Per open bracket of the alt scan, whether it opened an inline footnote; the first is the
+     * image's own bracket. One line is scanned once per instance.
+     */
+    private array $open = [false];
+
+    /**
+     * @var int The inline footnotes open on `$open`.
+     */
+    private int $notes = 0;
+
+    /**
      * @param string $s
      * @param int $end
      */
@@ -92,7 +103,9 @@ final class ImageLine
     }
 
     /**
-     * C2-I-006, C2-I-074: the offset of the `]` that closes the bracket at `$pos` on the line, or NONE.
+     * C2-I-006, C2-I-074: the offset of the `]` that closes the bracket at `$pos` on the line, or NONE. The
+     * stack pairs as the inline scan does: an inline footnote closes taking no tail or label, and while one is
+     * open `[^` and `^[` are ordinary brackets (C2-I-089).
      *
      * @param int $pos
      *
@@ -101,12 +114,12 @@ final class ImageLine
     private function bracketClose(int $pos): int
     {
         $s = $this->s;
-        $depth = 1;
         $p = $pos + 1;
-        $marks = self::STOPS . implode('', array_keys(Tables::BRACED_MARKS));
+        $stops = self::STOPS . '^';
+        $marks = $stops . implode('', array_keys(Tables::BRACED_MARKS));
         while ($p < $this->end) {
             // Only these characters start an atom or move the bracket stack; with a braced span open, its marks too.
-            $p += strcspn($s, $this->braced === [] ? self::STOPS : $marks, $p, $this->end - $p);
+            $p += strcspn($s, $this->braced === [] ? $stops : $marks, $p, $this->end - $p);
             if ($p >= $this->end) {
                 break;
             }
@@ -114,18 +127,16 @@ final class ImageLine
             $ch = $s[$p];
             if ($skipped !== $p) {
                 $p = $skipped;
-            } elseif ($ch === '[') {
-                $reference = $this->footnoteReferenceEnd($p);
-                $depth += $reference === $p ? 1 : 0;
-                $p = max($reference, $p + 1);
+            } elseif ($ch === '[' || ($ch === '^' && $p + 1 < $this->end && $s[$p + 1] === '[')) {
+                $p = $this->openAt($p);
             } elseif ($this->bracedMarkEnd($p) > $p) {
                 $p += 2;
             } elseif ($ch !== ']') {
                 $p++;
-            } elseif (--$depth === 0) {
+            } elseif (count($this->open) === 1) {
                 return $p;
             } else {
-                $p = $this->nestedTailEnd($p);
+                $p = $this->closeAt($p);
                 if ($p === self::NONE) {
                     return self::NONE;
                 }
@@ -133,6 +144,52 @@ final class ImageLine
         }
 
         return self::NONE;
+    }
+
+    /**
+     * C2-I-087, C2-I-089: pushes the bracket or note opener at `$p`, or skips a footnote reference; returns the
+     * offset behind what it read. Inside a note the caret is text and its bracket is read next as an ordinary one.
+     *
+     * @param int $p
+     *
+     * @return int
+     */
+    private function openAt(int $p): int
+    {
+        if ($this->s[$p] === '^') {
+            if ($this->notes > 0) {
+                return $p + 1;
+            }
+            $this->open[] = true;
+            $this->notes++;
+
+            return $p + 2;
+        }
+        $reference = $this->notes === 0 ? $this->footnoteReferenceEnd($p) : $p;
+        if ($reference === $p) {
+            $this->open[] = false;
+        }
+
+        return max($reference, $p + 1);
+    }
+
+    /**
+     * C2-I-006: closes the nearest open bracket at `$p`; a note takes no tail or label (C2-I-089). Returns the
+     * offset the scan goes on from, or NONE.
+     *
+     * @param int $p
+     *
+     * @return int
+     */
+    private function closeAt(int $p): int
+    {
+        if (array_pop($this->open)) {
+            $this->notes--;
+
+            return $p + 1;
+        }
+
+        return $this->nestedTailEnd($p);
     }
 
     /**
@@ -316,7 +373,8 @@ final class ImageLine
     }
 
     /**
-     * C2-I-087: the offset behind the footnote reference at `$p`, or `$p` when `[` opens a plain bracket.
+     * C2-I-087: the offset behind the footnote reference at `$p`, or `$p` when `[` opens a plain bracket. A
+     * `[^` whose label is none is text and opens no bracket pair, so the scan goes on behind the `[`.
      *
      * @param int $p
      *
@@ -329,7 +387,7 @@ final class ImageLine
         }
         $close = $this->labelClose($p + 1);
 
-        return $close === self::NONE || self::isBlank($this->s, $p + 2, $close) ? $p : $close + 1;
+        return $close === self::NONE || self::isBlank($this->s, $p + 2, $close) ? $p + 1 : $close + 1;
     }
 
     /**
