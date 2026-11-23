@@ -17,6 +17,12 @@ final class AttributeParser
     public static bool $lastEmpty = false;
 
     /**
+     * Set by the last failed read: true when it failed only because the input ended, so a longer input could still
+     * hold a block.
+     */
+    public static bool $ranOut = false;
+
+    /**
      * Reads a block whose `{` stands at `$pos`. Returns the offset after `}` or -1.
      *
      * @param string $s
@@ -31,9 +37,12 @@ final class AttributeParser
         $i = $pos + 1;
         $parts = 0;
         $staged = new Attrs();
+        self::$ranOut = false;
         while (true) {
             $i += strspn($s, ' ', $i, max(0, $limit - $i));
             if ($i >= $limit) {
+                self::$ranOut = true;
+
                 return -1;
             }
             $c = $s[$i];
@@ -70,6 +79,8 @@ final class AttributeParser
         if ($c === '#' || $c === '.') {
             $n = strspn($s, Tables::ATTR_NAME_CHARS, $i + 1, $limit - $i - 1);
             if ($n === 0) {
+                self::$ranOut = $i + 1 >= $limit;
+
                 return -1;
             }
             $name = substr($s, $i + 1, $n);
@@ -106,6 +117,8 @@ final class AttributeParser
         }
         // C2-I-031: a bare key does not start with `_`.
         if ($c === '_') {
+            self::$ranOut = $j >= $limit;
+
             return -1;
         }
         self::key($a, $key, '');
@@ -130,6 +143,8 @@ final class AttributeParser
             $n = strspn($s, Tables::ATTR_LANGUAGE_TAG_CHARS, $i, $limit - $i);
             if ($n === 0) {
                 if ($i !== $start) {
+                    self::$ranOut = $i >= $limit;
+
                     return -1;
                 }
 
@@ -160,6 +175,8 @@ final class AttributeParser
     private static function value(string $s, int $i, int $limit, string &$value): int
     {
         if ($i >= $limit) {
+            self::$ranOut = true;
+
             return -1;
         }
         $q = $s[$i];
@@ -195,6 +212,8 @@ final class AttributeParser
             $out .= substr($s, $i, $n);
             $i += $n;
             if ($i >= $limit) {
+                self::$ranOut = true;
+
                 return -1;
             }
             if ($s[$i] === $q) {
@@ -211,6 +230,7 @@ final class AttributeParser
             $out .= '\\';
             $i++;
         }
+        self::$ranOut = true;
 
         return -1;
     }

@@ -447,6 +447,7 @@ final class Writer
         $forms = [];
         $joined = '';
         $at = 0;
+        $index = self::rootIndex($layout);
         foreach ($groups as $g => [$first, $last, $start, $end]) {
             $joined .= substr($source, $at, $start - $at);
             $at = $end;
@@ -458,7 +459,7 @@ final class Writer
             }
             $sub = $tree;
             $sub['children'] = array_slice($children, $first, $last - $first + 1);
-            $subLayout = self::remapRoot($layout, array_flip(range($first, $last)));
+            $subLayout = self::remapRange($layout, $index, $first, $last);
             // A control comment reads the lines of the whole source around it (`ControlLines::keepAbove()`).
             $key = str_contains($text, 'carve-lint-')
                 ? null
@@ -696,6 +697,93 @@ final class Writer
             if (!is_array($entry) || self::remapPaths($entry, $map)) {
                 $nodes[] = $entry;
             }
+        }
+        $layout['nodes'] = $nodes;
+
+        return $layout;
+    }
+
+    /**
+     * The layout entries in order, and for `remapRange()` the entries by the first top-level child their paths name,
+     * each with the last; entries that name none stay in every range. Built once, so the groups do not each walk the
+     * whole layout.
+     *
+     * @param array<mixed>|null $layout
+     *
+     * @return array{array<int, mixed>, array<int, array<array{int, int}>>, array<int>}
+     */
+    private static function rootIndex(?array $layout): array
+    {
+        $entries = is_array($layout['nodes'] ?? null) ? array_values($layout['nodes']) : [];
+        $byFirst = [];
+        $always = [];
+        foreach ($entries as $e => $entry) {
+            $low = PHP_INT_MAX;
+            $high = -1;
+            if (is_array($entry)) {
+                self::rootSpan($entry, $low, $high);
+            }
+            if ($high < 0) {
+                $always[] = $e;
+            } else {
+                $byFirst[$low][] = [$e, $high];
+            }
+        }
+
+        return [$entries, $byFirst, $always];
+    }
+
+    /**
+     * The lowest and highest top-level child index the paths of a layout entry name.
+     *
+     * @param array<mixed> $entry
+     * @param int $low
+     * @param int $high
+     */
+    private static function rootSpan(array $entry, int &$low, int &$high): void
+    {
+        foreach ($entry as $key => $value) {
+            if (is_array($value)) {
+                self::rootSpan($value, $low, $high);
+            } elseif ($key === 'path' && is_string($value) && preg_match('~^/children/(\d+)(?=/|$)~', $value, $m) === 1) {
+                $low = min($low, (int)$m[1]);
+                $high = max($high, (int)$m[1]);
+            }
+        }
+    }
+
+    /**
+     * `remapRoot()` for the top-level children `$first` to `$last`, read from the index of `rootIndex()`.
+     *
+     * @param array<mixed>|null $layout
+     * @param array{array<int, mixed>, array<int, array<array{int, int}>>, array<int>} $index
+     * @param int $first
+     * @param int $last
+     *
+     * @return array<mixed>|null
+     */
+    private static function remapRange(?array $layout, array $index, int $first, int $last): ?array
+    {
+        if ($layout === null || !is_array($layout['nodes'] ?? null)) {
+            return $layout;
+        }
+        [$entries, $byFirst, $picked] = $index;
+        for ($i = $first; $i <= $last; $i++) {
+            foreach ($byFirst[$i] ?? [] as [$e, $high]) {
+                if ($high <= $last) {
+                    $picked[] = $e;
+                }
+            }
+        }
+        sort($picked);
+        $map = array_flip(range($first, $last));
+        $nodes = [];
+        foreach ($picked as $e) {
+            $entry = $entries[$e];
+            if (is_array($entry)) {
+                self::remapPaths($entry, $map);
+            }
+            $nodes[] = $entry;
         }
         $layout['nodes'] = $nodes;
 

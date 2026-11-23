@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
@@ -141,6 +142,11 @@ final class Inline
      */
     private array $kindPaths = [];
 
+    /**
+     * @var array<string, array{array<mixed>, bool}> The `onlyEmptyAt()` answer of each content, with the content.
+     */
+    private array $emptyContent = [];
+
     private string $textValue = '';
 
     public function __construct(private State $w)
@@ -237,6 +243,8 @@ final class Inline
         } finally {
             $this->leafDepth--;
             $c->runLog = $outer;
+            // The kept answers hold the leaf's content arrays alive; no later leaf reads them.
+            $this->emptyContent = [];
         }
     }
 
@@ -956,7 +964,15 @@ final class Inline
         }
         $retry = $type === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
             && str_ends_with(self::str($node, 'value'), '{');
-        $snapshot = $retry ? clone $c : null;
+        $snapshot = null;
+        if ($retry) {
+            // The replay never reads the run log; a shared one would be copied in full on the next append.
+            $log = $c->runLog;
+            $c->runLog = [];
+            $snapshot = clone $c;
+            $c->runLog = $log;
+            unset($log);
+        }
         $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
         if ($redo !== null && str_starts_with($part, '{')) {
             [$from, $length, $text] = $redo;
@@ -1583,26 +1599,56 @@ final class Inline
             return;
         }
         $children = array_values($children);
-        if (self::onlyEmptyText($children) || self::emptyTextRun($children, count($children) - 1) !== null) {
+        if ($this->onlyEmptyAt($children, $path . '/children') || self::emptyTextRun($children, count($children) - 1) !== null) {
             $this->w->lose($path, $type, null);
         }
+    }
+
+    /**
+     * `onlyEmptyText()` with the answer kept by path: the content of a deep nest is written inside out, so each level
+     * reads the answer of the level below instead of walking the nest again.
+     *
+     * @param array<mixed> $children
+     * @param string $path
+     *
+     * @return bool
+     */
+    private function onlyEmptyAt(array $children, string $path): bool
+    {
+        $kept = $this->emptyContent[$path] ?? null;
+        // The same array compares in constant time; another one is compared in full, so a stale answer is never read.
+        if ($kept !== null && $kept[0] === $children) {
+            return $kept[1];
+        }
+        $only = self::onlyEmptyText(
+            $children,
+            fn (mixed $inner, int|string $k): bool => is_array($inner) && $this->onlyEmptyAt($inner, $path . '/' . $k . '/children'),
+        );
+        $this->emptyContent[$path] = [$children, $only];
+        // Each answer is read once, by the level above; a kept one would hold its replaced content alive.
+        foreach ($children as $k => $child) {
+            unset($this->emptyContent[$path . '/' . $k . '/children']);
+        }
+
+        return $only;
     }
 
     /**
      * Content that writes nothing: empty texts, and nodes whose own content is empty.
      *
      * @param mixed $children
+     * @param \Closure(mixed, int|string): bool|null $inside The test of the content of a child, by its key.
      *
      * @return bool
      */
-    private static function onlyEmptyText(mixed $children): bool
+    private static function onlyEmptyText(mixed $children, ?Closure $inside = null): bool
     {
         if (!is_array($children) || $children === []) {
             return false;
         }
         // The flat test first, so a deep nest is not walked again at every level.
         $nested = [];
-        foreach ($children as $child) {
+        foreach ($children as $k => $child) {
             if (!is_array($child)) {
                 return false;
             }
@@ -1619,11 +1665,24 @@ final class Inline
                 return false;
             }
             if (($child['children'] ?? null) !== []) {
-                $nested[] = $child['children'] ?? null;
+                $nested[$k] = $child['children'] ?? null;
             }
         }
-        foreach ($nested as $inner) {
-            if (!self::onlyEmptyText($inner)) {
+
+        return self::allEmpty($nested, $inside);
+    }
+
+    /**
+     * @param array<mixed> $nested The content of each child that holds some, by the child's key.
+     * @param \Closure(mixed, int|string): bool|null $inside
+     *
+     * @return bool
+     */
+    private static function allEmpty(array $nested, ?Closure $inside): bool
+    {
+        $inside ??= static fn (mixed $inner): bool => self::onlyEmptyText($inner);
+        foreach ($nested as $k => $inner) {
+            if (!$inside($inner, $k)) {
                 return false;
             }
         }
