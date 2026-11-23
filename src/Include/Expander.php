@@ -374,7 +374,7 @@ final class Expander
         $attrs = $node->f['attrs'] ?? null;
 
         return isset($options['code']) && in_array($options['code'], ['csv', 'tsv'], true)
-            && $attrs instanceof Attrs && $attrs->get('table') !== null;
+            && $attrs instanceof Attrs && $attrs->exact('table') !== null;
     }
 
     private function failure(string $code, Node $node, ?string $from): void
