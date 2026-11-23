@@ -152,15 +152,17 @@ final class BlockParser
     }
 
     /**
-     * Whether every open container is a list or a list item.
+     * Whether every container that owns the line is a list, a list item, a description list or a description.
+     *
+     * @param int $owner
      *
      * @return bool
      */
-    private function listsOnly(): bool
+    private function listsOnly(int $owner): bool
     {
-        for ($k = count($this->stack) - 1; $k > 0; $k--) {
+        for ($k = $owner; $k > 0; $k--) {
             $kind = $this->stack[$k]->kind;
-            if ($kind !== Frame::LIST && $kind !== Frame::ITEM) {
+            if ($kind !== Frame::LIST && $kind !== Frame::ITEM && $kind !== Frame::DLIST && $kind !== Frame::DESC) {
                 return false;
             }
         }
@@ -257,10 +259,10 @@ final class BlockParser
         $s = $this->s;
         if (
             $j === $ls && $s[$j] === '-' && !$forced && ($leaf === null || $leaf->kind !== Frame::PARAGRAPH)
-            && LineShapes::typedFrontmatter($s, $j, $le) !== null && $this->listsOnly()
+            && LineShapes::typedFrontmatter($s, $j, $le) !== null && $this->listsOnly($owner)
         ) {
-            // C2-B-232: with no paragraph open, a column-0 typed opener ends the lists before it (C2-B-026);
-            // below an open paragraph it is a lazy line of that paragraph (C2-B-024).
+            // C2-B-232: with no paragraph open, a column-0 typed opener ends the containers it does not
+            // indent past (C2-B-026); below an open paragraph it is a lazy line of that paragraph (C2-B-024).
             $this->closeTo(0);
             $owner = 0;
             $top = 0;
