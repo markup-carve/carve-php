@@ -266,7 +266,7 @@ final class Context
     /**
      * C2-W-146: each text node and soft break of the content as written, in order, for the pair test of a run.
      *
-     * @var array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string, kinds?: array<int, string>}>
+     * @var array<\MarkupCarve\Carve\Writer\RunEntry>
      */
     public array $runLog = [];
 

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\Markers;
+use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\Standard;
@@ -1290,13 +1292,12 @@ final class Blocks
         array $containers = [],
         bool &$isParagraph = false,
     ): bool {
-        $parsed = Carve::parse($line . "\n");
         if ($allowUnresolvedReference) {
-            // Only the block kinds are read, so the node tree is enough and its decoded copy is not built.
-            $isParagraph = self::firstBlockIsParagraph($parsed, $containers);
+            $isParagraph = self::firstBlockIsParagraph(self::blocksOf($line . "\n"), $containers);
 
             return $isParagraph;
         }
+        $parsed = Carve::parse($line . "\n");
         $tree = TreeEncoder::decoded($parsed);
         unset($parsed);
         $rootChildren = is_array($tree['children'] ?? null) ? $tree['children'] : [];
@@ -1312,6 +1313,19 @@ final class Blocks
         $isParagraph = is_array($node) && ($node['type'] ?? '') === 'paragraph';
 
         return $isParagraph && TreeEquality::equal($node['children'] ?? [], $children);
+    }
+
+    /**
+     * The block tree of a source without its inline pass: no later stage changes a block's kind, and the inline nodes
+     * of a long paragraph cost far more than its blocks (carve-php#5664).
+     */
+    private static function blocksOf(string $source): Node
+    {
+        $sink = new TreeSink($source);
+        (new BlockParser($sink))->parse($source);
+        assert($sink->root !== null);
+
+        return $sink->root;
     }
 
     /**

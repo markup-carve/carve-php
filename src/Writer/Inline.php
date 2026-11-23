@@ -198,7 +198,7 @@ final class Inline
         if ($this->leafDepth > 0) {
             $kinds = [];
             $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
-            $outer[] = ['path' => $path . '#', 'out' => '', 'prefix' => 0, 'escaped' => [], 'value' => '', 'kinds' => array_keys($kinds)];
+            $outer[] = new RunEntry($path . '#', '', 0, [], '', array_keys($kinds));
             $c->runLog = $outer;
 
             return $out;
@@ -416,7 +416,7 @@ final class Inline
     /**
      * C2-W-088: the kinds of the repair escapes in the last write of each text node.
      *
-     * @param array<array{path: string, value: string, escaped: array<int, bool>, kinds?: array<int, string>}> $log
+     * @param array<\MarkupCarve\Carve\Writer\RunEntry> $log
      * @param string $out The content as written; a backslash a later step took out gives no kind.
      *
      * @return array<string, true>
@@ -425,8 +425,8 @@ final class Inline
     {
         $last = [];
         foreach ($log as $entry) {
-            $last[$entry['path']] = $entry['kinds'] ?? [];
-            $this->bareLeads += self::bareMarks($entry['value'], $entry['escaped']);
+            $last[$entry->path] = $entry->kinds;
+            $this->bareLeads += self::bareMarks($entry->value, $entry->escaped);
         }
         $kinds = [];
         foreach ($last as $written) {
@@ -487,7 +487,9 @@ final class Inline
         $visible = $c->lineStart ? -1 : $c->last;
         $visibleNode = null;
         $redo = null;
-        $parts = [];
+        // Each written part as three parallel int lists, its offset in `$out`, first and last node: one small array
+        // per node would hold several times the memory on a long paragraph (carve-php#5664).
+        $parts = [[], [], []];
         $hyphens = 0;
         $dots = 0;
         $dotsAhead = self::dotsAhead($nodes);
@@ -518,7 +520,9 @@ final class Inline
             } else {
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
-            $parts[] = [strlen($out), $first, $at];
+            $parts[0][] = strlen($out);
+            $parts[1][] = $first;
+            $parts[2][] = $at;
             $out .= $part;
             $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
             $dots = self::dotsAfter($node, $dots);
@@ -547,7 +551,7 @@ final class Inline
      * reads as another type, and every node that starts inside such a span is lost.
      *
      * @param array<mixed> $nodes
-     * @param array<array{0: int, 1: int, 2: int}> $parts Each written part: its offset in `$out`, its first and last node.
+     * @param array{0: array<int>, 1: array<int>, 2: array<int>} $parts Each written part: its offset in `$out`, its first and last node.
      * @param string $out
      * @param string $path
      *
@@ -559,12 +563,13 @@ final class Inline
         if ($glued === null) {
             return;
         }
-        $base = $parts[$glued][0];
+        [$offsets, $firsts, $lasts] = $parts;
+        $base = $offsets[$glued];
         // A letter and a space first, so a long backtick run opens no fence and the spans stand mid-line.
         $read = Carve::parse('x ' . substr($out, $base) . "\n")->children ?? [];
         if (count($read) !== 1 || $read[0]->type !== 'paragraph') {
             // Later content opens another block, so the run is predicted from the spans alone.
-            foreach ($parts as [, $first]) {
+            foreach ($firsts as $first) {
                 $this->loseGluedRun($nodes, $first, $path, self::str((array)$nodes[$first], 'type'));
             }
 
@@ -573,9 +578,11 @@ final class Inline
         $children = $read[0]->children ?? [];
         $c = 0;
         $lead = '';
-        $count = count($parts);
+        $count = count($offsets);
         for ($k = $glued; $k < $count; $k++) {
-            [$start, $first, $last] = $parts[$k];
+            $start = $offsets[$k];
+            $first = $firsts[$k];
+            $last = $lasts[$k];
             while (isset($children[$c]) && $base + $children[$c]->end - 2 <= $start) {
                 $c++;
                 $lead = '';
@@ -586,7 +593,7 @@ final class Inline
                 $type,
                 $child,
                 $start - $base + 2,
-                ($parts[$k + 1][0] ?? strlen($out)) - $base + 2,
+                ($offsets[$k + 1] ?? strlen($out)) - $base + 2,
                 $lead,
             );
             if ($field === false) {
@@ -602,14 +609,14 @@ final class Inline
     /**
      * The first part whose closing backtick the part behind it joins.
      *
-     * @param array<array{0: int, 1: int, 2: int}> $parts
+     * @param array{0: array<int>, 1: array<int>, 2: array<int>} $parts
      * @param string $out
      *
      * @return int|null
      */
     private static function gluedPart(array $parts, string $out): ?int
     {
-        foreach ($parts as $k => [$start]) {
+        foreach ($parts[0] as $k => $start) {
             if ($k > 0 && ($out[$start] ?? '') === '`' && $out[$start - 1] === '`') {
                 return $k - 1;
             }
@@ -1459,15 +1466,7 @@ final class Inline
             $out = $points === null ? $this->text($node, $c, $next, $before) : $this->wrapped($node, $points, $c, $next);
             $c->here = -1;
             if ($points === null) {
-                $c->runLog[] = [
-
-                    'path' => $path,
-                    'out' => $out,
-                    'prefix' => $this->textPrefix,
-                    'escaped' => $c->escapedAt,
-                    'value' => $this->textValue,
-                    'kinds' => $c->escapeKinds,
-                ];
+                $c->runLog[] = new RunEntry($path, $out, $this->textPrefix, $c->escapedAt, $this->textValue, $c->escapeKinds);
             }
             // C2-W-016: a CR at the end of a line is part of the line ending.
             if (str_ends_with($out, "\r") && ($next === 10 || $next === -1)) {
@@ -1480,7 +1479,7 @@ final class Inline
         $out = $this->own($node, $type, $path, $c, $next);
         $this->loseEmptyContent($node, $path, $type);
         if ($type === 'soft_break') {
-            $c->runLog[] = ['path' => $path, 'out' => "\n", 'prefix' => 1, 'escaped' => [], 'value' => ''];
+            $c->runLog[] = new RunEntry($path, "\n", 1, [], '');
         }
         if ($out === null) {
             $this->w->lose($path, $type, null);

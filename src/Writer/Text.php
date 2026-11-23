@@ -895,36 +895,49 @@ final class Text
      * C2-W-146: the offsets of the text nodes of each run of text and soft breaks in `$log` that the pair rules ask a
      * backslash for, by path.
      *
-     * @param array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string}> $log
+     * @param array<\MarkupCarve\Carve\Writer\RunEntry> $log
      *
      * @return array<string, array<int, bool>>
      */
     public static function runPairOpeners(array $log): array
     {
-        $runs = [];
-        $last = [];
+        // The run of each entry by number, so a long paragraph of lone texts builds no array per entry (carve-php#5664).
+        $runOf = [];
+        $sizes = [];
+        $lastIndex = [];
+        $lastRun = [];
         foreach ($log as $entry) {
-            $slash = strrpos($entry['path'], '/');
-            $list = substr($entry['path'], 0, (int)$slash);
-            $index = (int)substr($entry['path'], (int)$slash + 1);
-            if (isset($last[$list]) && $last[$list][0] === $index - 1) {
-                $runs[$last[$list][1]][] = $entry;
+            $slash = strrpos($entry->path, '/');
+            $list = substr($entry->path, 0, (int)$slash);
+            $index = (int)substr($entry->path, (int)$slash + 1);
+            if (isset($lastIndex[$list]) && $lastIndex[$list] === $index - 1) {
+                $run = $lastRun[$list];
+                $sizes[$run]++;
             } else {
-                $runs[] = [$entry];
+                $run = count($sizes);
+                $sizes[] = 1;
             }
-            $last[$list] = [$index, array_key_last($runs)];
+            $runOf[] = $run;
+            $lastIndex[$list] = $index;
+            $lastRun[$list] = $run;
         }
+        unset($lastIndex, $lastRun);
+        $runs = [];
+        foreach ($log as $i => $entry) {
+            if ($sizes[$runOf[$i]] >= 2) {
+                $runs[$runOf[$i]][] = $entry;
+            }
+        }
+        unset($runOf, $sizes);
+        ksort($runs);
         $asked = [];
         foreach ($runs as $run) {
-            if (count($run) < 2) {
-                continue;
-            }
             $source = '';
             $owners = [];
             foreach ($run as $at => $entry) {
-                $source .= substr($entry['out'], 0, $entry['prefix']);
+                $source .= substr($entry->out, 0, $entry->prefix);
                 $owners[$at] = strlen($source);
-                $source .= substr($entry['out'], $entry['prefix']);
+                $source .= substr($entry->out, $entry->prefix);
             }
             foreach (self::PAIR_RULES as [$mark, $id]) {
                 $size = strlen($mark);
@@ -942,7 +955,7 @@ final class Text
     /**
      * @param-out array<string, array<int, bool>> $asked
      *
-     * @param array<array{path: string, out: string, prefix: int, escaped: array<int, bool>, value: string}> $run
+     * @param array<\MarkupCarve\Carve\Writer\RunEntry> $run
      * @param array<int, int> $owners Where the text of each entry starts in the source of the run.
      * @param int $byte
      * @param array<string, array<int, bool>> $asked
@@ -953,13 +966,13 @@ final class Text
     {
         foreach ($run as $at => $entry) {
             $from = $owners[$at];
-            $written = substr($entry['out'], $entry['prefix']);
-            if ($byte < $from || $byte >= $from + strlen($written) || $entry['value'] === '') {
+            $written = substr($entry->out, $entry->prefix);
+            if ($byte < $from || $byte >= $from + strlen($written) || $entry->value === '') {
                 continue;
             }
-            $place = self::pairOpeners($written, $entry['escaped'], $entry['value'], $byte - $from);
+            $place = self::pairOpeners($written, $entry->escaped, $entry->value, $byte - $from);
             foreach ($place as $i => $_) {
-                $asked[$entry['path']][$i] = true;
+                $asked[$entry->path][$i] = true;
             }
 
             return;
