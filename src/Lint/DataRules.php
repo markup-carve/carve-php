@@ -155,6 +155,12 @@ final class DataRules
     private array $lookupIndexes = [];
 
     /**
+     * @var array<string, array<string, array<int>|false>> The starts of each index list, or false when the list is not
+     * in start order, so a before or after lookup can bisect instead of scanning from the first record.
+     */
+    private array $lookupStarts = [];
+
+    /**
      * @var array<string, \Closure(\stdClass): mixed> The compiled `when` of each rule, by rule kind and id.
      */
     private array $compiledWhen = [];
@@ -1560,6 +1566,7 @@ final class DataRules
         unset($self->context);
         $self->lookupRecords = ['block' => [], 'inline' => [], 'id' => [], 'line' => []];
         $self->lookupIndexes = [];
+        $self->lookupStarts = [];
         foreach ($model->lines as $line) {
             $line->prev = $line->prev2 = $line->next = $line->next2 = null;
             $line->leaf_head = $line->leaf_next = $line->table_above = $line->table_below = null;
@@ -2818,7 +2825,8 @@ final class DataRules
             $this->lookupIndexes[$site] = $index;
         }
         $value = $valueOf !== null ? $valueOf($record) : (isset($expr['value']) ? $this->value($expr['value'], $record) : null);
-        $list = $this->lookupIndexes[$site][serialize($value)] ?? [];
+        $key = serialize($value);
+        $list = $this->lookupIndexes[$site][$key] ?? [];
         // C2-W-150: with all, every record whose key equals the value, in document order.
         if (($expr['all'] ?? false) === true) {
             return array_map(fn (stdClass $found): mixed => $this->lookupField($field, $found), $list);
@@ -2827,21 +2835,38 @@ final class DataRules
             return NAN;
         }
         $from = isset($expr['from']) ? self::integer($this->value($expr['from'], $record)) : ($record->start ?? 0);
-        if (($expr['before'] ?? false) === true) {
-            $chosen = null;
-            foreach ($list as $candidate) {
-                if ($candidate->start >= $from) {
-                    break;
+        $before = ($expr['before'] ?? false) === true;
+        if ($before || ($expr['after'] ?? false) === true) {
+            $starts = $this->lookupStarts[$site][$key] ??= self::startsInOrder($list);
+            if ($starts !== false) {
+                // The first record at or past `from` (before) or past it (after).
+                $low = 0;
+                $high = count($starts);
+                while ($low < $high) {
+                    $mid = ($low + $high) >> 1;
+                    if ($before ? $starts[$mid] < $from : $starts[$mid] <= $from) {
+                        $low = $mid + 1;
+                    } else {
+                        $high = $mid;
+                    }
                 }
-                $chosen = $candidate;
-            }
-        } elseif (($expr['after'] ?? false) === true) {
-            $chosen = null;
-            foreach ($list as $candidate) {
-                if ($candidate->start > $from) {
+                $chosen = $list[$before ? $low - 1 : $low] ?? null;
+            } elseif ($before) {
+                $chosen = null;
+                foreach ($list as $candidate) {
+                    if ($candidate->start >= $from) {
+                        break;
+                    }
                     $chosen = $candidate;
+                }
+            } else {
+                $chosen = null;
+                foreach ($list as $candidate) {
+                    if ($candidate->start > $from) {
+                        $chosen = $candidate;
 
-                    break;
+                        break;
+                    }
                 }
             }
         } else {
@@ -2852,6 +2877,26 @@ final class DataRules
         }
 
         return $this->lookupField($field, $chosen);
+    }
+
+    /**
+     * @param list<\stdClass> $list
+     *
+     * @return array<int>|false
+     */
+    private static function startsInOrder(array $list): array|false
+    {
+        $starts = [];
+        $last = PHP_INT_MIN;
+        foreach ($list as $candidate) {
+            $start = $candidate->start;
+            if (!is_int($start) || $start < $last) {
+                return false;
+            }
+            $starts[] = $last = $start;
+        }
+
+        return $starts;
     }
 
     /**
