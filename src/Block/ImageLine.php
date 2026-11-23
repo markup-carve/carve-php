@@ -19,9 +19,16 @@ final class ImageLine
     private const NONE = -1;
 
     /**
+     * An entry of `$open` for an inline footnote.
+     *
+     * @var int
+     */
+    private const NOTE = -2;
+
+    /**
      * @var string
      */
-    private const STOPS = '\\`<{[]';
+    private const STOPS = '\\`<{[]!';
 
     /**
      * Start offsets of the backtick runs behind the first one, by run length, built at the first backtick.
@@ -46,10 +53,10 @@ final class ImageLine
     private array $next = [];
 
     /**
-     * @var array<bool> Per open bracket of the alt scan, whether it opened an inline footnote; the first is the
-     * image's own bracket. One line is scanned once per instance.
+     * @var array<int> Per open bracket of the alt scan, where its text starts, or NOTE for an inline footnote;
+     * the first is the image's own bracket. One line is scanned once per instance.
      */
-    private array $open = [false];
+    private array $open = [self::NONE];
 
     /**
      * @var int The inline footnotes open on `$open`.
@@ -127,6 +134,10 @@ final class ImageLine
             $ch = $s[$p];
             if ($skipped !== $p) {
                 $p = $skipped;
+            } elseif ($ch === '!' && $p + 1 < $this->end && $s[$p + 1] === '[') {
+                // C2-I-087: the bracket of a nested image opener is no footnote reference, `![^]` included.
+                $this->open[] = $p + 2;
+                $p += 2;
             } elseif ($ch === '[' || ($ch === '^' && $p + 1 < $this->end && $s[$p + 1] === '[')) {
                 $p = $this->openAt($p);
             } elseif ($this->bracedMarkEnd($p) > $p) {
@@ -137,9 +148,6 @@ final class ImageLine
                 return $p;
             } else {
                 $p = $this->closeAt($p);
-                if ($p === self::NONE) {
-                    return self::NONE;
-                }
             }
         }
 
@@ -160,14 +168,14 @@ final class ImageLine
             if ($this->notes > 0) {
                 return $p + 1;
             }
-            $this->open[] = true;
+            $this->open[] = self::NOTE;
             $this->notes++;
 
             return $p + 2;
         }
         $reference = $this->notes === 0 ? $this->footnoteReferenceEnd($p) : $p;
         if ($reference === $p) {
-            $this->open[] = false;
+            $this->open[] = $p + 1;
         }
 
         return max($reference, $p + 1);
@@ -183,13 +191,17 @@ final class ImageLine
      */
     private function closeAt(int $p): int
     {
-        if (array_pop($this->open)) {
+        $text = array_pop($this->open);
+        if ($text === null) {
+            return $p + 1;
+        }
+        if ($text === self::NOTE) {
             $this->notes--;
 
             return $p + 1;
         }
 
-        return $this->nestedTailEnd($p);
+        return $this->nestedTailEnd($text, $p);
     }
 
     /**
@@ -416,13 +428,16 @@ final class ImageLine
     }
 
     /**
-     * C2-I-066 to C2-I-072: the offset behind what is glued to the closing bracket at `$p` of a nested pair.
+     * C2-I-066 to C2-I-072: the offset behind what is glued to the closing bracket at `$p` of a nested pair
+     * whose text starts at `$text`. A label the inline scan rejects leaves the pair text, and its `[` opens a
+     * bracket next (C2-I-006, C2-I-072, C2-I-078, C2-I-079).
      *
+     * @param int $text
      * @param int $p
      *
      * @return int
      */
-    private function nestedTailEnd(int $p): int
+    private function nestedTailEnd(int $text, int $p): int
     {
         $s = $this->s;
         $next = $p + 1 < $this->end ? $s[$p + 1] : '';
@@ -436,12 +451,16 @@ final class ImageLine
 
             return $blocks < 0 ? $p + 1 : $blocks;
         }
-        if ($next !== '[' || ($p + 2 < $this->end && $s[$p + 2] === '^')) {
+        $first = $p + 2 < $this->end ? $s[$p + 2] : '';
+        if ($next !== '[' || $first === '@' || $first === '^') {
             return $p + 1;
+        }
+        if ($first === ']') {
+            return self::isBlank($s, $text, $p) ? $p + 1 : $p + 3;
         }
         $close = $this->labelClose($p + 1);
 
-        return $close === self::NONE ? self::NONE : $close + 1;
+        return $close === self::NONE || self::isBlank($s, $p + 2, $close) ? $p + 1 : $close + 1;
     }
 
     /**
