@@ -37,4 +37,12 @@ final class TableRebuiltKeyOrderTest extends TestCase
     {
         self::assertSame($expected, Carve::format($input));
     }
+
+    public function testTableMarkerStaysAfterIdAndClass(): void
+    {
+        $source = "{#t .wide table footer-rows=1 a=1 header-rows=1}\n```csv\nh\nf\n```\n";
+        $expected = "{#t .wide table a=1 header-rows=1 footer-rows=1}\n```csv\nh\nf\n```\n";
+
+        self::assertSame($expected, Carve::format($source));
+    }
 }

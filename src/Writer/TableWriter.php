@@ -70,7 +70,7 @@ final class TableWriter
         }
 
         return BraceBlock::of($node, [
-            'mark' => $delimited ? 'table' : '',
+            'preKeys' => $delimited ? [['table', '']] : [],
             'keys' => $keys,
             'keysAfterAttrs' => true,
             'skipKeys' => $skip,
