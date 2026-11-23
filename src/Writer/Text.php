@@ -198,6 +198,11 @@ final class Text
      */
     public static bool $conservative = false;
 
+    /**
+     * @var array{string, array{int, string}}|null
+     */
+    private static ?array $lastBlockRead = null;
+
     public static function isPunct(string $c): bool
     {
         return $c !== '' && strlen($c) === 1 && str_contains(self::PUNCT, $c);
@@ -896,6 +901,9 @@ final class Text
             if ($asked === []) {
                 break;
             }
+            if ($round === 0) {
+                $asked = self::settledPairEscapes($value, $c->escapedAt, $forced, $asked, $round);
+            }
             $forced += $asked;
             $again = clone $start;
             $again->pairEscapes = $forced;
@@ -910,6 +918,54 @@ final class Text
         }
 
         return $out;
+    }
+
+    /**
+     * The escapes of the rounds of `escapePairs()` from `$asked` on, settled on the spelling alone (carve-php#5704).
+     *
+     * Each round escapes one opener per pair, so the next mark pairs anew and the rounds halve. The offsets the pair
+     * rules ask for are `_`, `~`, `=` or `*` bytes, and the escape loop reads its own escapes and the pair escapes only
+     * at `-`, `{` and `:` (secondHyphen, run, markEscaped, innerColons). A pair escape therefore only adds its own
+     * backslash, and the write of a round is the previous write with those backslashes added.
+     *
+     * @param-out int $round
+     *
+     * @param string $value
+     * @param array<int, bool> $escaped Whether each byte offset of `$value` took a backslash in the first write.
+     * @param array<int, mixed> $forced
+     * @param array<int, bool> $asked What the first write asks for, not in `$forced`.
+     * @param int $round Set to the last round the settled escapes stand for.
+     *
+     * @return array<int, bool> Every offset the rounds ask for, not in `$forced`.
+     */
+    private static function settledPairEscapes(string $value, array $escaped, array $forced, array $asked, int &$round): array
+    {
+        $all = [];
+        while (true) {
+            $all += $asked;
+            $forced += $asked;
+            foreach ($asked as $i => $_) {
+                $escaped[$i] = true;
+            }
+            if ($round >= 63) {
+                return $all;
+            }
+            $out = '';
+            $at = 0;
+            ksort($escaped);
+            foreach ($escaped as $i => $on) {
+                if ($on) {
+                    $out .= substr($value, $at, $i - $at) . '\\';
+                    $at = $i;
+                }
+            }
+            $out .= substr($value, $at);
+            $asked = array_diff_key(self::pairOpeners($out, $escaped, $value), $forced);
+            if ($asked === []) {
+                return $all;
+            }
+            $round++;
+        }
     }
 
     /**
@@ -2428,15 +2484,15 @@ final class Text
             return 0;
         }
         $c->writerState?->chargeRepair($c->textPath, 'first-line', $line . "\n");
-        $children = Carve::parse($line . "\n")->children ?? [];
-        if (count($children) === 1 && $children[0]->type === 'paragraph') {
+        [$count, $type] = self::blockRead($line . "\n");
+        if ($count === 1 && $type === 'paragraph') {
             return -1;
         }
         if (self::hyphenRunStaysParagraph($line, $c)) {
             return 1;
         }
         // C2-B-081: a definition shape opens a definition only at column 0.
-        if ($c->owner !== 'top' && isset(self::DEFINITIONS[$children[0]->type ?? ''])) {
+        if ($c->owner !== 'top' && isset(self::DEFINITIONS[$type])) {
             return -1;
         }
 
@@ -2458,9 +2514,27 @@ final class Text
         }
         $escaped = '-\\' . substr($line, 1) . "\n";
         $c->writerState?->chargeRepair($c->textPath, 'first-line-hyphen', $escaped);
-        $children = Carve::parse($escaped)->children ?? [];
+        [$count, $type] = self::blockRead($escaped);
 
-        return count($children) === 1 && $children[0]->type === 'paragraph';
+        return $count === 1 && $type === 'paragraph';
+    }
+
+    /**
+     * The number of top blocks a line parses to and the type of the first. The rounds of a leaf test the same line
+     * again, so the last read is kept (carve-php#5704).
+     *
+     * @return array{int, string}
+     */
+    private static function blockRead(string $source): array
+    {
+        if (self::$lastBlockRead !== null && self::$lastBlockRead[0] === $source) {
+            return self::$lastBlockRead[1];
+        }
+        $children = Carve::parse($source)->children ?? [];
+        $read = [count($children), (string)($children[0]->type ?? '')];
+        self::$lastBlockRead = [$source, $read];
+
+        return $read;
     }
 
     /**
