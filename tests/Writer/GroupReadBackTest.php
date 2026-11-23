@@ -44,6 +44,25 @@ final class GroupReadBackTest extends TestCase
     }
 
     /**
+     * Each risky group is checked on its own where no other block feeds its parse, as carve-js repairs group by group.
+     */
+    public function testRiskyGroupFormIgnoresAnotherRiskyGroup(): void
+    {
+        $other = "/*{*a*/*} b*/\n";
+
+        self::assertSame(Carve::format($other) . "\n" . self::BLOCK_FORM, Carve::format($other . "\n" . self::BLOCK));
+        self::assertSame(self::BLOCK_FORM . "\n" . Carve::format($other), Carve::format(self::BLOCK . "\n" . $other));
+    }
+
+    public function testRepeatedRiskyGroupsTakeOneForm(): void
+    {
+        $group = "/*{*a*/*} b*/\n";
+        $form = Carve::format($group);
+
+        self::assertSame(str_repeat($form . "\n", 40) . self::BLOCK_FORM, Carve::format(str_repeat($group . "\n", 40) . self::BLOCK));
+    }
+
+    /**
      * Headings, notes and definitions stay beside the risky group, so ids, note numbers and references read back.
      */
     public function testResolvedContextReadsBack(): void
