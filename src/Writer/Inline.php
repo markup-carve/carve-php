@@ -769,9 +769,13 @@ final class Inline
         $following = $nodes[$at + 1] ?? null;
         $c->beforeSoftBreak = self::isSoftBreak($following);
         $after = is_array($following) ? self::first($following, $c) : $next;
-        // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form.
+        // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form. An empty span
+        // writes nothing, so nothing glues to it.
         $type = self::str($node, 'type');
-        if (isset(self::PAIRED[$type]) && is_array($following) && self::str($following, 'type') === $type) {
+        if (
+            isset(self::PAIRED[$type]) && is_array($following) && self::str($following, 'type') === $type
+            && ($following['children'] ?? []) !== []
+        ) {
             $after = 0x7B;
         }
         $retry = $type === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
