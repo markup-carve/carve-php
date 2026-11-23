@@ -62,9 +62,18 @@ final class Blocks
     private ?array $above = null;
 
     /**
-     * C2-W-155: the path of the paragraph below a list written one space in.
+     * C2-W-155: the top-level blocks written one space in, by path; true where the attribute line stays at column 0.
+     *
+     * @var array<string, bool>
      */
-    private ?string $indentedFor = null;
+    private array $indentPlan = [];
+
+    /**
+     * C2-W-155: the paragraphs that keep their indented first line below a list written one space in, by path.
+     *
+     * @var array<string, true>
+     */
+    private array $spelledLeads = [];
 
     /**
      * C2-W-080: inside a hard-break block or a line block a hard break is the bare line ending.
@@ -123,6 +132,9 @@ final class Blocks
         $list = null;
         $count = count($nodes);
         $followingAt = 0;
+        if ($path === '/children') {
+            $this->planIndents($nodes, $path);
+        }
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -150,7 +162,7 @@ final class Blocks
                 if (($node['type'] ?? '') === 'code_block' && isset($node['caption'])) {
                     $at = $this->captionedCode($nodes, $at, $path, $prefix);
                 } else {
-                    $this->sibling($node, $next, $list, $path, $at, $prefix);
+                    $this->sibling($node, $path, $at, $prefix);
                 }
             } catch (RepairRefused $e) {
                 if (!$rootGroup) {
@@ -187,23 +199,117 @@ final class Blocks
 
     /**
      * @param array<mixed> $node
-     * @param mixed $next
-     * @param array<mixed>|null $before The last block above `node` that is no comment.
      * @param string $path
      * @param int $at
      * @param string $prefix
      *
      * @return void
      */
-    private function sibling(array $node, mixed $next, ?array $before, string $path, int $at, string $prefix): void
+    private function sibling(array $node, string $path, int $at, string $prefix): void
     {
-        $indent = $path === '/children' && is_array($next) && self::indentedAbove($node, $next, $path . '/' . ($at + 1))
-            // Below a blank line an indented line would join an open container above (C2-B-026).
-            && ($before === null || !$this->isOpenContainer($before));
-        if ($indent) {
-            $this->indentedFor = $path . '/' . ($at + 1);
+        $this->block($node, $path . '/' . $at, isset($this->indentPlan[$path . '/' . $at]) ? $prefix . ' ' : $prefix);
+    }
+
+    /**
+     * C2-W-155: plans which top-level blocks are written one space in. Below a list, description list or footnote
+     * the indented block would belong to it after the blank line (C2-B-025, C2-B-026), so the writer takes, in this
+     * order: the block's attribute line at column 0 (C2-B-097, C2-B-091), else the list or description list above
+     * indented too with the same test repeated upward, else no spelling (C2-W-117, reported at the paragraph).
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     *
+     * @return void
+     */
+    private function planIndents(array $nodes, string $path): void
+    {
+        $this->indentPlan = [];
+        $this->spelledLeads = [];
+        $count = count($nodes);
+        for ($at = 0; $at + 1 < $count; $at++) {
+            $node = $nodes[$at];
+            $next = $nodes[$at + 1];
+            if (!is_array($node) || !is_array($next) || !self::indentedAbove($node, $next, $path . '/' . ($at + 1))) {
+                continue;
+            }
+            $marks = [];
+            $current = $at;
+            while (true) {
+                $aboveAt = self::aboveAt($nodes, $current);
+                $above = $aboveAt === null ? null : $nodes[$aboveAt];
+                if (!is_array($above) || !$this->isOpenContainer($above)) {
+                    $marks[$current] = false;
+
+                    break;
+                }
+                if ($this->ownAttributes($nodes[$current], $path . '/' . $current) !== '') {
+                    $marks[$current] = true;
+
+                    break;
+                }
+                if (!in_array($above['type'] ?? '', ['list', 'definition_list'], true)) {
+                    $marks = [];
+
+                    break;
+                }
+                $marks[$current] = false;
+                $current = $aboveAt;
+            }
+            if ($marks === []) {
+                continue;
+            }
+            foreach ($marks as $index => $outdented) {
+                $this->indentPlan[$path . '/' . $index] = $outdented;
+            }
+            $this->spelledLeads[$path . '/' . ($at + 1)] = true;
         }
-        $this->block($node, $path . '/' . $at, $indent ? $prefix . ' ' : $prefix);
+    }
+
+    /**
+     * The index of the last block above `at` that is no comment (C2-B-053), or null.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     *
+     * @return int|null
+     */
+    private static function aboveAt(array $nodes, int $at): ?int
+    {
+        for ($index = $at - 1; $index >= 0; $index--) {
+            if (is_array($nodes[$index]) && ($nodes[$index]['type'] ?? '') !== 'comment') {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The attribute line the writer puts above the list or description list `node`, or ''.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return string
+     */
+    private function ownAttributes(array $node, string $path): string
+    {
+        return ($node['type'] ?? '') === 'list'
+            ? $this->listAttributes($node, Lists::markers($node, $this->w, $path)[1])
+            : BraceBlock::of($node);
+    }
+
+    /**
+     * The prefix of the attribute line of the block at `path`: column 0 where C2-W-155 keeps it there.
+     *
+     * @param string $path
+     * @param string $prefix
+     *
+     * @return string
+     */
+    private function attributePrefix(string $path, string $prefix): string
+    {
+        return ($this->indentPlan[$path] ?? false) ? substr($prefix, 0, -1) : $prefix;
     }
 
     /**
@@ -802,7 +908,7 @@ final class Blocks
         if (self::directBelowContainer($above, $node, $path)) {
             return $text;
         }
-        if ($this->indentedFor === $path) {
+        if (isset($this->spelledLeads[$path])) {
             return ' ' . $text;
         }
         // Below a blank line the indented line would be a block of the open container above (C2-B-026).
@@ -1564,7 +1670,7 @@ final class Blocks
             $this->checkAttrs($node, $path);
             $block = $this->listAttributes($node, $start);
             if ($block !== '') {
-                $this->w->emit($prefix, $block);
+                $this->w->emit($this->attributePrefix($path, $prefix), $block);
             }
         }
         $tight = ($node['spacing'] ?? 'tight') !== 'loose';
@@ -1627,7 +1733,7 @@ final class Blocks
             // C2-W-117: a list that opens with a description reads back as a paragraph.
             $this->w->lose($path, 'definition_list', null);
         }
-        $this->attributeLine($node, $path, $prefix);
+        $this->attributeLine($node, $path, $this->attributePrefix($path, $prefix));
         $this->siblings($entries, $path . '/children', $prefix, self::ENTRIES);
     }
 
