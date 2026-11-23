@@ -275,7 +275,7 @@ final class Inline
         // C2-W-088: a leaf whose kind rounds would read back as other inline content keeps the reported escapes only.
         if ($afterReported !== null && $out !== $reported) {
             $outShape = $this->inlineShape($out, $c);
-            if ($outShape !== $this->inlineShape($reported, $c) && $outShape !== self::treeShape($nodes)) {
+            if ($outShape !== self::treeShape($nodes) && $outShape !== $this->inlineShape($reported, $c)) {
                 foreach (get_object_vars($afterReported) as $name => $field) {
                     $c->{$name} = $field;
                 }
