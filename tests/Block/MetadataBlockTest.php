@@ -407,6 +407,11 @@ final class MetadataBlockTest extends TestCase
                 "- a\n\n{.c}\n%% c\n%% d\n * b\n\n" . $yaml,
                 [],
             ],
+            'a region marker follows a list ending in a closed div directly' => [
+                ["- ::: d\n  x\n  :::\n", "%% #region r\n"],
+                "- ::: d\n  x\n  :::\n%% #region r\n",
+                [],
+            ],
         ];
     }
 

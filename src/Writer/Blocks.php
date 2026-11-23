@@ -628,7 +628,8 @@ final class Blocks
                 return 0;
             }
             if (self::isRegionMarker($node)) {
-                return 1;
+                // A region marker closes the container, so it follows a closed block directly, as at top level.
+                return $this->takesLineBelow($before) ? 1 : 0;
             }
             // C2-B-138: an ordinary comment line stays in the open container.
             $this->w->lose($path, 'comment', null);
