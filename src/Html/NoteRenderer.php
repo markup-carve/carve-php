@@ -70,12 +70,35 @@ final class NoteRenderer
         $pad = HtmlRenderer::pad($depth);
         $lines = [];
         if ($note->type === 'inline_footnote') {
-            $lines[] = $pad . '  <p>' . $this->r->inline->leaf($note->children ?? [], $depth + 2) . $back . '</p>';
+            $kids = $note->children ?? [];
+            $content = self::commentsAndBreaks($kids) ? '' : $this->r->inline->leaf($kids, $depth + 2);
+            $lines[] = $pad . '  <p>' . $content . $back . '</p>';
         } else {
             $lines = $this->blocks($note->children ?? [], $depth, $back);
         }
 
         return $pad . '<li' . AttrWriter::join($structural, $this->r->o->xhtml) . ">\n" . implode("\n", $lines) . "\n" . $pad . '</li>';
+    }
+
+    /**
+     * C2-H-019: one or more comments and nothing else but the breaks between them render nothing.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $kids
+     *
+     * @return bool
+     */
+    private static function commentsAndBreaks(array $kids): bool
+    {
+        $comment = false;
+        foreach ($kids as $kid) {
+            if ($kid->type === 'comment') {
+                $comment = true;
+            } elseif ($kid->type !== 'soft_break' && $kid->type !== 'hard_break') {
+                return false;
+            }
+        }
+
+        return $comment;
     }
 
     /**
