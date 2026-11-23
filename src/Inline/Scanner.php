@@ -1402,7 +1402,10 @@ final class Scanner
                 if ($bare && $this->capPoison[$kind] > $entry[$kind === '*' ? 1 : 2] || (!$bare && $entry[3] === $start)) {
                     array_splice($this->capDelims, $i, 1);
                 } else {
-                    $this->capDelims = array_slice($this->capDelims, 0, $i);
+                    // Pops, not a slice, as in `delim()`: a copy at each closer made deep nesting quadratic.
+                    for ($drop = count($this->capDelims) - $i; $drop > 0; $drop--) {
+                        array_pop($this->capDelims);
+                    }
                     if (!$bare) {
                         $this->capPoison['*'] = $entry[1];
                         $this->capPoison['/'] = $entry[2];
