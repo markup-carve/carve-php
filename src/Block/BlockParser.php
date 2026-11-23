@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Block;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Utf8;
 
 /**
  * The block pass (C2-B): one scan over the lines, a stack of open containers, one open leaf and
@@ -589,6 +590,25 @@ final class BlockParser
             }
             $j++;
         }
+    }
+
+    /**
+     * C2-B-003, C2-B-218: the columns from `$from` to `$to`, one per code point or replaced ill-formed sequence.
+     *
+     * @param string $s
+     * @param int $from
+     * @param int $to
+     *
+     * @return int
+     */
+    private static function width(string $s, int $from, int $to): int
+    {
+        $width = 0;
+        for ($at = $from; $at < $to; $width++) {
+            $at += Utf8::unitLength($s, $at);
+        }
+
+        return $width;
     }
 
     /**
@@ -1197,7 +1217,7 @@ final class BlockParser
     {
         $item = new Frame(Frame::ITEM, $j);
         $item->markerCol = $c - $this->base;
-        $item->contentCol = $item->markerCol + ($m->box - $j);
+        $item->contentCol = $item->markerCol + self::width($this->s, $j, $m->box);
         $item->task = $m->task;
         $item->attrs = $m->attrs;
         $item->end = $m->end;
@@ -1205,7 +1225,7 @@ final class BlockParser
         $this->push($item);
         $content = $m->content;
         $this->i = $content;
-        $this->col = $c + ($content - $j);
+        $this->col = $c + self::width($this->s, $j, $content);
         $this->openLine(count($this->stack) - 1, $content, $this->col);
     }
 
@@ -1291,12 +1311,12 @@ final class BlockParser
         }
         $f = new Frame(Frame::DESC, $j);
         $f->markerCol = $c - $this->base;
-        $f->contentCol = $f->markerCol + ($content - $j);
+        $f->contentCol = $f->markerCol + self::width($this->s, $j, $content);
         $f->end = $j + 1;
         $this->take($f);
         $this->push($f);
         $this->i = $content;
-        $this->col = $c + ($content - $j);
+        $this->col = $c + self::width($this->s, $j, $content);
         // C2-I-002: a tab before the first content of the description is indent, as behind a list marker.
         $k = $content;
         $kc = $this->col;
@@ -1766,7 +1786,7 @@ final class BlockParser
             $f = new Frame(Frame::FOOTNOTE, $j);
             $f->value = $fn['key'];
             $f->markerCol = 0;
-            $f->contentCol = $c + $fn['content'] - $j;
+            $f->contentCol = $c + self::width($s, $j, $fn['content']);
             $f->end = $fn['content'];
             $this->take($f);
             $this->push($f);
