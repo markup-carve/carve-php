@@ -1156,6 +1156,10 @@ final class Blocks
         }
         $lines = count($this->w->lines);
         $this->attributeLine($node, $path, $prefix);
+        if (($node['type'] ?? null) === 'heading') {
+            // C2-B-154: behind a lead wider than the body column, a continuation still stands past the marker.
+            $indent = str_repeat(' ', $this->leadColumns($prefix)) . $indent;
+        }
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $c = $this->context($children, $mark === '', $prefix);
         $outer = $this->w->takeSmartRun();
@@ -1456,9 +1460,7 @@ final class Blocks
             $this->w->lose($path, 'heading', 'level');
             $level = 6;
         }
-        // C2-B-154: on a marker line whose lead is wider than the body column, the continuation stands past the marker.
-        $mark = str_repeat('=', max(1, $level)) . ' ';
-        $this->textLeaf($node, $path, $prefix, $mark, str_repeat(' ', $this->leadColumns($prefix) + strlen($mark)));
+        $this->textLeaf($node, $path, $prefix, str_repeat('=', max(1, $level)) . ' ', str_repeat(' ', max(1, $level) + 1));
     }
 
     /**
