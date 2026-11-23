@@ -21,9 +21,14 @@ final class RepairTrace
     private array $textNodes = [];
 
     /**
-     * @var array<int, array{string, string}>
+     * @var array<int, string> The path of each inline node, as `packPath()` writes it.
      */
-    private array $nodes = [];
+    private array $nodePaths = [];
+
+    /**
+     * @var array<int, string>
+     */
+    private array $nodeTypes = [];
 
     /**
      * @param array<string, array<int, true>> $escapes Text paths and byte offsets escaped by prior rounds.
@@ -79,8 +84,9 @@ final class RepairTrace
         if (!$this->mark || $type === 'soft_break' || $type === 'hard_break') {
             return $source;
         }
-        $id = count($this->nodes);
-        $this->nodes[] = [$path, $type];
+        $id = count($this->nodePaths);
+        $this->nodePaths[] = self::packPath($path);
+        $this->nodeTypes[] = $type;
 
         return $this->marker . 'n' . $id . "\x02" . $source . $this->marker . 'e' . $id . "\x02";
     }
@@ -135,9 +141,8 @@ final class RepairTrace
             $place = strlen($source);
             if ($kind === 't' && isset($this->text[$id])) {
                 $text[$place] = $this->text[$id];
-            } elseif ($kind === 'n' && isset($this->nodes[$id])) {
-                [$path, $type] = $this->nodes[$id];
-                $nodes[$id] = [$path, $type, $place, -1];
+            } elseif ($kind === 'n' && isset($this->nodePaths[$id])) {
+                $nodes[$id] = [$this->nodePaths[$id], $this->nodeTypes[$id], $place, -1];
             } elseif ($kind === 'e' && isset($nodes[$id])) {
                 $nodes[$id][3] = $place;
             } elseif ($kind === 's' && isset($this->textNodes[$id])) {
@@ -154,6 +159,24 @@ final class RepairTrace
         }
 
         return ['source' => $source, 'text' => $text, 'paths' => $this->textNodes, 'nodes' => $nodes, 'ranges' => $ranges];
+    }
+
+    /**
+     * A node path in the form the candidate's `nodes` hold it: each `/children/` as one byte, as deep inline nesting
+     * makes these paths long. One path maps to one form and back, so forms compare and key as the paths do.
+     */
+    public static function packPath(string $path): string
+    {
+        if (str_contains($path, "\x01") || str_starts_with($path, "\x02")) {
+            return "\x02" . $path;
+        }
+
+        return str_replace('/children/', "\x01", $path);
+    }
+
+    public static function unpackPath(string $packed): string
+    {
+        return str_starts_with($packed, "\x02") ? substr($packed, 1) : str_replace("\x01", '/children/', $packed);
     }
 
     /**

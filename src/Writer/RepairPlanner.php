@@ -300,7 +300,7 @@ final class RepairPlanner
      *     read: array<string, mixed>
      * } $comparison
      */
-    private function appliedRound(array $escapes, array $candidate, array &$comparison): bool
+    private function appliedRound(array $escapes, array &$candidate, array &$comparison): bool
     {
         $this->roundSource = [$escapes, $candidate['source']];
         try {
@@ -338,7 +338,7 @@ final class RepairPlanner
      *     read: array<string, mixed>
      * } $comparison
      */
-    private function applyRound(array $candidate, array &$comparison): bool
+    private function applyRound(array &$candidate, array &$comparison): bool
     {
         $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed);
         $missing = self::missingSiblings($candidate, $comparison['read']);
@@ -351,6 +351,16 @@ final class RepairPlanner
         // read-back.
         $this->roundRead = $this->roundSource === null ? null : [...$this->roundSource, $comparison['read']];
         unset($comparison['read']);
+        // The probes behind the trials need only their own spans of the candidate, not all of it beside the trial reads.
+        $groups = $this->movedByLeaf($comparison['moved']);
+        $across = self::acrossSpans($candidate, self::probedMoves($groups));
+        $candidate = [
+            'source' => $candidate['source'],
+            'text' => $across === [] ? [] : $candidate['text'],
+            'paths' => $candidate['paths'],
+            'nodes' => [],
+            'ranges' => [],
+        ];
         $kept = $this->keptTrials($trials);
         $this->roundRead = null;
         foreach ($kept as $trial) {
@@ -369,9 +379,8 @@ final class RepairPlanner
             $this->addAsked($asked);
         }
         $moved = false;
-        $spans = $comparison['moved'] === [] ? [] : self::spans($candidate);
-        foreach ($this->movedByLeaf($comparison['moved']) as $group) {
-            $moved = $this->probeMoved($candidate, $spans, $group) || $moved;
+        foreach ($groups as $group) {
+            $moved = $this->probeMoved($candidate, $across, $group) || $moved;
             $moved = $this->ownerMoved($group) || $moved;
         }
         if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
@@ -623,25 +632,40 @@ final class RepairPlanner
      *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>
      * } $candidate
-     * @param array<string, array{int, int}> $spans The spans of the candidate, shared by every leaf of the round.
+     * @param array<string, array{array{int, int}, int}> $across `acrossSpans()` of the candidate.
      * @param array<int, array{string, string, int, int, int}> $moved
      */
-    private function probeMoved(array $candidate, array $spans, array $moved): bool
+    private function probeMoved(array $candidate, array $across, array $moved): bool
     {
         $added = false;
-        foreach ($moved as $position => [$path, , , $end, $readEnd]) {
-            if ($position === 0) {
-                continue;
-            }
-            if ($readEnd <= $end) {
-                continue;
-            }
-            foreach ($this->probeAcrossCloser($candidate, $spans, $path, $end) as [$owner, $offset]) {
+        foreach (self::probedMoves([$moved]) as [$path, , , $end]) {
+            foreach ($this->probeAcrossCloser($candidate, $across[$path], $path, $end) as [$owner, $offset]) {
                 $added = $this->addEscape($owner, $offset) || $added;
             }
         }
 
         return $added;
+    }
+
+    /**
+     * The moved nodes `probeMoved()` probes: past the first of each leaf, those the read-back ends later.
+     *
+     * @param array<array<int, array{string, string, int, int, int}>> $groups
+     *
+     * @return array<int, array{string, string, int, int, int}>
+     */
+    private static function probedMoves(array $groups): array
+    {
+        $probed = [];
+        foreach ($groups as $group) {
+            foreach ($group as $position => $entry) {
+                if ($position > 0 && $entry[4] > $entry[3]) {
+                    $probed[] = $entry;
+                }
+            }
+        }
+
+        return $probed;
     }
 
     /**
@@ -910,36 +934,60 @@ final class RepairPlanner
         $parents = [];
         self::actualSpans($actual, null, $ends, $parents);
         $byPath = [];
-        foreach ($candidate['nodes'] as $id => [$path]) {
-            $byPath[$path] = $id;
+        foreach ($candidate['nodes'] as $id => [$packed]) {
+            $byPath[$packed] = $id;
         }
         $nodes = $candidate['nodes'];
         $missing = [];
-        foreach ($byPath as $path => $id) {
+        foreach ($byPath as $packed => $id) {
             [, $type, $start] = $nodes[$id];
-            $parts = explode('/', $path);
-            $index = (int)array_pop($parts);
-            $parent = implode('/', $parts);
-            $prior = $parent . '/' . ($index - 1);
-            if ($index > 0 && isset($byPath[$prior])) {
-                [, $priorType, $priorStart, $priorEnd] = $nodes[$byPath[$prior]];
+            [$index, $parent, $prior] = self::packedNeighbors((string)$packed);
+            $priorId = $index > 0 ? $byPath[$prior] ?? null : null;
+            if ($priorId !== null) {
+                [, $priorType, $priorStart, $priorEnd] = $nodes[$priorId];
                 if (($ends[$priorType . ':' . $priorStart] ?? $priorEnd) > $start) {
-                    $missing[] = [$path, $prior];
+                    $missing[] = [RepairTrace::unpackPath((string)$packed), RepairTrace::unpackPath($prior)];
 
                     continue;
                 }
             }
             $key = $type . ':' . $start;
-            if (!isset($byPath[$parent], $ends[$key])) {
+            $parentId = isset($ends[$key]) ? $byPath[$parent] ?? null : null;
+            if ($parentId === null) {
                 continue;
             }
-            [, $parentType, $parentStart] = $nodes[$byPath[$parent]];
+            [, $parentType, $parentStart] = $nodes[$parentId];
             if ($parents[$key] !== $parentType . ':' . $parentStart) {
-                $missing[] = [$path, $prior];
+                $missing[] = [RepairTrace::unpackPath((string)$packed), RepairTrace::unpackPath($prior)];
             }
         }
 
         return $missing;
+    }
+
+    /**
+     * The last index of a packed path, and the packed paths before that index (its parent) and of the sibling before.
+     *
+     * @return array{int, string, string}
+     */
+    private static function packedNeighbors(string $packed): array
+    {
+        // `<form>\x01<digits>` is `<path>/children/<digits>`; the parent and prior keep `<form>` as it is.
+        $cut = $packed === '' || $packed[0] === "\x02" ? false : strrpos($packed, "\x01");
+        if ($cut !== false) {
+            $digits = substr($packed, $cut + 1);
+            if ($digits !== '' && strspn($digits, '0123456789') === strlen($digits)) {
+                $index = (int)$digits;
+
+                return [$index, substr($packed, 0, $cut) . '/children', substr($packed, 0, $cut + 1) . ($index - 1)];
+            }
+        }
+        $path = RepairTrace::unpackPath($packed);
+        $cut = strrpos($path, '/');
+        $index = (int)($cut === false ? $path : substr($path, $cut + 1));
+        $parent = $cut === false ? '' : substr($path, 0, $cut);
+
+        return [$index, RepairTrace::packPath($parent), RepairTrace::packPath($parent . '/' . ($index - 1))];
     }
 
     /**
@@ -1315,8 +1363,9 @@ final class RepairPlanner
     private static function acrossCloser(array $candidate, array $actual, string $path, array $escapes): array
     {
         $span = null;
+        $packed = RepairTrace::packPath($path);
         foreach ($candidate['nodes'] as [$expectedPath, , $start, $end]) {
-            if ($expectedPath === $path) {
+            if ($expectedPath === $packed) {
                 $span = [$start, $end];
 
                 break;
@@ -1372,13 +1421,13 @@ final class RepairPlanner
      *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>
      * } $candidate
-     * @param array<string, array{int, int}> $spans
+     * @param array{array{int, int}, int} $across The node's span and the end of its probe, `acrossSpans()`.
      * @param int $end
      * @param string $path
      *
      * @return array<array{string, int}>
      */
-    private function probeAcrossCloser(array $candidate, array $spans, string $path, int $end): array
+    private function probeAcrossCloser(array $candidate, array $across, string $path, int $end): array
     {
         $node = self::nodeAt($this->tree, $path);
         if ($node === null || self::closer($node) === '') {
@@ -1387,10 +1436,11 @@ final class RepairPlanner
         [$probe, $end] = $this->probeCandidate($candidate, $path, $end);
         if ($probe !== $candidate) {
             $candidate = $probe;
-            $spans = self::spans($candidate);
+            $across = self::acrossSpans($candidate, [[$path]])[$path];
         }
+        [$span, $acrossEnd] = $across;
         $first = null;
-        for ($position = $spans[$path][0] ?? 0, $stop = $spans[$path][1] ?? -1; $position < $stop; $position++) {
+        for ($position = $span[0], $stop = $span[1]; $position < $stop; $position++) {
             if (str_starts_with(RepairTrace::owner($candidate, $position)[0] ?? '', $path . '/')) {
                 $first = $position;
 
@@ -1400,7 +1450,7 @@ final class RepairPlanner
         if ($first === null) {
             return [];
         }
-        $source = 'x ' . substr($candidate['source'], $first, self::acrossEnd($candidate['source'], $spans, $path) - $first);
+        $source = 'x ' . substr($candidate['source'], $first, $acrossEnd - $first);
         if (!$this->charge($source)) {
             return [];
         }
@@ -1454,6 +1504,9 @@ final class RepairPlanner
     private const MAX_ACROSS = 16;
 
     /**
+     * Each probed node's span in the candidate and the end of a probe across its closer: the node, its closer and at
+     * most MAX_ACROSS inlines behind it. By path.
+     *
      * @param array{
      *     source: string,
      *     text: array<int, int>,
@@ -1461,39 +1514,51 @@ final class RepairPlanner
      *     nodes: array<int, array{string, string, int, int}>,
      *     ranges?: array<string, array{int, int}>
      * } $candidate
+     * @param array<int, array{0: string}> $moved
      *
-     * @return array<string, array{int, int}>
+     * @return array<string, array{array{int, int}, int}>
      */
-    private static function spans(array $candidate): array
+    private static function acrossSpans(array $candidate, array $moved): array
     {
-        $spans = $candidate['ranges'] ?? [];
-        foreach ($candidate['nodes'] as [$nodePath, , $start, $end]) {
-            $spans[$nodePath] = [$start, $end];
-        }
-
-        return $spans;
-    }
-
-    /**
-     * The end of a probe across the closer of `path`: the node, its closer and at most MAX_ACROSS inlines behind it.
-     *
-     * @param string $source
-     * @param array<string, array{int, int}> $spans
-     * @param string $path
-     */
-    private static function acrossEnd(string $source, array $spans, string $path): int
-    {
-        $cut = (int)strrpos($path, '/');
-        $parent = substr($path, 0, $cut);
-        $index = (int)substr($path, $cut + 1);
-        for ($k = $index + self::MAX_ACROSS; $k >= $index; $k--) {
-            $end = $spans[$parent . '/' . $k][1] ?? null;
-            if ($end !== null) {
-                return $end;
+        $packed = [];
+        $siblings = [];
+        foreach ($moved as [$path]) {
+            $cut = (int)strrpos($path, '/');
+            $parent = substr($path, 0, $cut) . '/';
+            // Digits cannot be part of a `/children/`, so a packed path takes them as they are.
+            $form = RepairTrace::packPath($parent);
+            $packed[$path] = RepairTrace::packPath($path);
+            $siblings[$path] = [];
+            for ($index = (int)substr($path, $cut + 1), $k = $index + self::MAX_ACROSS; $k >= $index; $k--) {
+                $packed[$parent . $k] = $siblings[$path][] = $form . $k;
             }
         }
+        $spans = [];
+        foreach ($candidate['ranges'] ?? [] as $rangePath => $range) {
+            if (isset($packed[$rangePath])) {
+                $spans[$packed[$rangePath]] = $range;
+            }
+        }
+        $wanted = array_flip($packed);
+        foreach ($candidate['nodes'] as [$nodePath, , $start, $end]) {
+            if (isset($wanted[$nodePath])) {
+                $spans[$nodePath] = [$start, $end];
+            }
+        }
+        $across = [];
+        foreach ($siblings as $path => $forms) {
+            $end = strlen($candidate['source']);
+            foreach ($forms as $form) {
+                if (isset($spans[$form])) {
+                    $end = $spans[$form][1];
 
-        return strlen($source);
+                    break;
+                }
+            }
+            $across[$path] = [$spans[$packed[$path]] ?? [0, -1], $end];
+        }
+
+        return $across;
     }
 
     /**
@@ -1531,8 +1596,9 @@ final class RepairPlanner
         }
         if ($changed) {
             $candidate = Writer::bareCandidate($this->tree, $this->layout, $this->options, $probeEscapes);
+            $packed = RepairTrace::packPath($path);
             foreach ($candidate['nodes'] as [$nodePath, , , $nodeEnd]) {
-                if ($nodePath === $path) {
+                if ($nodePath === $packed) {
                     $end = $nodeEnd;
 
                     break;
