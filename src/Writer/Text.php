@@ -3099,7 +3099,10 @@ final class Text
         }
         // C2-B-166: a line comment ends its line, and a row line keeps it as the row's comment.
         if ($type === 'comment' && ($node['form'] ?? '') === 'line') {
-            return " %%x\n";
+            // As Inline::comment() writes it: trailing blanks dropped, line feeds as spaces.
+            $value = is_string($node['value'] ?? null) ? str_replace("\n", ' ', rtrim($node['value'], " \t")) : '';
+
+            return ' %%' . ($value !== '' ? ' ' . $value : '') . "\n";
         }
         if (Inline::spanMark($type) !== null) {
             $inner = self::spanText(array_diff_key($node, ['attrs' => true]));

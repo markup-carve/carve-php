@@ -75,6 +75,10 @@ final class WriterReadBackShapesTest extends TestCase
             'empty pair in a delete' => ['{-{^^}-}', '{-{^^}-}'],
             'literal block in a strong' => ['*{.c}(*', '*{.c}(*'],
             'opener without closer in an insert' => ['{++! {=+}', '{++! {=+}'],
+            // #5771: a pipe behind a line comment ends a row line.
+            'two lines ending in a comment and a pipe' => ["\\| %% c-|\n\\| %% c-|", "\\| %% c-|\n\\| %% c-|"],
+            'later line ending in a comment and a pipe' => ["x\n\\| %% c-|", "x\n\\| %% c-|"],
+            'quoted line ending in a comment and a pipe' => ["> \\| a %% c|\n> \\| %% |", "> \\| a %% c|\n> \\| %% |"],
         ];
     }
 
@@ -94,6 +98,19 @@ final class WriterReadBackShapesTest extends TestCase
             TreeEncoder::decodedForWriter(Carve::parse($source)),
             TreeEncoder::decodedForWriter(Carve::parse($written->source)),
         ));
+    }
+
+    /**
+     * #5771: a line comment with a line feed is written with a space there, and the row test reads it so.
+     */
+    public function testACommentWithALineFeedEndsNoRow(): void
+    {
+        $comment = ['type' => 'comment', 'form' => 'line', 'value' => "x\n|"];
+        $paragraph = ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => '| '], $comment]];
+        $result = Carve::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => [$paragraph]]);
+
+        self::assertSame("\\|  %% x |\n", $result->source);
+        self::assertSame(['field-unspellable'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
     }
 
     /**
