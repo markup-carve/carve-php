@@ -49,6 +49,8 @@ final class WriterReadBackShapesTest extends TestCase
             'pair behind a collapsed reference' => ['[\[][][m]', '[\[][][m]'],
             // #5750: a backtick inside a literal attribute block.
             'fence before a literal block with a backtick' => ['\- ```x*b*{k="`"}`', '\- ```x*b*{k="`"}`'],
+            'escaped brace keeps its backtick escaped' => ['*{+!/[b{k="`"}`-]/', '*\{+!/[b\{k=\"\`\"}`-]/'],
+            'escaped brace behind a code span' => ['`=} +}=}`\{k=`}', '`=} +}=}`\{k=`}'],
             // #5751: a leading delimiter of a content pairs with a later one.
             'leading slash of an emphasis' => ['{/\/y *x/*/}', '{/\/y *x/*/}'],
             'leading slash of a strong' => ['e {*\/{/\/*/}*}', 'e {*\/{/\/*/}*}'],

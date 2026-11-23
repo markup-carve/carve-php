@@ -135,6 +135,12 @@ final class Context
     public array $tickAt = [];
 
     /**
+     * @var array<string, array<int, true>> The backticks inside a literal attribute block of each text that take a
+     *   backslash where the writer escapes the block's brace, by text path.
+     */
+    public array $tickShielded = [];
+
+    /**
      * @var array<int, true> The backticks of the plan's flat leaf that a line-start escape takes, by offset.
      */
     public array $tickForced = [];

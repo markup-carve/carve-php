@@ -301,6 +301,7 @@ final class Text
         $out = '';
         $prev = $c->last;
         [$balanced, $ticks, $lineOpener] = self::loopFacts($value, $marks, $c, $next);
+        $liveTicks = [];
         for ($i = 0; $i < $n; $i++) {
             $ch = $value[$i];
             $byte = ord($ch);
@@ -323,7 +324,8 @@ final class Text
                     continue;
                 }
             }
-            $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i]);
+            $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i])
+                || isset($liveTicks[$i]);
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
                 || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
@@ -346,6 +348,15 @@ final class Text
                     $i = $end - 1;
 
                     continue;
+                }
+            }
+            // C2-I-035: an escaped brace starts no attribute block, so the plan's shielded backticks inside it are live.
+            if ($escape && $byte === 0x7B && $ticks !== null) {
+                $end = self::literalBlockEnd($value, $i);
+                for ($k = $end > $i ? strpos($value, '`', $i) : false; $k !== false && $k < $end; $k = strpos($value, '`', $k + 1)) {
+                    if (isset($c->tickShielded[$c->textPath][$k])) {
+                        $liveTicks[$k] = true;
+                    }
                 }
             }
             $c->escapedAt[$i] = $escape;
@@ -706,6 +717,7 @@ final class Text
         if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded) || $owners === []) {
             return null;
         }
+        $c->tickShielded = [];
         foreach ($owners as $at => [$path, $offset]) {
             $c->tickAt[$path][$offset] = $at;
         }
@@ -744,6 +756,16 @@ final class Text
             }
             [$path, $offset] = $owners[$at];
             $plan[$path][$offset] = true;
+        }
+        // Where the writer escapes the brace of such a block, its backticks take the plan without the shield.
+        if ($shielded !== []) {
+            $bare = self::tickRounds($runs, $c->tickReportedOnly ? [] : $firsts, $escaped, $fixed);
+            foreach (array_keys($shielded) as $at) {
+                if (isset($bare[$at], $owners[$at])) {
+                    [$path, $offset] = $owners[$at];
+                    $c->tickShielded[$path][$offset] = true;
+                }
+            }
         }
         $c->tickPlan = $plan;
 
