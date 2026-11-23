@@ -856,31 +856,36 @@ final class RepairPlanner
      */
     private static function missingSiblings(array $candidate, array $actual): array
     {
-        $starts = [];
-        self::actualSpans($actual, null, $starts);
-        $nodes = [];
-        foreach ($candidate['nodes'] as [$path, $type, $start, $end]) {
-            $nodes[$path] = [$type, $start, $end];
+        // Two flat maps, not an array per node: these are held beside the candidate and the read-back.
+        $ends = [];
+        $parents = [];
+        self::actualSpans($actual, null, $ends, $parents);
+        $byPath = [];
+        foreach ($candidate['nodes'] as $id => [$path]) {
+            $byPath[$path] = $id;
         }
+        $nodes = $candidate['nodes'];
         $missing = [];
-        foreach ($nodes as $path => [$type, $start]) {
+        foreach ($byPath as $path => $id) {
+            [, $type, $start] = $nodes[$id];
             $parts = explode('/', $path);
             $index = (int)array_pop($parts);
             $parent = implode('/', $parts);
             $prior = $parent . '/' . ($index - 1);
-            if ($index > 0 && isset($nodes[$prior])) {
-                [$priorType, $priorStart, $priorEnd] = $nodes[$prior];
-                if (($starts[$priorType . ':' . $priorStart][0] ?? $priorEnd) > $start) {
+            if ($index > 0 && isset($byPath[$prior])) {
+                [, $priorType, $priorStart, $priorEnd] = $nodes[$byPath[$prior]];
+                if (($ends[$priorType . ':' . $priorStart] ?? $priorEnd) > $start) {
                     $missing[] = [$path, $prior];
 
                     continue;
                 }
             }
-            if (!isset($nodes[$parent], $starts[$type . ':' . $start])) {
+            $key = $type . ':' . $start;
+            if (!isset($byPath[$parent], $ends[$key])) {
                 continue;
             }
-            [$parentType, $parentStart] = $nodes[$parent];
-            if ($starts[$type . ':' . $start][1] !== [$parentType, $parentStart]) {
+            [, $parentType, $parentStart] = $nodes[$byPath[$parent]];
+            if ($parents[$key] !== $parentType . ':' . $parentStart) {
                 $missing[] = [$path, $prior];
             }
         }
@@ -890,21 +895,23 @@ final class RepairPlanner
 
     /**
      * @param array<mixed> $node
-     * @param array{string, int}|null $parent
-     * @param array<string, array{int, array{string, int}|null}> $starts
+     * @param string|null $parent The `type:start` key of the nearest positioned ancestor.
+     * @param array<string, int> $ends The end of each positioned node, by its `type:start` key.
+     * @param array<string, string|null> $parents
      */
-    private static function actualSpans(array $node, ?array $parent, array &$starts): void
+    private static function actualSpans(array $node, ?string $parent, array &$ends, array &$parents): void
     {
         $pos = TreeEncoder::offsets($node['pos'] ?? null);
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         if ($pos !== null) {
-            $start = $pos[0];
-            $starts[$type . ':' . $start] = [$pos[1], $parent];
-            $parent = [$type, $start];
+            $key = $type . ':' . $pos[0];
+            $ends[$key] = $pos[1];
+            $parents[$key] = $parent;
+            $parent = $key;
         }
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
             if (is_array($child)) {
-                self::actualSpans($child, $parent, $starts);
+                self::actualSpans($child, $parent, $ends, $parents);
             }
         }
     }
@@ -1269,10 +1276,12 @@ final class RepairPlanner
         if ($span === null) {
             return [];
         }
-        $starts = [];
-        self::actualSpans($actual, null, $starts);
+        $ends = [];
+        $parents = [];
+        self::actualSpans($actual, null, $ends, $parents);
+        unset($parents);
         $endsByStart = [];
-        foreach ($starts as $key => [$readEnd]) {
+        foreach ($ends as $key => $readEnd) {
             if (str_starts_with($key, 'text:')) {
                 continue;
             }
