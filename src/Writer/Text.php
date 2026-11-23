@@ -244,9 +244,14 @@ final class Text
             return -1;
         }
         $last = $i + strspn($value, ':', $i) - 2;
-        foreach ([...$taken, ...array_keys($pairEscapes)] as $at) {
+        foreach ($taken as $at) {
             if ($at >= $i && $at <= $last) {
                 $last = $at - 1;
+            }
+        }
+        for ($at = $i; $at <= $last; $at++) {
+            if (isset($pairEscapes[$at])) {
+                return $at - 1;
             }
         }
 
