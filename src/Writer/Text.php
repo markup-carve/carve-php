@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use MarkupCarve\Carve\Inline\Scanner;
 use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Lint\NodeRulesA;
 use MarkupCarve\Carve\Node;
@@ -71,6 +72,32 @@ final class Text
         'abbreviation' => true,
         'comment' => true,
         'critic_comment' => true,
+    ];
+
+    /**
+     * C2-I-036: the inline nodes that take an attribute block glued behind them.
+     *
+     * @var array<string, true>
+     */
+    private const HOSTS = [
+        'span' => true,
+        'link' => true,
+        'image' => true,
+        'autolink' => true,
+        'code' => true,
+        'literal_inline' => true,
+        'math' => true,
+        'footnote_ref' => true,
+        'inline_footnote' => true,
+        'symbol' => true,
+        'inline_extension' => true,
+        'emphasis' => true,
+        'strong' => true,
+        'delete' => true,
+        'insert' => true,
+        'highlight' => true,
+        'superscript' => true,
+        'subscript' => true,
     ];
 
     /**
@@ -286,12 +313,45 @@ final class Text
             } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
                 $escape = self::potential($value, $i, $prev, $after, $c, $lineOpener);
             }
+            // A brace that starts a line is left to the line rules, where a block attribute line may form.
+            if (!$escape && $byte === 0x7B) {
+                $end = self::literalBlockEnd($value, $i);
+                if ($end > $i) {
+                    $c->escapedAt += array_fill($i, $end - $i, false);
+                    $out .= substr($value, $i, $end - $i);
+                    $prev = 0x7D;
+                    $i = $end - 1;
+
+                    continue;
+                }
+            }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
             $prev = $byte;
         }
 
         return $out;
+    }
+
+    /**
+     * C2-I-005, C2-I-035: a valid attribute block of text behind no host is literal text, read whole, so nothing in it
+     * takes a backslash. The end of the block that the bare brace at `$i` opens on its line, or -1.
+     *
+     * @param string $value
+     * @param int $i
+     *
+     * @return int
+     */
+    private static function literalBlockEnd(string $value, int $i): int
+    {
+        $close = strpos($value, '}', $i + 1);
+        if ($close === false) {
+            return -1;
+        }
+        $line = strpos($value, "\n", $i);
+        $end = AttributeParser::read($value, $i, $line === false ? strlen($value) : $line, new Attrs());
+
+        return $end > 0 && !AttributeParser::$lastEmpty ? $end : -1;
     }
 
     /**
@@ -393,6 +453,8 @@ final class Text
             $ch === '-' => isset($c->kinds['--']) && self::secondHyphen($value, $i, $prev, $c),
             $ch === '/' || $ch === '*' => isset($c->kinds[$ch]) && $prev !== ord($ch) && ($value[$i + 1] ?? '') !== $ch
                 && !Chars::isWord($prev) && !Chars::isSpace($after),
+            // C2-W-125 case five: a `]` closes only inside a bracketed node, so outside one it is no potential closer.
+            $ch === ']' => $c->inBracket && isset($c->kinds[']']) && ($prev !== 0x5D || ($i === 0 && !$c->afterText)),
             default => isset($c->kinds[$ch]) && ($prev !== ord($ch) || ($i === 0 && !$c->afterText)),
         };
     }
@@ -1257,8 +1319,11 @@ final class Text
             } elseif ($ch === '[') {
                 // C2-I-076: a footnote label ends at the first closing bracket.
                 $pair = $open === [] ? PHP_INT_MAX : $open[count($open) - 1];
-                $close = ($flat[$k + 1] ?? '') === '^' ? $first : $pair;
-                $out[$k] = self::forms($flat, $k, $close, $close === PHP_INT_MAX ? $holder : $node, $labels, $nodeFirst);
+                // C2-I-087: a caret of the text, or the caret an inline footnote glued behind starts with.
+                $caret = ($flat[$k + 1] ?? '') === '^' || (($flat[$k + 1] ?? '') === "\0" && ($nodeFirst[$k + 1] ?? -1) === 0x5E);
+                $close = $caret ? $first : $pair;
+                // A footnote label ends at the first `]` written, a node's own closing bracket too.
+                $out[$k] = self::forms($flat, $k, $close, $close === PHP_INT_MAX && !$caret ? $holder : $node, $labels, $nodeFirst);
                 if (!$out[$k] && $open !== []) {
                     array_pop($open);
                 }
@@ -1354,10 +1419,11 @@ final class Text
         if (($flat[$at] ?? '') !== '{') {
             return true;
         }
-        // C2-I-036: a valid attribute block glued to the end of a host attaches to it.
+        // C2-I-036: a valid attribute block glued to the end of a host attaches to it; behind another node, as a
+        // non-breaking space, the read-back decides.
         if ($at > 0 && $flat[$at - 1] === "\0" && !isset(self::NO_HOSTS[$c->flatTypes[$at - 1] ?? ''])) {
             if (AttributeParser::readRun($flat, $at, strlen($flat), new Attrs()) >= 0) {
-                return true;
+                return isset(self::HOSTS[$c->flatTypes[$at - 1] ?? '']) || self::undecided();
             }
         }
         if (self::braceTakesNode($flat, $at, $c)) {
@@ -1661,7 +1727,7 @@ final class Text
         return match ($value[$i]) {
             '@', '#' => !self::isLetterOrNumber($prev) && self::sigilName($value, $i, $c, $next),
             ':' => !self::isLetterOrNumber($prev) && self::colonOpens($value, $i, $c, $next),
-            '<' => $after === 0x2F || $after === 0x2D || $after === 0x3D || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after))),
+            '<' => self::angle($value, $i, $after, $next, $c),
             '>', '!' => $after === 0x3D,
             '=' => self::ahead($value, $i + 1, 2, $c, $next) === '=>',
             '+' => $after === 0x2D,
@@ -1670,6 +1736,98 @@ final class Text
             '%' => $after === 0x25 && ($prev === -1 || $prev === 10 || Chars::isSpace($prev) || ($i === 0 && $c->lineStart)),
             default => false,
         };
+    }
+
+    /**
+     * C2-W-095: `<=`, and `<--` or `<-->` but not a longer hyphen run (C2-I-115), or the `<` opens an atom.
+     *
+     * @param string $value
+     * @param int $i
+     * @param int $after
+     * @param int $next
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function angle(string $value, int $i, int $after, int $next, Context $c): bool
+    {
+        if ($after === 0x3D) {
+            return true;
+        }
+        if ($after === 0x2D) {
+            return preg_match('/^<--(?!-)/', self::ahead($value, $i, 4, $c, $next)) === 1;
+        }
+
+        return ($after === 0x2F || ($after >= 0 && $after < 0x80 && ctype_alnum(chr($after)))) && self::angleOpens($value, $i, $next, $c);
+    }
+
+    /**
+     * C2-I-073, C2-I-096, C2-I-122 to C2-I-124: the `<` opens an autolink or a cross-reference. A body that runs to the
+     * end of the text may go on behind it, so that `<` keeps the backslash unless nothing follows.
+     *
+     * @param string $value
+     * @param int $i
+     * @param int $next The character after the text.
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function angleOpens(string $value, int $i, int $next, Context $c): bool
+    {
+        $rest = substr($value, $i + 1);
+        $xref = str_starts_with($rest, '/#');
+        $length = strcspn($rest, $xref ? "> \n" : "> \t\n<");
+        if ($length >= strlen($rest)) {
+            $atEnd = $c->here >= 0 && $c->here + strlen($value) >= strlen((string)$c->flat);
+            if ($atEnd && !$c->inBracket) {
+                return false;
+            }
+            // The leaf of a bracket ends at its `]`, which a URL body can run through.
+            $following = $atEnd ? ']' : self::ahead($value, strlen($value), 1, $c, $next);
+            if ($following !== '>') {
+                return $following === '' || self::bodyStarts($rest . $following);
+            }
+        } elseif ($rest[$length] !== '>') {
+            return false;
+        }
+        $body = substr($rest, 0, $length);
+        if ($xref) {
+            return strlen($body) > 2;
+        }
+
+        return Scanner::isUrl($body) || Scanner::isEmail($body);
+    }
+
+    /**
+     * Whether `$head` can start the body of an autolink or a cross-reference.
+     *
+     * @param string $head
+     *
+     * @return bool
+     */
+    private static function bodyStarts(string $head): bool
+    {
+        $n = strlen($head);
+        if ($head[0] === '/') {
+            return $n === 1 || $head[1] === '#';
+        }
+        $local = strspn($head, Tables::AUTOLINK_EMAIL_CHARS);
+        if ($local === $n || ($head[$local] === '@' && strspn($head, Tables::AUTOLINK_EMAIL_CHARS, $local + 1) === $n - $local - 1)) {
+            return true;
+        }
+        if (strspn($head[0], Tables::AUTOLINK_SCHEME_FIRST) === 0) {
+            return false;
+        }
+        $colon = 1 + strspn($head, Tables::AUTOLINK_SCHEME_REST, 1);
+        if ($colon === $n) {
+            return true;
+        }
+        if ($head[$colon] !== ':') {
+            return false;
+        }
+        $end = $colon + 1 + strspn($head, Tables::AUTOLINK_URL_CHARS, $colon + 1);
+
+        return $end === $n || ord($head[$end]) >= 0x80;
     }
 
     /**
@@ -1887,6 +2045,10 @@ final class Text
         $glued = $end === $n - 1 && $next === 0x2D && !$c->hyphenAfter;
         if ($end === $start && $offset === 0 && !$glued) {
             return false;
+        }
+        // A run glued to the hyphen of the parent's mark, `{-` or `-}`, may not join it; the read-back decides.
+        if (($start === 0 && $c->hyphensBefore === 0 && $c->last === 0x2D) || ($glued && $c->lastInContent)) {
+            return self::undecided();
         }
 
         return $offset % 2 === 1 || ($glued && $i === $end);
@@ -2375,24 +2537,113 @@ final class Text
     private static function nodeOnLine(int $i, Context $c): ?string
     {
         $node = $c->flatNodes[$i] ?? null;
-        $type = $c->flatTypes[$i] ?? '';
-        if ($node === null || isset($node['attrs'])) {
+        if ($node === null) {
             return null;
         }
+        $spelled = self::nodeSpelling($node, $c->flatTypes[$i] ?? '', $c->flatFirst[$i] ?? -1);
+
+        // The brace block follows the node's spelling on its line.
+        return $spelled === null || !isset($node['attrs']) ? $spelled : $spelled . BraceBlock::of($node);
+    }
+
+    /**
+     * The spelling of a node on its line without its brace block, as `nodeOnLine()` reads it.
+     *
+     * @param array<mixed> $node
+     * @param string $type
+     * @param int $first
+     *
+     * @return string|null
+     */
+    private static function nodeSpelling(array $node, string $type, int $first): ?string
+    {
         if (in_array($type, self::TICK_ATOMS, true)) {
             return self::verbatimSpelling($node, $type);
         }
-        $first = $c->flatFirst[$i] ?? -1;
         if ($first <= 0 || $first >= 0x80) {
             return null;
         }
         if (Inline::spanMark($type) !== null) {
-            $inner = self::spanText($node);
-
-            return $inner === null ? null : chr($first) . $inner . 'x';
+            $inner = self::spanText(array_diff_key($node, ['attrs' => true]));
+            if ($inner !== null) {
+                return chr($first) . $inner . 'x';
+            }
+        }
+        // A backtick the node spells before any break stands on the line, which is all a backtick fence asks; a code
+        // span inside spells its own.
+        $tick = self::tickOnLine($node);
+        if ($tick !== null) {
+            return chr($first) . ($tick ? 'x`' : 'x');
         }
 
         return str_contains(Inline::strings($node), '`') ? null : chr($first) . 'x';
+    }
+
+    /**
+     * Whether the node spells a backtick on its first line: in a text, a verbatim node, an alt, the key of a
+     * reference, the destination of an inline link or an attribute value. Null where a break comes first.
+     *
+     * @param array<mixed> $node
+     *
+     * @return bool|null
+     */
+    private static function tickOnLine(array $node): ?bool
+    {
+        $type = $node['type'] ?? '';
+        if ($type === 'soft_break' || $type === 'hard_break') {
+            return null;
+        }
+        if (in_array($type, self::TICK_ATOMS, true)) {
+            return true;
+        }
+        $found = self::tickInFields($node);
+        if ($found !== false) {
+            return $found;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            $found = is_array($child) ? self::tickOnLine($child) : false;
+            if ($found !== false) {
+                return $found;
+            }
+        }
+
+        return str_contains(Inline::strings(is_array($node['attrs'] ?? null) ? $node['attrs'] : []), '`') ? true : false;
+    }
+
+    /**
+     * The `tickOnLine()` of the string fields a node spells before its content ends.
+     *
+     * @param array<mixed> $node
+     *
+     * @return bool|null
+     */
+    private static function tickInFields(array $node): ?bool
+    {
+        $target = isset($node['refForm']) ? $node['key'] ?? null : $node['href'] ?? null;
+        foreach ([$node['value'] ?? null, $node['alt'] ?? null, $target] as $field) {
+            $found = is_string($field) ? self::tickBeforeBreak($field) : false;
+            if ($found !== false) {
+                return $found;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $value
+     *
+     * @return bool|null Whether a backtick comes before the first line feed; null where the line feed comes first.
+     */
+    private static function tickBeforeBreak(string $value): ?bool
+    {
+        $tick = strpos($value, '`');
+        if ($tick === false) {
+            return false;
+        }
+        $break = strpos($value, "\n");
+
+        return $break !== false && $break < $tick ? null : true;
     }
 
     /**

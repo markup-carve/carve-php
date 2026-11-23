@@ -104,7 +104,8 @@ final class ReadbackRound
         if (in_array($type, ['text', 'paragraph', 'cell_paragraph'], true)) {
             return false;
         }
-        $owner = RepairTrace::owner($text, $start);
+        // C2-W-125 case five: an inline footnote is kept from forming by its bracket, not its caret.
+        $owner = RepairTrace::owner($text, $type === 'inline_footnote' ? $start + 1 : $start);
         if ($owner !== null) {
             [$path, $offset] = $owner;
             $openers[$path][$offset] = true;

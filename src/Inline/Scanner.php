@@ -259,6 +259,52 @@ final class Scanner
     public array $formed = [];
 
     /**
+     * C2-I-089: the close of each bracket that follows a caret, by the offset of the bracket; filled for the
+     * notes this scan formed and, inside a note, for the ordinary brackets of its caret pairs.
+     *
+     * @var array<int, int>
+     */
+    public array $caretCloses = [];
+
+    /**
+     * C2-I-089: whether an `^[` read outside every note was still open at the end of the scan.
+     */
+    public bool $noteUnclosed = false;
+
+    /**
+     * C2-I-089: every caret pair opens, at any depth; the scan that finds where a note would close.
+     */
+    private bool $caretsOpen = false;
+
+    /**
+     * C2-I-118 does not apply: a scan that only finds where brackets close, whose frames the final scan may not open.
+     */
+    private bool $uncapped = false;
+
+    /**
+     * Whether an opener was refused at the depth cap (C2-I-118).
+     */
+    public bool $capHit = false;
+
+    /**
+     * The inline footnotes open on the bracket stack.
+     */
+    private int $notesOpen = 0;
+
+    /**
+     * C2-I-089: per `^[` outside every note, by the offset of its bracket: the close with its caret pairs
+     * ordinary, and the close with every caret pair open. Null on the first scan.
+     *
+     * @var array{0: array<int, int>, 1: array<int, int>}|null
+     */
+    private ?array $notePlan = null;
+
+    /**
+     * C2-I-089: up to this offset the caret pairs are ordinary brackets (the tie-break).
+     */
+    private int $ordinaryUntil = -1;
+
+    /**
      * @param \MarkupCarve\Carve\Inline\Content $c
      * @param \MarkupCarve\Carve\Inline\InlineContext $ctx
      * @param int $depth Inline depth at the start of the content (C2-I-118).
@@ -282,6 +328,46 @@ final class Scanner
         $this->hardBreaks = ($mode & self::HARD_BREAKS) !== 0;
         $this->caption = ($mode & self::CAPTION) !== 0;
         $this->cell = ($mode & self::CELL) !== 0;
+    }
+
+    /**
+     * C2-I-089: a scanner that opens every caret pair, at any depth.
+     *
+     * @return $this
+     */
+    public function withCaretsOpen()
+    {
+        $this->caretsOpen = true;
+        $this->uncapped = true;
+
+        return $this;
+    }
+
+    /**
+     * A scanner whose bracket closes no depth cap cuts short (C2-I-118).
+     *
+     * @return $this
+     */
+    public function withUncapped()
+    {
+        $this->uncapped = true;
+
+        return $this;
+    }
+
+    /**
+     * C2-I-089: a scanner that reads each `^[` outside every note by the closes of the two earlier scans.
+     *
+     * @param array<int, int> $noteCloses
+     * @param array<int, int> $openCloses
+     *
+     * @return $this
+     */
+    public function withNotePlan(array $noteCloses, array $openCloses)
+    {
+        $this->notePlan = [$noteCloses, $openCloses];
+
+        return $this;
     }
 
     /**
@@ -317,7 +403,9 @@ final class Scanner
             $i = $next < 0 ? $i + 1 : $next;
         }
         $this->flush($n);
+        $this->noteUnclosed = $this->notePlan === null && !$this->caretsOpen && $this->notesOpen > 0;
         $this->frames = [];
+        $this->notesOpen = 0;
         $tokens = $this->tok;
         // The caller consumes the list; the scanner keeps no second reference to it.
         $this->tok = [];
@@ -342,8 +430,7 @@ final class Scanner
             '}' => $this->closingBrace($i),
             '[' => $this->openBracket($i),
             ']' => $this->closeBracket($i),
-            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' && !$this->insideFootnote()
-                ? $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '') : -1,
+            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' && !$this->caretsOrdinary($i) ? $this->noteOpener($i) : -1,
             '*', '/' => $this->bare($i),
             "\n" => $this->lineBreak($i, $i, $this->hardBreaks ? 'hard_break' : 'soft_break'),
             default => $this->sigilChar($i),
@@ -1380,8 +1467,13 @@ final class Scanner
     private function pushFrame(int $kind, int $ts, int $cs, string $name): int
     {
         // C2-I-118: an opener at the cap is text.
-        if ($this->depth + count($this->frames) + count($this->capDelims) >= Tables::INLINE_DEPTH) {
+        if (!$this->uncapped && $this->depth + count($this->frames) + count($this->capDelims) >= Tables::INLINE_DEPTH) {
+            $this->capHit = true;
+
             return -1;
+        }
+        if ($kind === self::F_FOOTNOTE) {
+            $this->notesOpen++;
         }
         $this->flush($ts);
         $this->frames[] = [$kind, count($this->tok), $ts, $cs, $name, $this->capDelims, $this->capPoison];
@@ -1417,7 +1509,7 @@ final class Scanner
      */
     private function openBracket(int $i): int
     {
-        if ($this->insideFootnote()) {
+        if ($this->caretsOrdinary($i)) {
             return $this->pushFrame(self::F_BRACKET, $i, $i + 1, '');
         }
         if ($i + 1 < $this->n && $this->t[$i + 1] === '^') {
@@ -1439,15 +1531,40 @@ final class Scanner
         return $this->pushFrame(self::F_BRACKET, $i, $i + 1, '');
     }
 
+    /**
+     * C2-I-089: an `^[` outside every note. Without its note reading's close it is text, and only those two
+     * characters; when it would close only because a caret pair inside it opens, the caret pairs up to that close
+     * are ordinary brackets.
+     *
+     * @param int $i
+     *
+     * @return int
+     */
+    private function noteOpener(int $i): int
+    {
+        if ($this->notePlan === null || isset($this->notePlan[0][$i + 1])) {
+            return $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '');
+        }
+        $this->ordinaryUntil = $this->notePlan[1][$i + 1] ?? -1;
+
+        return $i + 2;
+    }
+
+    /**
+     * C2-I-089: whether a caret pair at `$i` opens nothing.
+     *
+     * @param int $i
+     *
+     * @return bool
+     */
+    private function caretsOrdinary(int $i): bool
+    {
+        return $i <= $this->ordinaryUntil || (!$this->caretsOpen && $this->insideFootnote());
+    }
+
     private function insideFootnote(): bool
     {
-        foreach ($this->frames as $frame) {
-            if ($frame[0] === self::F_FOOTNOTE) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->notesOpen > 0;
     }
 
     /**
@@ -1507,6 +1624,12 @@ final class Scanner
             return -1;
         }
         $frame = array_pop($this->frames);
+        if ($frame[0] === self::F_FOOTNOTE) {
+            $this->notesOpen--;
+        }
+        if ($frame[0] === self::F_FOOTNOTE || ($frame[0] === self::F_BRACKET && $frame[2] > 0 && $this->t[$frame[2] - 1] === '^')) {
+            $this->caretCloses[$frame[3] - 1] = $i;
+        }
         $lastBrace = count($this->openBraces) - 1;
         while ($lastBrace >= 0 && $this->openBraces[$lastBrace][1] > $frame[2]) {
             array_pop($this->openBraces);
