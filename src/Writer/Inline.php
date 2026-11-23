@@ -1773,7 +1773,13 @@ final class Inline
      */
     private function inside(array $children, string $path, Context $c, bool $notes = true): string
     {
+        // The copy must not share the leaf's run log: the content below appends to it, and a shared log is copied in
+        // full on each append, once per bracketed node of the leaf.
+        $log = $c->runLog;
+        $c->runLog = [];
         $outer = clone $c;
+        $c->runLog = $log;
+        unset($log);
         $bracket = $c->inBracket;
         $marks = $c->marks;
         $pairs = $c->bracketPairs;
