@@ -151,7 +151,7 @@ final class Blocks
         $list = null;
         $count = count($nodes);
         $followingAt = 0;
-        $reach = $this->blocksAbove($nodes);
+        $reach = [null, 0];
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -172,7 +172,8 @@ final class Blocks
             $losses = count($this->w->losses);
             try {
                 $followingAt = self::followingAfter($nodes, $at, $followingAt);
-                $this->reaching = self::nodeAt($nodes, $reach[$at]);
+                $reach = $this->reachTo($nodes, $at, $reach);
+                $this->reaching = self::nodeAt($nodes, $reach[0]);
                 $this->beforeSibling($nodes, $at, $followingAt, $before, $list, $path, $prefix, $layout);
                 $next = $nodes[$at + 1] ?? null;
                 $this->markFenceBeforeComment($node, $path . '/' . $at, is_array($next) ? $next : null);
@@ -314,11 +315,30 @@ final class Blocks
     private function blocksAbove(array $nodes): array
     {
         $above = [];
-        $last = null;
+        $reach = [null, 0];
         $count = count($nodes);
         for ($index = 0; $index < $count; $index++) {
+            $reach = $this->reachTo($nodes, $index, $reach);
+            $above[$index] = $reach[0];
+        }
+
+        return $above;
+    }
+
+    /**
+     * Moves the walk of `blocksAbove` on to the block at `at`: the block reaching it and the next index to read.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param array{0: int|null, 1: int} $reach
+     *
+     * @return array{0: int|null, 1: int}
+     */
+    private function reachTo(array $nodes, int $at, array $reach): array
+    {
+        [$last, $index] = $reach;
+        for (; $index < $at; $index++) {
             $node = $nodes[$index] ?? null;
-            $above[$index] = $last;
             if (!is_array($node)) {
                 continue;
             }
@@ -335,7 +355,7 @@ final class Blocks
             }
         }
 
-        return $above;
+        return [$last, $index];
     }
 
     /**
