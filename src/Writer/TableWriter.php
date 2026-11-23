@@ -601,6 +601,7 @@ final class TableWriter
         if ($visibleContent === '^' || $visibleContent === '<') {
             $content = '\\' . $content;
         }
+        $this->loseLeadingBlank($visibleContent, $blocks, $path);
 
         $first = is_array($blocks[0] ?? null) ? $blocks[0] : [];
         $inlines = is_array($first['children'] ?? null) ? $first['children'] : [];
@@ -608,6 +609,36 @@ final class TableWriter
         $terminalHardBreak = is_array($last) && ($last['type'] ?? '') === 'hard_break';
 
         return [$prefix, $this->fragments($content, $lines, $path, $terminalHardBreak)];
+    }
+
+    /**
+     * C2-B-171, C2-W-117: the padding of a pipe cell is trimmed, so a space or a tab that starts its content is lost
+     * by the text that holds it.
+     *
+     * @param string $content
+     * @param array<mixed> $blocks
+     * @param string $path
+     *
+     * @return void
+     */
+    private function loseLeadingBlank(string $content, array $blocks, string $path): void
+    {
+        if ($content === '' || ($content[0] !== ' ' && $content[0] !== "\t")) {
+            return;
+        }
+        $first = is_array($blocks[0] ?? null) ? $blocks[0] : [];
+        $inlines = is_array($first['children'] ?? null) ? $first['children'] : [];
+        foreach ($inlines as $at => $inline) {
+            if (!is_array($inline) || ($inline['type'] ?? '') !== 'text') {
+                break;
+            }
+            if (Inline::str($inline, 'value') !== '') {
+                $this->w->lose($path . '/children/0/children/' . $at, 'text', 'value');
+
+                return;
+            }
+        }
+        $this->w->lose($path, 'table_cell', 'children');
     }
 
     /**
