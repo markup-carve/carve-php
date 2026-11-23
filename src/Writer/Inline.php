@@ -1507,6 +1507,10 @@ final class Inline
         }
         $c->last = Chars::before($out, strlen($out));
         $c->lineStart = $c->blockLines && $out[strlen($out) - 1] === "\n";
+        if ($c->lineStart) {
+            $c->prevOpenedLine = $c->openedLine;
+            $c->openedLine = null;
+        }
     }
 
     /**
