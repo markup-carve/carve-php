@@ -290,17 +290,22 @@ final class MarkdownHtml
 
     /**
      * YAML (`---`) or TOML (`+++`) frontmatter as `micromark-extension-frontmatter` reads it: fenced at the very start.
-     * Its text is not HTML; the hub adds it to the tree after the import.
+     * Its text is not HTML; the hub adds it to the tree after the import. micromark drops a leading U+FEFF before the
+     * fence is matched (carve#6447).
      */
     private static function frontmatter(string $input, Sink $sink): string
     {
+        $source = $input;
+        if (str_starts_with($input, "\u{FEFF}")) {
+            $input = substr($input, 3);
+        }
         if (preg_match('/\A(---|\+\+\+)[ \t]*(?:\r\n|\r|\n)/', $input, $open) !== 1) {
-            return $input;
+            return $source;
         }
         $fence = preg_quote($open[1], '/');
         $start = strlen($open[0]);
         if (preg_match('/(?:\A|\r\n|\r|\n)' . $fence . '[ \t]*(?:\r\n|\r|\n|\z)/', $input, $close, PREG_OFFSET_CAPTURE, $start - 1) !== 1) {
-            return $input;
+            return $source;
         }
         $at = (int)$close[0][1];
         $lines = $at < $start ? [] : (preg_split('/\r\n|\r|\n/', substr($input, $start, $at - $start)) ?: []);
