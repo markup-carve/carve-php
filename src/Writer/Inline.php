@@ -245,7 +245,10 @@ final class Inline
             $c->writerState = $first->writerState;
         }
         // C2-W-088: a leaf whose kind rounds would read back as other inline content keeps the reported escapes only.
-        if ($afterReported !== null && $out !== $reported && !$this->sameInlines($reported, $out, $c)) {
+        if (
+            $afterReported !== null && $out !== $reported && !$this->sameInlines($reported, $out, $c)
+            && $this->inlineShape($out, $c) !== self::treeShape($nodes)
+        ) {
             foreach (get_object_vars($afterReported) as $name => $field) {
                 $c->{$name} = $field;
             }
@@ -343,12 +346,39 @@ final class Inline
      */
     private function sameInlines(string $a, string $b, Context $c): bool
     {
+        return $this->inlineShape($a, $c) === $this->inlineShape($b, $c);
+    }
+
+    private function inlineShape(string $text, Context $c): string
+    {
         $context = new InlineContext();
         $context->linkKeys = $c->labels;
         $mode = $c->inCell ? Scanner::CELL : 0;
 
-        return self::shape(InlineRunner::parse($a, self::lineSpans($a), $context, 0, $mode))
-        === self::shape(InlineRunner::parse($b, self::lineSpans($b), $context, 0, $mode));
+        return self::shape(InlineRunner::parse($text, self::lineSpans($text), $context, 0, $mode));
+    }
+
+    /**
+     * The shape of the tree's own inline nodes, spelled as `shape()` spells parsed ones.
+     *
+     * @param array<mixed> $nodes
+     */
+    private static function treeShape(array $nodes): string
+    {
+        $out = '';
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                return '';
+            }
+            $fields = $node;
+            unset($fields['type'], $fields['children'], $fields['pos']);
+            ksort($fields);
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            $out .= '(' . self::str($node, 'type') . (string)json_encode($fields, JSON_PARTIAL_OUTPUT_ON_ERROR)
+                . self::treeShape($children) . ')';
+        }
+
+        return $out;
     }
 
     /**
