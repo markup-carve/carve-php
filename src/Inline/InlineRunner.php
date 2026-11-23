@@ -297,6 +297,22 @@ final class InlineRunner
     {
         $scanner = new Scanner($content, $ctx, $depth, $mode);
         $tokens = $scanner->scan();
+        $plan = null;
+        if ($scanner->noteUnclosed) {
+            // C2-I-089: behind the first `^[` left open the scan read every caret pair as ordinary, so it holds the
+            // note-reading close of each `^[` there; one scan with every caret pair open adds where each would close.
+            $notes = $scanner;
+            if ($scanner->capHit) {
+                // Behind an unclosed `^[` the cap counted frames the final scan does not open.
+                $notes = (new Scanner($content, $ctx, $depth, $mode))->withUncapped();
+                $notes->scan();
+            }
+            $open = (new Scanner($content, $ctx, $depth, $mode))->withCaretsOpen();
+            $open->scan();
+            $plan = [$notes->caretCloses, $open->caretCloses];
+            $scanner = (new Scanner($content, $ctx, $depth, $mode))->withNotePlan(...$plan);
+            $tokens = $scanner->scan();
+        }
         if (!$scanner->percentInImage || !$scanner->percentOutsideFormed()) {
             return [$scanner, $tokens];
         }
@@ -308,6 +324,9 @@ final class InlineRunner
             }
             $formed = $next;
             $scanner = new Scanner($content, $ctx, $depth, $mode, $formed);
+            if ($plan !== null) {
+                $scanner->withNotePlan(...$plan);
+            }
             $tokens = $scanner->scan();
         }
 
