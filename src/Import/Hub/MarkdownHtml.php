@@ -38,6 +38,7 @@ final class MarkdownHtml
     public static function html(string $input, bool $gfm, Sink $sink): string
     {
         $input = self::frontmatter($input, $sink);
+        $input = self::protectDefinitionFollowers($input);
         $maxNesting = Tables::BLOCK_DEPTH + self::UNCOUNTED_LEVELS;
         $environment = new Environment([
             // league/commonmark opens a run of containers on one line in quadratic time (8,000 `> - ` took 5 s). A tree
@@ -78,6 +79,213 @@ final class MarkdownHtml
         $environment->addRenderer(DirectiveLabel::class, $directives);
 
         return (string)(new MarkdownConverter($environment))->convert($input);
+    }
+
+    /**
+     * CommonMark keeps a non-one ordered marker in a paragraph directly after a link definition.
+     */
+    private static function protectDefinitionFollowers(string $input): string
+    {
+        $lastDefinition = strrpos($input, ']:');
+        if ($lastDefinition === false) {
+            return $input;
+        }
+
+        $scanEnd = self::definitionScanEnd($input, $lastDefinition);
+        $lines = preg_split('/(?<=\n)|(?<=\r)(?!\n)/', substr($input, 0, $scanEnd)) ?: [];
+        $fence = null;
+        $rawEnd = null;
+        $ownerQuoteDepth = 0;
+        $ownerListIndent = 0;
+        foreach ($lines as $i => $line) {
+            $body = rtrim($line, "\r\n");
+            $quotePrefix = preg_match('/\A((?: {0,3}> ?)+)/', $body, $quote) === 1 ? $quote[1] : '';
+            $visible = substr($body, strlen($quotePrefix));
+            $quoteDepth = substr_count($quotePrefix, '>');
+            if (self::leftContainer($fence, $rawEnd, $quoteDepth, strspn($visible, ' '), $ownerQuoteDepth, $ownerListIndent)) {
+                $fence = null;
+                $rawEnd = null;
+            }
+            [$blockVisible, $listIndent] = self::blockContent($visible);
+            if ($fence === null && self::inRawBlock($blockVisible, $rawEnd)) {
+                if ($rawEnd !== null) {
+                    $ownerQuoteDepth = $quoteDepth;
+                    $ownerListIndent = max($ownerListIndent, $listIndent);
+                }
+
+                continue;
+            }
+            if (self::inFence($blockVisible, $fence, $ownerQuoteDepth, $ownerListIndent, $quoteDepth, $listIndent)) {
+                continue;
+            }
+            if ($fence !== null || !isset($lines[$i + 1]) || !str_contains($body, ']:')) {
+                continue;
+            }
+            if (preg_match('/\A((?: {0,3}> ?)*)( {0,3})([-+*] |[0-9]{1,9}[.)] )?\[[^\]\r\n]+\]:[^\r\n]*\z/', $body, $definition) !== 1) {
+                continue;
+            }
+            if (preg_match('/\A((?: {0,3}> ?)*)( *)([0-9]{1,9})([.)])(?=[ \t])/', $lines[$i + 1], $marker, PREG_OFFSET_CAPTURE) !== 1) {
+                continue;
+            }
+            $quote = $definition[1];
+            $indent = $definition[2];
+            $list = $definition[3] ?? '';
+            $spaces = strlen($marker[2][0]);
+            if (!self::protectsMarker($quote, $indent, $list, $marker[1][0], $spaces, (int)$marker[3][0])) {
+                continue;
+            }
+            $at = $marker[4][1];
+            $lines[$i + 1] = substr_replace($lines[$i + 1], '\\', $at, 0);
+        }
+
+        return implode('', $lines) . substr($input, $scanEnd);
+    }
+
+    private static function definitionScanEnd(string $input, int $lastDefinition): int
+    {
+        if (preg_match('/\r\n|\r|\n/', $input, $break, PREG_OFFSET_CAPTURE, $lastDefinition) !== 1) {
+            return strlen($input);
+        }
+        $next = $break[0][1] + strlen($break[0][0]);
+        if (preg_match('/\G(?: {0,3}> ?)* *[0-9]{1,9}[.)](?=[ \t])/', $input, $marker, 0, $next) !== 1) {
+            return $next;
+        }
+
+        return $next + strlen($marker[0]) + 1;
+    }
+
+    private static function rawBlockEnd(string $line): ?string
+    {
+        $head = ltrim($line, ' ');
+        $head = preg_replace('/\A(?:[-+*] |[0-9]{1,9}[.)] )/', '', $head) ?? $head;
+        if (!str_starts_with($head, '<')) {
+            return null;
+        }
+        if (str_starts_with($head, '<!--')) {
+            return '-->';
+        }
+        if (str_starts_with($head, '<![CDATA[')) {
+            return ']]>';
+        }
+        if (str_starts_with($head, '<?')) {
+            return '?>';
+        }
+        if (preg_match('/\A<(script|pre|style|textarea)(?:\s|>)/i', $head, $tag) === 1) {
+            return '</' . strtolower($tag[1]) . '>';
+        }
+
+        return 'blank';
+    }
+
+    /**
+     * @return array{0: string, 1: int}
+     */
+    private static function blockContent(string $line): array
+    {
+        if (preg_match('/\A( {0,3}(?:[-+*] |[0-9]{1,9}[.)] ))/', $line, $marker) !== 1) {
+            return [$line, 0];
+        }
+
+        return [substr($line, strlen($marker[1])), strlen($marker[1])];
+    }
+
+    /**
+     * @param array{0: string, 1: int}|null $fence
+     * @param string|null $rawEnd
+     * @param int $depth
+     * @param int $indent
+     * @param int $ownerDepth
+     * @param int $ownerIndent
+     */
+    private static function leftContainer(
+        ?array $fence,
+        ?string $rawEnd,
+        int $depth,
+        int $indent,
+        int $ownerDepth,
+        int $ownerIndent,
+    ): bool {
+        return ($fence !== null || $rawEnd !== null)
+            && ($depth < $ownerDepth || ($ownerIndent > 0 && $indent < $ownerIndent));
+    }
+
+    private static function inRawBlock(string $line, ?string &$end): bool
+    {
+        if ($end === null) {
+            $end = self::rawBlockEnd($line);
+        }
+        if ($end === null) {
+            return false;
+        }
+        if (self::endsRawBlock($line, $end)) {
+            $end = null;
+        }
+
+        return true;
+    }
+
+    private static function endsRawBlock(string $line, string $end): bool
+    {
+        return $end === 'blank' ? trim($line) === '' : stripos($line, $end) !== false;
+    }
+
+    /**
+     * @param string $line
+     * @param array{0: string, 1: int}|null $fence
+     * @param int $ownerQuoteDepth
+     * @param int $ownerListIndent
+     * @param int $quoteDepth
+     * @param int $listIndent
+     */
+    private static function inFence(
+        string $line,
+        ?array &$fence,
+        int &$ownerQuoteDepth,
+        int &$ownerListIndent,
+        int $quoteDepth,
+        int $listIndent,
+    ): bool {
+        $run = self::fenceRun($line);
+        if ($run === null) {
+            return false;
+        }
+        if ($fence === null) {
+            $fence = [$run[1][0], strlen($run[1])];
+            $ownerQuoteDepth = $quoteDepth;
+            $ownerListIndent = $listIndent;
+        } elseif ($run[1][0] === $fence[0] && strlen($run[1]) >= $fence[1] && trim($run[2]) === '') {
+            $fence = null;
+        }
+
+        return true;
+    }
+
+    private static function protectsMarker(
+        string $quote,
+        string $indent,
+        string $list,
+        string $nextQuote,
+        int $spaces,
+        int $number,
+    ): bool {
+        return $quote === $nextQuote && $number !== 1
+            && ($list === '' ? $spaces <= 3 : $spaces >= strlen($indent . $list));
+    }
+
+    /**
+     * @return array<int, string>|null
+     */
+    private static function fenceRun(string $line): ?array
+    {
+        $head = ltrim($line, ' ');
+        if (!str_starts_with($head, '```') && !str_starts_with($head, '~~~')) {
+            return null;
+        }
+        if (preg_match('/^ {0,3}(`{3,}|~{3,})(.*)$/', $line, $run) !== 1) {
+            return null;
+        }
+
+        return $run;
     }
 
     /**
