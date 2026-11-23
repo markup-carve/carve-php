@@ -26,6 +26,9 @@ final class HubImporterTest extends TestCase
             "```=html\n<div>\n[a]: /x\n10) y\n</div>\n```\n",
             self::source("<div>\n[a]: /x\n10) y\n</div>\n", 'markdown'),
         );
+        $this->assertSame("> ```\n> code\n> ```\n\n2\\. y\n", self::source("> ```\n> code\n[a]: /x\n2. y\n", 'markdown'));
+        $this->assertSame("> ```=html\n> <div>\n> ```\n\n2\\. y\n", self::source("> <div>\n[a]: /x\n2. y\n", 'markdown'));
+        $this->assertSame("- ```\n  code\n  ```\n\n2\\. y\n", self::source("- ```\n  code\n[a]: /x\n2. y\n", 'markdown'));
     }
 
     private static function source(string $input, string $from): string

@@ -95,20 +95,27 @@ final class MarkdownHtml
         $lines = preg_split('/(?<=\n)|(?<=\r)(?!\n)/', substr($input, 0, $scanEnd)) ?: [];
         $fence = null;
         $rawEnd = null;
+        $ownerQuoteDepth = 0;
+        $ownerListIndent = 0;
         foreach ($lines as $i => $line) {
             $body = rtrim($line, "\r\n");
-            $visible = str_contains($body, '>') ? (preg_replace('/\A(?: {0,3}> ?)+/', '', $body) ?? $body) : $body;
-            if ($fence === null && self::inRawBlock($visible, $rawEnd)) {
-                continue;
+            $quotePrefix = preg_match('/\A((?: {0,3}> ?)+)/', $body, $quote) === 1 ? $quote[1] : '';
+            $visible = substr($body, strlen($quotePrefix));
+            $quoteDepth = substr_count($quotePrefix, '>');
+            if (self::leftContainer($fence, $rawEnd, $quoteDepth, strspn($visible, ' '), $ownerQuoteDepth, $ownerListIndent)) {
+                $fence = null;
+                $rawEnd = null;
             }
-            $run = self::fenceRun($visible);
-            if ($run !== null) {
-                if ($fence === null) {
-                    $fence = [$run[1][0], strlen($run[1])];
-                } elseif ($run[1][0] === $fence[0] && strlen($run[1]) >= $fence[1] && trim($run[2]) === '') {
-                    $fence = null;
+            [$blockVisible, $listIndent] = self::blockContent($visible);
+            if ($fence === null && self::inRawBlock($blockVisible, $rawEnd)) {
+                if ($rawEnd !== null) {
+                    $ownerQuoteDepth = $quoteDepth;
+                    $ownerListIndent = max($ownerListIndent, $listIndent);
                 }
 
+                continue;
+            }
+            if (self::inFence($blockVisible, $fence, $ownerQuoteDepth, $ownerListIndent, $quoteDepth, $listIndent)) {
                 continue;
             }
             if ($fence !== null || !isset($lines[$i + 1]) || !str_contains($body, ']:')) {
@@ -170,6 +177,38 @@ final class MarkdownHtml
         return 'blank';
     }
 
+    /**
+     * @return array{0: string, 1: int}
+     */
+    private static function blockContent(string $line): array
+    {
+        if (preg_match('/\A( {0,3}(?:[-+*] |[0-9]{1,9}[.)] ))/', $line, $marker) !== 1) {
+            return [$line, 0];
+        }
+
+        return [substr($line, strlen($marker[1])), strlen($marker[1])];
+    }
+
+    /**
+     * @param array{0: string, 1: int}|null $fence
+     * @param string|null $rawEnd
+     * @param int $depth
+     * @param int $indent
+     * @param int $ownerDepth
+     * @param int $ownerIndent
+     */
+    private static function leftContainer(
+        ?array $fence,
+        ?string $rawEnd,
+        int $depth,
+        int $indent,
+        int $ownerDepth,
+        int $ownerIndent,
+    ): bool {
+        return ($fence !== null || $rawEnd !== null)
+            && ($depth < $ownerDepth || ($ownerIndent > 0 && $indent < $ownerIndent));
+    }
+
     private static function inRawBlock(string $line, ?string &$end): bool
     {
         if ($end === null) {
@@ -188,6 +227,37 @@ final class MarkdownHtml
     private static function endsRawBlock(string $line, string $end): bool
     {
         return $end === 'blank' ? trim($line) === '' : stripos($line, $end) !== false;
+    }
+
+    /**
+     * @param string $line
+     * @param array{0: string, 1: int}|null $fence
+     * @param int $ownerQuoteDepth
+     * @param int $ownerListIndent
+     * @param int $quoteDepth
+     * @param int $listIndent
+     */
+    private static function inFence(
+        string $line,
+        ?array &$fence,
+        int &$ownerQuoteDepth,
+        int &$ownerListIndent,
+        int $quoteDepth,
+        int $listIndent,
+    ): bool {
+        $run = self::fenceRun($line);
+        if ($run === null) {
+            return false;
+        }
+        if ($fence === null) {
+            $fence = [$run[1][0], strlen($run[1])];
+            $ownerQuoteDepth = $quoteDepth;
+            $ownerListIndent = $listIndent;
+        } elseif ($run[1][0] === $fence[0] && strlen($run[1]) >= $fence[1] && trim($run[2]) === '') {
+            $fence = null;
+        }
+
+        return true;
     }
 
     private static function protectsMarker(
