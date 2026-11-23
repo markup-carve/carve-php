@@ -245,14 +245,14 @@ final class Inline
             $c->writerState = $first->writerState;
         }
         // C2-W-088: a leaf whose kind rounds would read back as other inline content keeps the reported escapes only.
-        if (
-            $afterReported !== null && $out !== $reported && !$this->sameInlines($reported, $out, $c)
-            && $this->inlineShape($out, $c) !== self::treeShape($nodes)
-        ) {
-            foreach (get_object_vars($afterReported) as $name => $field) {
-                $c->{$name} = $field;
+        if ($afterReported !== null && $out !== $reported) {
+            $outShape = $this->inlineShape($out, $c);
+            if ($outShape !== $this->inlineShape($reported, $c) && $outShape !== self::treeShape($nodes)) {
+                foreach (get_object_vars($afterReported) as $name => $field) {
+                    $c->{$name} = $field;
+                }
+                $out = $reported;
             }
-            $out = $reported;
         }
         // C2-W-088: where a node did not read back, the backtick kind rounds give way to the reported openers.
         if (count($this->w->losses) > $losses && Text::$tickKindRounds > $tickRounds) {
@@ -342,13 +342,8 @@ final class Inline
     }
 
     /**
-     * Whether two spellings of one leaf's content parse to the same inline nodes.
+     * The inline nodes one spelling of a leaf's content parses to.
      */
-    private function sameInlines(string $a, string $b, Context $c): bool
-    {
-        return $this->inlineShape($a, $c) === $this->inlineShape($b, $c);
-    }
-
     private function inlineShape(string $text, Context $c): string
     {
         $context = new InlineContext();
