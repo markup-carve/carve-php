@@ -144,6 +144,8 @@ final class FuzzProperties
         if (getenv('CARVE_FUZZ_TRACE')) {
             fwrite(STDERR, $property . "\n");
         }
+        // The chunks an earlier property left count against memory_limit; see the worker loop in scripts/fuzz.php.
+        gc_mem_caches();
         $start = self::cpuMs();
         try {
             $result = $call();
