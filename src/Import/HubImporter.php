@@ -40,6 +40,11 @@ final class HubImporter
     private const ALERT_KINDS = ['NOTE' => 'note', 'TIP' => 'tip', 'IMPORTANT' => 'info', 'WARNING' => 'warning', 'CAUTION' => 'danger'];
 
     /**
+     * @var array<string>
+     */
+    private const EMPTY_BODIES = ['list_item', 'definition_description'];
+
+    /**
      * @param string $input
      * @param string $format `markdown`, `gfm` or `djot`.
      * @param array<string, mixed> $options `strictLosses` (C2-M-082), `allowLosses` and `maxLosses` (C2-H-204, C2-H-205).
@@ -78,6 +83,7 @@ final class HubImporter
             finish: static function (array $children) use ($sink): array {
                 $lead = $sink->frontmatterFormat === null ? []
                     : [['type' => 'frontmatter', 'format' => $sink->frontmatterFormat, 'value' => $sink->frontmatter]];
+                $children = self::commentEmptyBodies($children);
 
                 return array_merge($lead, $sink->raw === [] ? $children : self::restoreRaw($children, $sink->raw));
             },
@@ -177,6 +183,31 @@ final class HubImporter
             $node->name = 'aside';
             $node->attrs['class'] = 'admonition ' . $kind;
         }
+    }
+
+    /**
+     * C2-A-186, C2-W-057: a parsed item or description is never empty; its empty spelling is a marker plus a comment.
+     * An item the library left empty (`-`, or one whose only content was dropped) takes that comment.
+     *
+     * @param array<mixed> $nodes
+     *
+     * @return array<mixed>
+     */
+    private static function commentEmptyBodies(array $nodes): array
+    {
+        foreach ($nodes as $i => $node) {
+            if (!is_array($node) || !is_array($node['children'] ?? null)) {
+                continue;
+            }
+            if ($node['children'] === [] && in_array($node['type'] ?? null, self::EMPTY_BODIES, true)) {
+                $node['children'] = [['type' => 'comment', 'form' => 'line', 'value' => '']];
+            } else {
+                $node['children'] = self::commentEmptyBodies($node['children']);
+            }
+            $nodes[$i] = $node;
+        }
+
+        return $nodes;
     }
 
     /**
