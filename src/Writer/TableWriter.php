@@ -857,13 +857,16 @@ final class TableWriter
     private static function allowsDelimited(array $node): bool
     {
         foreach (self::groups($node) as [$type, $rows]) {
-            foreach ($rows as $row) {
+            // C2-B-230: `body-header-rows` spells the leading header rows of a body.
+            $bodyHeaders = $type === 'table_body' ? self::leadingHeaderRows($rows) : 0;
+            foreach ($rows as $r => $row) {
                 if (isset($row['attrs'])) {
                     return false;
                 }
+                $wanted = $type === 'table_head' || $r < $bodyHeaders;
                 foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
                     $header = is_array($cell) && ($cell['header'] ?? false) === true;
-                    if (!is_array($cell) || self::plainCell($cell) === null || $header !== ($type === 'table_head')) {
+                    if (!is_array($cell) || self::plainCell($cell) === null || $header !== $wanted) {
                         return false;
                     }
                 }

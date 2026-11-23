@@ -25,6 +25,16 @@ final class DelimitedTableBodiesTest extends TestCase
             'three bodies' => ["{table body-rows=2,1,1}\n```csv\nh\na\nb\nc\nd\n```\n"],
             'tab separated' => ["{table body-rows=1,1}\n```tsv\nh\tk\na\t1\nb\t2\n```\n"],
             'with a footer' => ["{table body-rows=1,1 footer-rows=1}\n```csv\nh\na\nb\nf\n```\n"],
+            // carve#6424: a padded cell before a foot keeps the delimited form.
+            'padded cell before a footer' => ["{table footer-rows=1}\n```csv\nh\n a\nc\n```\n"],
+            // carve#6425: a lone empty record stays quoted when an empty body follows it.
+            'lone empty record before an empty body' => ["{table body-rows=0}\n```csv\n\"\"\n```\n"],
+            // C2-B-230: a body's leading header rows are spelled by body-header-rows, not by the pipe form.
+            'body header row' => ["{table body-rows=1 body-header-rows=1}\n```csv\nh\n b\nc\n```\n"],
+            'multiline body header row' => ["{table body-rows=1 body-header-rows=1}\n```tsv\n\"h\n\"\t x\nh\tc\n1\t  a  \n```\n"],
+            'header row in the second body' => [
+                "{table body-rows=0,1,0 body-header-rows=0,1,0}\n```csv\n,b , h\n,b,\nh, x,\"h\nb\"\n```\n",
+            ],
         ];
     }
 
