@@ -100,6 +100,14 @@ final class ExtensionFlagsTest extends TestCase
         self::assertSame("<pre class=\"mermaid\" role=\"img\" aria-label=\"mermaid\">graph TD</pre>\n", $stdout);
     }
 
+    public function testExportsParseWithTheExtensions(): void
+    {
+        $args = ['render', '--to', 'plain', '--extensions', '["carve.wiki"]', 'a.crv'];
+        [$status, $stdout] = self::runCommand($args, ":wiki[Page|Display]\n");
+        self::assertSame(0, $status);
+        self::assertSame("Display\n", $stdout);
+    }
+
     /**
      * @param array<string> $args
      * @param string $source The text of `a.crv`.

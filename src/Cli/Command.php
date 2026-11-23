@@ -722,7 +722,7 @@ HELP;
                 $input = ($parsed['values']['from-ast'] ?? false) ? self::decodedTree($source) : $source;
                 if ($to !== 'html') {
                     Options::from($options);
-                    $parseOptions = array_intersect_key($options, ['includes' => true]);
+                    $parseOptions = array_intersect_key($options, ['includes' => true, 'extensions' => true]);
                     $tree = is_string($input) ? Carve::parse($input, $parseOptions) : $input;
                     $exporter = match ($to) {
                         'markdown' => new MarkdownExporter(),
