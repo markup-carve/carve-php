@@ -66,11 +66,15 @@ final class TableWriter
             }
         }
         if ($delimited) {
-            array_unshift($keys, ['table', '']);
             $skip[] = 'table';
         }
 
-        return BraceBlock::of($node, ['keys' => $keys, 'skipKeys' => $skip]);
+        return BraceBlock::of($node, [
+            'preKeys' => $delimited ? [['table', '']] : [],
+            'keys' => $keys,
+            'keysAfterAttrs' => true,
+            'skipKeys' => $skip,
+        ]);
     }
 
     /**
@@ -93,6 +97,18 @@ final class TableWriter
         if ($widths !== '') {
             $keys[] = ['widths', $widths];
         }
+        $groups = self::groups($node);
+        $counts = self::rowCounts($groups);
+        if ($delimited) {
+            $head = $counts['table_head'];
+            $fact = $this->w->fact($path, 'headerRows');
+            if ($head !== min(1, array_sum($counts)) || ($fact === $head)) {
+                $keys[] = ['header-rows', (string)$head];
+            }
+        }
+        if (in_array('table_foot', array_column($groups, 0), true)) {
+            $keys[] = ['footer-rows', (string)$counts['table_foot']];
+        }
         $bodies = self::bodyFacts($node);
         $partitioned = $bodies !== [] && (
             count($bodies) > 1 || $bodies[0]['dataRows'] === 0 || $bodies[0]['headerRows'] > 0
@@ -110,18 +126,6 @@ final class TableWriter
                 );
                 $keys[] = ['body-header-cols', implode(',', $columns)];
             }
-        }
-        $groups = self::groups($node);
-        $counts = self::rowCounts($groups);
-        if ($delimited) {
-            $head = $counts['table_head'];
-            $fact = $this->w->fact($path, 'headerRows');
-            if ($head !== min(1, array_sum($counts)) || ($fact === $head)) {
-                $keys[] = ['header-rows', (string)$head];
-            }
-        }
-        if (in_array('table_foot', array_column($groups, 0), true)) {
-            $keys[] = ['footer-rows', (string)$counts['table_foot']];
         }
 
         return $keys;
