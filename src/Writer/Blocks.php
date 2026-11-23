@@ -54,6 +54,11 @@ final class Blocks
      */
     private const LIST_LIKE = ['list', 'list_item', 'block_quote', 'footnote', 'definition_list', 'definition_description'];
 
+    /**
+     * @var array<string, string>|null The lead decisions of one write call, which writes its tree many times.
+     */
+    private static ?array $leadMemo = null;
+
     private Inline $inline;
 
     /**
@@ -951,16 +956,46 @@ final class Blocks
             return $text;
         }
         $head ??= '';
+        $key = null;
+        if (self::$leadMemo !== null) {
+            $key = hash('xxh128', $head . "\0" . $text . "\0" . serialize($children));
+            if (isset(self::$leadMemo[$key])) {
+                return self::$leadMemo[$key];
+            }
+        }
         $first = is_array($children[0] ?? null) ? $children[0] : [];
         $referenceLead = in_array($first['type'] ?? '', ['footnote_ref', 'link'], true)
             && str_starts_with($text, '[') && str_contains($text, ']');
         $afterReference = $referenceLead ? (int)strpos($text, ']') + 1 : 0;
         $nested = $head === '' ? [] : self::containers($head . 'x');
-        if (self::readsAsParagraph($head . $text, $children, true, $nested)) {
-            return $text;
+        $lead = self::readsAsParagraph($head . $text, $children, true, $nested)
+            ? $text
+            : self::escapedLead($text, $children, $head, $referenceLead, $afterReference, $nested);
+        if ($key !== null) {
+            self::$leadMemo[$key] = $lead;
         }
 
-        return self::escapedLead($text, $children, $head, $referenceLead, $afterReference, $nested);
+        return $lead;
+    }
+
+    /**
+     * Runs one write call with the lead decisions shared by every write of its tree.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $write
+     *
+     * @return T
+     */
+    public static function withLeadMemo(Closure $write): mixed
+    {
+        $outer = self::$leadMemo;
+        self::$leadMemo ??= [];
+        try {
+            return $write();
+        } finally {
+            self::$leadMemo = $outer;
+        }
     }
 
     /**

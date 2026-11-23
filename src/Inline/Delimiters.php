@@ -79,7 +79,9 @@ final class Delimiters
             return $tokens;
         }
         $d = new self($sc, $depth, $frameBase);
-        foreach ($tokens as $tok) {
+        // Each token is released as it is read, so the tokens and the items are not both held whole.
+        $tokens = array_reverse($tokens);
+        while (($tok = array_pop($tokens)) !== null) {
             $d->token($tok);
         }
         foreach ($d->stack as $e) {
@@ -234,14 +236,14 @@ final class Delimiters
         if (!$this->sc->capTracking) {
             return $this->depth + $this->live;
         }
-        $frames = $tok['frames'] ?? 0;
+        $frames = $tok[Scanner::FRAMES] ?? 0;
         if (!is_int($frames)) {
             throw new LogicException('Invalid scanner frame count');
         }
 
         return max(
             $this->depth + $this->live + max(0, $frames - $this->frameBase),
-            is_int($tok['capDepth'] ?? null) ? $tok['capDepth'] : 0,
+            is_int($tok[Scanner::CAP_DEPTH] ?? null) ? $tok[Scanner::CAP_DEPTH] : 0,
         );
     }
 
@@ -278,7 +280,7 @@ final class Delimiters
         if ($tok[8] === 1) {
             $this->bare([
                 Scanner::DELIM, Scanner::BARE, $tok[2], $tok[2] + 1, $m, $tok[5], $tok[6], false, 0,
-                'frames' => $tok['frames'] ?? 0,
+                Scanner::FRAMES => $tok[Scanner::FRAMES] ?? 0,
             ]);
             $this->text($tok[3] - 1, $tok[3]);
 

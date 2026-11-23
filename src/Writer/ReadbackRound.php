@@ -14,9 +14,15 @@ use MarkupCarve\Carve\Json\TreeEquality;
 final class ReadbackRound
 {
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<string, mixed> $expected
      * @param array<string, mixed> $options
+     * @param string|null $expectedPrint `TreeEquality::fingerprint()` of `$expected`, for a caller that compares often.
      *
      * @return array{
      *     equal: bool,
@@ -25,14 +31,14 @@ final class ReadbackRound
      *     read: array<string, mixed>
      * }
      */
-    public static function inspect(array $candidate, array $expected, array $options = []): array
+    public static function inspect(array $candidate, array $expected, array $options = [], ?string $expectedPrint = null): array
     {
         $source = $candidate['source'];
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
-        $read = TreeEncoder::decodedWithPositions(Carve::parse($source, $parseOptions), $source);
+        $read = TreeEncoder::decodedWithOffsets(Carve::parse($source, $parseOptions), $source);
         $actual = [];
         $openers = [];
-        self::readNodes($read, $candidate['text'], $actual, $openers);
+        self::readNodes($read, $candidate, $actual, $openers);
         $moved = [];
         foreach ($candidate['nodes'] as [$path, $type, $start, $end]) {
             $readEnd = $actual[$type . "\0" . $start] ?? null;
@@ -42,7 +48,9 @@ final class ReadbackRound
         }
 
         return [
-            'equal' => TreeEquality::equal($expected, $read),
+            'equal' => $expectedPrint === null
+                ? TreeEquality::equal($expected, $read)
+                : TreeEquality::fingerprint($read) === $expectedPrint,
             'openers' => $openers,
             'moved' => $moved,
             'read' => $read,
@@ -51,7 +59,7 @@ final class ReadbackRound
 
     /**
      * @param array<string, mixed> $root
-     * @param array<int, array{string, int}> $text
+     * @param array{text: array<int, int>, paths: array<int, string>} $text
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
      */
@@ -80,23 +88,23 @@ final class ReadbackRound
 
     /**
      * @param array<mixed> $node
-     * @param array<int, array{string, int}> $text
+     * @param array{text: array<int, int>, paths: array<int, string>} $text
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
      */
     private static function noteNode(array $node, array $text, array &$actual, array &$openers): bool
     {
         $pos = $node['pos'] ?? null;
-        if (!is_array($pos) || !isset($pos['startOffset'], $pos['endOffset'])) {
+        if (!is_array($pos) || !isset($pos[0], $pos[1])) {
             return false;
         }
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        $start = (int)$pos['startOffset'];
-        $actual[$type . "\0" . $start] = (int)$pos['endOffset'];
+        $start = (int)$pos[0];
+        $actual[$type . "\0" . $start] = (int)$pos[1];
         if (in_array($type, ['text', 'paragraph', 'cell_paragraph'], true)) {
             return false;
         }
-        $owner = $text[$start] ?? null;
+        $owner = RepairTrace::owner($text, $start);
         if ($owner !== null) {
             [$path, $offset] = $owner;
             $openers[$path][$offset] = true;

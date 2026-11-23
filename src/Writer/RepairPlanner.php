@@ -61,6 +61,11 @@ final class RepairPlanner
     private int $limit;
 
     /**
+     * The fingerprint of the tree every round compares its read-back with.
+     */
+    private string $treePrint;
+
+    /**
      * The planner a content probe runs for: its character budget is the one charged.
      */
     private ?self $parent = null;
@@ -80,13 +85,24 @@ final class RepairPlanner
      * @param array<mixed> $tree
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $seed The escapes of the local write, which the rounds go on from.
      */
-    public function __construct(private array $tree, private ?array $layout, private array $options = [])
+    public function __construct(private array $tree, private ?array $layout, private array $options = [], array $seed = [])
     {
+        foreach ($seed as $path => $offsets) {
+            $value = self::leafValue($tree, $path);
+            foreach ($offsets as $at => $_) {
+                // A backslash before punctuation is doubled by the bare write itself.
+                if ($value !== null && !($value[$at] === '\\' && Text::isPunct($value[$at + 1] ?? ''))) {
+                    $this->escapes[$path][$at] = true;
+                }
+            }
+        }
         $encoded = json_encode($tree, JSON_INVALID_UTF8_SUBSTITUTE);
         $allowance = $encoded === false ? 0 : strlen($encoded) * 4;
         $this->limit = max(24_000_000, 1000 * $allowance);
         self::textOrder($tree, '', $this->textOrder);
+        $this->treePrint = TreeEquality::fingerprint($tree);
     }
 
     /**
@@ -106,13 +122,15 @@ final class RepairPlanner
                 return null;
             }
             $seen[$key] = true;
-            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options);
+            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options, $this->treePrint);
             if ($comparison['equal']) {
                 return $source;
             }
             if (!$this->applyRound($candidate, $comparison)) {
                 return null;
             }
+            // The next round's write and parse do not need this round's candidate and read-back.
+            unset($candidate, $comparison);
         }
 
         return null;
@@ -127,7 +145,12 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array{
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
@@ -368,7 +391,12 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<int, array{string, string, int, int, int}> $moved
      */
     private function probeMoved(array $candidate, array $moved): bool
@@ -429,7 +457,12 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<mixed> $actual
      * @param array<array{string, string}> $missing
      *
@@ -477,7 +510,12 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<mixed> $actual
      *
      * @return array<array{string, string}>
@@ -525,9 +563,9 @@ final class RepairPlanner
     {
         $pos = is_array($node['pos'] ?? null) ? $node['pos'] : null;
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        if ($pos !== null && isset($pos['startOffset'], $pos['endOffset'])) {
-            $start = (int)$pos['startOffset'];
-            $starts[$type . ':' . $start] = [(int)$pos['endOffset'], $parent];
+        if ($pos !== null && isset($pos[0], $pos[1])) {
+            $start = (int)$pos[0];
+            $starts[$type . ':' . $start] = [(int)$pos[1], $parent];
             $parent = [$type, $start];
         }
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
@@ -538,7 +576,12 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<mixed> $actual
      * @param string $prior
      * @param string $path
@@ -670,7 +713,7 @@ final class RepairPlanner
             if (!$this->charge($candidate['source'])) {
                 return true;
             }
-            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options);
+            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options, $this->treePrint);
             $blocks = is_array($comparison['read']['children'] ?? null) ? $comparison['read']['children'] : [];
             if ($round === 0 && (count($blocks) !== 1 || !is_array($blocks[0]) || ($blocks[0]['type'] ?? '') !== 'paragraph')) {
                 return false;
@@ -718,6 +761,17 @@ final class RepairPlanner
         }
 
         return $moved;
+    }
+
+    /**
+     * @param array<mixed> $tree
+     * @param string $path
+     */
+    private static function leafValue(array $tree, string $path): ?string
+    {
+        $node = self::nodeAt($tree, $path);
+
+        return is_string($node['value'] ?? null) ? $node['value'] : null;
     }
 
     /**
@@ -851,7 +905,12 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<mixed> $actual
      * @param string $path
      * @param array<string, array<int, true>> $escapes
@@ -885,7 +944,8 @@ final class RepairPlanner
             }
         }
         $found = [];
-        foreach ($candidate['text'] as $position => [$owner, $offset]) {
+        foreach ($candidate['text'] as $position => $code) {
+            [$owner, $offset] = [$candidate['paths'][$code >> 32], $code & 0xFFFFFFFF];
             if (
                 !str_starts_with($owner, $path . '/') || $position < $span[0] || $position >= $span[1]
                 || isset($escapes[$owner][$offset])
@@ -909,7 +969,12 @@ final class RepairPlanner
      * following inlines are parsed together. Probe that suffix independently so an outer parse
      * does not hide its nested openers. As in C2-W-125, a probe takes at most 32 rounds.
      *
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<string, array{int, int}> $spans
      * @param int $end
      * @param string $path
@@ -929,7 +994,7 @@ final class RepairPlanner
         }
         $first = null;
         for ($position = $spans[$path][0] ?? 0, $stop = $spans[$path][1] ?? -1; $position < $stop; $position++) {
-            if (str_starts_with($candidate['text'][$position][0] ?? '', $path . '/')) {
+            if (str_starts_with(RepairTrace::owner($candidate, $position)[0] ?? '', $path . '/')) {
                 $first = $position;
 
                 break;
@@ -942,13 +1007,18 @@ final class RepairPlanner
         if (!$this->charge($source)) {
             return [];
         }
-        $read = TreeEncoder::decodedWithPositions(Carve::parse($source, $this->parseOptions()), $source);
+        $read = TreeEncoder::decodedWithOffsets(Carve::parse($source, $this->parseOptions()), $source);
 
         return $this->probeOpeners($candidate, $read, $path, $end, $first, self::closer($node));
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<mixed> $read
      * @param string $path
      * @param int $end
@@ -989,7 +1059,8 @@ final class RepairPlanner
     /**
      * @param array{
      *     source: string,
-     *     text: array<int, array{string, int}>,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>,
      *     ranges?: array<string, array{int, int}>
      * } $candidate
@@ -1029,11 +1100,24 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param int $end
      * @param string $path
      *
-     * @return array{array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>}, int}
+     * @return array{
+     *     array{
+     *         source: string,
+     *         text: array<int, int>,
+     *         paths: array<int, string>,
+     *         nodes: array<int, array{string, string, int, int}>
+     *     },
+     *     int
+     * }
      */
     private function probeCandidate(array $candidate, string $path, int $end): array
     {
@@ -1063,7 +1147,12 @@ final class RepairPlanner
     }
 
     /**
-     * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
      * @param array<mixed> $item
      * @param string $closer
      * @param int $first
@@ -1075,14 +1164,14 @@ final class RepairPlanner
     private function probeOpener(array $candidate, array $item, string $path, int $end, int $first, string $closer): ?array
     {
         $pos = is_array($item['pos'] ?? null) ? $item['pos'] : [];
-        $startOffset = $pos['startOffset'] ?? null;
-        $endOffset = $pos['endOffset'] ?? null;
+        $startOffset = $pos[0] ?? null;
+        $endOffset = $pos[1] ?? null;
         if (!is_int($startOffset) || !is_int($endOffset)) {
             return null;
         }
         $start = $startOffset + $first - 2;
         $finish = $endOffset + $first - 2;
-        $owned = $candidate['text'][$start] ?? null;
+        $owned = RepairTrace::owner($candidate, $start);
         if (
             $owned === null || !str_starts_with($owned[0], $path . '/') || $start >= $end || $finish <= $end
             || !str_contains('[`<{$:', $candidate['source'][$start])
@@ -1107,25 +1196,30 @@ final class RepairPlanner
             }
         }
         $without = $this->sourceTree($left);
+        if ($without === null) {
+            return false;
+        }
         $left[$path][$offset] = true;
         $with = $this->sourceTree($left);
 
-        return $without !== null && $with !== null && !TreeEquality::equal($without, $with);
+        return $with !== null && $without !== $with;
     }
 
     /**
+     * The fingerprint of the tree the source written with these escapes reads back as.
+     *
      * @param array<string, array<int, true>> $escapes
      *
-     * @return array<mixed>|null
+     * @return string|null
      */
-    private function sourceTree(array $escapes): ?array
+    private function sourceTree(array $escapes): ?string
     {
         $source = Writer::bareCandidate($this->tree, $this->layout, $this->options, $escapes, false)['source'];
         if (!$this->charge($source)) {
             return null;
         }
 
-        return TreeEncoder::decodedForWriter(Carve::parse($source, $this->parseOptions()));
+        return TreeEquality::fingerprint(TreeEncoder::decodedForWriter(Carve::parse($source, $this->parseOptions())));
     }
 
     /**

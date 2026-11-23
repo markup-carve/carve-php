@@ -11,7 +11,7 @@ namespace MarkupCarve\Carve\Writer;
 final class RepairTrace
 {
     /**
-     * @var array<int, array{string, int}>
+     * @var array<int, int> Each punctuation character as `owner()` reads it: its text node and offset in one integer.
      */
     private array $text = [];
 
@@ -59,7 +59,7 @@ final class RepairTrace
             }
             if ($this->mark && Text::isPunct($char)) {
                 $id = count($this->text);
-                $this->text[] = [$path, $at];
+                $this->text[] = $nodeId << 32 | $at;
                 $out .= $this->marker . 't' . $id . "\x02";
             }
             $out .= $char;
@@ -88,7 +88,8 @@ final class RepairTrace
     /**
      * @return array{
      *     source: string,
-     *     text: array<int, array{string, int}>,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>,
      *     ranges: array<string, array{int, int}>
      * }
@@ -99,13 +100,20 @@ final class RepairTrace
         $text = [];
         $nodes = [];
         $ranges = [];
+        if ($this->marker === '') {
+            return ['source' => $marked, 'text' => $text, 'paths' => [], 'nodes' => $nodes, 'ranges' => $ranges];
+        }
         $length = strlen($marked);
         for ($at = 0; $at < $length;) {
-            if ($this->marker === '' || substr_compare($marked, $this->marker, $at, strlen($this->marker)) !== 0) {
-                $source .= $marked[$at];
-                $at++;
+            $next = strpos($marked, $this->marker, $at);
+            if ($next === false) {
+                $source .= substr($marked, $at);
 
-                continue;
+                break;
+            }
+            if ($next > $at) {
+                $source .= substr($marked, $at, $next - $at);
+                $at = $next;
             }
             $kindAt = $at + strlen($this->marker);
             $kind = $marked[$kindAt] ?? '';
@@ -145,6 +153,21 @@ final class RepairTrace
             $at = $close + 1;
         }
 
-        return ['source' => $source, 'text' => $text, 'nodes' => $nodes, 'ranges' => $ranges];
+        return ['source' => $source, 'text' => $text, 'paths' => $this->textNodes, 'nodes' => $nodes, 'ranges' => $ranges];
+    }
+
+    /**
+     * The text node path and the offset in its value of the punctuation character at a place of a candidate.
+     *
+     * @param array{text: array<int, int>, paths: array<int, string>} $candidate
+     * @param int $place
+     *
+     * @return array{string, int}|null
+     */
+    public static function owner(array $candidate, int $place): ?array
+    {
+        $code = $candidate['text'][$place] ?? null;
+
+        return $code === null ? null : [$candidate['paths'][$code >> 32], $code & 0xFFFFFFFF];
     }
 }

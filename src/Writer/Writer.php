@@ -42,7 +42,23 @@ final class Writer
      */
     public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
     {
-        $result = self::writeInternal($tree, $layout, $options, null);
+        return Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options));
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     */
+    private static function writeChecked(array $tree, ?array $layout, array $options): WriteResult
+    {
+        Text::$recorded = [];
+        try {
+            $result = self::writeInternal($tree, $layout, $options, null);
+            $localEscapes = Text::$recorded;
+        } finally {
+            Text::$recorded = null;
+        }
         if ($result->diagnostics !== [] || !self::hasRoundRisk($tree)) {
             return $result;
         }
@@ -52,10 +68,20 @@ final class Writer
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
         $bare = self::bareCandidate($tree, $layout, $options);
-        if (ReadbackRound::inspect($bare, $tree, $options)['equal']) {
-            return $result;
+        $treePrint = TreeEquality::fingerprint($tree);
+        $equal = ReadbackRound::inspect($bare, $tree, $options, $treePrint)['equal'];
+        $bareSource = $bare['source'];
+        unset($bare);
+        $seed = [];
+        if ($equal) {
+            if ($result->source === $bareSource || self::readsBack($result->source, $treePrint, $options)) {
+                return $result;
+            }
+            // C2-W-091: the escapes of the local write can change how the text reads, as an escaped bracket that no
+            // longer counts toward the depth limit of C2-I-118. The rounds go on from the local form.
+            $seed = $removed === [] ? $localEscapes : [];
         }
-        $repaired = (new RepairPlanner($tree, $layout, $options))->repair();
+        $repaired = (new RepairPlanner($tree, $layout, $options, $seed))->repair();
 
         if ($repaired === null) {
             $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
@@ -70,6 +96,18 @@ final class Writer
         }
 
         return new WriteResult($repaired, []);
+    }
+
+    /**
+     * @param string $source
+     * @param string $treePrint
+     * @param array<string, mixed> $options
+     */
+    private static function readsBack(string $source, string $treePrint, array $options): bool
+    {
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+
+        return TreeEquality::fingerprint(TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions))) === $treePrint;
     }
 
     /**
@@ -151,7 +189,8 @@ final class Writer
      *
      * @return array{
      *     source: string,
-     *     text: array<int, array{string, int}>,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>,
      *     ranges: array<string, array{int, int}>
      * }
