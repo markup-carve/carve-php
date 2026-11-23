@@ -46,6 +46,9 @@ final class Writer
         if ($result->diagnostics !== [] || !self::hasRoundRisk($tree)) {
             return $result;
         }
+        // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
+        // and repairs the tree without them. The local write keeps the supplied tree, and with it the loss paths.
+        $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options));
         $bare = self::bareCandidate($tree, $layout, $options);
         if (ReadbackRound::inspect($bare, $tree, $options)['equal']) {
             return $result;
@@ -65,6 +68,29 @@ final class Writer
         }
 
         return new WriteResult($repaired, []);
+    }
+
+    /**
+     * The recorded `sourceFormat` of each table by path; none under `normalize` (C2-W-127).
+     *
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private static function tableFormats(?array $layout, array $options): array
+    {
+        if (($options['normalize'] ?? false) === true) {
+            return [];
+        }
+        $formats = [];
+        foreach (self::facts($layout) as $path => $entry) {
+            if (isset($entry['sourceFormat'])) {
+                $formats[$path] = $entry['sourceFormat'];
+            }
+        }
+
+        return $formats;
     }
 
     /**
