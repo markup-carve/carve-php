@@ -104,8 +104,8 @@ final class InlineValueLineFeedLossTest extends TestCase
             ],
             'line comment in a line block' => [
                 $lineBlock([$text('a'), ['type' => 'comment', 'form' => 'line', 'value' => "c\nd"]]),
-                "::: |\na %% c d\n:::\n",
-                ['field-unspellable /children/0/children/0/children/1/value'],
+                "::: |\na\n:::\n",
+                ['structure-unspellable /children/0/children/0/children/1'],
             ],
         ];
     }
