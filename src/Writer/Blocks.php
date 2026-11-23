@@ -2263,10 +2263,13 @@ final class Blocks
                     continue;
                 }
                 $inlines = is_array($line) && is_array($line['children'] ?? null) ? $line['children'] : [];
+                $lazyPath = $path . '/children/' . $at . '/children/' . max(0, count($inlines) - 1);
                 $lazy = $this->takeLazyComment($inlines, $path . '/children/' . $at . '/children/');
                 // C2-W-151: text of only spaces and tabs at the end of the line is dropped, so a hard break before it ends the line.
+                $blanks = [];
                 while ($inlines !== [] && self::blankText(end($inlines))) {
                     array_pop($inlines);
+                    $blanks[] = $path . '/children/' . $at . '/children/' . count($inlines);
                 }
                 $c = $this->context($inlines, true);
                 $c->inLineBlock = true;
@@ -2283,7 +2286,11 @@ final class Blocks
                 $this->w->smartRun = $outer;
                 $this->w->emit($prefix, $text);
                 if ($lazy !== null) {
-                    $this->lazyComment($lazy, $path . '/children/' . $at . '/children/' . count($inlines), $prefix);
+                    $this->lazyComment($lazy, $lazyPath, $prefix);
+                    // The spaces before the comment do not end the line in the tree.
+                    foreach ($blanks as $blank) {
+                        $this->w->lose($blank, 'text', 'value');
+                    }
                 }
             }
             $this->bareBreaks = false;

@@ -79,6 +79,30 @@ final class LineBlockLazyCommentTest extends TestCase
         );
     }
 
+    public function testLossesNameTheCommentAndTheSpacesBeforeIt(): void
+    {
+        $line = [
+
+            'type' => 'line',
+            'children' => [
+                ['type' => 'text', 'value' => 'a'],
+                ['type' => 'text', 'value' => '  '],
+                ['type' => 'comment', 'form' => 'line', 'value' => "x\ny"],
+            ],
+        ];
+        $item = ['type' => 'list_item', 'children' => [['type' => 'line_block', 'children' => [$line]]]];
+        $list = ['type' => 'list', 'marker' => ['kind' => 'bullet', 'char' => '-'], 'spacing' => 'tight', 'children' => [$item]];
+        $result = Writer::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => [$list]]);
+        $this->assertSame("- ::: |\n  a\n%% x y\n  :::\n", $result->source);
+        $this->assertSame(
+            [
+                'field-unspellable /children/0/children/0/children/0/children/0/children/2/value',
+                'field-unspellable /children/0/children/0/children/0/children/0/children/1/value',
+            ],
+            array_map(static fn ($d): string => $d->code . ' ' . $d->path, $result->diagnostics),
+        );
+    }
+
     /**
      * @return array<mixed>
      */
