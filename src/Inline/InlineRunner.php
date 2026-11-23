@@ -98,10 +98,7 @@ final class InlineRunner
         }
         $node->children = self::parse($s, $node->lines ?? [], $ctx, 0, $mode);
         $node->lines = null;
-        if (
-            $type === 'paragraph' && isset($node->f['role'])
-            && (count($node->children) !== 1 || $node->children[0]->type !== $node->f['role'])
-        ) {
+        if ($type === 'paragraph' && isset($node->f['role']) && !self::holdsRole($node->children, $node->f['role'])) {
             // C2-A-136: source shape may outlive an inline pair stopped by the depth limit.
             unset($node->f['role']);
         }
@@ -113,6 +110,28 @@ final class InlineRunner
             $node->start = -1;
             $node->end = -1;
         }
+    }
+
+    /**
+     * C2-A-136, C2-B-157: one node of the role, then only the breaks and comments of comment-only lines.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $children
+     * @param mixed $role
+     *
+     * @return bool
+     */
+    private static function holdsRole(array $children, mixed $role): bool
+    {
+        if ($children === [] || $children[0]->type !== $role) {
+            return false;
+        }
+        foreach (array_slice($children, 1) as $child) {
+            if ($child->type !== 'soft_break' && $child->type !== 'comment') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
