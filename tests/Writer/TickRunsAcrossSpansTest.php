@@ -32,7 +32,7 @@ final class TickRunsAcrossSpansTest extends TestCase
                 "/a\t\\{/{* \\`x\\`*}*a\t \\`x\\`*\n",
             ],
             'one strong' => [[$span('emphasis', 'a{'), $span('strong', ' `x`')], "/a\\{/{* \\`x\\`*}\n"],
-            'a lone text keeps its spelling' => [[$text('a `x` b `y`')], "a \\`x\\` b \\`y`\n"],
+            'a lone text keeps its spelling' => [[$text('a `x` b `y`')], "a \\`x\\` b \\`y\\`\n"],
         ];
     }
 

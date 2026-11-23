@@ -12,7 +12,9 @@ use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Lint\NodeRulesA;
+use MarkupCarve\Carve\Node;
 
 /**
  * The escapes of a text node (C2-W-088 to C2-W-099), decided from the contexts of `data/escape-contexts.json` before the
@@ -212,7 +214,7 @@ final class Text
                     continue;
                 }
             }
-            $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]);
+            $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i]);
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
                 || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
@@ -375,6 +377,24 @@ final class Text
         if (!str_contains($value, '`')) {
             return null;
         }
+        $plan = self::leafTickPlan($c);
+        if ($plan !== null) {
+            // A tick the line start of this text escapes stops a pair the plan read across it.
+            $forced = $c->tickForced;
+            foreach ([$marks, ...array_keys($c->behindMarker)] as $at) {
+                $global = $c->tickAt[$c->textPath][$at] ?? null;
+                if ($global !== null) {
+                    $forced[$global] = true;
+                }
+            }
+            if ($forced !== $c->tickForced) {
+                $c->tickForced = $forced;
+                $c->tickPlan = null;
+                $plan = (array)self::leafTickPlan($c);
+            }
+
+            return $plan[$c->textPath] ?? [];
+        }
         $runs = [];
         preg_match_all('/`+/', $value, $matches, PREG_OFFSET_CAPTURE);
         foreach ($matches[0] as [$run, $at]) {
@@ -387,21 +407,177 @@ final class Text
         if ($c->neighborTick) {
             return null;
         }
-        $later = [];
-        $escaped = [];
-        for ($r = count($runs) - 1; $r >= 0; $r--) {
-            [$at, $length] = $runs[$r];
-            $count = 0;
-            while ($count < $length && isset($later[$length - $count])) {
-                $escaped[$at + $count++] = true;
+        $escaped = $marks >= 0 && $value[$marks] === '`' ? [$marks => true] : [];
+
+        return self::tickRounds($runs, array_column($runs, 0), $escaped);
+    }
+
+    /**
+     * C2-W-088: the rounds of the backtick kind. Each code span the runs open reports its opener; the first report
+     * also escapes every potential opener of the kind, `$firsts`. A rest that still opens a span is reported in a
+     * later round.
+     *
+     * @param array<array{int, int}> $runs
+     * @param array<int> $firsts
+     * @param array<int, true> $escaped
+     *
+     * @return array<int, true>
+     */
+    private static function tickRounds(array $runs, array $firsts, array $escaped): array
+    {
+        $kind = false;
+        while (($open = self::spanOpeners($runs, $escaped)) !== []) {
+            if (!$kind) {
+                $kind = true;
+                $escaped += array_fill_keys($firsts, true);
             }
-            if ($count > 1) {
-                $later[1] = true;
-            }
-            $later[$count === 0 ? $length : $length - $count + 1] = true;
+            $escaped += array_fill_keys($open, true);
         }
 
         return $escaped;
+    }
+
+    /**
+     * C2-W-088: the backticks that take a backslash in each text of a leaf whose backticks stand only in text, in
+     * paired and braced spans included, so a code span can pair runs of different texts. Null for another leaf.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<string, array<int, true>>|null
+     */
+    private static function leafTickPlan(Context $c): ?array
+    {
+        if ($c->tickPlan !== null) {
+            return $c->tickPlan === false ? null : $c->tickPlan;
+        }
+        $c->tickPlan = false;
+        $c->tickAt = [];
+        $flat = '';
+        $owners = [];
+        if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners) || $owners === []) {
+            return null;
+        }
+        foreach ($owners as $at => [$path, $offset]) {
+            $c->tickAt[$path][$offset] = $at;
+        }
+        $runs = [];
+        $firsts = [];
+        preg_match_all('/`+/', $flat, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as [$run, $at]) {
+            $length = strlen($run);
+            $runs[] = [$at, $length];
+            for ($k = $at; $k < $at + $length; $k++) {
+                if ($k === $at || $owners[$k][0] !== $owners[$k - 1][0]) {
+                    $firsts[] = $k;
+                }
+            }
+        }
+        // C2-W-092: a fence line takes the backslash before its first backtick.
+        $escaped = $c->tickForced;
+        $start = 0;
+        foreach (explode("\n", $flat) as $line) {
+            $lead = strspn($line, " \t");
+            if (($line[$lead] ?? '') === '`' && LineShapes::isFenceLine($line, $lead, strlen($line))) {
+                $escaped[$start + $lead] = true;
+            }
+            $start += strlen($line) + 1;
+        }
+        $plan = [];
+        foreach (array_keys(self::tickRounds($runs, $firsts, $escaped)) as $at) {
+            [$path, $offset] = $owners[$at];
+            $plan[$path][$offset] = true;
+        }
+        $c->tickPlan = $plan;
+
+        return $plan;
+    }
+
+    /**
+     * Appends the text of `$nodes` to `$flat`, a break as a line feed and other markup as `\1`, and records the text
+     * and offset of each backtick. False where a verbatim node or another node that holds a backtick stands in it.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param string $flat
+     * @param array<int, array{string, int}> $owners
+     *
+     * @return bool
+     */
+    private static function planNodes(array $nodes, string $path, string &$flat, array &$owners): bool
+    {
+        foreach ($nodes as $k => $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? null;
+            $value = $node['value'] ?? null;
+            if ($type === 'text' && is_string($value)) {
+                for ($i = strpos($value, '`'); $i !== false; $i = strpos($value, '`', $i + 1)) {
+                    $owners[strlen($flat) + $i] = [$path . '/' . $k, $i];
+                }
+                $flat .= $value;
+            } elseif ($type === 'soft_break' || $type === 'hard_break') {
+                $flat .= "\n";
+            } elseif (is_string($type) && Inline::spanMark($type) !== null && is_array($node['children'] ?? null)) {
+                if (str_contains(Inline::strings(['attrs' => $node['attrs'] ?? null]), '`')) {
+                    return false;
+                }
+                $flat .= "\1";
+                if (!self::planNodes($node['children'], $path . '/' . $k . '/children', $flat, $owners)) {
+                    return false;
+                }
+                $flat .= "\1";
+            } elseif (in_array($type, self::TICK_ATOMS, true) || str_contains(Inline::strings($node), '`')) {
+                return false;
+            } else {
+                $flat .= "\1";
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The first ticks of the code spans that the text's backtick runs open when the ticks in `$escaped` take a
+     * backslash. An escaped tick starts a closer run of its own, since a span's content keeps the backslash.
+     *
+     * @param array<array{int, int}> $runs
+     * @param array<int, true> $escaped
+     *
+     * @return array<int>
+     */
+    private static function spanOpeners(array $runs, array $escaped): array
+    {
+        $parts = [];
+        foreach ($runs as [$at, $length]) {
+            $start = $at;
+            for ($k = $at + 1; $k < $at + $length; $k++) {
+                if (isset($escaped[$k])) {
+                    $parts[] = [$start, $k - $start];
+                    $start = $k;
+                }
+            }
+            $parts[] = [$start, $at + $length - $start];
+        }
+        $openers = [];
+        $count = count($parts);
+        for ($p = 0; $p < $count; $p++) {
+            [$start, $length] = $parts[$p];
+            $skip = isset($escaped[$start]) ? 1 : 0;
+            if ($length - $skip === 0) {
+                continue;
+            }
+            for ($q = $p + 1; $q < $count; $q++) {
+                if ($parts[$q][1] === $length - $skip) {
+                    $openers[] = $start + $skip;
+                    $p = $q;
+
+                    break;
+                }
+            }
+        }
+
+        return $openers;
     }
 
     /**
@@ -1802,10 +1978,11 @@ final class Text
      */
     private static function lineStartMark(string $value, Context $c, int $next): int
     {
+        $c->behindMarker = [];
         if (!$c->lineStart) {
             return -1;
         }
-        $tail = $c->lineTail;
+        $tail = $c->lineTail ?? (in_array($next, [-1, 10], true) ? null : self::restOfLine($value, $c));
         $eol = $tail !== null || in_array($next, [-1, 10], true);
         $line = $tail !== null ? $value . $tail : ($eol ? $value : $value . 'x');
         $value = $tail !== null ? $line : $value;
@@ -1833,7 +2010,175 @@ final class Text
             return $lead;
         }
 
-        return $c->last === -1 ? self::firstLine($line, $c) : self::laterLine($line, $eol, $c);
+        $mark = $c->last === -1 ? self::firstLine($line, $c) : self::laterLine($line, $eol, $c);
+        if ($mark >= 0 && $mark < strlen($line) - 1) {
+            $c->behindMarker = self::nestedOpeners($line, $mark, $c);
+        }
+
+        return $mark;
+    }
+
+    /**
+     * C2-W-088: the escapes of the block openers that the parse of a line that opens a block starts behind its first
+     * opener, on the same line, at the character C2-W-090 escapes.
+     *
+     * @param string $line
+     * @param int $mark The offset the line's own opener takes.
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<int, true>
+     */
+    private static function nestedOpeners(string $line, int $mark, Context $c): array
+    {
+        $c->writerState?->chargeRepair($c->textPath, 'nested-opener', $line . "\n");
+        $starts = [];
+        self::blockStarts(Carve::parse($line . "\n"), strlen($line), $starts);
+        $own = [];
+        foreach (array_keys($starts) as $at) {
+            if ($at <= $mark) {
+                continue;
+            }
+            if (ctype_alnum($line[$at])) {
+                $at += strcspn($line, self::PUNCT, $at);
+            } elseif (substr($line, $at, 2) === '--') {
+                $at++;
+            }
+            if ($at < strlen($line) && self::isPunct($line[$at])) {
+                $own[$at] = true;
+            }
+        }
+
+        return $own;
+    }
+
+    /**
+     * The offsets on the first line where a block of `$node` other than a paragraph starts.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     * @param int $length
+     * @param array<int, true> $starts
+     *
+     * @return void
+     */
+    private static function blockStarts(Node $node, int $length, array &$starts): void
+    {
+        foreach ($node->children ?? [] as $child) {
+            if ($child->start < 0 || $child->start >= $length) {
+                continue;
+            }
+            if ($child->type !== 'paragraph') {
+                $starts[$child->start] = true;
+            }
+            if (!isset(DataModel::INLINE_PARENTS[$child->type])) {
+                self::blockStarts($child, $length, $starts);
+            }
+        }
+    }
+
+    /**
+     * The rest of the line behind the text as the bare write spells it, so the line test reads the whole line
+     * (C2-B-118, C2-B-166): a verbatim node by its spelling, a span by its mark and text, another node by its first
+     * character where its strings hold no backtick; no closing mark is a pipe. Null where the leaf does not tell.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return string|null
+     */
+    private static function restOfLine(string $value, Context $c): ?string
+    {
+        if ($c->flat === null || $c->here < 0) {
+            return null;
+        }
+        $flat = $c->flat;
+        $n = strlen($flat);
+        $rest = '';
+        for ($i = $c->here + strlen($value); $i < $n && $flat[$i] !== "\n"; $i++) {
+            $spelled = $flat[$i] !== "\0" ? $flat[$i] : $c->flatAtoms[$i] ?? self::nodeOnLine($i, $c);
+            if ($spelled === null) {
+                return null;
+            }
+            $break = strpos($spelled, "\n");
+            if ($break !== false) {
+                return $rest . substr($spelled, 0, $break);
+            }
+            $rest .= $spelled;
+        }
+
+        return $rest === '' ? null : $rest;
+    }
+
+    /**
+     * The spelling of the node at offset `$i` of the flat leaf as far as the line test needs it, a line feed where the
+     * line ends inside it; null where it does not tell.
+     *
+     * @param int $i
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return string|null
+     */
+    private static function nodeOnLine(int $i, Context $c): ?string
+    {
+        $node = $c->flatNodes[$i] ?? null;
+        $type = $c->flatTypes[$i] ?? '';
+        if ($node === null || isset($node['attrs'])) {
+            return null;
+        }
+        if (in_array($type, self::TICK_ATOMS, true)) {
+            return self::verbatimSpelling($node, $type);
+        }
+        $first = $c->flatFirst[$i] ?? -1;
+        if ($first <= 0 || $first >= 0x80) {
+            return null;
+        }
+        if (Inline::spanMark($type) !== null) {
+            $inner = self::spanText($node);
+
+            return $inner === null ? null : chr($first) . $inner . 'x';
+        }
+
+        return str_contains(Inline::strings($node), '`') ? null : chr($first) . 'x';
+    }
+
+    /**
+     * The spelling of a code span, math or literal node; null for a raw node, whose format follows the span.
+     *
+     * @param array<mixed> $node
+     * @param string $type
+     *
+     * @return string|null
+     */
+    private static function verbatimSpelling(array $node, string $type): ?string
+    {
+        $code = $node['value'] ?? null;
+        if (!is_string($code) || $type === 'raw_inline') {
+            return null;
+        }
+
+        return match ($type) {
+            'math' => (($node['display'] ?? false) === true ? '$$' : '$'),
+            'literal_inline' => '!',
+            default => '',
+        } . Inline::codeSpan($code);
+    }
+
+    /**
+     * The text a paired or braced span holds, a break as a line feed and other markup as `x`; null where a verbatim
+     * node or another node that holds a backtick stands in it.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function spanText(array $node): ?string
+    {
+        $flat = '';
+        $owners = [];
+        if (!self::planNodes([$node], '', $flat, $owners)) {
+            return null;
+        }
+
+        return strtr(substr($flat, 1, -1), "\1", 'x');
     }
 
     /**

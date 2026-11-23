@@ -434,6 +434,10 @@ final class Inline
         if ($c->flat === null) {
             $c->flat = '';
             $c->labels = $this->w->labels;
+            $c->leafNodes = $nodes;
+            $c->leafPath = $path;
+            $c->tickPlan = null;
+            $c->tickForced = [];
             self::flatten($nodes, $path, $c);
         }
         $out = '';
@@ -1135,6 +1139,18 @@ final class Inline
     public static function bareMark(string $type): ?string
     {
         return self::PAIRED[$type] ?? null;
+    }
+
+    /**
+     * The mark of a paired or braced span, whose content the writer writes at the path of its `children`.
+     *
+     * @param string $type
+     *
+     * @return string|null
+     */
+    public static function spanMark(string $type): ?string
+    {
+        return self::PAIRED[$type] ?? self::BRACED[$type] ?? null;
     }
 
     /**
