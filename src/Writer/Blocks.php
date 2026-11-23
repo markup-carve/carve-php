@@ -2263,6 +2263,7 @@ final class Blocks
                     continue;
                 }
                 $inlines = is_array($line) && is_array($line['children'] ?? null) ? $line['children'] : [];
+                $lazy = $this->takeLazyComment($inlines, $path . '/children/' . $at . '/children/');
                 // C2-W-151: text of only spaces and tabs at the end of the line is dropped, so a hard break before it ends the line.
                 while ($inlines !== [] && self::blankText(end($inlines))) {
                     array_pop($inlines);
@@ -2281,9 +2282,68 @@ final class Blocks
                 }
                 $this->w->smartRun = $outer;
                 $this->w->emit($prefix, $text);
+                if ($lazy !== null) {
+                    $this->lazyComment($lazy, $path . '/children/' . $at . '/children/' . count($inlines), $prefix);
+                }
             }
             $this->bareBreaks = false;
         });
+    }
+
+    /**
+     * Takes the line comment that ends a line of a line block off its inlines. CC-327, C2-B-135: any other line comment
+     * of the line reads back as text.
+     *
+     * @param array<mixed> $inlines
+     * @param string $path
+     *
+     * @return array<mixed>|null
+     */
+    private function takeLazyComment(array &$inlines, string $path): ?array
+    {
+        $isLine = static fn (mixed $node): bool => is_array($node) && ($node['type'] ?? '') === 'comment'
+            && ($node['form'] ?? '') === 'line';
+        $last = end($inlines);
+        $lazy = is_array($last) && $isLine($last) ? $last : null;
+        if ($lazy !== null) {
+            array_pop($inlines);
+        }
+        foreach ($inlines as $at => $inline) {
+            if ($isLine($inline)) {
+                $this->w->lose($path . $at, 'comment', null);
+            }
+        }
+
+        return $lazy;
+    }
+
+    /**
+     * C2-B-024: a line comment at the end of a line of a stanza is a lazy comment-only line, which its containers do not
+     * own. At the top level every line is owned, so it has no spelling there.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $prefix
+     *
+     * @return void
+     */
+    private function lazyComment(array $node, string $path, string $prefix): void
+    {
+        if ($prefix === '') {
+            $this->w->lose($path, 'comment', null);
+
+            return;
+        }
+        $value = Inline::str($node, 'value');
+        if (str_contains($value, "\n")) {
+            $this->w->lose($path, 'comment', 'value');
+            $value = str_replace("\n", ' ', $value);
+        }
+        $kept = rtrim($value, " \t");
+        if ($kept !== $value) {
+            $this->w->lose($path, 'comment', 'value');
+        }
+        $this->w->emit('', $kept === '' ? '%%' : '%% ' . $kept);
     }
 
     /**
