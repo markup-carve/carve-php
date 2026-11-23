@@ -91,8 +91,8 @@ final class BraceBlock
      * C2-W-048: the brace block of `$node`, or the empty string when there is nothing to write.
      *
      * @param array<mixed> $node
-     * @param array{mark?: string, keys?: array<array{0: string, 1: string}>, skipClasses?: array<int>, skipKeys?: array<string>,
-     *     pipes?: bool} $extra
+     * @param array{mark?: string, keys?: array<array{0: string, 1: string}>, keysAfterAttrs?: bool,
+     *     skipClasses?: array<int>, skipKeys?: array<string>, pipes?: bool} $extra
      *
      * @return string
      */
@@ -108,8 +108,8 @@ final class BraceBlock
 
     /**
      * @param array<mixed> $node
-     * @param array{mark?: string, keys?: array<array{0: string, 1: string}>, skipClasses?: array<int>, skipKeys?: array<string>,
-     *     pipes?: bool} $extra
+     * @param array{mark?: string, keys?: array<array{0: string, 1: string}>, keysAfterAttrs?: bool,
+     *     skipClasses?: array<int>, skipKeys?: array<string>, pipes?: bool} $extra
      *
      * @return array<string>
      */
@@ -128,11 +128,28 @@ final class BraceBlock
         if (is_string($node['lang'] ?? null)) {
             $parts[] = ':' . $node['lang'];
         }
-        foreach ($extra['keys'] ?? [] as [$key, $value]) {
-            $parts[] = self::keyPart($key, $value, $pipes);
-        }
 
-        return array_merge($parts, self::keys($attrs, $extra['skipKeys'] ?? [], $pipes));
+        return array_merge($parts, self::orderedKeys($attrs, $extra, $pipes));
+    }
+
+    /**
+     * @param array<mixed> $attrs
+     * @param array{keys?: array<array{0: string, 1: string}>, keysAfterAttrs?: bool, skipKeys?: array<string>} $extra
+     * @param bool $pipes
+     *
+     * @return array<string>
+     */
+    private static function orderedKeys(array $attrs, array $extra, bool $pipes): array
+    {
+        $made = [];
+        foreach ($extra['keys'] ?? [] as [$key, $value]) {
+            $made[] = self::keyPart($key, $value, $pipes);
+        }
+        $kept = self::keys($attrs, $extra['skipKeys'] ?? [], $pipes);
+
+        return ($extra['keysAfterAttrs'] ?? false)
+            ? array_merge($kept, $made)
+            : array_merge($made, $kept);
     }
 
     /**
