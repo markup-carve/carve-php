@@ -878,7 +878,7 @@ final class Writer
     public static function markedCandidate(array $tree, ?array $layout, array $options, array $escapes, string $bare): array
     {
         do {
-            $marker = "\x01" . bin2hex(random_bytes(16)) . "\x03";
+            $marker = "\x01" . bin2hex(random_bytes(6)) . "\x03";
         } while (str_contains($bare, $marker));
         $trace = new RepairTrace($escapes, true, $marker);
         $result = self::writeInternal($tree, $layout, $options, $trace);
