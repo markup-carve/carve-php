@@ -22,6 +22,7 @@ final class InlineFootnoteCommentTest extends TestCase
             'comment on its own line' => ["^[\n%% c\n](u) z\n"],
             'comment line, then the closer' => ["^[\n%% c\n] z\n"],
             'two comment lines' => ["^[\n%% a\n%% b\n] z\n"],
+            'hard break before a comment line' => ["^[\\\n%% c\n] z\n"],
         ];
     }
 
@@ -31,6 +32,14 @@ final class InlineFootnoteCommentTest extends TestCase
         $this->assertStringContainsString(
             '<li id="fn1">' . "\n" . '      <p><a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>',
             Carve::toHtml($source),
+        );
+    }
+
+    public function testABreakWithNoCommentIsStillWritten(): void
+    {
+        $this->assertStringContainsString(
+            '<p>' . "\n" . '<a href="#fnref1" role="doc-backlink"',
+            Carve::toHtml("^[\n] z\n"),
         );
     }
 

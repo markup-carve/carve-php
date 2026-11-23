@@ -564,7 +564,7 @@ final class HtmlRenderer
      *
      * @return bool
      */
-    public static function onlyComments(array $kids): bool
+    private static function onlyComments(array $kids): bool
     {
         $hard = false;
         foreach ($kids as $kid) {
