@@ -94,9 +94,13 @@ final class MarkdownHtml
         $scanEnd = self::definitionScanEnd($input, $lastDefinition);
         $lines = preg_split('/(?<=\n)|(?<=\r)(?!\n)/', substr($input, 0, $scanEnd)) ?: [];
         $fence = null;
+        $rawEnd = null;
         foreach ($lines as $i => $line) {
             $body = rtrim($line, "\r\n");
             $visible = str_contains($body, '>') ? (preg_replace('/\A(?: {0,3}> ?)+/', '', $body) ?? $body) : $body;
+            if ($fence === null && self::inRawBlock($visible, $rawEnd)) {
+                continue;
+            }
             $run = self::fenceRun($visible);
             if ($run !== null) {
                 if ($fence === null) {
@@ -141,6 +145,49 @@ final class MarkdownHtml
         }
 
         return $break[0][1] + strlen($break[0][0]);
+    }
+
+    private static function rawBlockEnd(string $line): ?string
+    {
+        $head = ltrim($line, ' ');
+        $head = preg_replace('/\A(?:[-+*] |[0-9]{1,9}[.)] )/', '', $head) ?? $head;
+        if (!str_starts_with($head, '<')) {
+            return null;
+        }
+        if (str_starts_with($head, '<!--')) {
+            return '-->';
+        }
+        if (str_starts_with($head, '<![CDATA[')) {
+            return ']]>';
+        }
+        if (str_starts_with($head, '<?')) {
+            return '?>';
+        }
+        if (preg_match('/\A<(script|pre|style|textarea)(?:\s|>)/i', $head, $tag) === 1) {
+            return '</' . strtolower($tag[1]) . '>';
+        }
+
+        return 'blank';
+    }
+
+    private static function inRawBlock(string $line, ?string &$end): bool
+    {
+        if ($end === null) {
+            $end = self::rawBlockEnd($line);
+        }
+        if ($end === null) {
+            return false;
+        }
+        if (self::endsRawBlock($line, $end)) {
+            $end = null;
+        }
+
+        return true;
+    }
+
+    private static function endsRawBlock(string $line, string $end): bool
+    {
+        return $end === 'blank' ? trim($line) === '' : stripos($line, $end) !== false;
     }
 
     private static function protectsMarker(

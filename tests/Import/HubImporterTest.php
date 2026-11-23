@@ -22,6 +22,10 @@ final class HubImporterTest extends TestCase
         $this->assertSame("> 12\\) y\n", self::source("> [a]: /x\n> 12) y\n", 'markdown'));
         $this->assertSame("- 3\\. y\n", self::source("- [a]: /x\n  3. y\n", 'markdown'));
         $this->assertSame("```\n[a]: /x\n10) y\n```\n", self::source("```\n[a]: /x\n10) y\n```\n", 'markdown'));
+        $this->assertSame(
+            "```=html\n<div>\n[a]: /x\n10) y\n</div>\n```\n",
+            self::source("<div>\n[a]: /x\n10) y\n</div>\n", 'markdown'),
+        );
     }
 
     private static function source(string $input, string $from): string
