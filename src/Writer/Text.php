@@ -1709,20 +1709,24 @@ final class Text
      */
     private static function angleOpens(string $value, int $i, int $next, Context $c): bool
     {
-        $gt = $i + 1 + strcspn($value, "> \t\n<", $i + 1);
-        if ($gt >= strlen($value)) {
-            if ($c->here < 0 ? $next === -1 : $c->here + strlen($value) >= strlen((string)$c->flat)) {
+        $rest = substr($value, $i + 1);
+        $xref = str_starts_with($rest, '/#');
+        $length = strcspn($rest, $xref ? "> \n" : "> \t\n<");
+        if ($length >= strlen($rest)) {
+            $atEnd = $c->here >= 0 && $c->here + strlen($value) >= strlen((string)$c->flat);
+            if ($atEnd && !$c->inBracket) {
                 return false;
             }
-            $following = self::ahead($value, strlen($value), 1, $c, $next);
-
-            return $following === '' || self::bodyStarts(substr($value, $i + 1) . $following);
-        }
-        if ($value[$gt] !== '>') {
+            // The leaf of a bracket ends at its `]`, which a URL body can run through.
+            $following = $atEnd ? ']' : self::ahead($value, strlen($value), 1, $c, $next);
+            if ($following !== '>') {
+                return $following === '' || self::bodyStarts($rest . $following);
+            }
+        } elseif ($rest[$length] !== '>') {
             return false;
         }
-        $body = substr($value, $i + 1, $gt - $i - 1);
-        if (str_starts_with($body, '/#')) {
+        $body = substr($rest, 0, $length);
+        if ($xref) {
             return strlen($body) > 2;
         }
 
@@ -1743,7 +1747,7 @@ final class Text
             return $n === 1 || $head[1] === '#';
         }
         $local = strspn($head, Tables::AUTOLINK_EMAIL_CHARS);
-        if ($local === $n || $head[$local] === '@') {
+        if ($local === $n || ($head[$local] === '@' && strspn($head, Tables::AUTOLINK_EMAIL_CHARS, $local + 1) === $n - $local - 1)) {
             return true;
         }
         if (strspn($head[0], Tables::AUTOLINK_SCHEME_FIRST) === 0) {
