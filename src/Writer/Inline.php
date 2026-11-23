@@ -1307,6 +1307,7 @@ final class Inline
             return $out;
         }
         $out = $this->own($node, $type, $path, $c, $next);
+        $this->loseEmptyContent($node, $path, $type);
         if ($type === 'soft_break') {
             $c->runLog[] = ['path' => $path, 'out' => "\n", 'prefix' => 1, 'escaped' => [], 'value' => ''];
         }
@@ -1321,6 +1322,52 @@ final class Inline
         $this->moved($c, $out);
 
         return $this->tracedNode($out, $path, $type);
+    }
+
+    /**
+     * C2-W-117: no parse gives an empty text, so content of only empty texts reads back as none, a loss.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $type
+     *
+     * @return void
+     */
+    private function loseEmptyContent(array $node, string $path, string $type): void
+    {
+        if (self::onlyEmptyText($node['children'] ?? null)) {
+            $this->w->lose($path, $type, null);
+        }
+    }
+
+    /**
+     * Content that writes nothing: empty texts, and nodes whose own content is empty.
+     *
+     * @param mixed $children
+     *
+     * @return bool
+     */
+    private static function onlyEmptyText(mixed $children): bool
+    {
+        if (!is_array($children) || $children === []) {
+            return false;
+        }
+        foreach ($children as $child) {
+            if (!is_array($child)) {
+                return false;
+            }
+            $type = is_string($child['type'] ?? null) ? $child['type'] : '';
+            // An empty link or span still writes its brackets.
+            $writesNothing = isset(self::PAIRED[$type]) || isset(self::BRACED[$type]);
+            $empty = $type === 'text'
+                ? ($child['value'] ?? '') === ''
+                : $writesNothing && (($child['children'] ?? null) === [] || self::onlyEmptyText($child['children'] ?? null));
+            if (!$empty) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function tracedNode(string $out, string $path, string $type): string
