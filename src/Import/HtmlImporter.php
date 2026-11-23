@@ -53,25 +53,6 @@ final class HtmlImporter
     ];
 
     /**
-     * The block containers counted by TreeReader for C2-A-171.
-     *
-     * @var array<string, true>
-     */
-    private const DEPTH_CONTAINERS = [
-        'block_quote' => true,
-        'list' => true,
-        'list_item' => true,
-        'definition_list' => true,
-        'definition_description' => true,
-        'footnote' => true,
-        'div' => true,
-        'admonition' => true,
-        'directive' => true,
-        'figure_group' => true,
-        'section' => true,
-    ];
-
-    /**
      * @param string $html
      * @param array<string, mixed> $options `adapter` (C2-M-102), `rawHtml` (C2-M-066), `labels` (C2-M-101), `strictLosses` (C2-M-082),
      *   `allowLosses` and `maxLosses`
@@ -79,6 +60,8 @@ final class HtmlImporter
      * @param bool $legacyParser Read with the libxml parser even where `Dom\HTMLDocument` exists.
      * @param \Closure(\MarkupCarve\Carve\Import\HtmlNode): void|null $prepare The Markdown and Djot hub's carriers, set on the parsed HTML.
      * @param \Closure(array<array<string, mixed>>): array<array<string, mixed>>|null $finish The hub's changes to the imported children.
+     * @param \Closure(array<\MarkupCarve\Carve\Diagnostics\Diagnostic>): array<\MarkupCarve\Carve\Diagnostics\Diagnostic>|null $report
+     *   The hub's changes to the final diagnostics.
      *
      * @throws \MarkupCarve\Carve\Import\ImportInputError C2-M-006, or without `ext-dom`.
      * @throws \MarkupCarve\Carve\OptionError ! An option the importer reads has a value it refuses.
@@ -92,6 +75,7 @@ final class HtmlImporter
         bool $legacyParser = false,
         ?Closure $prepare = null,
         ?Closure $finish = null,
+        ?Closure $report = null,
     ): ImportResult {
         if (!HtmlParser::available()) {
             throw new ImportInputError('HTML import requires the PHP DOM extension (ext-dom)');
@@ -138,12 +122,19 @@ final class HtmlImporter
         if ($context->rootDir !== null) {
             $document['dir'] = $context->rootDir;
         }
-        $tree = self::read($document);
+        if (TreeReader::exceedsDepth($document)) {
+            throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
+        }
         $diagnostics = $context->diagnostics;
         // C2-M-074: the writer's loss entries follow the importer's.
         $written = Writer::writeWithDiagnostics($document);
         $source = $written->source;
         $diagnostics = array_merge($diagnostics, $written->diagnostics);
+        unset($written);
+        // The array and the Node tree are never held together: the tree is read from the JSON text alone.
+        $json = self::encode($document);
+        unset($document, $children);
+        $tree = self::readJson($json);
         [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
             $diagnostics = array_map(static fn (Diagnostic $d): Diagnostic => new Diagnostic(
@@ -159,7 +150,11 @@ final class HtmlImporter
             ), $diagnostics);
         }
 
-        return new ImportResult($tree, $document, $diagnostics, $source, $suppressed);
+        if ($report !== null) {
+            $diagnostics = $report($diagnostics);
+        }
+
+        return new ImportResult($tree, [], $diagnostics, $source, $suppressed, $json);
     }
 
     /**
@@ -226,19 +221,45 @@ final class HtmlImporter
      *
      * @param array<string, mixed> $document
      *
+     * @throws \MarkupCarve\Carve\Import\ImportInputError
+     *
      * @return \MarkupCarve\Carve\Node
      */
     private static function read(array $document): Node
     {
-        if (self::exceedsBlockDepth($document)) {
+        if (TreeReader::exceedsDepth($document)) {
             throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
         }
+
+        return self::readJson(self::encode($document));
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     *
+     * @throws \MarkupCarve\Carve\Import\ImportInputError
+     */
+    private static function encode(array $document): string
+    {
         $json = json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE, 100000);
+        if ($json === false) {
+            throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
+        }
+
+        return $json;
+    }
+
+    /**
+     * @throws \MarkupCarve\Carve\Import\ImportInputError
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     */
+    private static function readJson(string $json): Node
+    {
         try {
-            return TreeReader::read((string)$json);
+            return TreeReader::read($json);
         } catch (TreeError $e) {
             if (
-                $e->reason === 'depth' || $json === false
+                $e->reason === 'depth'
                 || ($e->pointer === '' && $e->getPrevious() instanceof JsonException)
             ) {
                 throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
@@ -246,41 +267,6 @@ final class HtmlImporter
 
             throw $e;
         }
-    }
-
-    /**
-     * Reject an imported block tree before allocating and decoding its JSON form.
-     * The reader still checks the other tree limits and the complete schema.
-     *
-     * @param array<string, mixed> $document
-     */
-    private static function exceedsBlockDepth(array $document): bool
-    {
-        $stack = [[$document, 0]];
-        while ($stack !== []) {
-            [$node, $depth] = array_pop($stack);
-            if (!is_array($node)) {
-                continue;
-            }
-            $type = $node['type'] ?? null;
-            $depth += is_string($type) && isset(self::DEPTH_CONTAINERS[$type]) ? 1 : 0;
-            if ($depth > Tables::BLOCK_DEPTH) {
-                return true;
-            }
-            if ($type === 'include') {
-                // C2-A-171: expanded include children start a new block depth count.
-                $depth = 0;
-            }
-            $children = $node['children'] ?? [];
-            if (!is_array($children)) {
-                continue;
-            }
-            foreach ($children as $child) {
-                $stack[] = [$child, $depth];
-            }
-        }
-
-        return false;
     }
 
     private static function rootLanguage(HtmlNode $root, ImportContext $context): void
