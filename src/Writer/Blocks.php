@@ -67,6 +67,17 @@ final class Blocks
     private ?array $above = null;
 
     /**
+     * @var array<mixed>|null The block above the current sibling that its lines would still belong to, past comment-only
+     *   lines (C2-B-137).
+     */
+    private ?array $reaching = null;
+
+    /**
+     * @var array<mixed>|null The sibling written directly above the current top-level block.
+     */
+    private ?array $belowSibling = null;
+
+    /**
      * C2-W-155: the top-level blocks written one space in, by path; true where the attribute line stays at column 0.
      *
      * @var array<string, bool>
@@ -140,6 +151,7 @@ final class Blocks
         $list = null;
         $count = count($nodes);
         $followingAt = 0;
+        $reach = [null, 0];
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -160,6 +172,8 @@ final class Blocks
             $losses = count($this->w->losses);
             try {
                 $followingAt = self::followingAfter($nodes, $at, $followingAt);
+                $reach = $this->reachTo($nodes, $at, $reach);
+                $this->reaching = self::nodeAt($nodes, $reach[0]);
                 $this->beforeSibling($nodes, $at, $followingAt, $before, $list, $path, $prefix, $layout);
                 $next = $nodes[$at + 1] ?? null;
                 $this->markFenceBeforeComment($node, $path . '/' . $at, is_array($next) ? $next : null);
@@ -233,20 +247,25 @@ final class Blocks
         $this->indentPlan = [];
         $this->spelledLeads = [];
         $count = count($nodes);
-        for ($at = 0; $at + 1 < $count; $at++) {
-            $node = $nodes[$at];
-            $next = $nodes[$at + 1];
-            if (!is_array($node) || !is_array($next) || !self::indentedAbove($node, $next, $path . '/' . ($at + 1))) {
+        $above = $this->blocksAbove($nodes);
+        for ($next = 1; $next < $count; $next++) {
+            $at = $above[$next];
+            $node = $at === null ? null : $nodes[$at];
+            $paragraph = $nodes[$next];
+            if (
+                $at === null || !is_array($node) || !is_array($paragraph)
+                || !self::indentedAbove($node, $paragraph, $path . '/' . $next)
+            ) {
                 continue;
             }
-            $marks = $this->indentChain($nodes, $at, $path);
+            $marks = $this->indentChain($nodes, $above, $at, $path);
             if ($marks === []) {
                 continue;
             }
             foreach ($marks as $index => $outdented) {
                 $this->indentPlan[$path . '/' . $index] = $outdented;
             }
-            $this->spelledLeads[$path . '/' . ($at + 1)] = true;
+            $this->spelledLeads[$path . '/' . $next] = true;
         }
     }
 
@@ -256,26 +275,27 @@ final class Blocks
      * repairs lives here (carve#6418).
      *
      * @param array<mixed> $nodes
+     * @param array<int, int|null> $above
      * @param int $at
      * @param string $path
      *
      * @return array<int, bool>
      */
-    private function indentChain(array $nodes, int $at, string $path): array
+    private function indentChain(array $nodes, array $above, int $at, string $path): array
     {
         $marks = [];
         $current = $at;
         while (true) {
-            $aboveAt = self::aboveAt($nodes, $current);
-            $above = $aboveAt === null ? null : $nodes[$aboveAt];
+            $aboveAt = $above[$current];
+            $container = $aboveAt === null ? null : $nodes[$aboveAt];
             $node = $nodes[$current];
-            if (!is_array($above) || !$this->isOpenContainer($above)) {
+            if (!is_array($container) || !$this->isOpenContainer($container)) {
                 return $marks + [$current => false];
             }
             if (is_array($node) && $this->ownAttributes($node, $path . '/' . $current) !== '') {
                 return $marks + [$current => true];
             }
-            if (!in_array($above['type'] ?? '', ['list', 'definition_list'], true)) {
+            if (!in_array($container['type'] ?? '', ['list', 'definition_list'], true)) {
                 return [];
             }
             $marks[$current] = false;
@@ -284,23 +304,81 @@ final class Blocks
     }
 
     /**
-     * The index of the last block above `at` that is no comment-only line, or null. Comment-only lines are not seen by
-     * block structure (C2-B-137); a comment block at column 0 closes the containers above (C2-B-053).
+     * For each block, the index of the last block above it that is no comment-only line, or null where no container
+     * reaches it. Comment-only lines are not seen by block structure (C2-B-137); a comment block, a region marker line
+     * and the comment line of C2-W-123 close the containers above (C2-B-053, C2-W-155).
+     *
+     * @param array<mixed> $nodes
+     *
+     * @return array<int, int|null>
+     */
+    private function blocksAbove(array $nodes): array
+    {
+        $above = [];
+        $reach = [null, 0];
+        $count = count($nodes);
+        for ($index = 0; $index < $count; $index++) {
+            $reach = $this->reachTo($nodes, $index, $reach);
+            $above[$index] = $reach[0];
+        }
+
+        return $above;
+    }
+
+    /**
+     * Moves the walk of `blocksAbove` on to the block at `at`: the block reaching it and the next index to read.
      *
      * @param array<mixed> $nodes
      * @param int $at
+     * @param array{0: int|null, 1: int} $reach
      *
-     * @return int|null
+     * @return array{0: int|null, 1: int}
      */
-    private static function aboveAt(array $nodes, int $at): ?int
+    private function reachTo(array $nodes, int $at, array $reach): array
     {
-        for ($index = $at - 1; $index >= 0; $index--) {
-            if (is_array($nodes[$index]) && !self::isCommentLine($nodes[$index])) {
-                return $index;
+        [$last, $index] = $reach;
+        for (; $index < $at; $index++) {
+            $node = $nodes[$index] ?? null;
+            if (!is_array($node)) {
+                continue;
+            }
+            if (!self::isCommentLine($node)) {
+                $last = $index;
+
+                continue;
+            }
+            $previous = $nodes[$index - 1] ?? null;
+            $fenceEnds = $last === $index - 1 && is_array($previous) && $this->isOpenContainer($previous)
+                && $this->lastFence($previous) !== null;
+            if ($fenceEnds || self::isRegionMarker($node)) {
+                $last = null;
             }
         }
 
-        return null;
+        return [$last, $index];
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param int|null $at
+     *
+     * @return array<mixed>|null
+     */
+    private static function nodeAt(array $nodes, ?int $at): ?array
+    {
+        return $at !== null && is_array($nodes[$at] ?? null) ? $nodes[$at] : null;
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return bool
+     */
+    private static function isRegionMarker(array $node): bool
+    {
+        $marker = '/^#(?:region[ \t]+[A-Za-z_][A-Za-z0-9_-]*|endregion(?:[ \t]+[A-Za-z_][A-Za-z0-9_-]*)?)$/';
+
+        return preg_match($marker, Inline::str($node, 'value')) === 1;
     }
 
     /**
@@ -353,7 +431,8 @@ final class Blocks
         string $prefix,
         int $layout,
     ): void {
-        $this->above = $path === '/children' ? $before : null;
+        $this->belowSibling = $path === '/children' ? $before : null;
+        $this->above = $path !== '/children' ? null : (self::isCommentLine($before) ? $this->reaching : $before);
         $node = is_array($nodes[$at]) ? $nodes[$at] : [];
         $following = is_array($nodes[$followingAt] ?? null) ? $nodes[$followingAt] : null;
         $followingPath = $path . '/' . $followingAt;
@@ -363,6 +442,10 @@ final class Blocks
             && $this->w->prewritten !== $followingPath
         ) {
             $attributes = $this->followingAttributes($following, $followingPath);
+        }
+        if (self::isCommentLine($node) && $this->w->prewritten === $followingPath) {
+            // The attribute line written above the comments closes the container (C2-W-122).
+            $this->reaching = null;
         }
         if ($before !== null) {
             $nested = $layout === self::ENTRIES || ($layout === self::TIGHT_ITEM && $this->isNestedList($before, $node, $at, $path));
@@ -564,14 +647,21 @@ final class Blocks
             if ($this->lastFence($before) !== null) {
                 return 0;
             }
-            $marker = '/^#(?:region[ \t]+[A-Za-z_][A-Za-z0-9_-]*|endregion(?:[ \t]+[A-Za-z_][A-Za-z0-9_-]*)?)$/';
-            if (preg_match($marker, Inline::str($node, 'value')) === 1) {
-                return 1;
+            if (self::isRegionMarker($node)) {
+                // A region marker closes the container, so it follows a closed block directly, as at top level.
+                return $this->takesLineBelow($before) ? 1 : 0;
             }
             // C2-B-138: an ordinary comment line stays in the open container.
             $this->w->lose($path, 'comment', null);
 
             return 1;
+        }
+        if (
+            self::isCommentLine($node) && self::isCommentLine($before) && $this->reaching !== null
+            && $this->isOpenContainer($this->reaching) && !self::isRegionMarker($node)
+        ) {
+            // C2-B-138: so does every later comment line of the run.
+            $this->w->lose($path, 'comment', null);
         }
 
         return $this->takesLineBelow($before) || isset($this->w->openFences[$path]) ? 1 : 0;
@@ -924,7 +1014,8 @@ final class Blocks
         if ($attributes || $above === null || !$this->isOpenContainer($above)) {
             return ' ' . $text;
         }
-        if (self::directBelowContainer($above, $node, $path)) {
+        // C2-W-154 needs the line directly below the container; across a comment line a blank line stands between.
+        if ($above === $this->belowSibling && self::directBelowContainer($above, $node, $path)) {
             return $text;
         }
         if (isset($this->spelledLeads[$path])) {

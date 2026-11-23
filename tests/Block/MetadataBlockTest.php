@@ -27,7 +27,10 @@ final class MetadataBlockTest extends TestCase
     /**
      * @var array<string>
      */
-    private const PINNED_WRITES = ['CC-1695', 'CC-1696', 'CC-1697', 'CC-1698'];
+    private const PINNED_WRITES = [
+        'CC-1695', 'CC-1696', 'CC-1697', 'CC-1698', 'CC-1705', 'CC-1706', 'CC-1707', 'CC-1708', 'CC-1709', 'CC-1710',
+        'CC-1711', 'CC-1712',
+    ];
 
     /**
      * @return array<string, array{0: string, 1: array<string>}>
@@ -374,5 +377,66 @@ final class MetadataBlockTest extends TestCase
         unset($tree['srcByteLength']);
 
         return Corpus::withoutPositions($tree);
+    }
+
+    /**
+     * @return array<string, array{0: array<string>, 1: string, 2: array<string>}>
+     */
+    public static function acrossLineComments(): array
+    {
+        $yaml = " ---yaml\nk: v\n---\n";
+
+        return [
+            'every comment of a run below a list is lost' => [
+                ["- a\n", "%% c\n", "%% d\n", $yaml],
+                " - a\n\n%% c\n%% d\n\n" . $yaml,
+                ['/children/1', '/children/2'],
+            ],
+            'below a footnote across two comments the paragraph is lost too' => [
+                ["a[^n]\n\n[^n]: x\n", "%% c\n", "%% d\n", $yaml],
+                "a[^n]\n\n[^n]: x\n\n%% c\n%% d\n\n" . $yaml,
+                ['/children/2', '/children/3', '/children/4'],
+            ],
+            'below a closed heading the paragraph stays indented across a comment' => [
+                ["- = h\n", "%% c\n", $yaml],
+                "- = h\n\n%% c\n\n" . $yaml,
+                ['/children/1', '/children/2'],
+            ],
+            'the attribute line above a comment run closes the list' => [
+                ["- a\n", "%% c\n", "%% d\n", "{.c}\n* b\n", $yaml],
+                "- a\n\n{.c}\n%% c\n%% d\n * b\n\n" . $yaml,
+                [],
+            ],
+            'a region marker follows a list ending in a closed div directly' => [
+                ["- ::: d\n  x\n  :::\n", "%% #region r\n"],
+                "- ::: d\n  x\n  :::\n%% #region r\n",
+                [],
+            ],
+        ];
+    }
+
+    /**
+     * C2-W-155 (carve#6430): comment-only lines close no container (C2-B-137), so each one stays in the container
+     * above and is reported, and the blocks around them are written as without them.
+     *
+     * @param array<string> $fragments
+     * @param string $written
+     * @param array<string> $lost
+     */
+    #[DataProvider('acrossLineComments')]
+    public function testAcrossLineComments(array $fragments, string $written, array $lost): void
+    {
+        $children = [];
+        foreach ($fragments as $fragment) {
+            $tree = json_decode(Carve::toJson($fragment), true, 512, JSON_THROW_ON_ERROR);
+            $children = array_merge($children, $tree['children']);
+        }
+        $result = Carve::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => $children]);
+
+        self::assertSame($written, $result->source);
+        self::assertSame(
+            array_map(static fn (string $path): array => ['structure-unspellable', $path], $lost),
+            array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics),
+        );
     }
 }
