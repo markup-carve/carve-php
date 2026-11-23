@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Import;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Import\HtmlImporter;
 use MarkupCarve\Carve\Import\ImportInputError;
@@ -74,6 +75,48 @@ final class ImportLazyDocumentTest extends TestCase
 
         $this->assertSame($document, $result->document);
         $this->assertTrue((new ReflectionProperty(ImportResult::class, 'document'))->isInitialized($result));
+    }
+
+    public function testASerializedResultKeepsItsDocument(): void
+    {
+        $html = '<p><em>a</em></p>';
+        $expected = HtmlImporter::import($html)->document;
+
+        $copy = unserialize(serialize(HtmlImporter::import($html)));
+        $clone = clone HtmlImporter::import($html);
+
+        $this->assertInstanceOf(ImportResult::class, $copy);
+        $this->assertSame($expected, $copy->document);
+        $this->assertSame('document', $copy->tree->type);
+        $this->assertSame($expected, $clone->document);
+    }
+
+    public function testAPayloadWithTheUndecodedDocumentIsRead(): void
+    {
+        $result = HtmlImporter::import('<p><em>a</em></p>');
+        $expected = $result->document;
+        $json = (string)json_encode($expected);
+        // The payload a lazy result gave before it had `__serialize()`: the private JSON field, no document.
+        $payload = 'O:' . strlen(ImportResult::class) . ':"' . ImportResult::class . '":3:{'
+            . 's:6:"source";' . serialize($result->source)
+            . 's:' . (strlen(ImportResult::class) + 14) . ':"' . "\0" . ImportResult::class . "\0" . 'documentJson";' . serialize($json)
+            . 's:4:"tree";' . serialize($result->tree) . '}';
+
+        $copy = unserialize($payload);
+
+        $this->assertInstanceOf(ImportResult::class, $copy);
+        $this->assertSame($expected, $copy->document);
+    }
+
+    public function testASerializedResultKeepsItsDiagnosticKeys(): void
+    {
+        $result = HtmlImporter::import('<p><em>a</em></p>');
+        $keyed = new ImportResult($result->tree, [], ['first' => new Diagnostic('c', 'warning', 'import-loss', 'm', '')], '');
+
+        $copy = unserialize(serialize($keyed));
+
+        $this->assertInstanceOf(ImportResult::class, $copy);
+        $this->assertSame(['first' => 'c'], $copy->codes());
     }
 
     public function testAnOverDeepInlineTreeIsRefusedBeforeTheWriter(): void
