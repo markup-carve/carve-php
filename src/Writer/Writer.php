@@ -48,7 +48,9 @@ final class Writer
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
         // and repairs the tree without them. The local write keeps the supplied tree, and with it the loss paths.
-        $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options));
+        $removed = [];
+        $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
+        $layout = LineEndBlanks::remapLayout($layout, $removed);
         $bare = self::bareCandidate($tree, $layout, $options);
         if (ReadbackRound::inspect($bare, $tree, $options)['equal']) {
             return $result;
