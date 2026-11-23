@@ -200,40 +200,20 @@ final class Linter
     {
         $maskCursor = 0;
         $lineRules = array_values(array_filter(LineRules::all(), static fn (array $rule): bool => $c->active($rule[0])));
-        $shapeOnly = $c->dataRules;
-        foreach ($lineRules as [$id]) {
-            if (!in_array($id, ['deprecated-indented-line-under-heading', 'table-row-without-closing-pipe'], true)) {
-                $shapeOnly = false;
-
-                break;
-            }
+        if ($lineRules === []) {
+            return;
         }
-        $recoverOpaque = $c->active('blockquote-marker-without-space') || $c->active('bare-html-tag');
-        if ($lineRules !== [] || $recoverOpaque) {
-            foreach ($c->lines as $line) {
-                if ($line->opaque) {
-                    if (isset($c->frontmatterLines[$line->number]) && $c->active('blockquote-marker-without-space')) {
-                        LineRules::frontmatterQuote($line, $c);
-                    }
-                    if ($recoverOpaque) {
-                        LineRules::escapedOpaque($line, $c);
-                    }
-
-                    continue;
-                }
-                if ($lineRules !== []) {
-                    if (
-                        $shapeOnly
-                        && (!$line->paragraph || (($line->text[0] ?? '') !== ' '
-                            && (ltrim($line->text, " \t")[0] ?? '') !== '|'))
-                    ) {
-                        continue;
-                    }
-                    $scan = self::masked($line, $c, $maskCursor);
-                    foreach ($lineRules as [, $check]) {
-                        $check($scan, $c);
-                    }
-                }
+        foreach ($c->lines as $line) {
+            // Both remaining line rules read only a paragraph line that starts with a space or a pipe.
+            if (
+                $line->opaque || !$line->paragraph
+                || (($line->text[0] ?? '') !== ' ' && (ltrim($line->text, " \t")[0] ?? '') !== '|')
+            ) {
+                continue;
+            }
+            $scan = self::masked($line, $c, $maskCursor);
+            foreach ($lineRules as [, $check]) {
+                $check($scan, $c);
             }
         }
     }
@@ -277,22 +257,12 @@ final class Linter
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $c->nodeTypes[$path] = $type;
-        if ($type === 'link_reference_definition') {
-            $c->referenceDefinitions[] = [$node, $path];
-        } elseif ($type === 'footnote') {
+        if ($type === 'footnote') {
             $c->footnoteDefinitions[] = [$node, $path];
         } elseif ($type === 'footnote_ref') {
             $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
         }
         $attrs = $node['attrs'] ?? null;
-        if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
-            $c->ids[$attrs['id']] = true;
-            $c->idOwners[Support::nfc($attrs['id'])] ??= $type;
-            if ($type === 'heading' || DataModel::numberedCaption($node)) {
-                $c->xrefIds[$attrs['id']] = true;
-                $c->xrefNfc[Support::nfc($attrs['id'])] = true;
-            }
-        }
         $pos = Support::pos($node);
         if ($c->dataRules) {
             $modelType = $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type;
@@ -300,15 +270,6 @@ final class Linter
         }
         if ($attrs !== null && $pos !== null) {
             $c->attachedLines[$pos['startLine']] = true;
-        }
-        if ($type === 'heading' && is_string($node['generatedId'] ?? null)) {
-            $c->ids[$node['generatedId']] = true;
-            $c->xrefIds[$node['generatedId']] = true;
-            $c->idOwners[Support::nfc($node['generatedId'])] ??= $type;
-            $c->xrefNfc[Support::nfc($node['generatedId'])] = true;
-        }
-        if ($type === 'figure_group' && DataModel::numberedCaption($node)) {
-            self::panelTargets($node, $c);
         }
         if ($pos !== null) {
             self::placed($node, $type, $path, $pos, $c, $controls);
@@ -336,28 +297,6 @@ final class Linter
      */
     private static function placed(array $node, string $type, string $path, array $pos, Context $c, array &$controls): void
     {
-        // Only a line's paragraph, caption, term or heading path is ever looked up.
-        if ($type === 'paragraph' || $type === 'caption' || $type === 'definition_term' || $type === 'heading') {
-            $c->firstLines[$path] = $pos['startLine'];
-        }
-        if ($type === 'definition_description') {
-            $c->descriptionEntryLines[$pos['startLine']] = true;
-        }
-        if ($type === 'table_row') {
-            $c->tableRowPaths[$pos['startLine']] = $path;
-        }
-        if ($type === 'comment' && ($node['form'] ?? null) === 'block') {
-            for ($line = $pos['startLine']; $line <= $pos['endLine']; $line++) {
-                $c->blockCommentStartLines[$line] = $pos['startLine'];
-            }
-        }
-        if ($type === 'paragraph' || $type === 'definition_term') {
-            $c->paragraphStarts[$path] = $pos['startOffset'];
-        }
-        // A braced underline in any inline host is an inline node, not an attribute opener.
-        if ($type === 'underline') {
-            $c->underlineStarts[$pos['startOffset']] = true;
-        }
         self::markContent($type, $pos, $c);
         self::markLines($c, $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type, $path, $pos);
         if (isset(self::OPAQUE_LEAVES[$type])) {
@@ -392,28 +331,7 @@ final class Linter
     }
 
     /**
-     * C2-B-207: the panels of a numbered figure group are cross-reference targets.
-     *
-     * @param array<string, mixed> $group
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
-    private static function panelTargets(array $group, Context $c): void
-    {
-        $children = is_array($group['children'] ?? null) ? $group['children'] : [];
-        foreach (DataModel::panelPaths($group, '') as $panel) {
-            $child = $children[(int)substr($panel, strlen('/children/'))] ?? null;
-            $attrs = is_array($child) ? ($child['attrs'] ?? null) : null;
-            if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
-                $c->xrefIds[$attrs['id']] = true;
-                $c->xrefNfc[Support::nfc($attrs['id'])] = true;
-            }
-        }
-    }
-
-    /**
-     * Register top-level predecessor kinds while measuring their trees, without adding work to each recursive node.
+     * Register the document and measure the tree below it.
      *
      * @param array<string, mixed> $root
      * @param \MarkupCarve\Carve\Lint\Context $c
@@ -421,23 +339,7 @@ final class Linter
     private static function measureRoot(array $root, Context $c): void
     {
         $c->layout->register('', $root, 0, '');
-        $previousType = '';
         foreach (self::children($root, 'document', '') as [$child, $childPath]) {
-            $attrs = $child['attrs'] ?? null;
-            if (($child['type'] ?? null) === 'frontmatter' && is_array($attrs) && is_string($attrs['id'] ?? null)) {
-                $c->frontmatterIds[$attrs['id']] = true;
-            }
-            $blockPos = Support::pos($child);
-            if ($blockPos !== null) {
-                $firstLine = $c->lines[$blockPos['startLine'] - 1] ?? null;
-                if (
-                    ($child['type'] ?? null) === 'paragraph' && $firstLine !== null
-                    && str_starts_with($firstLine->text, '    ')
-                ) {
-                    $c->previousTopLevelBlocks[$blockPos['startLine']] = $previousType;
-                }
-                $previousType = is_string($child['type'] ?? null) ? $child['type'] : '';
-            }
             self::measure($child, $childPath, '', 0, $c);
         }
     }
@@ -547,9 +449,6 @@ final class Linter
             }
             if ($opaque) {
                 $c->lines[$i]->opaque = true;
-                if ($type === 'frontmatter') {
-                    $c->frontmatterLines[$i + 1] = true;
-                }
             }
         }
     }

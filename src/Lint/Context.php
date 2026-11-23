@@ -54,50 +54,6 @@ final class Context
     private array $dataIds = [];
 
     /**
-     * @var array<string, int> The first line of the node at each path.
-     */
-    public array $firstLines = [];
-
-    /**
-     * @var array<int, string> Type of the top-level block before a block starting on this line.
-     */
-    public array $previousTopLevelBlocks = [];
-
-    /**
-     * @var array<int, string> Path of each parsed pipe table row by source line.
-     */
-    public array $tableRowPaths = [];
-
-    /**
-     * @var array<int, true> First lines of parsed description entries.
-     */
-    public array $descriptionEntryLines = [];
-
-    /**
-     * @var array<int, int> First line of the parsed block comment covering each physical line.
-     */
-    public array $blockCommentStartLines = [];
-
-    /**
-     * First source byte of each paragraph's content.
-     *
-     * @var array<string, int>
-     */
-    public array $paragraphStarts = [];
-
-    /**
-     * @var array<int, true> Start bytes of parsed braced underline spans.
-     */
-    public array $underlineStarts = [];
-
-    /**
-     * Frontmatter lines whose text is opaque to all other line rules.
-     *
-     * @var array<int, true>
-     */
-    public array $frontmatterLines = [];
-
-    /**
      * @var array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
      */
     public array $diagnostics = [];
@@ -112,67 +68,10 @@ final class Context
      */
     public array $leafMask = [];
 
-    public int $headingLevel = 0;
-
-    /**
-     * @var array<string, true>
-     */
-    public array $headingKinds = [];
-
-    /**
-     * @var array{0: int, 1: int, 2: string}|null
-     */
-    public ?array $firstHeading = null;
-
-    public bool $mixedReported = false;
-
-    /**
-     * @var array<string, true>
-     */
-    public array $referenceUrls = [];
-
-    /**
-     * @var array<string, true>
-     */
-    public array $ids = [];
-
-    /**
-     * C2-I-096, C2-B-207: the ids of headings and numbered caption owners, the targets of a cross-reference.
-     *
-     * @var array<string, true>
-     */
-    public array $xrefIds = [];
-
-    /**
-     * C2-A-218: ids of top-level frontmatter, lookup keys and no cross-reference target.
-     *
-     * @var array<string, true>
-     */
-    public array $frontmatterIds = [];
-
-    /**
-     * C2-I-097: the type of the first node that carries each id, keyed by the id in NFC.
-     *
-     * @var array<string, string>
-     */
-    public array $idOwners = [];
-
-    /**
-     * C2-I-097: the cross-reference targets of `xrefIds`, keyed by the id in NFC.
-     *
-     * @var array<string, true>
-     */
-    public array $xrefNfc = [];
-
     /**
      * @var array<array{0: array<string, mixed>, 1: string}>
      */
     public array $fragmentLinks = [];
-
-    /**
-     * @var array<string, string>
-     */
-    public array $footnoteLabels = [];
 
     /**
      * @var array<int, true>
@@ -182,22 +81,7 @@ final class Context
     /**
      * @var array<string, true>
      */
-    public array $usedReferences = [];
-
-    /**
-     * @var array<string, true>
-     */
     public array $usedFootnotes = [];
-
-    /**
-     * @var array<array{0: array<string, mixed>, 1: string}>
-     */
-    public array $referenceDefinitions = [];
-
-    /**
-     * @var array<array{0: array<string, mixed>, 1: string}>
-     */
-    public array $unresolvedReferences = [];
 
     /**
      * @var array<array{0: array<string, mixed>, 1: string}>

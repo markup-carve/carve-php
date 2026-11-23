@@ -170,7 +170,7 @@ final class DataRules
 
     public static function enabled(): bool
     {
-        return getenv('CARVE_LINT_RULES') === 'data' && (self::data()['rules'] ?? []) !== [];
+        return (self::data()['rules'] ?? []) !== [];
     }
 
     /**
