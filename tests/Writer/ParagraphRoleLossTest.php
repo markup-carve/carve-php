@@ -30,7 +30,11 @@ final class ParagraphRoleLossTest extends TestCase
             'an image with its role' => [$paragraph([$image], 'image'), "![a](i.png)\n", []],
             'a role on text' => [$paragraph([['type' => 'text', 'value' => 'q']], 'math'), "q\n", ['field-unspellable /children/0/role']],
             'display math and text' => [$paragraph([$math, ['type' => 'text', 'value' => ' y']]), "$$`x` y\n", []],
-            'display math and an empty text' => [$paragraph([$math, ['type' => 'text', 'value' => '']], 'math'), "$$`x`\n", []],
+            'display math and an empty text' => [
+                $paragraph([$math, ['type' => 'text', 'value' => '']], 'math'),
+                "$$`x`\n",
+                ['structure-unspellable /children/0'],
+            ],
             'a space and an image' => [
                 $paragraph([['type' => 'text', 'value' => ' '], $image]),
                 " ![a](i.png)\n",

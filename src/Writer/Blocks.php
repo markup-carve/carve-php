@@ -906,6 +906,9 @@ final class Blocks
         $c = $this->context($children, $mark === '', $prefix);
         $outer = $this->w->takeSmartRun();
         $text = $this->inline->content($children, $path . '/children', $c, -1);
+        if (Inline::endsInLoneEmptyText($children)) {
+            $this->w->lose($path, Inline::str($node, 'type'), null);
+        }
         if ($mark === '') {
             $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
         }

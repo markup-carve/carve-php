@@ -436,6 +436,7 @@ final class Inline
             self::hyphenNeighbors($c, $type, $following, $hyphens);
             self::dotNeighbors($c, $type, $dots, $dotsAhead, $at);
             self::resetFollowingPipe($c, $type);
+            $this->loseLoneEmptyText($nodes, $at, $path);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
             $c->afterText = self::isText($visibleNode);
             $this->before = $visibleNode;
@@ -585,6 +586,50 @@ final class Inline
         }
 
         return isset(self::VERBATIM[$type]) ? null : false;
+    }
+
+    /**
+     * C2-W-117: no parse gives an empty text. Beside another text it joins that one (C2-A-040); alone it reads back as
+     * none. Content of nothing else is the loss of its parent (`loseEmptyContent`).
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param string $path
+     *
+     * @return void
+     */
+    private function loseLoneEmptyText(array $nodes, int $at, string $path): void
+    {
+        $node = $nodes[$at];
+        if (!is_array($node) || ($node['type'] ?? null) !== 'text' || ($node['value'] ?? null) !== '') {
+            return;
+        }
+        $before = $nodes[$at - 1] ?? null;
+        $after = $nodes[$at + 1] ?? null;
+        $besideText = self::isText(is_array($before) ? $before : null) || self::isText(is_array($after) ? $after : null);
+        if ($after === null || $besideText || self::onlyEmptyText($nodes)) {
+            return;
+        }
+        $this->w->lose($path . '/' . $at, 'text', 'value');
+    }
+
+    /**
+     * C2-W-117: a lone empty text that ends the content reads back as none; the parent reports it, as carve-js does.
+     *
+     * @param mixed $children
+     *
+     * @return bool
+     */
+    public static function endsInLoneEmptyText(mixed $children): bool
+    {
+        if (!is_array($children) || $children === [] || self::onlyEmptyText($children)) {
+            return false;
+        }
+        $last = $children[count($children) - 1] ?? null;
+        $before = $children[count($children) - 2] ?? null;
+
+        return is_array($last) && ($last['type'] ?? null) === 'text' && ($last['value'] ?? null) === ''
+            && !self::isText(is_array($before) ? $before : null);
     }
 
     private static function resetFollowingPipe(Context $c, string $type): void
@@ -1325,7 +1370,7 @@ final class Inline
     }
 
     /**
-     * C2-W-117: no parse gives an empty text, so content of only empty texts reads back as none, a loss.
+     * C2-W-117: no parse gives an empty text, so content of only empty texts, or ending in a lone one, loses it.
      *
      * @param array<mixed> $node
      * @param string $path
@@ -1335,7 +1380,7 @@ final class Inline
      */
     private function loseEmptyContent(array $node, string $path, string $type): void
     {
-        if (self::onlyEmptyText($node['children'] ?? null)) {
+        if (self::onlyEmptyText($node['children'] ?? null) || self::endsInLoneEmptyText($node['children'] ?? null)) {
             $this->w->lose($path, $type, null);
         }
     }

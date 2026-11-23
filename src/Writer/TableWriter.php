@@ -710,6 +710,9 @@ final class TableWriter
             $c->counts = Inline::counts($inlines);
             $outer = $this->w->takeSmartRun();
             $part = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
+            if (Inline::endsInLoneEmptyText($inlines)) {
+                $this->w->lose($path . '/children/' . $at, 'cell_paragraph', null);
+            }
             if ($this->w->takeSmartRun()) {
                 SmartReadBack::leafReadBack($this->w, $inlines, $part, $path . '/children/' . $at, 'cell');
             }
