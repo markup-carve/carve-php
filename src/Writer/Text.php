@@ -1580,7 +1580,8 @@ final class Text
     }
 
     /**
-     * Pair bare marks with the same flanking and nearest-opener rule as the reader. A bracket bounds the delimiter stack.
+     * Pair bare marks with the same flanking and nearest-opener rule as the reader. Only a bracketed node bounds the
+     * delimiter stack (C2-I-007): a text bracket either forms nothing or takes a backslash.
      *
      * @param string $text
      * @param array<int, string> $types
@@ -1592,24 +1593,12 @@ final class Text
     {
         $paired = ['*' => [], '/' => []];
         $open = ['*' => [], '/' => []];
-        $brackets = [];
+        $inner = ['*' => -1, '/' => -1];
         $n = strlen($text);
-        $matching = self::matchingBrackets($text);
         for ($at = 0; $at < $n; $at++) {
             $ch = $text[$at];
             if ($ch === "\0") {
                 self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired);
-
-                continue;
-            }
-            if ($ch === '[' && isset($matching[$at])) {
-                $brackets[] = $open;
-                $open = ['*' => [], '/' => []];
-
-                continue;
-            }
-            if ($ch === ']' && $brackets !== []) {
-                $open = array_pop($brackets);
 
                 continue;
             }
@@ -1626,33 +1615,20 @@ final class Text
             }
             $canOpen = !Chars::isWord($before) && !Chars::isSpace($after);
             $canClose = !Chars::isSpace($before) && !Chars::isWord($after);
-            if ($canClose && $open[$ch] !== []) {
+            if (Chars::isWord($before) && Chars::isWord($after)) {
+                $inner[$ch] = $at;
+            } elseif ($canClose && $open[$ch] !== []) {
                 $from = array_pop($open[$ch]);
-                $paired[$ch][$from] = true;
+                // C2-I-053: a span that holds its own mark between two word characters does not form.
+                if ($inner[$ch] < $from) {
+                    $paired[$ch][$from] = true;
+                }
             } elseif ($canOpen) {
                 $open[$ch][] = $at;
             }
         }
 
         return $paired;
-    }
-
-    /**
-     * @return array<int, true>
-     */
-    private static function matchingBrackets(string $text): array
-    {
-        $matching = [];
-        $pending = [];
-        for ($i = 0, $n = strlen($text); $i < $n; $i++) {
-            if ($text[$i] === '[') {
-                $pending[] = $i;
-            } elseif ($text[$i] === ']' && $pending !== []) {
-                $matching[array_pop($pending)] = true;
-            }
-        }
-
-        return $matching;
     }
 
     /**
