@@ -1991,7 +1991,7 @@ final class Inline
     /**
      * A bracket bounds the delimiter stack, so the text inside one does not count, and a mark between two word
      * characters inside a braced span is text for the pair around it (C2-I-053). A mark between two spaces and a run of
-     * two (C2-I-049) are text.
+     * two (C2-I-049) are text, unless a brace beside the run takes an escape that leaves one mark alone.
      *
      * @param array<mixed> $nodes
      * @param string $mark
@@ -2010,7 +2010,10 @@ final class Inline
                 $value = self::str($node, 'value');
                 $n = strlen($value);
                 for ($at = strpos($value, $mark); $at !== false; $at = strpos($value, $mark, $at + 1)) {
-                    if (($value[$at + 1] ?? '') === $mark || ($at > 0 && $value[$at - 1] === $mark)) {
+                    $run = strspn($value, $mark, $at);
+                    if ($run > 1 && ($at === 0 || $value[$at - 1] !== '{') && ($value[$at + $run] ?? '') !== '}') {
+                        $at += $run - 1;
+
                         continue;
                     }
                     $before = $at > 0 ? Chars::before($value, $at) : 0;

@@ -50,6 +50,7 @@ final class AngleAndPairFormTest extends TestCase
             'slash between words in a braced span' => [[$em($t('e '), $sup('a/b'), $t(' f'))], "/e {^a/b^} f/\n"],
             'slash between spaces' => [[$em($t('a / b'))], "/a / b/\n"],
             'slash between words' => [[$em($t('a/b'))], "{/a/b/}\n"],
+            'run of two between words' => [[$em($t('a//b'))], "/a//b/\n"],
             'slash that can close' => [[$em($t('a/ b'))], "{/a/ b/}\n"],
             'slash that can open' => [[$em($t('a /b'))], "{/a /b/}\n"],
             'slash that can close in a braced span' => [[$em($t('e '), $sup('a/ b'), $t(' f'))], "{/e {^a/ b^} f/}\n"],
@@ -69,6 +70,29 @@ final class AngleAndPairFormTest extends TestCase
         $source = Carve::write($tree);
 
         $this->assertSame($expected, $source);
+        $this->assertTrue(TreeEquality::equal($tree, TreeEncoder::decodedForWriter(Carve::parse($source))));
+    }
+
+    public function testKeepsTheBracedFormWhereAnEscapeSplitsARun(): void
+    {
+        $tree = [
+
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'strong', 'children' => [['type' => 'text', 'value' => '{**a']]],
+                    ],
+                ],
+            ],
+        ];
+
+        $source = Carve::write($tree);
+
+        $this->assertSame("{*\\{*\\*a*}\n", $source);
         $this->assertTrue(TreeEquality::equal($tree, TreeEncoder::decodedForWriter(Carve::parse($source))));
     }
 }
