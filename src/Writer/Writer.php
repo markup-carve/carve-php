@@ -124,19 +124,26 @@ final class Writer
             }
         }
         $bare = self::bareCandidate($tree, $layout, $options);
-        $equal = ReadbackRound::inspect($bare, $tree, $options, $treePrint)['equal'];
-        $bareSource = $bare['source'];
-        unset($bare);
+        $comparison = ReadbackRound::inspect($bare, $tree, $options, $treePrint);
         $seed = [];
-        if ($equal) {
+        $planner = null;
+        if ($comparison['equal']) {
+            $bareSource = $bare['source'];
+            unset($bare, $comparison);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
                 return $result;
             }
             // C2-W-091: the escapes of the local write can change how the text reads, as an escaped bracket that no
             // longer counts toward the depth limit of C2-I-118. The rounds go on from the local form.
             $seed = $removed === [] ? ($localEscapes ?? self::localWrite($original, $originalLayout, $options, false)[1]) : [];
+        } else {
+            // The first round would write and read this same candidate again.
+            $planner = new RepairPlanner($tree, $layout, $options, [], $treePrint);
+            $planner->startFrom($bare, $comparison);
+            unset($bare, $comparison);
         }
-        $repaired = (new RepairPlanner($tree, $layout, $options, $seed))->repair();
+        $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
+        $repaired = $planner->repair();
 
         return $repaired === null ? self::unrepaired($tree, $result, $options) : new WriteResult($repaired, []);
     }

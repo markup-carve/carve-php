@@ -86,9 +86,15 @@ final class RepairPlanner
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      * @param array<string, array<int, true>> $seed The escapes of the local write, which the rounds go on from.
+     * @param string|null $treePrint `TreeEquality::fingerprint()` of `$tree`, when the caller has it.
      */
-    public function __construct(private array $tree, private ?array $layout, private array $options = [], array $seed = [])
-    {
+    public function __construct(
+        private array $tree,
+        private ?array $layout,
+        private array $options = [],
+        array $seed = [],
+        ?string $treePrint = null,
+    ) {
         foreach ($seed as $path => $offsets) {
             $value = self::leafValue($tree, $path);
             foreach ($offsets as $at => $_) {
@@ -102,7 +108,50 @@ final class RepairPlanner
         $allowance = $encoded === false ? 0 : strlen($encoded) * 4;
         $this->limit = max(24_000_000, 1000 * $allowance);
         self::textOrder($tree, '', $this->textOrder);
-        $this->treePrint = TreeEquality::fingerprint($tree);
+        $this->treePrint = $treePrint ?? TreeEquality::fingerprint($tree);
+    }
+
+    /**
+     * The first round's candidate and read-back.
+     *
+     * @var array{
+     *     array{
+     *         source: string,
+     *         text: array<int, int>,
+     *         paths: array<int, string>,
+     *         nodes: array<int, array{string, string, int, int}>,
+     *         ranges: array<string, array{int, int}>
+     *     },
+     *     array{
+     *         equal: bool,
+     *         openers: array<string, array<int, true>>,
+     *         moved: array<int, array{string, string, int, int, int}>,
+     *         read: array<string, mixed>
+     *     }
+     * }|null
+     */
+    private ?array $first = null;
+
+    /**
+     * The candidate of the starting escapes and its `ReadbackRound::inspect()`, when the caller already has them.
+     *
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>,
+     *     ranges: array<string, array{int, int}>
+     * } $candidate
+     * @param array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>,
+     *     read: array<string, mixed>
+     * } $comparison
+     */
+    public function startFrom(array $candidate, array $comparison): void
+    {
+        $this->first = [$candidate, $comparison];
     }
 
     /**
@@ -112,7 +161,13 @@ final class RepairPlanner
     {
         $seen = [];
         for ($round = 0; $round < 8192; $round++) {
-            $candidate = Writer::bareCandidate($this->tree, $this->layout, $this->options, $this->escapes);
+            if ($this->first !== null) {
+                [$candidate, $comparison] = $this->first;
+                $this->first = null;
+            } else {
+                $candidate = Writer::bareCandidate($this->tree, $this->layout, $this->options, $this->escapes);
+                $comparison = null;
+            }
             $source = $candidate['source'];
             if (!$this->charge($source)) {
                 return null;
@@ -122,7 +177,7 @@ final class RepairPlanner
                 return null;
             }
             $seen[$key] = true;
-            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options, $this->treePrint);
+            $comparison ??= ReadbackRound::inspect($candidate, $this->tree, $this->options, $this->treePrint);
             if ($comparison['equal']) {
                 return $source;
             }
@@ -191,8 +246,9 @@ final class RepairPlanner
             $this->addAsked($asked);
         }
         $moved = false;
+        $spans = $comparison['moved'] === [] ? [] : self::spans($candidate);
         foreach ($this->movedByLeaf($comparison['moved']) as $group) {
-            $moved = $this->probeMoved($candidate, $group) || $moved;
+            $moved = $this->probeMoved($candidate, $spans, $group) || $moved;
             $moved = $this->ownerMoved($group) || $moved;
         }
         if ($comparison['openers'] !== [] || $missing !== [] || $asked !== []) {
@@ -411,12 +467,12 @@ final class RepairPlanner
      *     paths: array<int, string>,
      *     nodes: array<int, array{string, string, int, int}>
      * } $candidate
+     * @param array<string, array{int, int}> $spans The spans of the candidate, shared by every leaf of the round.
      * @param array<int, array{string, string, int, int, int}> $moved
      */
-    private function probeMoved(array $candidate, array $moved): bool
+    private function probeMoved(array $candidate, array $spans, array $moved): bool
     {
         $added = false;
-        $spans = $moved === [] ? [] : self::spans($candidate);
         foreach ($moved as $position => [$path, , , $end, $readEnd]) {
             if ($position === 0) {
                 continue;
