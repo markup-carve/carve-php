@@ -73,22 +73,32 @@ final class NoteRenderer
             $lines[] = $pad . '  <p>' . $this->r->inline->leaf($note->children ?? [], $depth + 2) . $back . '</p>';
         } else {
             $visible = $this->r->visibleOf($note->children ?? []);
-            // C2-H-091: a raw block of another format writes nothing (C2-H-054), so it hosts no backlink.
+            // C2-H-091: a raw block of another format writes nothing (C2-H-054), so it hosts no backlink,
+            // unless the profile degrades it into paragraphs.
+            $profile = $this->r->profile;
             $hosts = array_values(array_filter($visible, static fn (Node $block): bool => $block->type !== 'raw_block'
-                || PlainText::str($block->f['format'] ?? '') === 'html'));
+                || PlainText::str($block->f['format'] ?? '') === 'html'
+                || ($profile !== null && !$profile->allowsBlock($block, $depth + 1))));
             $last = $hosts === [] ? null : $hosts[count($hosts) - 1];
             $endsWithParagraph = $last !== null && $this->r->writesParagraph($last);
+            // A block the profile degrades is written as paragraphs, so the last of them takes the backlinks.
+            $degraded = $last !== null && !$endsWithParagraph && $profile !== null && !$profile->allowsBlock($last, $depth + 1);
+            $hosted = $endsWithParagraph;
             foreach ($visible as $block) {
                 $html = $block === $last && $endsWithParagraph
                     ? $this->r->paragraph($block, $depth + 1, false, $back)
                     : ($block->type === 'paragraph' && !(($block->f['caption'] ?? null) instanceof Node)
                         ? $this->r->paragraph($block, $depth + 1, false)
                         : $this->r->block($block, $depth + 1));
+                if ($block === $last && $degraded && $html !== null && str_ends_with($html, '</p>')) {
+                    $html = substr($html, 0, -4) . $back . '</p>';
+                    $hosted = true;
+                }
                 if ($html !== null) {
                     $lines[] = $html;
                 }
             }
-            if (!$endsWithParagraph) {
+            if (!$hosted) {
                 $lines[] = $pad . '  <p>' . $back . '</p>';
             }
         }
