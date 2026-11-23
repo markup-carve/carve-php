@@ -225,6 +225,8 @@ final class Inline
         $first = clone $c;
         $kinds = [];
         $this->bareLeads = [];
+        $losses = count($this->w->losses);
+        $tickRounds = Text::$tickKindRounds;
         $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
         $reported = $out;
         $afterReported = $kinds === [] ? null : clone $c;
@@ -248,6 +250,19 @@ final class Inline
                 $c->{$name} = $field;
             }
             $out = $reported;
+        }
+        // C2-W-088: where a node did not read back, the backtick kind rounds give way to the reported openers.
+        if (count($this->w->losses) > $losses && Text::$tickKindRounds > $tickRounds) {
+            $again = clone $first;
+            $again->kinds = $c->kinds;
+            $again->tickReportedOnly = true;
+            $again->writerState = null;
+            $out = $this->contentPairs($nodes, $path, $again, $next, clone $again, $kinds);
+            foreach (get_object_vars($again) as $name => $field) {
+                $c->{$name} = $field;
+            }
+            $c->writerState = $first->writerState;
+            $c->tickReportedOnly = false;
         }
         $c->kinds = [];
 
@@ -434,6 +449,7 @@ final class Inline
         if ($c->flat === null) {
             $c->flat = '';
             $c->labels = $this->w->labels;
+            self::startLeaf($nodes, $path, $c);
             self::flatten($nodes, $path, $c);
         }
         $out = '';
@@ -1047,6 +1063,27 @@ final class Inline
     }
 
     /**
+     * The leaf whose backtick plan the texts of `$nodes` read: these nodes, or inside a bracket the leaf around it,
+     * whose verbatim nodes the bracketed text cannot plan without (C2-W-088).
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return void
+     */
+    private static function startLeaf(array $nodes, string $path, Context $c): void
+    {
+        if ($c->inBracket && $c->tickPlan !== null) {
+            return;
+        }
+        $c->leafNodes = $nodes;
+        $c->leafPath = $path;
+        $c->tickPlan = null;
+        $c->tickForced = [];
+    }
+
+    /**
      * @param array<mixed> $nodes
      * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
@@ -1135,6 +1172,18 @@ final class Inline
     public static function bareMark(string $type): ?string
     {
         return self::PAIRED[$type] ?? null;
+    }
+
+    /**
+     * The mark of a paired or braced span, whose content the writer writes at the path of its `children`.
+     *
+     * @param string $type
+     *
+     * @return string|null
+     */
+    public static function spanMark(string $type): ?string
+    {
+        return self::PAIRED[$type] ?? self::BRACED[$type] ?? null;
     }
 
     /**
@@ -1949,6 +1998,10 @@ final class Inline
     {
         // The copy must not share the leaf's run log: the content below appends to it, and a shared log is copied in
         // full on each append, once per bracketed node of the leaf.
+        // A code span reads over the bracket, so the backtick plan of the leaf around it stays (C2-W-088).
+        if ($c->flat !== null && $c->leafNodes !== null) {
+            Text::hasTickPlan($c);
+        }
         $log = $c->runLog;
         $c->runLog = [];
         $outer = clone $c;
@@ -1983,6 +2036,11 @@ final class Inline
         $c->flatNodes = $outer->flatNodes;
         $c->closers = $outer->closers;
         $c->partners = $outer->partners;
+        $c->leafNodes = $outer->leafNodes;
+        $c->leafPath = $outer->leafPath;
+        $c->tickPlan = $outer->tickPlan;
+        $c->tickAt = $outer->tickAt;
+        $c->tickForced = $outer->tickForced;
         $c->inBracket = $bracket;
         $c->bracketPairs = $pairs;
         $c->marks = $marks;

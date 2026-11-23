@@ -112,6 +112,34 @@ final class Context
     public ?array $tickRuns = null;
 
     /**
+     * @var array<mixed>|null The inline nodes of the leaf whose text `$flat` holds, and their path.
+     */
+    public ?array $leafNodes = null;
+
+    public string $leafPath = '';
+
+    /**
+     * @var array<string, array<int, true>>|false|null C2-W-088: the backticks of each text of the leaf that take a
+     *   backslash, by path; false where the leaf has no such plan, null until first asked.
+     */
+    public array|false|null $tickPlan = null;
+
+    /**
+     * @var array<string, array<int, int>> The offset in the plan's flat leaf of each backtick of each text, by path.
+     */
+    public array $tickAt = [];
+
+    /**
+     * @var array<int, true> The backticks of the plan's flat leaf that a line-start escape takes, by offset.
+     */
+    public array $tickForced = [];
+
+    /**
+     * C2-W-088: the backtick rounds escape the reported openers only, for a leaf whose kind rounds lose a node.
+     */
+    public bool $tickReportedOnly = false;
+
+    /**
      * C2-W-080: a hard break is the bare line ending.
      */
     public bool $bareBreaks = false;
@@ -212,6 +240,14 @@ final class Context
      * @var array<int, bool> Whether each character of the text being escaped took a backslash, so far.
      */
     public array $escapedAt = [];
+
+    /**
+     * C2-W-088: the offsets of the text being written where a block opener behind the marker of the line's block
+     * starts; each takes its own escape and gives no kind.
+     *
+     * @var array<int, true>
+     */
+    public array $behindMarker = [];
 
     /**
      * C2-W-146: the offsets of the text being written that take a backslash because a pair rule of lint reports them.
