@@ -897,6 +897,9 @@ final class Blocks
 
             return null;
         }
+        if ($mark !== '') {
+            self::loseLeadingBlank($children, $path, $this->w);
+        }
         $lines = count($this->w->lines);
         $this->attributeLine($node, $path, $prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
@@ -1978,6 +1981,30 @@ final class Blocks
         }
 
         return true;
+    }
+
+    /**
+     * C2-I-002: the spaces and tabs behind a heading or term marker are no part of the content, so text that starts
+     * with them loses them, unless it holds nothing else and ends the line (C2-W-151).
+     *
+     * @param array<mixed> $children
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\State $w
+     *
+     * @return void
+     */
+    private static function loseLeadingBlank(array $children, string $path, State $w): void
+    {
+        $first = $children[0] ?? null;
+        $value = is_array($first) && ($first['type'] ?? '') === 'text' && is_string($first['value'] ?? null) ? $first['value'] : '';
+        if (strspn($value, " \t") === 0) {
+            return;
+        }
+        $after = $children[1] ?? null;
+        $endsLine = $after === null || (is_array($after) && ($after['type'] ?? '') === 'soft_break');
+        if (trim($value, " \t") !== '' || !$endsLine) {
+            $w->lose($path . '/children/0', 'text', 'value');
+        }
     }
 
     private static function blankText(mixed $node): bool
