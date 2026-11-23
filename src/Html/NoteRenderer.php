@@ -73,7 +73,10 @@ final class NoteRenderer
             $lines[] = $pad . '  <p>' . $this->r->inline->leaf($note->children ?? [], $depth + 2) . $back . '</p>';
         } else {
             $visible = $this->r->visibleOf($note->children ?? []);
-            $last = $visible === [] ? null : $visible[count($visible) - 1];
+            // C2-H-091: a raw block of another format writes nothing (C2-H-054), so it hosts no backlink.
+            $hosts = array_values(array_filter($visible, static fn (Node $block): bool => $block->type !== 'raw_block'
+                || PlainText::str($block->f['format'] ?? '') === 'html'));
+            $last = $hosts === [] ? null : $hosts[count($hosts) - 1];
             $endsWithParagraph = $last !== null && $this->r->writesParagraph($last);
             foreach ($visible as $block) {
                 $html = $block === $last && $endsWithParagraph
