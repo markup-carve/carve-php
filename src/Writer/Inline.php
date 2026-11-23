@@ -2266,27 +2266,26 @@ final class Inline
         }
         $alt = self::str($node, 'alt');
         $spelled = AltSource::spell($alt);
-        $spelled = $c->inCell ? $this->cellPipes($spelled, $path) : $spelled;
+        $spelled = $c->inCell ? self::cellPipes($spelled) : $spelled;
 
         return '![' . $spelled . ']' . $this->target($node, self::str($node, 'src'), $c, $path);
     }
 
     /**
-     * C2-W-098: a pipe of verbatim text in a cell needs a backslash before it; one the text does not hold is a loss.
+     * C2-W-098, C2-B-224: in a cell every pipe of spelled alt text takes a backslash; the cell reads `\|` as a pipe
+     * before the alt source, so the spelling reads back. A pipe behind an escaped backslash is bare and takes one too.
      *
      * @param string $text
-     * @param string $path
      *
      * @return string
      */
-    private function cellPipes(string $text, string $path): string
+    private static function cellPipes(string $text): string
     {
-        $out = (string)preg_replace('/(?<!\\\\)\|/', '\\\\|', $text);
-        if ($out !== $text) {
-            $this->w->lose($path, 'image', 'alt');
-        }
-
-        return $out;
+        return (string)preg_replace_callback(
+            '/(\\\\*)\|/',
+            static fn (array $m): string => $m[1] . (strlen($m[1]) % 2 === 0 ? '\\|' : '|'),
+            $text,
+        );
     }
 
     /**
