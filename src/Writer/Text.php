@@ -1691,15 +1691,31 @@ final class Text
     }
 
     /**
-     * The flattened leaf from `$at` to the end of its line, each atom as written (C2-I-005: an atom such as a smart
-     * quote or a code span stands in an attribute block as its spelling).
+     * The flattened leaf from the brace at `$at` up to the first `}` outside quotes, where an attribute block would end,
+     * each atom and node as written (C2-I-005: a smart quote or a code span stands in the block as its spelling).
      */
     private static function spelledFrom(Context $c, int $at): string
     {
         $flat = (string)$c->flat;
         $out = '';
+        $quote = '';
         for ($n = strlen($flat); $at < $n && $flat[$at] !== "\n"; $at++) {
-            $out .= $flat[$at] === "\0" ? $c->flatAtoms[$at] ?? self::nodeOnLine($at, $c) ?? "\0" : $flat[$at];
+            $part = $flat[$at] === "\0" ? $c->flatAtoms[$at] ?? self::nodeOnLine($at, $c) ?? "\0" : $flat[$at];
+            $out .= $part;
+            for ($k = 0, $m = strlen($part); $k < $m; $k++) {
+                $ch = $part[$k];
+                if ($ch === '\\') {
+                    $k++;
+
+                    continue;
+                }
+                if ($quote === '' && $ch === '}') {
+                    return $out;
+                }
+                if ($ch === '"' || $ch === "'") {
+                    $quote = $quote === '' ? $ch : ($quote === $ch ? '' : $quote);
+                }
+            }
         }
 
         return $out;
