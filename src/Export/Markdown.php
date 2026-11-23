@@ -1233,7 +1233,7 @@ final class Markdown
     }
 
     /**
-     * JavaScript `trim()`: white space and line terminators at both ends.
+     * Spaces, tabs and line ends at both ends; a non-ASCII space is content and stays, as in 0.1 (CARVE-P11-055).
      *
      * @param string $text
      *
@@ -1241,7 +1241,7 @@ final class Markdown
      */
     private static function trimSpace(string $text): string
     {
-        return (string)preg_replace('/^[\p{White_Space}\x{FEFF}]+|[\p{White_Space}\x{FEFF}]+$/uD', '', $text);
+        return trim($text, " \t\n\r");
     }
 
     private function titleLines(Node $node): string
@@ -1292,7 +1292,7 @@ final class Markdown
 
     private static function trimEndSpace(string $text): string
     {
-        return (string)preg_replace('/[\p{White_Space}\x{FEFF}]+$/uD', '', $text);
+        return rtrim($text, " \t\n\r");
     }
 
     /**

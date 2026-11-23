@@ -111,6 +111,32 @@ final class ExportTest extends TestCase
         $this->assertSame("a -- b...\n", (new PlainTextExporter())->export($tree, ['smartTypography' => false])->output);
     }
 
+    /**
+     * carve#6438: a non-ASCII space at the end of a block is content and stays in the Markdown export.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function provideTrailingNonAsciiSpace(): array
+    {
+        $nbsp = "\u{A0}";
+
+        return [
+            'paragraph' => ["a{$nbsp}\n", "a{$nbsp}\n"],
+            'list item' => ["- a{$nbsp}\n- b\n", "- a{$nbsp}\n- b\n"],
+            'heading' => ["# a{$nbsp}\n", "# a{$nbsp}\n"],
+            'table cell' => ["| a{$nbsp} |\n", "|  |\n| --- |\n| a{$nbsp} |\n"],
+            'footnote definition' => ["x[^f]\n\n[^f]: a{$nbsp}\n", "x[^f]\n\n[^f]: a{$nbsp}\n"],
+            'ideographic space in an item' => ["- a\u{3000}\n", "- a\u{3000}\n"],
+            'byte order mark only' => [" \u{FEFF} \n", "\u{FEFF}\n"],
+        ];
+    }
+
+    #[DataProvider('provideTrailingNonAsciiSpace')]
+    public function testATrailingNonAsciiSpaceIsKept(string $source, string $expected): void
+    {
+        $this->assertSame($expected, self::md($source));
+    }
+
     public function testADeniedDestinationIsBlankedAndReported(): void
     {
         $result = (new MarkdownExporter())->export(Carve::parse("[a](javascript:x) [b](ftp://h/f)\n"));
