@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 
 /**
@@ -152,6 +153,7 @@ final class Linter
         ));
         $parseDiagnostics = $parsed->diagnostics;
         $document = $parsed->tree;
+        $options['upgrade'] = ($options['upgrade'] ?? false) === true || self::declaresBelow02($document);
         $rawRefs = [];
         foreach ((array)($parsed->layout['nodes'] ?? []) as $entry) {
             if (is_array($entry) && isset($entry['rawRef'])) {
@@ -195,6 +197,27 @@ final class Linter
         }
 
         return $findings;
+    }
+
+    /**
+     * C2-W-156, C2-B-231: the line-1 frontmatter declares with `carve` or `carve-version` a version below 0.2.
+     *
+     * @param \MarkupCarve\Carve\Node $document
+     *
+     * @return bool
+     */
+    private static function declaresBelow02(Node $document): bool
+    {
+        $first = $document->children[0] ?? null;
+        if ($first === null || $first->type !== 'frontmatter' || $first->start > 3) {
+            return false;
+        }
+        $value = $first->f['value'] ?? null;
+
+        return is_string($value) && preg_match(
+            '/(?:^|\n)[ \t]*(?:carve|carve-version):[ \t]*0+(?:\.0*[01](?:\.\d+)*)?[ \t]*\r?(?:\n|$)/',
+            $value,
+        ) === 1;
     }
 
     /**
@@ -702,13 +725,16 @@ final class Linter
     private static function validate(array $options): void
     {
         foreach (array_keys($options) as $name) {
-            if (!in_array($name, ['rules', 'platforms', 'includes', 'extensions', 'headingIds'], true)) {
+            if (!in_array($name, ['rules', 'platforms', 'upgrade', 'includes', 'extensions', 'headingIds'], true)) {
                 throw new OptionError('option ' . $name . ': unknown option');
             }
         }
         $platforms = $options['platforms'] ?? null;
         if ($platforms !== null && (!is_array($platforms) || !array_is_list($platforms) || array_diff($platforms, ['github']) !== [])) {
             throw new OptionError('option platforms: not a list of supported platform names');
+        }
+        if (isset($options['upgrade']) && !is_bool($options['upgrade'])) {
+            throw new OptionError('option upgrade: not a boolean');
         }
         $rules = $options['rules'] ?? null;
         if ($rules === null) {

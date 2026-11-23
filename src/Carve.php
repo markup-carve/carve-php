@@ -580,8 +580,9 @@ final class Carve
 
     /**
      * C2-W-103, C2-W-109: the lint findings of a source, with the catalog messages, byte ranges and tree paths. Options:
-     * `rules` (rule id to `on` or `off`), `platforms` (`['github']`), `headingIds` (C2-T-042) and `includes`, which lints the
-     * included files too (C2-N-085). Nothing of lint runs unless this is called.
+     * `rules` (rule id to `on` or `off`), `platforms` (`['github']`), `upgrade` (`true` turns on the 0.1 migration notices,
+     * which also run for a document whose line-1 frontmatter declares `carve: 0.1`; C2-W-156), `headingIds` (C2-T-042) and
+     * `includes`, which lints the included files too (C2-N-085). Nothing of lint runs unless this is called.
      *
      * @param string $source
      * @param array<string, mixed> $options

@@ -51,7 +51,7 @@ final class Lpfix4ParityTest extends TestCase
     {
         $actual = array_values(array_map(
             static fn ($d): array => [$d->code, $d->startOffset, $d->endOffset],
-            array_filter(Carve::lint($source), static fn ($d): bool => $d->code === $rule),
+            array_filter(Carve::lint($source, ['upgrade' => true]), static fn ($d): bool => $d->code === $rule),
         ));
         self::assertSame($expected, $actual);
     }

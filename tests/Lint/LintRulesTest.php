@@ -36,6 +36,10 @@ final class LintRulesTest extends TestCase
             $id = explode('#', (string)$name)[0];
             /** @var array<string, mixed> $options */
             $options = is_array($case['options'] ?? null) ? $case['options'] : [];
+            // C2-W-156: a migration notice is checked with the option that turns it on.
+            if ((Linter::catalog()[$id]['default'] ?? null) === 'upgrade') {
+                $options += ['upgrade' => true];
+            }
             /** @var array<array<mixed>> $findings */
             $findings = is_array($case['findings'] ?? null) ? $case['findings'] : [];
             $out[(string)$name] = [$id, (string)$case['trigger'], (string)$case['near'], $options, $findings];

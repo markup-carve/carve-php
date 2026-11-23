@@ -118,7 +118,7 @@ final class Next2LintSaturationTest extends TestCase
     #[DataProvider('cases')]
     public function testRuleCount(string $source, string $rule, int $count): void
     {
-        $found = array_filter(Carve::lint($source), static fn ($d): bool => $d->code === $rule);
+        $found = array_filter(Carve::lint($source, ['upgrade' => true]), static fn ($d): bool => $d->code === $rule);
         self::assertCount($count, $found);
     }
 }

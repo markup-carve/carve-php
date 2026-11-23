@@ -36,6 +36,6 @@ final class Next2FinalParityTest extends TestCase
     #[DataProvider('cases')]
     public function testCoreLint(string $source, array $expected): void
     {
-        self::assertSame($expected, array_map(static fn ($d): string => $d->code, Carve::lint($source)));
+        self::assertSame($expected, array_map(static fn ($d): string => $d->code, Carve::lint($source, ['upgrade' => true])));
     }
 }

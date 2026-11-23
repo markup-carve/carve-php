@@ -45,7 +45,7 @@ final class OpenerBehindAttributeLineTest extends TestCase
     public function testFindings(string $source, array $expected): void
     {
         $found = [];
-        foreach (Linter::lint($source) as $diagnostic) {
+        foreach (Linter::lint($source, ['upgrade' => true]) as $diagnostic) {
             $data = $diagnostic->toArray();
             $found[] = [$data['code'], $data['range']['startOffset'], $data['range']['endOffset']];
         }

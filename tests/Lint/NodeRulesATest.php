@@ -323,7 +323,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-indented-line-under-heading' => [
                 "# Heading\n  continuation",
                 "# Heading\ncontinuation",
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-indented-line-under-heading',
                     '/children/0',
@@ -337,7 +337,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-indented-line-under-heading/comment' => [
                 "# Heading\n%% note\n   continuation",
                 "# Heading\n%% note\ncontinuation",
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-indented-line-under-heading',
                     '/children/0',

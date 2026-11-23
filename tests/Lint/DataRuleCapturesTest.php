@@ -34,7 +34,7 @@ final class DataRuleCapturesTest extends TestCase
         putenv('CARVE_LINT_RULES=data');
         try {
             $ranges = [];
-            foreach (Carve::lint($source) as $finding) {
+            foreach (Carve::lint($source, ['upgrade' => true]) as $finding) {
                 if ($finding->code === $code) {
                     $ranges[] = [$finding->startOffset, $finding->endOffset];
                 }

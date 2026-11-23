@@ -111,6 +111,7 @@ final class Command
         'smart-typography' => true,
         'source-lines' => true,
         'xhtml' => true,
+        'upgrade' => true,
     ];
 
     /**
@@ -160,7 +161,7 @@ Render: --to html|markdown|plain|ansi, --heading-ids MODE, --heading-shift N,
 Render, AST, lint and fmt: --extensions JSON (standard extension names),
   --extension-options JSON (their renderer options by name)
 AST: --from-ast, --no-positions
-Lint and fix: --rules JSON, --platforms JSON, --ignore FILE-ID,
+Lint and fix: --rules JSON, --platforms JSON, --upgrade, --ignore FILE-ID,
   --strict, --json, --fix, --write
 Fmt: --check, --diff, --write, --normalize, --align-tables, --from-ast
 Import: --from markdown|gfm|djot|html, --raw-html, --adapter NAME, --strict-losses
@@ -898,6 +899,9 @@ HELP;
         if (isset($v['ignore']) && !in_array($parsed['command'], ['lint', 'fix'], true)) {
             throw new OptionError('--ignore is for lint');
         }
+        if (($v['upgrade'] ?? false) && !in_array($parsed['command'], ['lint', 'fix'], true)) {
+            throw new OptionError('--upgrade is for lint');
+        }
         self::validateReportFormat($parsed);
         self::validateOutputCombination($parsed);
     }
@@ -1150,6 +1154,9 @@ HELP;
             if (array_key_exists($name, $parsed['values'])) {
                 $out[$name] = $parsed['values'][$name];
             }
+        }
+        if ($parsed['values']['upgrade'] ?? false) {
+            $out['upgrade'] = true;
         }
         if (isset($parsed['options']['headingIds'])) {
             $out['headingIds'] = $parsed['options']['headingIds'];
