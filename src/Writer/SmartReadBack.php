@@ -321,7 +321,7 @@ final class SmartReadBack
     }
 
     /**
-     * The first field, in the order of the node, in which the two differ.
+     * The first field, in the order of the node, in which the two differ. Positions are no content (C2-A-188).
      *
      * @param array<mixed> $e
      * @param array<string, mixed> $a
@@ -331,12 +331,12 @@ final class SmartReadBack
     private static function differingField(array $e, array $a): ?string
     {
         foreach ($e as $name => $value) {
-            if ($name !== 'type' && (!array_key_exists($name, $a) || $a[$name] !== $value)) {
+            if ($name !== 'type' && $name !== 'pos' && (!array_key_exists($name, $a) || $a[$name] !== $value)) {
                 return (string)$name;
             }
         }
         foreach (array_keys($a) as $name) {
-            if (!array_key_exists($name, $e)) {
+            if ($name !== 'pos' && !array_key_exists($name, $e)) {
                 return $name;
             }
         }

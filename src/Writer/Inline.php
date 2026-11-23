@@ -194,10 +194,16 @@ final class Inline
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
     {
-        if ($this->w->repairTrace !== null) {
-            return $this->contentOnce($nodes, $path, $c, $next);
-        }
         if ($c->flat !== null) {
+            $siblings = $c->siblings;
+            $c->siblings = self::siblingFlat($nodes, $path);
+            try {
+                return $this->contentOnce($nodes, $path, $c, $next);
+            } finally {
+                $c->siblings = $siblings;
+            }
+        }
+        if ($this->w->repairTrace !== null) {
             return $this->contentOnce($nodes, $path, $c, $next);
         }
         // C2-W-088: a leaf whose repair escapes report kinds is written again with every potential opener of those
@@ -1108,6 +1114,40 @@ final class Inline
     }
 
     /**
+     * C2-W-093: the content of a node flattened as the leaf is, where a text of it holds a `/` or a `*`.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     *
+     * @return array{flat: string, at: array<string, int>, types: array<int, string>, nodes: array<int, array<mixed>>}|null
+     */
+    private static function siblingFlat(array $nodes, string $path): ?array
+    {
+        $flat = '';
+        $at = [];
+        $types = [];
+        $held = [];
+        $marks = false;
+        foreach ($nodes as $k => $node) {
+            $type = is_array($node) ? self::str($node, 'type') : '';
+            if ($type === 'text') {
+                $value = self::str($node, 'value');
+                $marks = $marks || strpbrk($value, '/*') !== false;
+                $at[$path . '/' . $k] = strlen($flat);
+                $flat .= $value;
+            } elseif ($type === 'soft_break' || $type === 'hard_break') {
+                $flat .= "\n";
+            } else {
+                $types[strlen($flat)] = $type;
+                $held[strlen($flat)] = is_array($node) ? $node : [];
+                $flat .= "\0";
+            }
+        }
+
+        return $marks ? ['flat' => $flat, 'at' => $at, 'types' => $types, 'nodes' => $held] : null;
+    }
+
+    /**
      * The leaf whose backtick plan the texts of `$nodes` read: these nodes, or inside a bracket the leaf around it,
      * whose verbatim nodes the bracketed text cannot plan without (C2-W-088).
      *
@@ -2012,7 +2052,7 @@ final class Inline
      *
      * @return bool
      */
-    private static function holdsMark(array $nodes, string $mark, bool $words = true): bool
+    public static function holdsMark(array $nodes, string $mark, bool $words = true): bool
     {
         foreach ($nodes as $node) {
             if (!is_array($node)) {

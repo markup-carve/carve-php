@@ -82,7 +82,11 @@ final class Writer
             if (self::readsBack($result->source, $treePrint, $options)) {
                 return $result;
             }
-            [$result, $localEscapes] = self::localWrite($original, $originalLayout, $options, true);
+            // The brackets alone first: a sigil glued to a node mostly forms nothing with it.
+            [$result, $localEscapes] = self::localWrite($original, $originalLayout, $options, true, true);
+            if ($result->diagnostics !== [] || !self::readsBack($result->source, $treePrint, $options)) {
+                [$result, $localEscapes] = self::localWrite($original, $originalLayout, $options, true);
+            }
             if ($result->diagnostics !== [] || !$risk) {
                 return $result;
             }
@@ -125,14 +129,16 @@ final class Writer
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      * @param bool $conservative
+     * @param bool $bareSigils With `$conservative`, a sigil glued to a node stays bare.
      *
      * @return array{\MarkupCarve\Carve\Writer\WriteResult, array<string, array<int, true>>, bool}
      */
-    private static function localWrite(array $tree, ?array $layout, array $options, bool $conservative): array
+    private static function localWrite(array $tree, ?array $layout, array $options, bool $conservative, bool $bareSigils = false): array
     {
         Text::$recorded = [];
         Text::$undecided = false;
         Text::$conservative = $conservative;
+        Text::$bareSigils = $bareSigils;
         try {
             $result = self::writeInternal($tree, $layout, $options, null);
 
@@ -141,6 +147,7 @@ final class Writer
             Text::$recorded = null;
             Text::$undecided = false;
             Text::$conservative = false;
+            Text::$bareSigils = false;
         }
     }
 

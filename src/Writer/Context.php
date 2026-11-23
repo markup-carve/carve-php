@@ -222,6 +222,14 @@ final class Context
     public ?array $localPartners = null;
 
     /**
+     * The content of a node being written, flattened as the leaf is, so its texts pair across their siblings.
+     *
+     * @var array{flat: string, at: array<string, int>, types: array<int, string>, nodes: array<int, array<mixed>>,
+     *   partners?: array<string, array<int, bool>>}|null
+     */
+    public ?array $siblings = null;
+
+    /**
      * @var array<string, array<int, true>>|null Brackets paired across the text of the current bracketed content.
      */
     public ?array $bracketPairs = null;
