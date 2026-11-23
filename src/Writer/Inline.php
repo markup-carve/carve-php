@@ -589,8 +589,9 @@ final class Inline
     }
 
     /**
-     * C2-W-117: no parse gives an empty text. Beside another text it joins that one (C2-A-040); alone it reads back as
-     * none. Content of nothing else is the loss of its parent (`loseEmptyContent`).
+     * C2-W-117: no parse gives an empty text. In a run of texts that holds other text it joins that (C2-A-040); a run
+     * of only empty texts reads back as none, reported at its first node. Content of nothing else, or ending in such a
+     * run, is the loss of its parent (`loseEmptyContent`, `endsInLoneEmptyText`).
      *
      * @param array<mixed> $nodes
      * @param int $at
@@ -600,21 +601,16 @@ final class Inline
      */
     private function loseLoneEmptyText(array $nodes, int $at, string $path): void
     {
-        $node = $nodes[$at];
-        if (!is_array($node) || ($node['type'] ?? null) !== 'text' || ($node['value'] ?? null) !== '') {
-            return;
-        }
-        $before = $nodes[$at - 1] ?? null;
-        $after = $nodes[$at + 1] ?? null;
-        $besideText = self::isText(is_array($before) ? $before : null) || self::isText(is_array($after) ? $after : null);
-        if ($after === null || $besideText || self::onlyEmptyText($nodes)) {
+        $run = self::emptyTextRun($nodes, $at);
+        if ($run === null || $run[0] !== $at || $run[1] === count($nodes) - 1 || self::onlyEmptyText($nodes)) {
             return;
         }
         $this->w->lose($path . '/' . $at, 'text', 'value');
     }
 
     /**
-     * C2-W-117: a lone empty text that ends the content reads back as none; the parent reports it, as carve-js does.
+     * C2-W-117: content that ends in a run of only empty texts reads back without it; the parent reports it, as
+     * carve-js and carve-rs do.
      *
      * @param mixed $children
      *
@@ -625,11 +621,39 @@ final class Inline
         if (!is_array($children) || $children === [] || self::onlyEmptyText($children)) {
             return false;
         }
-        $last = $children[count($children) - 1] ?? null;
-        $before = $children[count($children) - 2] ?? null;
+        $children = array_values($children);
 
-        return is_array($last) && ($last['type'] ?? null) === 'text' && ($last['value'] ?? null) === ''
-            && !self::isText(is_array($before) ? $before : null);
+        return self::emptyTextRun($children, count($children) - 1) !== null;
+    }
+
+    /**
+     * The first and last index of the run of texts around `at` when all of them are empty.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     *
+     * @return array{int, int}|null
+     */
+    private static function emptyTextRun(array $nodes, int $at): ?array
+    {
+        $empty = static fn (mixed $node): bool => is_array($node) && self::isText($node) && ($node['value'] ?? null) === '';
+        if (!$empty($nodes[$at] ?? null)) {
+            return null;
+        }
+        $first = $at;
+        $last = $at;
+        while (is_array($nodes[$first - 1] ?? null) && self::isText($nodes[$first - 1])) {
+            if (!$empty($nodes[--$first])) {
+                return null;
+            }
+        }
+        while (is_array($nodes[$last + 1] ?? null) && self::isText($nodes[$last + 1])) {
+            if (!$empty($nodes[++$last])) {
+                return null;
+            }
+        }
+
+        return [$first, $last];
     }
 
     private static function resetFollowingPipe(Context $c, string $type): void
