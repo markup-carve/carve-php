@@ -31,7 +31,7 @@ final class SpanBraceEscapeTest extends TestCase
             'brace after a node' => ["{^*a*\\{.c}^}\n", "{^*a*\\{.c}^}\n"],
             'brace with a node behind it' => ["{-\\{ #i-}\n", "{-\\{ #i-}\n"],
             'underline keeps it' => ["{_\\{x_}\n", "{_\\{x_}\n"],
-            'brace with a closer in the text' => ["{^a \\{.b} c^}\n", "{^a \\{.b} c^}\n"],
+            'brace with a closer in the text' => ["{^a \\{.b} c^}\n", "{^a {.b} c^}\n"],
         ];
     }
 

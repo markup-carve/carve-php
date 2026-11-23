@@ -18,6 +18,14 @@ final class Context
     public bool $lineStart = false;
 
     /**
+     * @var string|null The current line of the leaf as the line test read it, where it took a backslash as a block
+     *   opener; and the same for the line before (C2-W-088).
+     */
+    public ?string $openedLine = null;
+
+    public ?string $prevOpenedLine = null;
+
+    /**
      * Open block containers around this text leaf.
      */
     public int $blockDepth = 0;

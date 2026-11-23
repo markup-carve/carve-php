@@ -49,11 +49,27 @@ final class WriterReadBackShapesTest extends TestCase
             'pair behind a collapsed reference' => ['[\[][][m]', '[\[][][m]'],
             // #5750: a backtick inside a literal attribute block.
             'fence before a literal block with a backtick' => ['\- ```x*b*{k="`"}`', '\- ```x*b*{k="`"}`'],
-            'escaped brace keeps its backtick escaped' => ['*{+!/[b{k="`"}`-]/', '*\{+!/[b\{k=\"\`\"}`-]/'],
+            'literal block in a strong with a backtick' => ['*{+!/[b{k="`"}`-]/', '*{+!/[b{k="`"}`-]/'],
             'escaped brace behind a code span' => ['`=} +}=}`\{k=`}', '`=} +}=}`\{k=`}'],
             // #5751: a leading delimiter of a content pairs with a later one.
             'leading slash of an emphasis' => ['{/\/y *x/*/}', '{/\/y *x/*/}'],
             'leading slash of a strong' => ['e {*\/{/\/*/}*}', 'e {*\/{/\/*/}*}'],
+            // #5764: a brace whose backslash would change the read.
+            'brace before a dash in a delete' => ['{-{--}-}', '{-{--}-}'],
+            'brace before a dash and a hyphen' => ['{-{--}--}', '{-{--}--}'],
+            'attribute blocks in a strong' => ['\- ]```{#i}*x{k="`"}=}*{k="`"}', '\- ]```{#i}*x{k="`"}=}*{k=`}'],
+            // #5765: a line the bare parse opens behind an escaped opener line.
+            'list item behind a heading line' => ["\\# a\n- c", "\\# a\n\\- c"],
+            'list item behind a row line' => ["\\| a |\n- c", "\\| a |\n\\- c"],
+            'ordered item behind a list line' => ["\\- a\n1. c", "\\- a\n1\\. c"],
+            'heading behind a row line' => ["\\| a |\n# c", "\\| a |\n\\# c"],
+            'text behind a heading line' => ["\\# a\nc", "\\# a\nc"],
+            'lazy line behind a quote line' => ["\\> a\n- c", "\\> a\n- c"],
+            // #5766: a brace inside a span that forms nothing.
+            'empty pair in an insert' => ['{+{,,}}+}', '{+{,,}}+}'],
+            'empty pair in a delete' => ['{-{^^}-}', '{-{^^}-}'],
+            'literal block in a strong' => ['*{.c}(*', '*{.c}(*'],
+            'opener without closer in an insert' => ['{++! {=+}', '{++! {=+}'],
         ];
     }
 

@@ -240,6 +240,13 @@ final class Text
     private static ?array $nestedBrackets = null;
 
     /**
+     * The recent answers of `opensBehind()`, by the two lines.
+     *
+     * @var array<string, bool>
+     */
+    private static array $behindReads = [];
+
+    /**
      * Whether the last leaf around a nested text is near the depth cap, by its flattened text.
      *
      * @var array{string, bool}|null
@@ -1696,15 +1703,29 @@ final class Text
     private static function braceInSpan(string $value, int $i, Context $c): bool
     {
         $span = $c->spanTexts[$c->textPath] ?? null;
-        if ($span === null || $c->inBracket || ($i === 0 && $span[2]) || $span[1]) {
+        if ($span === null || $c->inBracket || ($i === 0 && $span[2])) {
             return true;
+        }
+        // A node behind the text may supply the closer, or keep the brace from forming; the read-back decides.
+        if ($span[1]) {
+            return $i < strlen($value) - 1 || self::undecided();
         }
         $next = $value[$i + 1] ?? '';
         $rest = substr($value, $i);
+        $probe = $rest . $span[0] . '}';
+        // C2-I-043: a braced opener needs its closer behind at least one character, a comment none. A brace before `/`
+        // or `*` takes the mark from the bare pairs (C2-I-060), so the pairing escapes decide those.
+        $marks = '_~=+-^,#%';
+        if ($next !== '' && str_contains($marks, $next) && !str_contains(substr($probe, $next === '%' ? 2 : 3), $next . '}')) {
+            return false;
+        }
+        // C2-I-036: a whole attribute block of the text behind no node is literal.
+        if (self::literalBlockEnd($value, $i) > $i) {
+            return false;
+        }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
             return true;
         }
-        $probe = $rest . $span[0] . '}';
 
         return AttributeParser::readRun($probe, 0, strlen($probe), new Attrs()) >= 0;
     }
@@ -2769,15 +2790,19 @@ final class Text
             return 0;
         }
         if (self::anyLine($value, $line, $eol, $c->last === -1, $next === 10)) {
+            $c->openedLine = $line;
+
             return 0;
         }
         // C2-B-027: a code fence behind the leading blanks of a line opens too; its first backtick takes the backslash.
         $lead = strspn($line, " \t");
         if ($lead > 0 && ($line[$lead] ?? '') === '`' && LineShapes::isFenceLine($line, $lead, strlen($line))) {
+            $c->openedLine = $line;
+
             return $lead;
         }
 
-        $mark = $c->last === -1 ? self::firstLine($line, $c) : self::laterLine($line, $eol, $c);
+        $mark = self::lineMark($line, $eol, $c);
         if ($mark >= 0 && $mark < strlen($line) - 1) {
             $c->behindMarker = self::nestedOpeners($line, $mark, $c);
         }
@@ -3132,6 +3157,54 @@ final class Text
         }
 
         return ctype_alnum($ch) ? strcspn($line, self::PUNCT) : 0;
+    }
+
+    /**
+     * The mark of a line that `anyLine()` leaves open, as a first or a later line of its paragraph.
+     *
+     * @param string $line
+     * @param bool $eol
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return int
+     */
+    private static function lineMark(string $line, bool $eol, Context $c): int
+    {
+        $mark = $c->last === -1 ? self::firstLine($line, $c) : self::laterLine($line, $eol, $c);
+        if ($mark < 0 && $c->last !== -1 && self::opensBehind($c->prevOpenedLine, $line)) {
+            $mark = self::firstLine($line, $c);
+        }
+        $c->openedLine = $mark >= 0 ? $line : null;
+
+        return $mark;
+    }
+
+    /**
+     * C2-W-088: the bare parse reads the line before as a block of its own, so a line behind it that the parse does not
+     * take into that block can open a block too, and is then tested as a first line.
+     *
+     * @param string|null $before The line before, where it took a backslash as a block opener.
+     * @param string $line
+     *
+     * @return bool
+     */
+    private static function opensBehind(?string $before, string $line): bool
+    {
+        if ($before === null) {
+            return false;
+        }
+        $key = $before . "\n" . $line;
+        if (!isset(self::$behindReads[$key])) {
+            $both = Carve::parse($key . "\n")->children ?? [];
+            $last = $both[count($both) - 1] ?? null;
+            if (count(self::$behindReads) >= 256) {
+                self::$behindReads = [];
+            }
+            self::$behindReads[$key] = $last !== null && $last->type !== 'paragraph'
+                && count($both) > count(Carve::parse($before . "\n")->children ?? []);
+        }
+
+        return self::$behindReads[$key];
     }
 
     /**
