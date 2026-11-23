@@ -79,6 +79,9 @@ final class WriterReadBackShapesTest extends TestCase
             'two lines ending in a comment and a pipe' => ["\\| %% c-|\n\\| %% c-|", "\\| %% c-|\n\\| %% c-|"],
             'later line ending in a comment and a pipe' => ["x\n\\| %% c-|", "x\n\\| %% c-|"],
             'quoted line ending in a comment and a pipe' => ["> \\| a %% c|\n> \\| %% |", "> \\| a %% c|\n> \\| %% |"],
+            // carve#6461: the escape of a closer that would end its node early gives no kind.
+            'closer repair in a superscript' => ['- \\{^{^^{^^}^^}^}', '- \\{^{^^\\{^\\^}^^}^}'],
+            'closer repair beside a group' => ['{^{^^}{,^{^[,}^}{^]\\{}[^}^}', '{^\\{^\\^}{,^{^[,}^}{^]\\{}[^}^}'],
         ];
     }
 

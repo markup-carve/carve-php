@@ -347,7 +347,11 @@ final class Text
             $escape = $own || $repair;
             // C2-W-094: a bracket in the text of a bracketed node pairs with nothing outside it, so its escape is no
             // kind for the leaf.
-            if ($repair && !str_contains(self::ALWAYS, $ch) && !($ch === '[' && $c->inBracket && $i !== $marks)) {
+            // C2-W-088: nor is the escape of a mark that would close its node early (C2-W-125, case five).
+            if (
+                $repair && !str_contains(self::ALWAYS, $ch) && !($ch === '[' && $c->inBracket && $i !== $marks)
+                && !self::closesOpenMark($ch, $after, $c)
+            ) {
                 $c->escapeKinds[$i] = self::kindOf($value, $i, $i === $marks, $after);
             } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
                 $escape = self::potential($value, $i, $prev, $after, $c, $lineOpener);
@@ -1489,7 +1493,7 @@ final class Text
         }
         // C2-I-055, C2-I-060: a mark before `}` closes the node of that mark open around the text, so the mark takes the
         // backslash; with none open the closer is text.
-        if ($after === 0x7D && $c->marks !== '' && str_contains($c->marks, $ch)) {
+        if (self::closesOpenMark($ch, $after, $c)) {
             return true;
         }
 
@@ -1513,6 +1517,14 @@ final class Text
             '.' => self::dot($value, $i, $c),
             default => self::sigil($value, $i, $prev, $after, $next, $c),
         };
+    }
+
+    /**
+     * C2-I-055, C2-I-060: whether the mark `$ch` before `}` closes the node of that mark open around the text.
+     */
+    private static function closesOpenMark(string $ch, int $after, Context $c): bool
+    {
+        return $after === 0x7D && $c->marks !== '' && str_contains($c->marks, $ch);
     }
 
     /**
