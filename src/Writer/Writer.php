@@ -32,6 +32,18 @@ final class Writer
     private const BRACKETED_INLINES = ['link', 'image', 'span', 'inline_footnote', 'inline_extension'];
 
     /**
+     * The fields the writer does not spell as text.
+     *
+     * @var array<string, true>
+     */
+    private const NO_SPELLING = ['type' => true, 'astVersion' => true];
+
+    /**
+     * @var string
+     */
+    private const PUNCTUATION = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+
+    /**
      * The source while `formatWithDiagnostics` writes the tree of its parse, which a read-back can match field for
      * field; a supplied tree may lack fields a parse adds, so its read-back is no proof of a misread.
      */
@@ -76,8 +88,9 @@ final class Writer
         // C2-W-124: a local write the heuristics call safe is still read back where the tree is a parse's; one that
         // reads as another tree goes to the rounds.
         $unchecked = !$undecided && !$risk;
-        // A form equal to the source the tree was parsed from reads back as that tree.
-        if ($unchecked && ($parsed === null || $parsed === $result->source)) {
+        // A form equal to the source the tree was parsed from reads back as that tree, and a tree without ASCII
+        // punctuation in its strings takes no escape decision that could misread.
+        if ($unchecked && ($parsed === null || $parsed === $result->source || !self::hasPunctuation($tree))) {
             return $result;
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
@@ -213,6 +226,27 @@ final class Writer
         }
 
         return $formats;
+    }
+
+    /**
+     * Whether a string field of the tree that the writer spells holds ASCII punctuation.
+     *
+     * @param array<mixed> $tree
+     */
+    private static function hasPunctuation(array $tree): bool
+    {
+        $pending = [$tree];
+        while (($node = array_pop($pending)) !== null) {
+            foreach ($node as $key => $value) {
+                if (is_array($value)) {
+                    $pending[] = $value;
+                } elseif (!isset(self::NO_SPELLING[$key]) && is_string($value) && strpbrk($value, self::PUNCTUATION) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
