@@ -316,8 +316,20 @@ final class DataModel
         foreach ($c->walked as $item) {
             $parentHolder = $this->holderByPath[$item->parent] ?? null;
             $type = $item->type;
-            if ($type === 'table_row' && $item->pos !== null) {
-                $rows[] = [$item->pos['startLine'] - 1, $item->pos['endLine'] - 1, $item->path];
+            if ($type === 'table_row') {
+                if ($item->pos !== null) {
+                    $rows[] = [$item->pos['startLine'] - 1, $item->pos['endLine'] - 1, $item->path];
+                } else {
+                    // A row a continuation joined has no `pos` (C2-A-158); its layout entry gives the span.
+                    $entry = $c->layoutEntries[$item->path] ?? null;
+                    if (is_int($entry['startByte'] ?? null) && is_int($entry['endByte'] ?? null)) {
+                        $rows[] = [
+                            $c->lineOf($entry['startByte']) - 1,
+                            $c->lineOf(max($entry['startByte'], $entry['endByte'] - 1)) - 1,
+                            $item->path,
+                        ];
+                    }
+                }
             } elseif ($type === 'table' && $c->layout->sourceFormat($item->path) === 'pipe' && $item->pos !== null) {
                 $pipeTables[] = [$item->pos['startLine'] - 1, $item->pos['endLine'] - 1, $item->path];
             }

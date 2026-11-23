@@ -10,7 +10,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * carve-php#5531: the finding paths of the shared data rows, in data mode and with the handwritten rules. A pair finding
- * names the text run's inline parent, a line finding the source line's own path or its pipe table.
+ * names the text run's inline parent; a line finding names its leaf block, the row of a pipe table line, or the
+ * innermost block that holds the line (C2-W-157).
  */
 final class DataLintPathTest extends TestCase
 {
@@ -24,10 +25,14 @@ final class DataLintPathTest extends TestCase
             'strike in a term' => [":: key ~sub~\n", 'deprecated-bare-strike', '/children/0/children/0'],
             'underline in a paragraph' => ["a _x_ b\n", 'deprecated-bare-underline', '/children/0'],
             'highlight in a link' => ["a [=x=](u) z\n", 'deprecated-bare-highlight', '/children/0/children/1'],
-            'colon closer line' => [":::\n::::\n", 'colon-fence-length-mismatch', ''],
+            'colon closer line' => [":::\n::::\n", 'colon-fence-length-mismatch', '/children/0'],
             'quote mark without space' => [">a\n", 'blockquote-marker-without-space', '/children/0'],
-            'item body below the content column' => ["- a\n\n b\n", 'list-item-body-below-content-column', '/children/0/children/0'],
-            'comment inside a table row' => ["| a |\n%% x\n+ b |\n", 'comment-splits-table-row', '/children/0'],
+            'item body below the content column' => [
+                "- a\n\n b\n",
+                'list-item-body-below-content-column',
+                '/children/0/children/0/children/1',
+            ],
+            'comment inside a table row' => ["| a |\n%% x\n+ b |\n", 'comment-splits-table-row', '/children/0/children/0/children/0'],
             // carve-php#5562: a line of a line block owns its source line.
             'quote mark in an unclosed line block' => ["::: |\n>|\n", 'blockquote-marker-without-space', '/children/0/children/0'],
             'quote mark in a closed line block' => ["::: |\na\n>|\n:::\n", 'blockquote-marker-without-space', '/children/0/children/1'],

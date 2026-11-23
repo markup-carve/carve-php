@@ -54,7 +54,7 @@ final class DataRuleLookupsAndLayoutTest extends TestCase
         }
     }
 
-    public function testListItemBodyFindingNamesTheItem(): void
+    public function testListItemBodyFindingNamesItsBlock(): void
     {
         $previous = getenv('CARVE_LINT_RULES');
         putenv('CARVE_LINT_RULES=data');
@@ -65,7 +65,7 @@ final class DataRuleLookupsAndLayoutTest extends TestCase
                     $paths[] = $finding->path;
                 }
             }
-            self::assertSame(['/children/0/children/0'], $paths);
+            self::assertSame(['/children/0/children/0/children/1'], $paths);
         } finally {
             putenv($previous === false ? 'CARVE_LINT_RULES' : 'CARVE_LINT_RULES=' . $previous);
         }
