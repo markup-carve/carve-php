@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Extension\ColorSwatch;
 use MarkupCarve\Carve\Extension\Details;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\ListTable;
+use MarkupCarve\Carve\Extension\Navigation;
 use MarkupCarve\Carve\Extension\SemanticSpan;
 use MarkupCarve\Carve\Extension\SmartQuotes;
 use MarkupCarve\Carve\Extension\Spoiler;
@@ -139,6 +140,26 @@ final class BlocksInlineTest extends TestCase
         $result = Carve::renderWithDiagnostics(Carve::parse($source, $only), $only);
         $this->assertSame("<p><strong>T</strong></p>\n<p>x</p>", $result->html);
         $this->assertContains('extension-fallback-rendered', $result->codes());
+    }
+
+    /**
+     * A registered definition without a renderer is not unknown (C2-X-035, C2-W-106).
+     */
+    public function testFallbackMessageForARegisteredExtension(): void
+    {
+        $messages = static function (string $source, ExtensionDefinition|Bundle $definition): array {
+            $result = Carve::renderWithDiagnostics($source, ['extensions' => [$definition->withoutRenderers()]]);
+
+            return array_map(static fn ($d): string => $d->code . ': ' . $d->message, $result->diagnostics);
+        };
+        $this->assertSame(
+            ['extension-fallback-rendered: Rendered the fallback of the extension "carve.toc", which has no matching renderer'],
+            $messages("= A\n\n== B\n", Navigation::tableOfContents()),
+        );
+        $this->assertSame(
+            ['extension-fallback-rendered: Rendered the fallback of the extension "carve.spoiler", which has no matching renderer'],
+            $messages('Plot: :spoiler[the butler].', Spoiler::bundle()),
+        );
     }
 
     public function testSpoiler(): void
