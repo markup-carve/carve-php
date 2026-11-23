@@ -2001,10 +2001,14 @@ final class Blocks
         $this->w->emit($prefix, $run . $opener);
         $mark = count($this->w->lines);
         $this->fencedAncestors++;
+        // C2-B-015: a list marker interrupts a paragraph only where the paragraph's container is an open list's item.
+        $priorOwner = $this->bodyOwner;
+        $this->bodyOwner = 'fenced';
         try {
             $write();
         } finally {
             $this->fencedAncestors--;
+            $this->bodyOwner = $priorOwner;
         }
         if (count($this->w->lines) === $mark && $blankWhenEmpty) {
             $this->w->emit($prefix, '');

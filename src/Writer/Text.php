@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use Closure;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\IncludeShape;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\Markers;
 use MarkupCarve\Carve\Block\TableBuilder;
@@ -1487,9 +1489,13 @@ final class Text
     private static function closerFollows(string $flat, int $from, string $mark, Context $c): bool
     {
         $c->closers ??= self::closers($flat, $c);
-        [$offsets, $shifts, $closes, $forced] = $c->closers;
+        [$offsets, $shifts, $closes, $forced, $opened] = $c->closers;
         if (($forced[$mark] ?? -1) > $from) {
             return true;
+        }
+        // A closer spelled by the opening mark of a later span stands only in its bare spelling: the read-back decides.
+        if (($opened[$mark] ?? -1) > $from) {
+            return self::undecided();
         }
         // The run starts behind the mark, which is the first character of an atom at `$from`.
         $start = self::writtenAt($from, $offsets, $shifts) + 1;
@@ -1511,7 +1517,7 @@ final class Text
      * @param string $flat
      * @param \MarkupCarve\Carve\Writer\Context $c
      *
-     * @return array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>}
+     * @return array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>, 4: array<string, int>}
      */
     private static function closers(string $flat, Context $c): array
     {
@@ -1521,6 +1527,7 @@ final class Text
         $shifts = [];
         $shift = 0;
         $forced = [];
+        $opened = [];
         $k = 0;
         $end = strlen($flat);
         while ($k < $end) {
@@ -1544,6 +1551,7 @@ final class Text
             $type = $c->flatTypes[$node] ?? '';
             $held = Inline::strings($c->flatNodes[$node] ?? []);
             $bare = ($flat[$k] ?? '') === '}' ? Inline::bareMark($type) : null;
+            $opened[self::openingCloser($c->flatNodes[$node] ?? [])] = $node;
             foreach ($marks as $mark) {
                 $raw = $mark === '#' || $mark === '%';
                 $supplies = !Inline::known($type) || $bare === $mark
@@ -1564,7 +1572,24 @@ final class Text
             $closes[$mark] = $at === false ? -1 : $at;
         }
 
-        return [$offsets, $shifts, $closes, $forced];
+        return [$offsets, $shifts, $closes, $forced, $opened];
+    }
+
+    /**
+     * The bare opening mark of emphasis or strong whose text starts with `}`, which spells a closer of that mark, or ''.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string
+     */
+    private static function openingCloser(array $node): string
+    {
+        $lead = is_array($node['children'] ?? null) ? $node['children'][0] ?? null : null;
+        if (!is_array($lead) || ($lead['type'] ?? null) !== 'text' || !is_string($lead['value'] ?? null)) {
+            return '';
+        }
+
+        return str_starts_with($lead['value'], '}') ? (string)Inline::bareMark(Inline::str($node, 'type')) : '';
     }
 
     /**
@@ -1847,7 +1872,7 @@ final class Text
         if (($c->counts[$ch] ?? 0) < 2) {
             return false;
         }
-        if ($i > 1 && $value[$i - 1] === $ch && $value[$i - 2] === '{' && ($value[$i + 1] ?? '') !== $ch) {
+        if ($i > 1 && $value[$i - 1] === $ch && $value[$i - 2] === '{' && ($value[$i + 1] ?? '') !== $ch && $c->here < 0) {
             return true;
         }
         // C2-I-049: a run of two or more is text, counted without the mark a bare brace takes (C2-I-055).
@@ -1864,7 +1889,7 @@ final class Text
             return ($open || $close) && isset($c->localPartners[$ch][$i]);
         }
         $at = $c->here + $i;
-        $c->partners ??= self::pairedMarks((string)$c->flat, $c->flatTypes, $c->flatNodes);
+        $c->partners ??= self::flatPartners($c);
         $behind = $at + 1;
         if (
             $open && !isset($c->partners[$ch][$at]) && $i === strlen($value) - 1 && ($c->flat[$behind] ?? '') === "\0"
@@ -1890,9 +1915,27 @@ final class Text
      */
     private static function partner(Context $c, int $at, string $ch): bool
     {
-        $c->partners ??= self::pairedMarks((string)$c->flat, $c->flatTypes, $c->flatNodes);
+        $c->partners ??= self::flatPartners($c);
 
         return isset($c->partners[$ch][$at]);
+    }
+
+    /**
+     * The pairs of the leaf's own text. C2-I-055, C2-I-058: a mark glued behind a `{` that stays bare is the mark of a
+     * braced opener and pairs with no bare mark; the brace takes the backslash only where a closer of that mark follows.
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function flatPartners(Context $c): array
+    {
+        $flat = (string)$c->flat;
+
+        return self::pairedMarks(
+            $flat,
+            $c->flatTypes,
+            $c->flatNodes,
+            static fn (int $at): bool => !self::closerFollows($flat, $at, $flat[$at], $c),
+        );
     }
 
     /**
@@ -1902,10 +1945,11 @@ final class Text
      * @param string $text
      * @param array<int, string> $types
      * @param array<int, array<mixed>> $nodes
+     * @param \Closure(int): bool|null $braced Whether the mark at an offset behind a `{` is the mark of a braced opener.
      *
      * @return array<string, array<int, true>>
      */
-    private static function pairedMarks(string $text, array $types = [], array $nodes = []): array
+    private static function pairedMarks(string $text, array $types = [], array $nodes = [], ?Closure $braced = null): array
     {
         $paired = ['*' => [], '/' => []];
         $open = ['*' => [], '/' => []];
@@ -1923,9 +1967,12 @@ final class Text
             }
             $before = $at > 0 ? ord($text[$at - 1]) : -1;
             $after = $at + 1 < $n ? ord($text[$at + 1]) : -1;
+            // C2-I-049: the mark a bare brace takes as a braced opener does not count for the run behind it.
+            $behindBraced = $braced !== null && $at > 1 && $text[$at - 1] === $ch && $text[$at - 2] === '{' && $braced($at - 1);
             if (
-                ($at > 0 && $text[$at - 1] === $ch) || ($at + 1 < $n && $text[$at + 1] === $ch)
+                ($at > 0 && $text[$at - 1] === $ch && !$behindBraced) || ($at + 1 < $n && $text[$at + 1] === $ch)
                 || ($after >= 0 && Chars::isGlue($after))
+                || ($braced !== null && $before === 0x7B && $braced($at))
             ) {
                 continue;
             }
@@ -2418,7 +2465,7 @@ final class Text
         if ($c->blockDepth >= Tables::BLOCK_DEPTH && !$c->inQuote && rtrim($line, " \t") === '+') {
             return 0;
         }
-        if (self::anyLine($value, $line, $eol, $c->last === -1 && $next === 10)) {
+        if (self::anyLine($value, $line, $eol, $c->last === -1, $next === 10)) {
             return 0;
         }
         // C2-B-027: a code fence behind the leading blanks of a line opens too; its first backtick takes the backslash.
@@ -2694,18 +2741,19 @@ final class Text
      * @param string $value
      * @param string $line
      * @param bool $eol
+     * @param bool $first Whether the line is the first of its paragraph.
      * @param bool $attaches
      *
      * @return bool
      */
-    private static function anyLine(string $value, string $line, bool $eol, bool $attaches): bool
+    private static function anyLine(string $value, string $line, bool $eol, bool $first, bool $attaches): bool
     {
         $len = strlen($line);
 
         return match ($value[0]) {
             ':', '%', '`' => LineShapes::isFenceLine($line, 0, $len),
             '*' => self::starLine($value),
-            '{' => $eol && self::braceLine($value, $attaches),
+            '{' => $eol && $first && self::braceLine($value, $attaches),
             '|' => !$eol || TableBuilder::split($line, 0, $len) !== null,
             default => false,
         };
@@ -2803,7 +2851,13 @@ final class Text
         $ch = $line[0];
         $gap = in_array($line[1] ?? '', [' ', "\t", ''], true);
         if ($ch === '^') {
-            return $gap ? 0 : -1;
+            // C2-B-146: the mark needs content behind it. C2-B-017, C2-B-147: below paragraph text a caption line is
+            // text; only a paragraph that may still be a block image or display math takes one, which the read-back decides.
+            if (!$gap || (($line[1] ?? '') !== "\t" && trim(substr($line, 1), " \t") === '') || !self::mayTakeCaption($c)) {
+                return -1;
+            }
+
+            return self::undecided() ? 0 : -1;
         }
         if (!in_array($c->owner, ['body', 'description'], true)) {
             return -1;
@@ -2824,8 +2878,33 @@ final class Text
     }
 
     /**
+     * C2-B-147, C2-B-157, C2-B-158: whether the leaf before the text holds nothing but blanks, line breaks, images,
+     * display math and comments, so that it may still be a block image or a math block.
+     */
+    private static function mayTakeCaption(Context $c): bool
+    {
+        if ($c->flat === null || $c->here < 0) {
+            return false;
+        }
+        for ($k = 0; $k < $c->here; $k++) {
+            $ch = $c->flat[$k];
+            if ($ch === ' ' || $ch === "\t" || $ch === "\n") {
+                continue;
+            }
+            $type = $ch === "\0" ? $c->flatTypes[$k] ?? '' : '';
+            $display = $type === 'math'
+                && (($c->flatNodes[$k]['display'] ?? false) === true || str_starts_with($c->flatAtoms[$k] ?? '', '$$'));
+            if (!$display && !in_array($type, ['image', 'comment', 'soft_break', 'hard_break'], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * C2-B-156: `{{` and `}}` around a whole line. C2-B-090: an attribute line, which attaches only to a block below it,
-     * so only on the first line of content that goes on.
+     * so only on the first line of content that goes on. Neither interrupts a paragraph (C2-N-002), so only a first line.
      *
      * @param string $value
      * @param bool $attaches
@@ -2834,7 +2913,7 @@ final class Text
      */
     private static function braceLine(string $value, bool $attaches): bool
     {
-        if (str_starts_with($value, '{{') && str_ends_with(rtrim($value, " \t"), '}}')) {
+        if (str_starts_with($value, '{{') && IncludeShape::parse($value, 0, strlen($value)) !== null) {
             return true;
         }
 
