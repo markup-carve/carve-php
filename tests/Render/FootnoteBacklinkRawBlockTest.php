@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Render;
 
 use MarkupCarve\Carve\Carve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -35,6 +36,22 @@ final class FootnoteBacklinkRawBlockTest extends TestCase
         $html = Carve::toHtml("x[^1]\n\n[^1]: a\n    ```=latex\n    xyz\n    ```\n", ['profile' => 'article']);
 
         $this->assertStringContainsString("<p>a</p>\n      <p>xyz<a href=\"#fnref1\" role=\"doc-backlink\"", $html);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function emptyFormats(): array
+    {
+        return ['latex' => ['latex'], 'html' => ['html']];
+    }
+
+    #[DataProvider('emptyFormats')]
+    public function testAnEmptyRawBlockTheProfileDegradesWritesNothing(string $format): void
+    {
+        $html = Carve::toHtml("x[^1]\n\n[^1]: a\n    ```=$format\n    ```\n", ['profile' => 'article']);
+
+        $this->assertStringContainsString('<p>a<a href="#fnref1" role="doc-backlink"', $html);
     }
 
     public function testAnHtmlRawBlockStillTakesItsOwnBacklinkParagraph(): void
