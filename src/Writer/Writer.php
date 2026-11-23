@@ -981,6 +981,7 @@ final class Writer
         if ($w->lines === []) {
             return new WriteResult($children === [] ? "\n" : '', $w->losses);
         }
+        HeapPages::release();
         $source = implode("\n", $w->lines) . "\n";
         $joined = $source;
         $source = ControlLines::keepAbove($source, ControlLines::source($layout), $w->extensions);
@@ -1147,6 +1148,7 @@ final class Writer
         Options::from($options, ['format']);
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
         $parsed = TableBuilder::compactEmptyParagraphs(static fn () => Carve::parseWithLayout($source, $parseOptions));
+        HeapPages::release();
         $tree = TreeEncoder::decodedForWriter($parsed->tree);
         $writeLayout = $layout ?? $parsed->layout;
         // The read-back parser may need the same memory as the initial parse.
