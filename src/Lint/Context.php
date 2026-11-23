@@ -176,7 +176,7 @@ final class Context
     }
 
     /**
-     * C2-W-109: whether a rule runs, by the `rules` and `platforms` options and the catalog default.
+     * C2-W-109, C2-W-156: whether a rule runs, by the `rules`, `platforms` and `upgrade` options and the catalog default.
      *
      * @param string $id
      *
@@ -199,7 +199,10 @@ final class Context
             return in_array('github', $platforms, true) && ($rules[$id] ?? null) !== 'off';
         }
 
-        return ($rules[$id] ?? $this->catalog[$id]['default'] ?? null) === 'on';
+        $state = $rules[$id] ?? $this->catalog[$id]['default'] ?? null;
+
+        // C2-W-156: a migration notice runs for a document that declares 0.1 or under `upgrade`.
+        return $state === 'on' || ($state === 'upgrade' && ($this->options['upgrade'] ?? false) === true);
     }
 
     public function off(string $id): bool

@@ -117,7 +117,10 @@ vendor/bin/carve import --from gfm --directory SRC --output DST
 
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
 `--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br` and `--heading-shift N` (also with `--to markdown`); `render` and `import` take `--allow-loss CODE`
-(repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`.
+(repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`
+and `--upgrade`, which turns on the notices about text that 0.1 read differently (an indented line under a heading,
+a percent line with text in a comment block, a sigil after a non-ASCII letter, a blank reference label, a blank line in a
+tight list item). They are off for a 0.2 document and on for one whose line-1 frontmatter declares `carve: 0.1`.
 `render`, `ast`, `lint` and `fmt` take `--extensions=JSON`, a list of standard extension names from the
 [catalog](docs/extensions.md) (`render` uses their standard renderers), and `--extension-options=JSON`, their renderer
 options keyed by name: `carve render --extensions '["carve.tabs"]' --extension-options '{"carve.tabs":{"mode":"aria"}}'`.

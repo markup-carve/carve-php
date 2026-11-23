@@ -437,7 +437,7 @@ i) y',
     public function testRule(string $source, string $rule, array $expected): void
     {
         $actual = [];
-        foreach (Carve::lint($source) as $diagnostic) {
+        foreach (Carve::lint($source, ['upgrade' => true]) as $diagnostic) {
             if ($diagnostic->code === $rule) {
                 $actual[] = [$diagnostic->code, $diagnostic->startOffset, $diagnostic->endOffset];
             }

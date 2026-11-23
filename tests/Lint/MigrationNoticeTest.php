@@ -16,6 +16,9 @@ use PHPUnit\Framework\TestCase;
  */
 final class MigrationNoticeTest extends TestCase
 {
+    /**
+     * @var string
+     */
     private const HEADING = "== A long heading that\n   continues here\n";
 
     /**
@@ -79,14 +82,14 @@ final class MigrationNoticeTest extends TestCase
 
     public function testTheCommandLineSwitch(): void
     {
-        [$status, $out] = self::run(['lint', '-'], self::HEADING);
+        [$status, $out] = self::runCommand(['lint', '-'], self::HEADING);
         $this->assertSame([0, ''], [$status, $out]);
 
-        [$status, $out] = self::run(['lint', '--upgrade', '-'], self::HEADING);
+        [$status, $out] = self::runCommand(['lint', '--upgrade', '-'], self::HEADING);
         $this->assertSame(1, $status);
-        $this->assertStringContainsString('-:2:1: warning deprecated-indented-line-under-heading ', $out);
+        $this->assertStringContainsString('<stdin>:2:1: warning deprecated-indented-line-under-heading ', $out);
 
-        [$status, , $err] = self::run(['render', '--upgrade', '-'], self::HEADING);
+        [$status, , $err] = self::runCommand(['render', '--upgrade', '-'], self::HEADING);
         $this->assertSame(2, $status);
         $this->assertSame("carve[usage]: --upgrade is for lint\n", $err);
     }
@@ -114,7 +117,7 @@ final class MigrationNoticeTest extends TestCase
      *
      * @return array{0: int, 1: string, 2: string}
      */
-    private static function run(array $args, string $source): array
+    private static function runCommand(array $args, string $source): array
     {
         $in = fopen('php://memory', 'r+');
         $out = fopen('php://memory', 'r+');

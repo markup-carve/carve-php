@@ -119,7 +119,7 @@ final class NodeRulesBTest extends TestCase
                         . 'block and does not close it. Put the closing run alone on its line.',
                 ],
                 "%%%\nx\n\n%%%\nafter",
-                [],
+                ['upgrade' => true],
             ],
             'comment-in-reference-label' => [
                 '[x][a %% b]',
@@ -248,7 +248,7 @@ final class NodeRulesBTest extends TestCase
                         . 'punctuation before it.',
                 ],
                 'a@bob',
-                [],
+                ['upgrade' => true],
             ],
             'sigil-after-letter/hash' => [
                 'ü#1a',
@@ -261,7 +261,7 @@ final class NodeRulesBTest extends TestCase
                         . 'punctuation before it.',
                 ],
                 'ü#1',
-                [],
+                ['upgrade' => true],
             ],
             'list-item-body-below-content-column' => [
                 "- a\n\n b",
