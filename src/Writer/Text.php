@@ -1140,12 +1140,24 @@ final class Text
                 $most = max($most, ++$open);
             } elseif ($ch === ']') {
                 $open = max(0, $open - 1);
-            } elseif ($open > 0) {
+            } elseif ($open > 0 && ($ch === "\0" || $ch === '{' || self::canOpen($flat, $k))) {
                 $inside++;
             }
         }
 
         return $most + $inside;
+    }
+
+    /**
+     * C2-I-047: whether the `*` or `/` at `$k` of the flattened leaf may open, not after a word character and not
+     * before a space or the end.
+     */
+    private static function canOpen(string $flat, int $k): bool
+    {
+        $before = $k > 0 ? ord($flat[$k - 1]) : -1;
+        $after = $k + 1 < strlen($flat) ? ord($flat[$k + 1]) : -1;
+
+        return !Chars::isWord($before) && $after !== -1 && !Chars::isSpace($after);
     }
 
     /**

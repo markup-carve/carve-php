@@ -67,4 +67,14 @@ final class BracketReadBackTest extends TestCase
         $this->assertSame($input, Carve::format($input, ['normalize' => true]));
         $this->assertSame($input, Carve::write(Carve::parse($input)));
     }
+
+    /**
+     * C2-I-118: pairs that close one after another keep the bracket depth low, so they stay bare.
+     */
+    public function testManyClosedPairsStayBelowTheCap(): void
+    {
+        $input = str_repeat('[a*] ', 199) . "[x]{% c %}\n";
+
+        $this->assertSame($input, Carve::format($input));
+    }
 }
