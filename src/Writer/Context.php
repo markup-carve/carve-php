@@ -206,8 +206,8 @@ final class Context
     public array $flatNodes = [];
 
     /**
-     * @var array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>}|null The closer facts of
-     *   the leaf for the brace test, found on first use.
+     * @var array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>, 4: array<string, int>}|null
+     *   The closer facts of the leaf for the brace test, found on first use.
      */
     public ?array $closers = null;
 
