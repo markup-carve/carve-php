@@ -16,7 +16,8 @@ use MarkupCarve\Carve\Node;
  * delimiter stack runs on those lists afterwards (C2-I-007).
  *
  * Token shapes: [0, value, ts, te, literal] text; [1, Node, ts, te, host, inner TokenList or null] node;
- * [2, sub, ts, te, mark, canOpen, canClose, poison, fallback] delimiter; [3, Attrs, ts, te] attribute block.
+ * [2, sub, ts, te, mark, flags] delimiter, flags of CAN_OPEN, CAN_CLOSE, POISON and FALLBACK; [3, Attrs, ts, te]
+ * attribute block.
  */
 final class Scanner
 {
@@ -43,18 +44,42 @@ final class Scanner
     /**
      * Token slot of the frame count of a delimiter or bracket token, read under C2-I-118.
      *
-     * Integer slots keep a token a packed array: a string key turns it into a hash table of twice the size.
+     * Integer slots keep a token a packed array: a string key turns it into a hash table of twice the size, and more
+     * than eight slots double it too.
      *
      * @var int
      */
-    public const FRAMES = 9;
+    public const FRAMES = 6;
 
     /**
      * Token slot of the cap depth of a delimiter token that no cap delimiter tracks.
      *
      * @var int
      */
-    public const CAP_DEPTH = 10;
+    public const CAP_DEPTH = 7;
+
+    /**
+     * Delimiter flags: the mark can open, can close, stands between word characters (C2-I-053), and as a braced closer
+     * falls back to a bare mark without its opener (C2-I-057).
+     *
+     * @var int
+     */
+    public const CAN_OPEN = 1;
+
+    /**
+     * @var int
+     */
+    public const CAN_CLOSE = 2;
+
+    /**
+     * @var int
+     */
+    public const POISON = 4;
+
+    /**
+     * @var int
+     */
+    public const FALLBACK = 8;
 
     /**
      * @var int
@@ -968,7 +993,7 @@ final class Scanner
             return -1;
         }
         if (isset(Tables::BRACED_MARKS[$m]) && !Chars::isGlue(Chars::at($t, $i + 2))) {
-            return $this->delim([self::DELIM, self::OPENER, $i, $i + 2, $m, false, false, false, 0]);
+            return $this->delim([self::DELIM, self::OPENER, $i, $i + 2, $m, 0]);
         }
 
         return -1;
@@ -1009,7 +1034,7 @@ final class Scanner
         }
 
         // C2-I-057: the marks before the last of a run stay text.
-        return $this->delim([self::DELIM, self::CLOSER, $i - 1, $i + 1, $m, false, false, false, 0]);
+        return $this->delim([self::DELIM, self::CLOSER, $i - 1, $i + 1, $m, 0]);
     }
 
     /**
@@ -1027,7 +1052,7 @@ final class Scanner
         $after = $i + $len;
         if ($len >= 2) {
             if ($after < $this->n && $t[$after] === '}') {
-                return $this->delim([self::DELIM, self::CLOSER, $after - 1, $after + 1, $m, false, false, false, 0]);
+                return $this->delim([self::DELIM, self::CLOSER, $after - 1, $after + 1, $m, 0]);
             }
 
             return $after;
@@ -1037,7 +1062,9 @@ final class Scanner
             // C2-I-057: without a braced opener this mark is bare, so later marks need the stack.
             $this->bareSeen[$m] = true;
 
-            return $this->delim([self::DELIM, self::CLOSER, $i, $i + 2, $m, $open, $close, false, 1]);
+            $flags = ($open ? self::CAN_OPEN : 0) | ($close ? self::CAN_CLOSE : 0) | self::FALLBACK;
+
+            return $this->delim([self::DELIM, self::CLOSER, $i, $i + 2, $m, $flags]);
         }
         $c = $after < $this->n ? $t[$after] : '';
         if (($c === '' || $c === '{' || ord($c) >= 0x80) && Chars::isGlue($this->nextCp($i + 1))) {
@@ -1052,7 +1079,9 @@ final class Scanner
         }
         $this->bareSeen[$m] = true;
 
-        return $this->delim([self::DELIM, self::BARE, $i, $i + 1, $m, $open, $close, $poison, 0]);
+        $flags = ($open ? self::CAN_OPEN : 0) | ($close ? self::CAN_CLOSE : 0) | ($poison ? self::POISON : 0);
+
+        return $this->delim([self::DELIM, self::BARE, $i, $i + 1, $m, $flags]);
     }
 
     /**
@@ -1263,7 +1292,7 @@ final class Scanner
     }
 
     /**
-     * @param array{int, int, int, int, string, bool, bool, bool, int} $token
+     * @param array{int, int, int, int, string, int} $token
      *
      * @return int
      */
@@ -1309,7 +1338,8 @@ final class Scanner
         $mark = $token[4];
         $start = $token[2];
         $end = $token[3];
-        if (!is_string($mark) || !is_int($start) || !is_int($end)) {
+        $flags = $token[5];
+        if (!is_string($mark) || !is_int($start) || !is_int($end) || !is_int($flags)) {
             throw new LogicException('Invalid delimiter token');
         }
         if ($token[1] === self::OPENER) {
@@ -1321,33 +1351,34 @@ final class Scanner
             if ($this->closeCapDelimiter('{' . $mark, $start, false)) {
                 return true;
             }
-            if ($token[8] !== 1) {
+            if (($flags & self::FALLBACK) === 0) {
                 return false;
             }
         }
 
-        return $this->trackCapBare($token, $mark, $start, $end);
+        return $this->trackCapBare($token[1] === self::BARE, $flags, $mark, $start, $end);
     }
 
     /**
      * C2-I-057: a closer with no braced opener falls back to its bare mark.
      *
-     * @param array<mixed> $token
+     * @param bool $bare
+     * @param int $flags
      * @param string $mark
      * @param int $start
      * @param int $end
      */
-    private function trackCapBare(array $token, string $mark, int $start, int $end): bool
+    private function trackCapBare(bool $bare, int $flags, string $mark, int $start, int $end): bool
     {
-        if ($token[6] && $this->closeCapDelimiter($mark, $start, true)) {
+        if (($flags & self::CAN_CLOSE) !== 0 && $this->closeCapDelimiter($mark, $start, true)) {
             return true;
         }
-        if ($token[5]) {
+        if (($flags & self::CAN_OPEN) !== 0) {
             $this->openCapDelimiter($mark, $end);
 
             return false;
         }
-        if ($token[1] === self::BARE && $token[7]) {
+        if ($bare && ($flags & self::POISON) !== 0) {
             $this->capPoison[$mark]++;
         }
 

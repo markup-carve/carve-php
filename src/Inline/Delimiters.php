@@ -175,8 +175,8 @@ final class Delimiters
     private function bare(array $tok): void
     {
         $m = $tok[4];
-        assert(is_string($m) && is_int($tok[2]) && is_int($tok[3]));
-        if ($tok[6] === true && ($this->byKind[$m] ?? []) !== []) {
+        assert(is_string($m) && is_int($tok[2]) && is_int($tok[3]) && is_int($tok[5]));
+        if (($tok[5] & Scanner::CAN_CLOSE) !== 0 && ($this->byKind[$m] ?? []) !== []) {
             $id = $this->byKind[$m][count($this->byKind[$m]) - 1];
             $e = $this->stack[$id];
             if ($this->poison[$m] > $e[$m === '*' ? 4 : 5]) {
@@ -192,12 +192,12 @@ final class Delimiters
 
             return;
         }
-        if ($tok[5] === true) {
+        if (($tok[5] & Scanner::CAN_OPEN) !== 0) {
             $this->open($tok, $m);
 
             return;
         }
-        if ($tok[7] === true) {
+        if (($tok[5] & Scanner::POISON) !== 0) {
             $this->poison[$m]++;
         }
         $this->text($tok[2], $tok[3]);
@@ -257,7 +257,7 @@ final class Delimiters
     private function closer(array $tok): void
     {
         $m = $tok[4];
-        assert(is_string($m) && is_int($tok[2]) && is_int($tok[3]));
+        assert(is_string($m) && is_int($tok[2]) && is_int($tok[3]) && is_int($tok[5]));
         $kind = '{' . $m;
         if (($this->byKind[$kind] ?? []) !== []) {
             $id = $this->byKind[$kind][count($this->byKind[$kind]) - 1];
@@ -277,9 +277,9 @@ final class Delimiters
 
             return;
         }
-        if ($tok[8] === 1) {
+        if (($tok[5] & Scanner::FALLBACK) !== 0) {
             $this->bare([
-                Scanner::DELIM, Scanner::BARE, $tok[2], $tok[2] + 1, $m, $tok[5], $tok[6], false, 0,
+                Scanner::DELIM, Scanner::BARE, $tok[2], $tok[2] + 1, $m, $tok[5] & (Scanner::CAN_OPEN | Scanner::CAN_CLOSE),
                 Scanner::FRAMES => $tok[Scanner::FRAMES] ?? 0,
             ]);
             $this->text($tok[3] - 1, $tok[3]);
