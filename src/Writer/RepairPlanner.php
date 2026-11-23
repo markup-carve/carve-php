@@ -53,6 +53,11 @@ final class RepairPlanner
         'link', 'image', 'span', 'inline_footnote', 'inline_extension', 'citation', 'abbreviation', 'quote',
     ];
 
+    /**
+     * @var array<string> The nodes whose content a `]` closes.
+     */
+    private const BRACKETED = ['link', 'span', 'inline_footnote', 'inline_extension'];
+
     private int $limit;
 
     /**
@@ -114,6 +119,14 @@ final class RepairPlanner
     }
 
     /**
+     * The characters the rounds have read so far, the measure of C2-W-133.
+     */
+    public function charactersRead(): int
+    {
+        return $this->read;
+    }
+
+    /**
      * @param array{source: string, text: array<int, array{string, int}>, nodes: array<int, array{string, string, int, int}>} $candidate
      * @param array{
      *     equal: bool,
@@ -138,6 +151,7 @@ final class RepairPlanner
             // The kind escapes go first; a closer escape CompareRound asks for (C2-W-125) gives no kind and waits for a
             // later round, which asks for it again only if the kinds did not make it needless.
             $this->escapeKinds($comparison['openers']);
+            $this->escapePartnerClosers();
         } else {
             $this->addAsked($asked);
         }
@@ -183,6 +197,74 @@ final class RepairPlanner
                 }
             }
         }
+    }
+
+    /**
+     * C2-W-125, case five: a `[` escaped in the content of a bracketed node leaves the `]` that closes it in the text
+     * bare, which would end that node early, so that `]` takes its backslash in the same round.
+     */
+    private function escapePartnerClosers(): void
+    {
+        $pending = [['', $this->tree]];
+        while ($pending !== []) {
+            [$path, $node] = array_pop($pending);
+            if (!in_array($node['type'] ?? '', self::BRACKETED, true)) {
+                foreach (self::childrenOf($node) as $index => $child) {
+                    $pending[] = [$path . '/children/' . $index, $child];
+                }
+
+                continue;
+            }
+            $open = [];
+            $content = [];
+            foreach (array_reverse(self::childrenOf($node), true) as $index => $child) {
+                $content[] = [$path . '/children/' . $index, $child];
+            }
+            while ($content !== []) {
+                [$at, $child] = array_pop($content);
+                $type = $child['type'] ?? '';
+                if (in_array($type, self::BRACKETED, true)) {
+                    $pending[] = [$at, $child];
+                } elseif ($type === 'text') {
+                    $this->pairBrackets($at, is_string($child['value'] ?? null) ? $child['value'] : '', $open);
+                } else {
+                    foreach (array_reverse(self::childrenOf($child), true) as $index => $inner) {
+                        $content[] = [$at . '/children/' . $index, $inner];
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * @param string $path
+     * @param string $value
+     * @param array<array{string, int}> $open The `[` of the content not yet closed.
+     */
+    private function pairBrackets(string $path, string $value, array &$open): void
+    {
+        $n = strlen($value);
+        for ($i = strcspn($value, '[]'); $i < $n; $i += 1 + strcspn($value, '[]', $i + 1)) {
+            if ($value[$i] === '[') {
+                $open[] = [$path, $i];
+
+                continue;
+            }
+            $partner = array_pop($open);
+            if ($partner !== null && isset($this->escapes[$partner[0]][$partner[1]])) {
+                $this->addEscape($path, $i);
+            }
+        }
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return array<int, array<mixed>>
+     */
+    private static function childrenOf(array $node): array
+    {
+        return array_filter(is_array($node['children'] ?? null) ? $node['children'] : [], 'is_array');
     }
 
     /**
