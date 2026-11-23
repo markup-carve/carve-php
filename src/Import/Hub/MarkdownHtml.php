@@ -86,12 +86,17 @@ final class MarkdownHtml
      */
     private static function protectDefinitionFollowers(string $input): string
     {
+        if (!str_contains($input, ']:')) {
+            return $input;
+        }
+
         $lines = preg_split('/(?<=\n)|(?<=\r)(?!\n)/', $input) ?: [];
         $fence = null;
         foreach ($lines as $i => $line) {
             $body = rtrim($line, "\r\n");
-            $visible = preg_replace('/\A(?: {0,3}> ?)+/', '', $body) ?? $body;
-            if (preg_match('/^ {0,3}(`{3,}|~{3,})(.*)$/', $visible, $run) === 1) {
+            $visible = str_contains($body, '>') ? (preg_replace('/\A(?: {0,3}> ?)+/', '', $body) ?? $body) : $body;
+            $run = self::fenceRun($visible);
+            if ($run !== null) {
                 if ($fence === null) {
                     $fence = [$run[1][0], strlen($run[1])];
                 } elseif ($run[1][0] === $fence[0] && strlen($run[1]) >= $fence[1] && trim($run[2]) === '') {
@@ -100,7 +105,7 @@ final class MarkdownHtml
 
                 continue;
             }
-            if ($fence !== null || !isset($lines[$i + 1])) {
+            if ($fence !== null || !isset($lines[$i + 1]) || !str_contains($body, ']:')) {
                 continue;
             }
             if (preg_match('/\A((?: {0,3}> ?)*)( {0,3})([-+*] |[0-9]{1,9}[.)] )?\[[^\]\r\n]+\]:[^\r\n]*\z/', $body, $definition) !== 1) {
@@ -113,10 +118,7 @@ final class MarkdownHtml
             $indent = $definition[2];
             $list = $definition[3] ?? '';
             $spaces = strlen($marker[2][0]);
-            if ($marker[1][0] !== $quote || (int)$marker[3][0] === 1) {
-                continue;
-            }
-            if ($list === '' ? $spaces > 3 : $spaces < strlen($indent . $list)) {
+            if (!self::protectsMarker($quote, $indent, $list, $marker[1][0], $spaces, (int)$marker[3][0])) {
                 continue;
             }
             $at = $marker[4][1];
@@ -124,6 +126,34 @@ final class MarkdownHtml
         }
 
         return implode('', $lines);
+    }
+
+    private static function protectsMarker(
+        string $quote,
+        string $indent,
+        string $list,
+        string $nextQuote,
+        int $spaces,
+        int $number,
+    ): bool {
+        return $quote === $nextQuote && $number !== 1
+            && ($list === '' ? $spaces <= 3 : $spaces >= strlen($indent . $list));
+    }
+
+    /**
+     * @return array<int, string>|null
+     */
+    private static function fenceRun(string $line): ?array
+    {
+        $head = ltrim($line, ' ');
+        if (!str_starts_with($head, '```') && !str_starts_with($head, '~~~')) {
+            return null;
+        }
+        if (preg_match('/^ {0,3}(`{3,}|~{3,})(.*)$/', $line, $run) !== 1) {
+            return null;
+        }
+
+        return $run;
     }
 
     /**
