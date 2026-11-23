@@ -28,6 +28,10 @@ final class LineBlockLazyCommentTest extends TestCase
             'without a comment block' => ["- ::: |\n  a\n%% x\n", "- ::: |\n  a\n%% x\n  :::\n"],
             'in a quote' => ["> ::: |\n> a\n%% x\n> b\n", "> ::: |\n> a\n%% x\n> b\n> :::\n"],
             'an empty comment' => ["1. ::: |\n   a\n%%\n", "1. ::: |\n   a\n%%\n   :::\n"],
+            // carve#6472: each comment of the run that ends the line is a lazy line of its own.
+            'two comments' => ["- ::: |\n  a\n%% x\n%% y\n", "- ::: |\n  a\n%% x\n%% y\n  :::\n"],
+            'two runs' => ["- ::: |\n  a\n%% x\n%% y\n  b\n%% z\n", "- ::: |\n  a\n%% x\n%% y\n  b\n%% z\n  :::\n"],
+            'three comments in a quote' => ["> ::: |\n> a\n%% x\n%%\n%% y\n", "> ::: |\n> a\n%% x\n%%\n%% y\n> :::\n"],
         ];
     }
 
@@ -61,12 +65,14 @@ final class LineBlockLazyCommentTest extends TestCase
 
     public function testAnEarlierCommentOfTheLineIsReported(): void
     {
+        // carve#6472: only a comment outside the run that ends the line has no spelling.
         $line = [
 
             'type' => 'line',
             'children' => [
                 ['type' => 'text', 'value' => 'b'],
                 ['type' => 'comment', 'form' => 'line', 'value' => 'x'],
+                ['type' => 'text', 'value' => 'c'],
                 ['type' => 'comment', 'form' => 'line', 'value' => 'y'],
             ],
         ];

@@ -22,7 +22,8 @@ final class KindEscapeTest extends TestCase
             'brackets of a paragraph, not of the next' => ["\\[a] and [b]\n\n[c]\n\n[a]: /u\n", "\\[a] and \\[b]\n\n[c]\n\n[a]: /u\n"],
             'slashes that can open' => ["\\/a/ and/or /b\n", "\\/a/ and/or \\/b\n"],
             'a kind reported in link text' => ["\\:a: [\\:b:](/u) :c:\n", "\\:a\\: [\\:b\\:](/u) :c:\n"],
-            'an escaped mark before a closer gives its kind' => ["{^a\\^}^} x^ y\n", "{^a\\^}^} x\\^ y\n"],
+            // carve#6461: a backslash of C2-W-125 takes its own escape and gives no kind.
+            'an escaped mark before a closer gives no kind' => ["{^a\\^}^} x^ y\n", "{^a\\^}^} x^ y\n"],
             // carve#6391, ruled option 2: a single hyphen is no potential opener of the hyphen kind.
             'a single hyphen stays bare beside an escaped hyphen run' => [
                 "é- [a]: /u\n:  >=\n](u)# ^}:x *é=}---2) \\---\$\nb\n",

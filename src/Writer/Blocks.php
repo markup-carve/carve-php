@@ -2284,8 +2284,7 @@ final class Blocks
                     continue;
                 }
                 $inlines = is_array($line) && is_array($line['children'] ?? null) ? $line['children'] : [];
-                $lazyPath = $path . '/children/' . $at . '/children/' . max(0, count($inlines) - 1);
-                $lazy = $this->takeLazyComment($inlines, $path . '/children/' . $at . '/children/');
+                $lazy = $this->takeLazyComments($inlines, $path . '/children/' . $at . '/children/');
                 // C2-W-151: text of only spaces and tabs at the end of the line is dropped, so a hard break before it ends the line.
                 $blanks = [];
                 while ($inlines !== [] && self::blankText(end($inlines))) {
@@ -2306,8 +2305,10 @@ final class Blocks
                 }
                 $this->w->smartRun = $outer;
                 $this->w->emit($prefix, $text);
-                if ($lazy !== null) {
-                    $this->lazyComment($lazy, $lazyPath, $prefix);
+                if ($lazy !== []) {
+                    foreach ($lazy as $lazyPath => $comment) {
+                        $this->lazyComment($comment, $lazyPath, $prefix);
+                    }
                     // The spaces before the comment do not end the line in the tree.
                     foreach ($blanks as $blank) {
                         $this->w->lose($blank, 'text', 'value');
@@ -2319,21 +2320,21 @@ final class Blocks
     }
 
     /**
-     * Takes the line comment that ends a line of a line block off its inlines. CC-327, C2-B-135: any other line comment
-     * of the line reads back as text.
+     * Takes the run of line comments that ends a line of a line block off its inlines, by path in source order: each is
+     * a lazy line below the line (carve#6472). CC-327, C2-B-135: any other line comment of the line reads back as text.
      *
      * @param array<mixed> $inlines
      * @param string $path
      *
-     * @return array<mixed>|null
+     * @return array<string, array<mixed>>
      */
-    private function takeLazyComment(array &$inlines, string $path): ?array
+    private function takeLazyComments(array &$inlines, string $path): array
     {
         $isLine = static fn (mixed $node): bool => is_array($node) && ($node['type'] ?? '') === 'comment'
             && ($node['form'] ?? '') === 'line';
-        $last = end($inlines);
-        $lazy = is_array($last) && $isLine($last) ? $last : null;
-        if ($lazy !== null) {
+        $lazy = [];
+        for ($last = end($inlines); is_array($last) && $isLine($last); $last = end($inlines)) {
+            $lazy[$path . (count($inlines) - 1)] = $last;
             array_pop($inlines);
         }
         foreach ($inlines as $at => $inline) {
@@ -2342,7 +2343,7 @@ final class Blocks
             }
         }
 
-        return $lazy;
+        return array_reverse($lazy, true);
     }
 
     /**

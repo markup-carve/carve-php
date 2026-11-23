@@ -34,4 +34,21 @@ final class LineBlockRequiresOpenStanzaTest extends TestCase
             Carve::toHtml("> ::: |\n> x\na\n"),
         );
     }
+
+    /**
+     * carve#6439: a bare `%` run closes a comment block in a line block on any line, before ownership, and closes no
+     * container (C2-B-109, C2-B-137); the open stanza then takes the lazy line.
+     */
+    public function testAColumnZeroCloserEndsTheCommentOnly(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"line-block\">\n          <p>a<br>\nz</p>\n"
+            . "        </div>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            Carve::toHtml("- - ::: |\n    a\n    %%%\n%%%%\nz\n"),
+        );
+        $this->assertSame(
+            "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>a<br>\nb</p>\n    </div>\n  </li>\n</ul>",
+            Carve::toHtml("- ::: |\n  a\n  %%%\n%%%\n  b\n"),
+        );
+    }
 }
