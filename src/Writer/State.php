@@ -20,6 +20,19 @@ final class State
     public array $lines = [];
 
     /**
+     * The top-level block groups as written: first and last child index, line range, and whether the group left an
+     * escape undecided.
+     *
+     * @var array<int, array{int, int, int, int, bool}>
+     */
+    public array $rootGroups = [];
+
+    /**
+     * Whether `$rootGroups` is kept, for a write whose groups are checked.
+     */
+    public bool $recordGroups = false;
+
+    /**
      * What the next line starts with instead of its prefix: the markers of the bodies it opens.
      */
     public ?string $lead = null;

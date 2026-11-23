@@ -160,8 +160,11 @@ final class Blocks
                 continue;
             }
             $rootGroup = $path === '/children';
+            $first = $at;
+            $undecided = false;
             if ($rootGroup) {
                 $this->w->beginRepairGroup($node);
+                $undecided = Text::enterGroup();
             }
             $start = count($this->w->lines);
             $lead = $this->w->lead;
@@ -201,11 +204,12 @@ final class Blocks
                 $this->w->openFences = $openFences;
                 $this->w->refuseRepair($path . '/' . $at);
                 $this->w->endRepairGroup();
+                Text::leaveGroup($undecided);
 
                 continue;
             }
             if ($rootGroup) {
-                $this->w->endRepairGroup();
+                $this->endRootGroup($first, $at, $written, $undecided);
             }
             if (count($this->w->lines) === $written) {
                 // C2-W-029: a block that writes nothing leaves no blank line behind.
@@ -217,6 +221,25 @@ final class Blocks
             if (($node['type'] ?? '') !== 'comment') {
                 $list = $node;
             }
+        }
+    }
+
+    /**
+     * Records a top-level block group that wrote lines, for the group check of `Writer`.
+     *
+     * @param int $first
+     * @param int $last
+     * @param int $written The first line of the group.
+     * @param bool $outer The undecided record of the groups before it.
+     *
+     * @return void
+     */
+    private function endRootGroup(int $first, int $last, int $written, bool $outer): void
+    {
+        $this->w->endRepairGroup();
+        $undecided = Text::leaveGroup($outer);
+        if ($this->w->recordGroups && count($this->w->lines) !== $written) {
+            $this->w->rootGroups[] = [$first, $last, $written, count($this->w->lines), $undecided];
         }
     }
 

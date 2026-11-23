@@ -222,6 +222,29 @@ final class Text
     public static bool $undecided = false;
 
     /**
+     * Starts the record of a top-level block group; returns the record of the groups before it.
+     */
+    public static function enterGroup(): bool
+    {
+        $outer = self::$undecided;
+        self::$undecided = false;
+
+        return $outer;
+    }
+
+    /**
+     * Ends the record of a top-level block group: whether it left an escape undecided. The record of all groups
+     * goes on.
+     */
+    public static function leaveGroup(bool $outer): bool
+    {
+        $group = self::$undecided;
+        self::$undecided = $outer || $group;
+
+        return $group;
+    }
+
+    /**
      * While set, the bracket plan takes the backslash wherever it cannot decide, the form the writer falls back to
      * where the read-back rounds stop.
      */

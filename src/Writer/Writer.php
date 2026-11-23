@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use Closure;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
@@ -50,6 +51,69 @@ final class Writer
     private static ?string $parsedSource = null;
 
     /**
+     * The writes of the current check, each as its source and its top-level group ranges.
+     *
+     * @var array<int, array{string, array<int, array{int, int, int, int, bool}>|null}>|null
+     */
+    private static ?array $captured = null;
+
+    /**
+     * Whether the current check writes the groups of `checkedGroups()` alone.
+     */
+    private static bool $inGroups = false;
+
+    /**
+     * The node types whose blocks a group check may leave out: none feeds the resolve stage (C2-A-133) or the parse
+     * of another block. A key only reads a definition, which stays; an id, a caption or a long description would
+     * feed it.
+     *
+     * @var array<string, true>
+     */
+    private const PLAIN = [
+        'paragraph' => true,
+        'block_quote' => true,
+        'list' => true,
+        'list_item' => true,
+        'code_block' => true,
+        'thematic_break' => true,
+        'text' => true,
+        'soft_break' => true,
+        'hard_break' => true,
+        'emphasis' => true,
+        'strong' => true,
+        'code' => true,
+        'link' => true,
+        'autolink' => true,
+        'smart_punctuation' => true,
+        'strike' => true,
+        'underline' => true,
+        'superscript' => true,
+        'subscript' => true,
+        'highlight' => true,
+        'insert' => true,
+        'delete' => true,
+        'table' => true,
+        'table_head' => true,
+        'table_body' => true,
+        'table_row' => true,
+        'table_cell' => true,
+        'table_column' => true,
+        'cell_paragraph' => true,
+        'definition_list' => true,
+        'definition_term' => true,
+        'definition_description' => true,
+        'div' => true,
+        'admonition' => true,
+        'line_block' => true,
+        'line' => true,
+        'literal_inline' => true,
+        'span' => true,
+        'image' => true,
+        'abbreviation' => true,
+        'xref' => true,
+    ];
+
+    /**
      * C2-W-134: the nearest source and the report.
      *
      * @param array<string, mixed> $tree A decoded 2.0 tree.
@@ -68,7 +132,17 @@ final class Writer
             return new WriteResult("\n", []);
         }
 
-        return Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options));
+        // A write nested in another, as of an extension body, keeps its own group check.
+        $captured = self::$captured;
+        $inGroups = self::$inGroups;
+        self::$captured = null;
+        self::$inGroups = false;
+        try {
+            return Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options));
+        } finally {
+            self::$captured = $captured;
+            self::$inGroups = $inGroups;
+        }
     }
 
     /**
@@ -80,11 +154,12 @@ final class Writer
     {
         $parsed = self::$parsedSource;
         self::$parsedSource = null;
-        [$result, $localEscapes, $undecided] = self::localWrite($tree, $layout, $options, false);
-        if ($result->diagnostics !== []) {
-            return $result;
-        }
         $risk = self::hasRoundRisk($tree);
+        [$result, $localEscapes, $undecided, $groups] = self::firstWrite($tree, $layout, $options, $risk);
+        $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
+        if ($settled !== null) {
+            return $settled;
+        }
         // C2-W-124: a local write the heuristics call safe is still read back where the tree is a parse's; one that
         // reads as another tree goes to the rounds.
         $unchecked = !$undecided && !$risk;
@@ -146,6 +221,316 @@ final class Writer
         $repaired = $planner->repair();
 
         return $repaired === null ? self::unrepaired($tree, $result, $options) : new WriteResult($repaired, []);
+    }
+
+    /**
+     * The local write, and its group ranges where the check is the outer one and a group carries risk.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param bool $risk
+     *
+     * @return array{
+     *     \MarkupCarve\Carve\Writer\WriteResult,
+     *     array<string, array<int, true>>,
+     *     bool,
+     *     array<int, array{int, int, int, int, bool}>|null
+     * }
+     */
+    private static function firstWrite(array $tree, ?array $layout, array $options, bool $risk): array
+    {
+        if (self::$inGroups || !$risk) {
+            return [...self::localWrite($tree, $layout, $options, false), null];
+        }
+        [$local, $records] = self::recording(static fn (): array => self::localWrite($tree, $layout, $options, false), false);
+
+        return [...$local, $records[0][1] ?? null];
+    }
+
+    /**
+     * The local write where it reports a loss, else the result of the group check.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param array<int, array{int, int, int, int, bool}>|null $groups
+     * @param string|null $parsed
+     * @param bool $risk
+     *
+     * @return \MarkupCarve\Carve\Writer\WriteResult|null
+     */
+    private static function settled(
+        array $tree,
+        ?array $layout,
+        array $options,
+        WriteResult $result,
+        ?array $groups,
+        ?string $parsed,
+        bool $risk,
+    ): ?WriteResult {
+        return $result->diagnostics !== []
+            ? $result
+            : self::checkedGroups($tree, $layout, $options, $result->source, $groups, $parsed, $risk);
+    }
+
+    /**
+     * C2-W-133: the read-back rounds of the groups that need them, with only those groups and the blocks the parse
+     * and resolve stage read beside them. The other groups keep their local write, and the joined form is read back
+     * once; null where a risky group writes otherwise alone or the join does not read back.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param string $source The local write.
+     * @param array<int, array{int, int, int, int, bool}>|null $groups Its group ranges.
+     * @param string|null $parsed
+     * @param bool $risk Whether a group carries round risk.
+     *
+     * @return \MarkupCarve\Carve\Writer\WriteResult|null
+     */
+    private static function checkedGroups(
+        array $tree,
+        ?array $layout,
+        array $options,
+        string $source,
+        ?array $groups,
+        ?string $parsed,
+        bool $risk,
+    ): ?WriteResult {
+        $children = is_array($tree['children'] ?? null) ? array_values($tree['children']) : [];
+        $kept = $risk && $groups !== null ? self::keptGroups($children, $groups, strlen($source)) : null;
+        if ($kept === null) {
+            return null;
+        }
+        [$keep, $risky, $map, $expected] = $kept;
+        $sub = $tree;
+        $sub['children'] = array_values(array_intersect_key($children, $map));
+        $subLayout = self::remapRoot($layout, $map);
+        [$subResult, $captures] = self::recording(static fn (): WriteResult => self::writeChecked($sub, $subLayout, $options), true);
+        $finalRanges = null;
+        foreach ($captures as [$written, $ranges]) {
+            if ($written === $subResult->source) {
+                $finalRanges = $ranges;
+            }
+        }
+        [$subLocal, $localRanges] = $captures[0] ?? ['', null];
+        if (
+            $subResult->diagnostics !== [] || $localRanges === null || $finalRanges === null
+            || self::spans($localRanges) !== $expected || self::spans($finalRanges) !== $expected
+        ) {
+            return null;
+        }
+        $joined = '';
+        $at = 0;
+        $j = 0;
+        foreach ($groups as $g => [, , $start, $end]) {
+            $joined .= substr($source, $at, $start - $at);
+            $at = $end;
+            $text = substr($source, $start, $end - $start);
+            $j += isset($keep[$g]) ? 1 : 0;
+            if (!isset($risky[$g])) {
+                $joined .= $text;
+
+                continue;
+            }
+            [, , $localStart, $localEnd] = $localRanges[$j - 1];
+            [, , $finalStart, $finalEnd] = $finalRanges[$j - 1];
+            // A risky group that writes otherwise alone is decided with its neighbors.
+            if (substr($subLocal, $localStart, $localEnd - $localStart) !== $text) {
+                return null;
+            }
+            $joined .= substr($subResult->source, $finalStart, $finalEnd - $finalStart);
+        }
+        $joined .= substr($source, $at);
+
+        return $joined === $parsed || self::readsBack($joined, self::trimmedPrint($tree, $layout, $options), $options)
+            ? new WriteResult($joined, [])
+            : null;
+    }
+
+    /**
+     * The groups a group check writes: the risky ones, and those the parse or resolve stage of the risky ones may
+     * read; null where none is risky or they hold more than two thirds of the source. With them the old to new child
+     * index of the kept children, and the child span of each kept group.
+     *
+     * @param array<int, mixed> $children
+     * @param array<int, array{int, int, int, int, bool}> $groups
+     * @param int $length The bytes of the local write.
+     *
+     * @return array{array<int, true>, array<int, true>, array<int, int>, array<int, array{int, int}>}|null
+     */
+    private static function keptGroups(array $children, array $groups, int $length): ?array
+    {
+        $groupOf = [];
+        $keep = [];
+        $risky = [];
+        foreach ($groups as $g => [$first, $last, , , $undecided]) {
+            $risk = $undecided;
+            $plain = true;
+            for ($i = $first; $i <= $last; $i++) {
+                $groupOf[$i] = $g;
+                $child = $children[$i] ?? null;
+                $risk = $risk || (is_array($child) && self::nodeHasRoundRisk($child, false, false));
+                $plain = $plain && is_array($child) && self::plain($child);
+            }
+            $risky += $risk ? [$g => true] : [];
+            $keep += $risk || !$plain ? [$g => true] : [];
+        }
+        $keptBytes = 0;
+        foreach (array_keys($keep) as $g) {
+            $keptBytes += $groups[$g][3] - $groups[$g][2];
+        }
+        // The check of the kept groups and one read-back of the join cost less than the whole check (two writes and
+        // a parse) only while the kept groups are at most two thirds of the source.
+        if ($risky === [] || count($keep) === count($groups) || 3 * $keptBytes > 2 * $length) {
+            return null;
+        }
+        $map = [];
+        foreach ($children as $i => $child) {
+            // A child that writes nothing is in no group; it stays where the parse may read it.
+            if (isset($groupOf[$i]) ? isset($keep[$groupOf[$i]]) : !is_array($child) || !self::plain($child)) {
+                $map[$i] = count($map);
+            }
+        }
+        $expected = [];
+        foreach (array_keys($keep) as $g) {
+            $expected[] = [$map[$groups[$g][0]], $map[$groups[$g][1]]];
+        }
+
+        return [$keep, $risky, $map, $expected];
+    }
+
+    /**
+     * @param array<int, array{int, int, int, int, bool}> $ranges
+     *
+     * @return array<int, array{int, int}>
+     */
+    private static function spans(array $ranges): array
+    {
+        return array_map(static fn (array $r): array => [$r[0], $r[1]], $ranges);
+    }
+
+    /**
+     * The fingerprint a read-back is compared with (C2-W-151).
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     */
+    private static function trimmedPrint(array $tree, ?array $layout, array $options): string
+    {
+        $removed = [];
+
+        return TreeEquality::fingerprint(LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed));
+    }
+
+    /**
+     * Runs `$write` with each of its writes recorded, and returns its result with the records.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $write
+     * @param bool $inGroups Whether the writes are those of `checkedGroups()`.
+     *
+     * @return array{T, array<int, array{string, array<int, array{int, int, int, int, bool}>|null}>}
+     */
+    private static function recording(Closure $write, bool $inGroups): array
+    {
+        $captured = self::$captured;
+        $outer = self::$inGroups;
+        self::$captured = [];
+        self::$inGroups = $inGroups;
+        try {
+            $result = $write();
+
+            return [$result, self::records()];
+        } finally {
+            self::$captured = $captured;
+            self::$inGroups = $outer;
+        }
+    }
+
+    /**
+     * @return array<int, array{string, array<int, array{int, int, int, int, bool}>|null}>
+     */
+    private static function records(): array
+    {
+        return self::$captured ?? [];
+    }
+
+    /**
+     * Whether a block, with everything in it, is of the `PLAIN` types and carries no id, caption or note key.
+     *
+     * @param array<mixed> $node
+     */
+    private static function plain(array $node): bool
+    {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        $attrs = is_array($node['attrs'] ?? null) ? $node['attrs'] : [];
+        if (
+            !isset(self::PLAIN[$type]) || isset($attrs['id']) || isset($node['caption']) || isset($node['longDescription'])
+            || (isset($node['key']) && ($node['namespace'] ?? null) === 'footnote')
+        ) {
+            return false;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (!is_array($child) || !self::plain($child)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The layout of a document of the top-level children of `$map`, renumbered to their new index.
+     *
+     * @param array<mixed>|null $layout
+     * @param array<int, int> $map
+     *
+     * @return array<mixed>|null
+     */
+    private static function remapRoot(?array $layout, array $map): ?array
+    {
+        if ($layout === null || !is_array($layout['nodes'] ?? null)) {
+            return $layout;
+        }
+        $nodes = [];
+        foreach ($layout['nodes'] as $entry) {
+            if (!is_array($entry) || self::remapPaths($entry, $map)) {
+                $nodes[] = $entry;
+            }
+        }
+        $layout['nodes'] = $nodes;
+
+        return $layout;
+    }
+
+    /**
+     * Renumbers every `path` in a layout entry, its wraps included; false where one names a child left out.
+     *
+     * @param array<mixed> $entry
+     * @param array<int, int> $map
+     */
+    private static function remapPaths(array &$entry, array $map): bool
+    {
+        foreach ($entry as $key => &$value) {
+            if (is_array($value)) {
+                if (!self::remapPaths($value, $map)) {
+                    return false;
+                }
+            } elseif ($key === 'path' && is_string($value) && preg_match('~^/children/(\d+)(?=/|$)~', $value, $m) === 1) {
+                if (!isset($map[(int)$m[1]])) {
+                    return false;
+                }
+                $value = '/children/' . $map[(int)$m[1]] . substr($value, strlen($m[0]));
+            }
+        }
+        unset($value);
+
+        return true;
     }
 
     /**
@@ -352,6 +737,7 @@ final class Writer
     {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
         $w->repairTrace = $trace;
+        $w->recordGroups = self::$captured !== null;
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
         $w->labels = self::linkKeys($options);
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
@@ -368,6 +754,7 @@ final class Writer
             return new WriteResult($children === [] ? "\n" : '', $w->losses);
         }
         $source = implode("\n", $w->lines) . "\n";
+        $joined = $source;
         $source = ControlLines::keepAbove($source, ControlLines::source($layout), $w->extensions);
         // C2-W-099: a first block that would read as another tree on line 1 stands below one blank line.
         $first = is_array($children[0] ?? null) ? $children[0] : [];
@@ -379,8 +766,58 @@ final class Writer
         if (str_starts_with($source, "\u{FEFF}")) {
             $source = "\n" . $source;
         }
+        self::record($w, $joined, $source);
 
         return new WriteResult($source, $w->losses);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\State $w
+     * @param string $joined
+     * @param string $source
+     *
+     * @return void
+     */
+    private static function record(State $w, string $joined, string $source): void
+    {
+        if (self::$captured !== null) {
+            self::$captured[] = [$source, self::groupRanges($w, $joined, $source)];
+        }
+    }
+
+    /**
+     * The byte range of each top-level block group in `$source`, null where the source is no prefix of blank lines
+     * in front of the joined lines.
+     *
+     * @param \MarkupCarve\Carve\Writer\State $w
+     * @param string $joined
+     * @param string $source
+     *
+     * @return array<int, array{int, int, int, int, bool}>|null
+     */
+    private static function groupRanges(State $w, string $joined, string $source): ?array
+    {
+        $shift = strlen($source) - strlen($joined);
+        if ($shift < 0 || !str_ends_with($source, $joined) || trim(substr($source, 0, $shift), "\n") !== '') {
+            return null;
+        }
+        $offsets = [];
+        $at = $shift;
+        foreach ($w->lines as $i => $line) {
+            $offsets[$i] = $at;
+            $at += strlen($line) + 1;
+        }
+        $offsets[count($w->lines)] = $at;
+        $ranges = [];
+        foreach ($w->rootGroups as [$first, $last, $start, $end, $undecided]) {
+            $end = min($end, count($w->lines));
+            if ($start >= $end) {
+                return null;
+            }
+            $ranges[] = [$first, $last, $offsets[$start], $offsets[$end] - 1, $undecided];
+        }
+
+        return $ranges;
     }
 
     /**
