@@ -2283,8 +2283,14 @@ final class Inline
         if (array_key_exists('decorative', $node)) {
             $this->w->lose($path, 'image', 'decorative');
         }
+        $raw = $this->rawReference($node, $path, $c);
+        if ($raw !== null && AltSource::spells($raw, $node)) {
+            return '!' . $raw;
+        }
         $alt = self::str($node, 'alt');
-        $spelled = AltSource::spell($alt);
+        $form = $node['refForm'] ?? null;
+        $keyed = is_string($node['key'] ?? null);
+        $spelled = AltSource::image($alt, $form === 'collapsed' || $form === 'shortcut' ? null : ($keyed ? '[k]' : '()'));
         $spelled = $c->inCell ? self::cellPipes($spelled) : $spelled;
 
         return '![' . $spelled . ']' . $this->target($node, self::str($node, 'src'), $c, $path);
