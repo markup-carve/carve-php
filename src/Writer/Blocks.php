@@ -316,13 +316,13 @@ final class Blocks
     private static function listEnd(array $node): string
     {
         $type = $node['type'] ?? '';
-        if ($type === 'list' || $type === 'list_item') {
+        if ($type === 'list' || $type === 'list_item' || $type === 'block_quote') {
             $children = is_array($node['children'] ?? null) ? $node['children'] : [];
             $last = end($children);
 
             return is_array($last) ? self::listEnd($last) : 'unknown';
         }
-        if ($type === 'paragraph' || $type === 'block_quote') {
+        if ($type === 'paragraph') {
             return 'lazy';
         }
 

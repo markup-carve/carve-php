@@ -97,6 +97,7 @@ final class MetadataBlockTest extends TestCase
             'below attribute lines' => ["a\n\n{.x}\n ---yaml\n"],
             'two in a row' => ["x\n\n ---yaml\n\n ---json\n"],
             'lazy line in a list' => ["- a\n  ---yaml\n"],
+            'below a list ending in a quote that ends in a fence' => ["- > ```\n  > x\n  > ```\n---yaml\nk: v\n---\n"],
         ];
     }
 
