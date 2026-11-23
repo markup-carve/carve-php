@@ -151,6 +151,20 @@ final class Context
     public array $frontmatterIds = [];
 
     /**
+     * C2-I-097: the type of the first node that carries each id, keyed by the id in NFC.
+     *
+     * @var array<string, string>
+     */
+    public array $idOwners = [];
+
+    /**
+     * C2-I-097: the cross-reference targets of `xrefIds`, keyed by the id in NFC.
+     *
+     * @var array<string, true>
+     */
+    public array $xrefNfc = [];
+
+    /**
      * @var array<array{0: array<string, mixed>, 1: string}>
      */
     public array $fragmentLinks = [];

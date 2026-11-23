@@ -1511,8 +1511,8 @@ final class DataRules
         }
         if (
             isset($rule['when'])
-            && !($this->compiledWhen[$rule['key']]
-                ??= $this->compile($rule['when'], $this->vars))($record)
+            && !self::truthy(($this->compiledWhen[$rule['key']]
+                ??= $this->compile($rule['when'], $this->vars))($record))
         ) {
             return;
         }
@@ -1583,7 +1583,8 @@ final class DataRules
             if (!is_array($entry)) {
                 continue;
             }
-            if (isset($entry['when']) && !($this->compiledReport[$key][$i] ??= $this->compile($entry['when'], $this->vars))($record)) {
+            $when = isset($entry['when']) ? ($this->compiledReport[$key][$i] ??= $this->compile($entry['when'], $this->vars)) : null;
+            if ($when !== null && !self::truthy($when($record))) {
                 continue;
             }
             $start = $this->value($entry['start'] ?? $range['start'] ?? ['f' => 'start'], $record);
@@ -2065,6 +2066,18 @@ final class DataRules
         }
     }
 
+    /**
+     * C2-W-141: an absent value, which a lookup with no match gives as NAN, does not hold.
+     *
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    private static function truthy(mixed $value): bool
+    {
+        return !(is_float($value) && is_nan($value)) && (bool)$value;
+    }
+
     private static function nfc(string $text): string
     {
         $normalized = Normalizer::normalize($text, Normalizer::FORM_C);
@@ -2184,7 +2197,7 @@ final class DataRules
 
             return static function (stdClass $record) use ($items, $all): bool {
                 foreach ($items as $item) {
-                    if (!$item($record) === $all) {
+                    if (self::truthy($item($record)) !== $all) {
                         return !$all;
                     }
                 }
@@ -2195,7 +2208,7 @@ final class DataRules
         if ($op === 'not' && $arg !== null) {
             $inner = $this->compile($arg, $let);
 
-            return static fn (stdClass $record): bool => !$inner($record);
+            return static fn (stdClass $record): bool => !self::truthy($inner($record));
         }
         if (
             in_array($op, ['eq', 'ne', 'in', 'matches', 'starts', 'contains'], true)
@@ -2313,7 +2326,7 @@ final class DataRules
             $then = $this->compile($arg[1], $let);
             $else = $this->compile($arg[2], $let);
 
-            return static fn (stdClass $record): mixed => $test($record) ? $then($record) : $else($record);
+            return static fn (stdClass $record): mixed => self::truthy($test($record)) ? $then($record) : $else($record);
         }
         if (($op === 'some' || $op === 'count') && is_array($arg) && is_string($arg['in'] ?? null)) {
             $in = $arg['in'];
@@ -2450,7 +2463,7 @@ final class DataRules
         }
         if ($op === 'all' && is_array($expr['all'] ?? null)) {
             foreach ($expr['all'] as $item) {
-                if (!$this->value($item, $record)) {
+                if (!self::truthy($this->value($item, $record))) {
                     return false;
                 }
             }
@@ -2459,7 +2472,7 @@ final class DataRules
         }
         if ($op === 'any' && is_array($expr['any'] ?? null)) {
             foreach ($expr['any'] as $item) {
-                if ($this->value($item, $record)) {
+                if (self::truthy($this->value($item, $record))) {
                     return true;
                 }
             }
@@ -2467,10 +2480,10 @@ final class DataRules
             return false;
         }
         if ($op === 'not' && isset($expr['not'])) {
-            return !$this->value($expr['not'], $record);
+            return !self::truthy($this->value($expr['not'], $record));
         }
         if ($op === 'if' && is_array($expr['if'] ?? null) && array_key_exists(2, $expr['if'])) {
-            return $this->value($expr['if'][$this->value($expr['if'][0], $record) ? 1 : 2], $record);
+            return $this->value($expr['if'][self::truthy($this->value($expr['if'][0], $record)) ? 1 : 2], $record);
         }
         if ($op === 'some' && is_array($expr['some'] ?? null) && isset($expr['some']['in'])) {
             $list = $this->listOf($expr['some']['in'], $record);

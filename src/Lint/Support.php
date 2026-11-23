@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use Normalizer;
+
 /**
  * Helpers the rules share. A node is an array of the JSON tree (`Carve::toJson`).
  */
@@ -143,6 +145,20 @@ final class Support
 
         /** @var array<string, mixed> $value */
         return $value;
+    }
+
+    /**
+     * C2-I-097: the text in NFC.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    public static function nfc(string $text): string
+    {
+        $normalized = Normalizer::normalize($text, Normalizer::FORM_C);
+
+        return is_string($normalized) ? $normalized : $text;
     }
 
     /**

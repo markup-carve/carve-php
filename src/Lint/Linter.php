@@ -287,8 +287,10 @@ final class Linter
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
             $c->ids[$attrs['id']] = true;
+            $c->idOwners[Support::nfc($attrs['id'])] ??= $type;
             if ($type === 'heading' || DataModel::numberedCaption($node)) {
                 $c->xrefIds[$attrs['id']] = true;
+                $c->xrefNfc[Support::nfc($attrs['id'])] = true;
             }
         }
         $pos = Support::pos($node);
@@ -302,6 +304,8 @@ final class Linter
         if ($type === 'heading' && is_string($node['generatedId'] ?? null)) {
             $c->ids[$node['generatedId']] = true;
             $c->xrefIds[$node['generatedId']] = true;
+            $c->idOwners[Support::nfc($node['generatedId'])] ??= $type;
+            $c->xrefNfc[Support::nfc($node['generatedId'])] = true;
         }
         if ($type === 'figure_group' && DataModel::numberedCaption($node)) {
             self::panelTargets($node, $c);
@@ -403,6 +407,7 @@ final class Linter
             $attrs = is_array($child) ? ($child['attrs'] ?? null) : null;
             if (is_array($attrs) && is_string($attrs['id'] ?? null)) {
                 $c->xrefIds[$attrs['id']] = true;
+                $c->xrefNfc[Support::nfc($attrs['id'])] = true;
             }
         }
     }
