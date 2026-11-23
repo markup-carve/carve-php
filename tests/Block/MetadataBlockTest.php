@@ -21,7 +21,13 @@ final class MetadataBlockTest extends TestCase
         'CC-1585', 'CC-1613', 'CC-1653', 'CC-1654', 'CC-1655', 'CC-1656', 'CC-1657', 'CC-1658', 'CC-1659', 'CC-1660',
         'CC-1661', 'CC-1666', 'CC-1667', 'CC-1668', 'CC-1669', 'CC-1670', 'CC-1671', 'CC-1672', 'CC-1673', 'CC-1674',
         'CC-1675', 'CC-1676', 'CC-1677', 'CC-1678', 'CC-1679', 'CC-1680', 'CC-1681', 'CC-1682', 'CC-1683',
+        'CC-1685', 'CC-1686', 'CC-1687', 'CC-1688', 'CC-1689', 'CC-1690', 'CC-1691', 'CC-1692', 'CC-1693', 'CC-1694',
     ];
+
+    /**
+     * @var array<string>
+     */
+    private const PINNED_WRITES = ['CC-1695', 'CC-1696', 'CC-1697', 'CC-1698'];
 
     /**
      * @return array<string, array{0: string, 1: array<string>}>
@@ -249,37 +255,79 @@ final class MetadataBlockTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: string}>
+     * The write cases of the ruling on carve#6418, read from the pinned spec.
+     */
+    public function testPinnedWriteCases(): void
+    {
+        $spec = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../spec/conformance/clause-cases.json'),
+            true,
+            4096,
+            JSON_THROW_ON_ERROR,
+        );
+        $seen = 0;
+        foreach ($spec['cases'] as $case) {
+            if (!in_array($case['id'], self::PINNED_WRITES, true)) {
+                continue;
+            }
+            $seen++;
+            $result = Carve::writeWithDiagnostics($case['tree']);
+            if (isset($case['expected']['carve'])) {
+                self::assertSame($case['expected']['carve'], $result->source, $case['id']);
+            }
+            self::assertSame(
+                array_map(static fn (array $d): array => [$d['code'], $d['path']], $case['expected']['diagnostics'] ?? []),
+                array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics),
+                $case['id'],
+            );
+        }
+        self::assertSame(count(self::PINNED_WRITES), $seen);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string|null}>
      */
     public static function openContainersAbove(): array
     {
         return [
-            'footnote' => ["a[^n]\n\n[^n]: x\n"],
-            'description list' => [":: t\n: d\n"],
-            'list' => ["* a\n"],
-            'list ending in a fence' => ["* ```\n  x\n  ```\n"],
+            'footnote' => ["a[^n]\n\n[^n]: x\n", null],
+            'description list' => [":: t\n: d\n", " :: t\n : d\n\n - b\n\n ---yaml\nk: v\n---\n"],
+            'list' => ["* a\n", " * a\n\n - b\n\n ---yaml\nk: v\n---\n"],
+            'list ending in a fence' => ["* ```\n  x\n  ```\n", " * ```\n   x\n   ```\n\n - b\n\n ---yaml\nk: v\n---\n"],
+            // A comment block at column 0 closes the footnote (C2-B-053), so the list alone is written one space in.
+            'footnote and a comment block' => [
+                "a[^n]\n\n[^n]: x\n\n%%%\nz\n%%%\n",
+                "a[^n]\n\n[^n]: x\n\n%%%\nz\n%%%\n\n - b\n\n ---yaml\nk: v\n---\n",
+            ],
         ];
     }
 
     /**
-     * C2-W-155, C2-B-026: below an open container the list written one space in would join that container after the
-     * blank line, so the list stays at column 0 and the paragraph reports its loss.
+     * C2-W-155 (carve#6418): below a list or description list both are written one space in; below a footnote the
+     * list stays at column 0 and the paragraph reports its loss.
      *
      * @param string $above
+     * @param string|null $written
      */
     #[DataProvider('openContainersAbove')]
-    public function testNoIndentBelowAnOpenContainer(string $above): void
+    public function testBelowAnOpenContainer(string $above, ?string $written): void
     {
         $first = json_decode(Carve::toJson($above), true, 512, JSON_THROW_ON_ERROR);
         $rest = json_decode(Carve::toJson(" - b\n\n ---yaml\nk: v\n---\n"), true, 512, JSON_THROW_ON_ERROR);
         $children = array_merge($first['children'], $rest['children']);
         $result = Carve::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => $children]);
+        $diagnostics = array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics);
+        if ($written === null) {
+            self::assertStringContainsString("\n- b\n", $result->source);
+            self::assertSame([['structure-unspellable', '/children/' . (count($children) - 1)]], $diagnostics);
 
-        self::assertStringContainsString("\n- b\n", $result->source);
-        self::assertSame(
-            [['structure-unspellable', '/children/' . (count($children) - 1)]],
-            array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics),
-        );
+            return;
+        }
+        self::assertSame($written, $result->source);
+        self::assertSame([], $diagnostics);
+        $tree = self::tree($result->source);
+        self::assertIsArray($tree);
+        self::assertSame(Corpus::withoutPositions($children), $tree['children']);
     }
 
     /**
