@@ -86,11 +86,13 @@ final class MarkdownHtml
      */
     private static function protectDefinitionFollowers(string $input): string
     {
-        if (!str_contains($input, ']:')) {
+        $lastDefinition = strrpos($input, ']:');
+        if ($lastDefinition === false) {
             return $input;
         }
 
-        $lines = preg_split('/(?<=\n)|(?<=\r)(?!\n)/', $input) ?: [];
+        $scanEnd = self::definitionScanEnd($input, $lastDefinition);
+        $lines = preg_split('/(?<=\n)|(?<=\r)(?!\n)/', substr($input, 0, $scanEnd)) ?: [];
         $fence = null;
         foreach ($lines as $i => $line) {
             $body = rtrim($line, "\r\n");
@@ -125,7 +127,20 @@ final class MarkdownHtml
             $lines[$i + 1] = substr_replace($lines[$i + 1], '\\', $at, 0);
         }
 
-        return implode('', $lines);
+        return implode('', $lines) . substr($input, $scanEnd);
+    }
+
+    private static function definitionScanEnd(string $input, int $lastDefinition): int
+    {
+        if (preg_match('/\r\n|\r|\n/', $input, $break, PREG_OFFSET_CAPTURE, $lastDefinition) !== 1) {
+            return strlen($input);
+        }
+        $next = $break[0][1] + strlen($break[0][0]);
+        if (preg_match('/\r\n|\r|\n/', $input, $break, PREG_OFFSET_CAPTURE, $next) !== 1) {
+            return strlen($input);
+        }
+
+        return $break[0][1] + strlen($break[0][0]);
     }
 
     private static function protectsMarker(
