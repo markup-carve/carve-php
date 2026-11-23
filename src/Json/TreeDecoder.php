@@ -100,6 +100,7 @@ final class TreeDecoder
         } finally {
             self::$jsonNumbers = false;
             self::$shared = [];
+            self::$textFields = [];
         }
     }
 
