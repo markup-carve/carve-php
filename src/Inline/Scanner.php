@@ -240,16 +240,37 @@ final class Scanner
     private array $breakStart = [];
 
     /**
+     * Whether a `%%` was read as alt source before the scan knew which images form (C2-I-074).
+     */
+    public bool $percentInImage = false;
+
+    /**
+     * For each `%%` read as alt source on the first scan, the `!` offsets of the image openers around it.
+     *
+     * @var array<array<int>>
+     */
+    private array $percentImages = [];
+
+    /**
+     * Offsets of the `!` of every image this scan formed.
+     *
+     * @var array<int, true>
+     */
+    public array $formed = [];
+
+    /**
      * @param \MarkupCarve\Carve\Inline\Content $c
      * @param \MarkupCarve\Carve\Inline\InlineContext $ctx
      * @param int $depth Inline depth at the start of the content (C2-I-118).
      * @param int $mode Bits of LINE_BLOCK, HARD_BREAKS, CAPTION and CELL.
+     * @param array<int, true>|null $formedImages The images an earlier scan formed, null on the first scan.
      */
     public function __construct(
         public Content $c,
         private InlineContext $ctx,
         public int $depth,
         int $mode = 0,
+        private ?array $formedImages = null,
     ) {
         $this->t = $c->t;
         $this->n = strlen($this->t);
@@ -1018,13 +1039,11 @@ final class Scanner
         if ($this->lineBlock || $i + 1 >= $this->n || $t[$i + 1] !== '%') {
             return -1;
         }
-        // C2-I-074: an image's alt source is not parsed as inline content.
-        // The ordinary bracket comment rule still applies outside an image.
-        if ($this->frames !== [] && $this->frames[count($this->frames) - 1][0] === self::F_IMAGE) {
-            return -1;
-        }
         $prev = Chars::before($t, $i);
         if ($prev !== -1 && $prev !== 0x0A && !Chars::isSpace($prev)) {
+            return -1;
+        }
+        if ($this->inImageAlt()) {
             return -1;
         }
         $start = $i;
@@ -1047,6 +1066,63 @@ final class Scanner
         $node->f['value'] = $value;
 
         return $this->emit([self::NODE, $node, $start, $end, false, null]);
+    }
+
+    /**
+     * C2-I-074, C2-I-024: an image's alt is source text, but an opener that forms no image leaves `%%` a comment.
+     *
+     * @return bool
+     */
+    private function inImageAlt(): bool
+    {
+        for ($k = count($this->frames) - 1; $k >= 0; $k--) {
+            $frame = $this->frames[$k];
+            if ($frame[0] !== self::F_IMAGE) {
+                continue;
+            }
+            if ($this->formedImages === null) {
+                $this->percentInImage = true;
+                $starts = [];
+                for (; $k >= 0; $k--) {
+                    if ($this->frames[$k][0] === self::F_IMAGE) {
+                        $starts[] = $this->frames[$k][2];
+                    }
+                }
+                $this->percentImages[] = $starts;
+
+                return true;
+            }
+            if (isset($this->formedImages[$frame[2]])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a `%%` the first scan read as alt source stands in no image that formed, so a scan that knows the formed
+     * images reads it otherwise.
+     *
+     * @return bool
+     */
+    public function percentOutsideFormed(): bool
+    {
+        foreach ($this->percentImages as $starts) {
+            $inside = false;
+            foreach ($starts as $start) {
+                if (isset($this->formed[$start])) {
+                    $inside = true;
+
+                    break;
+                }
+            }
+            if (!$inside) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1477,6 +1553,7 @@ final class Scanner
         }
         if ($node->type === 'image') {
             $this->images = true;
+            $this->formed[$frame[2]] = true;
         }
         $this->tok[] = [
             self::NODE, $node, $start, $end, true,
