@@ -15,6 +15,15 @@ use PHPUnit\Framework\TestCase;
  */
 final class HubImporterTest extends TestCase
 {
+    public function testNonOneOrderedMarkerAfterReferenceDefinitionRemainsParagraph(): void
+    {
+        $this->assertSame("10\\) y\n", self::source("[a]: /x\n10) y\n", 'markdown'));
+        $this->assertSame("2\\. y\n", self::source("[label]: /destination\n2. y\n", 'markdown'));
+        $this->assertSame("> 12\\) y\n", self::source("> [a]: /x\n> 12) y\n", 'markdown'));
+        $this->assertSame("- 3\\. y\n", self::source("- [a]: /x\n  3. y\n", 'markdown'));
+        $this->assertSame("```\n[a]: /x\n10) y\n```\n", self::source("```\n[a]: /x\n10) y\n```\n", 'markdown'));
+    }
+
     private static function source(string $input, string $from): string
     {
         return Carve::importDocument($input, ['from' => $from])->source;

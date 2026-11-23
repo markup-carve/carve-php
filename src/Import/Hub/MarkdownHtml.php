@@ -38,6 +38,7 @@ final class MarkdownHtml
     public static function html(string $input, bool $gfm, Sink $sink): string
     {
         $input = self::frontmatter($input, $sink);
+        $input = self::protectDefinitionFollowers($input);
         $maxNesting = Tables::BLOCK_DEPTH + self::UNCOUNTED_LEVELS;
         $environment = new Environment([
             // league/commonmark opens a run of containers on one line in quadratic time (8,000 `> - ` took 5 s). A tree
@@ -78,6 +79,51 @@ final class MarkdownHtml
         $environment->addRenderer(DirectiveLabel::class, $directives);
 
         return (string)(new MarkdownConverter($environment))->convert($input);
+    }
+
+    /**
+     * CommonMark keeps a non-one ordered marker in a paragraph directly after a link definition.
+     */
+    private static function protectDefinitionFollowers(string $input): string
+    {
+        $lines = preg_split('/(?<=\n)|(?<=\r)(?!\n)/', $input) ?: [];
+        $fence = null;
+        foreach ($lines as $i => $line) {
+            $body = rtrim($line, "\r\n");
+            $visible = preg_replace('/\A(?: {0,3}> ?)+/', '', $body) ?? $body;
+            if (preg_match('/^ {0,3}(`{3,}|~{3,})(.*)$/', $visible, $run) === 1) {
+                if ($fence === null) {
+                    $fence = [$run[1][0], strlen($run[1])];
+                } elseif ($run[1][0] === $fence[0] && strlen($run[1]) >= $fence[1] && trim($run[2]) === '') {
+                    $fence = null;
+                }
+
+                continue;
+            }
+            if ($fence !== null || !isset($lines[$i + 1])) {
+                continue;
+            }
+            if (preg_match('/\A((?: {0,3}> ?)*)( {0,3})([-+*] |[0-9]{1,9}[.)] )?\[[^\]\r\n]+\]:[^\r\n]*\z/', $body, $definition) !== 1) {
+                continue;
+            }
+            if (preg_match('/\A((?: {0,3}> ?)*)( *)([0-9]{1,9})([.)])(?=[ \t])/', $lines[$i + 1], $marker, PREG_OFFSET_CAPTURE) !== 1) {
+                continue;
+            }
+            $quote = $definition[1];
+            $indent = $definition[2];
+            $list = $definition[3] ?? '';
+            $spaces = strlen($marker[2][0]);
+            if ($marker[1][0] !== $quote || (int)$marker[3][0] === 1) {
+                continue;
+            }
+            if ($list === '' ? $spaces > 3 : $spaces < strlen($indent . $list)) {
+                continue;
+            }
+            $at = $marker[4][1];
+            $lines[$i + 1] = substr_replace($lines[$i + 1], '\\', $at, 0);
+        }
+
+        return implode('', $lines);
     }
 
     /**
