@@ -30,6 +30,13 @@ final class FootnoteBacklinkRawBlockTest extends TestCase
         $this->assertStringContainsString('<p>a<a href="#fnref1" role="doc-backlink"', Carve::toHtml($source));
     }
 
+    public function testARawBlockTheProfileDegradesTakesTheBacklink(): void
+    {
+        $html = Carve::toHtml("x[^1]\n\n[^1]: a\n    ```=latex\n    xyz\n    ```\n", ['profile' => 'article']);
+
+        $this->assertStringContainsString("<p>a</p>\n      <p>xyz<a href=\"#fnref1\" role=\"doc-backlink\"", $html);
+    }
+
     public function testAnHtmlRawBlockStillTakesItsOwnBacklinkParagraph(): void
     {
         $html = Carve::toHtml("x[^1]\n\n[^1]: a\n    ```=html\n    <b>h</b>\n    ```\n");
