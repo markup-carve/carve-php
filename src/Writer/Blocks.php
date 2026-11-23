@@ -1156,6 +1156,10 @@ final class Blocks
         }
         $lines = count($this->w->lines);
         $this->attributeLine($node, $path, $prefix);
+        if (($node['type'] ?? null) === 'heading') {
+            // C2-B-154: behind a lead wider than the body column, a continuation still stands past the marker.
+            $indent = str_repeat(' ', $this->leadColumns($prefix)) . $indent;
+        }
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $c = $this->context($children, $mark === '', $prefix);
         $outer = $this->w->takeSmartRun();
@@ -1457,6 +1461,23 @@ final class Blocks
             $level = 6;
         }
         $this->textLeaf($node, $path, $prefix, str_repeat('=', max(1, $level)) . ' ', str_repeat(' ', max(1, $level) + 1));
+    }
+
+    /**
+     * How many columns (C2-B-003) the pending lead reaches past `prefix`, or 0 without a lead.
+     *
+     * @param string $prefix
+     *
+     * @return int
+     */
+    private function leadColumns(string $prefix): int
+    {
+        $lead = $this->w->lead;
+        if ($lead === null) {
+            return 0;
+        }
+
+        return max(0, mb_strlen($lead, 'UTF-8') - mb_strlen(substr($lead, 0, $this->w->leadSkip), 'UTF-8') - mb_strlen($prefix, 'UTF-8'));
     }
 
     /**
