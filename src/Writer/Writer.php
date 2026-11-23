@@ -189,13 +189,13 @@ final class Writer
             if (self::readsBack($result->source, $treePrint, $options)) {
                 return $result;
             }
-            // The brackets alone first: a sigil glued to a node mostly forms nothing with it.
-            [$result, $localEscapes] = self::localWrite($original, $originalLayout, $options, true, true);
-            if ($result->diagnostics !== [] || !self::readsBack($result->source, $treePrint, $options)) {
-                [$result, $localEscapes] = self::localWrite($original, $originalLayout, $options, true);
-            }
-            if ($result->diagnostics !== [] || !$risk) {
-                return $result;
+            // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
+            // span of a text `^[` keeps ordinary open; the rounds place the backslash on its early closer instead.
+            if (!RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
+                [$result, $localEscapes] = self::conservativeWrite($original, $originalLayout, $options, $treePrint);
+                if ($result->diagnostics !== [] || !$risk) {
+                    return $result;
+                }
             }
         }
         $bareSource = self::bareSource($tree, $layout, $options, []);
@@ -220,7 +220,76 @@ final class Writer
         $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
         $repaired = $planner->repair();
 
-        return $repaired === null ? self::unrepaired($tree, $result, $options) : new WriteResult($repaired, []);
+        return $repaired === null
+            ? self::unrepaired($tree, $result, $options)
+            : new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options), []);
+    }
+
+    /**
+     * The local write with every undecided bracket escaped: the brackets alone first, since a sigil glued to a node
+     * mostly forms nothing with it, and every opener where that does not read back.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param string $treePrint
+     *
+     * @return array{\MarkupCarve\Carve\Writer\WriteResult, array<string, array<int, true>>, bool}
+     */
+    private static function conservativeWrite(array $tree, ?array $layout, array $options, string $treePrint): array
+    {
+        $local = self::localWrite($tree, $layout, $options, true, true);
+        if ($local[0]->diagnostics !== [] || !self::readsBack($local[0]->source, $treePrint, $options)) {
+            $local = self::localWrite($tree, $layout, $options, true);
+        }
+
+        return $local;
+    }
+
+    /**
+     * C2-I-089, C2-W-125 case five: behind a text `^[` of the line that is still open, the `[^` of link or span text is
+     * an ordinary bracket, so the backslash the rounds wrote before its caret is taken out where the form still reads
+     * back (carve-js `prunableOpener`). In the span a backslash before the `[` of `^[` still counts it, and an escaped
+     * `]` closes nothing (carve-js `noteSpans`).
+     *
+     * @param string $source
+     * @param string $treePrint
+     * @param array<string, mixed> $options
+     */
+    private static function prunedNoteCarets(string $source, string $treePrint, array $options): string
+    {
+        if (!str_contains($source, '[\\^')) {
+            return $source;
+        }
+        $pruned = '';
+        $from = 0;
+        $open = [];
+        $notes = 0;
+        $n = strlen($source);
+        for ($at = strcspn($source, "[]\n"); $at < $n; $at += 1 + strcspn($source, "[]\n", $at + 1)) {
+            $ch = $source[$at];
+            $before = $at > 0 ? $source[$at - 1] : '';
+            if ($ch === "\n") {
+                $open = [];
+                $notes = 0;
+            } elseif ($ch === '[') {
+                $note = $before === '^' || ($before === '\\' && $at > 1 && $source[$at - 2] === '^');
+                if (!$note && $notes > 0 && substr($source, $at + 1, 2) === '\\^') {
+                    $pruned .= substr($source, $from, $at + 1 - $from);
+                    $from = $at + 2;
+                }
+                $open[] = $note;
+                $notes += $note ? 1 : 0;
+            } elseif ($before !== '\\' && array_pop($open) === true) {
+                $notes--;
+            }
+        }
+        if ($from === 0) {
+            return $source;
+        }
+        $pruned .= substr($source, $from);
+
+        return self::readsBack($pruned, $treePrint, $options) ? $pruned : $source;
     }
 
     /**

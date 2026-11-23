@@ -327,9 +327,8 @@ final class Text
             return '';
         }
         if ((!$c->lineStart || ctype_alpha($value[0])) && strpbrk($value, self::PUNCT) === false) {
-            if ($c->lineStart) {
-                $c->escapedAt = [];
-            }
+            // The escapes of the text before must not stand for this one in the record (C2-W-091).
+            $c->escapedAt = [];
 
             return $value;
         }
