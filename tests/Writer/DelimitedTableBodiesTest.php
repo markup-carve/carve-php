@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -71,9 +72,15 @@ final class DelimitedTableBodiesTest extends TestCase
             ],
         ];
 
-        $written = Carve::write($tree);
+        $result = Writer::writeBlocksWithDiagnostics($tree['children']);
+        $written = $result->source;
 
         self::assertStringStartsWith("{body-rows=1,1}\n|= h |\n", $written);
         self::assertStringContainsString('| /a/ |', $written);
+        // C2-B-171, C2-W-117: the pipe form trims the leading space of ` b` (carve-php#5638).
+        self::assertSame(
+            ['field-unspellable /children/0/children/2/children/0/children/0/children/0/children/0/value'],
+            array_map(static fn ($d): string => $d->code . ' ' . $d->path, $result->diagnostics),
+        );
     }
 }
