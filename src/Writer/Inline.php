@@ -601,8 +601,12 @@ final class Inline
      */
     private function loseLoneEmptyText(array $nodes, int $at, string $path): void
     {
+        $before = $nodes[$at - 1] ?? null;
+        if (is_array($before) && self::isText($before)) {
+            return;
+        }
         $run = self::emptyTextRun($nodes, $at);
-        if ($run === null || $run[0] !== $at || $run[1] === count($nodes) - 1 || self::onlyEmptyText($nodes)) {
+        if ($run === null || $run[1] === count($nodes) - 1 || self::onlyEmptyText($nodes)) {
             return;
         }
         $this->w->lose($path . '/' . $at, 'text', 'value');
