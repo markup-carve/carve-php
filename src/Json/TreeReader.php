@@ -127,6 +127,32 @@ final class TreeReader
     }
 
     /**
+     * `read()` of the JSON of a tree with no source. The positions TreeDecoder packed skip the JSON and move to the
+     * copy, so a large tree and its decoded JSON are not both held; any tree that does not pair up is read in full.
+     *
+     * @param \MarkupCarve\Carve\Node $tree
+     * @param array<string, mixed> $options
+     */
+    public static function readNode(Node $tree, array $options = []): Node
+    {
+        if (!array_key_exists('annotations', $options)) {
+            [$json, $length] = TreeEncoder::jsonWithoutPackedPositions($tree);
+            if ($length !== strlen($json)) {
+                $node = self::read($json, $options);
+                unset($json);
+                if (TreeDecoder::movePackedPositions($tree, $node)) {
+                    $node->layout['jsonByteLength'] = $length;
+
+                    return $node;
+                }
+                unset($node);
+            }
+        }
+
+        return self::read(TreeEncoder::json($tree, null), $options);
+    }
+
+    /**
      * @param mixed $decoded
      * @param array<string, mixed> $options
      *

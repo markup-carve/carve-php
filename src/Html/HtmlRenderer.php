@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Include\Expander;
+use MarkupCarve\Carve\Json\TreeDecoder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Options;
@@ -480,8 +481,9 @@ final class HtmlRenderer
         if ($this->lineStarts === null) {
             return null;
         }
-        $position = $node->layout['pos'] ?? null;
         if ($this->positionsFromTree) {
+            $position = TreeDecoder::position($node);
+
             return is_array($position) && is_int($position['startLine'] ?? null) ? $position['startLine'] : null;
         }
         if ($node->start < 0) {

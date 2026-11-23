@@ -31,6 +31,13 @@ final class TreeDecoder
     ];
 
     /**
+     * The fields of a `pos` in the order canonical JSON writes them.
+     *
+     * @var array<string>
+     */
+    private const POS_KEYS = ['endColumn', 'endLine', 'endOffset', 'startColumn', 'startLine', 'startOffset'];
+
+    /**
      * Whether a float is read as its JSON text would decode, as `object()` needs.
      */
     private static bool $jsonNumbers = false;
@@ -40,6 +47,14 @@ final class TreeDecoder
      * the nodes are built.
      */
     private static bool $consume = false;
+
+    /**
+     * Short keys and values seen in this read: each decoded object holds its own copy of every key, and a tree
+     * repeats the same few thousand times.
+     *
+     * @var array<string, string>
+     */
+    private static array $shared = [];
 
     /**
      * @param string $json
@@ -53,8 +68,11 @@ final class TreeDecoder
         if (!$value instanceof stdClass || !isset($value->type)) {
             return null;
         }
-
-        return self::node($value);
+        try {
+            return self::node($value);
+        } finally {
+            self::$shared = [];
+        }
     }
 
     /**
@@ -72,6 +90,7 @@ final class TreeDecoder
             return self::node($node);
         } finally {
             self::$jsonNumbers = false;
+            self::$shared = [];
         }
     }
 
@@ -128,12 +147,7 @@ final class TreeDecoder
                 continue;
             }
             if ($key === 'pos') {
-                $pos = $value instanceof stdClass ? array_map([self::class, 'number'], get_object_vars($value)) : [];
-                if (is_int($pos['startOffset'] ?? null) && is_int($pos['endOffset'] ?? null)) {
-                    $node->start = $pos['startOffset'];
-                    $node->end = $pos['endOffset'];
-                    $node->layout['pos'] = $pos;
-                }
+                self::readPos($node, $value);
 
                 continue;
             }
@@ -142,10 +156,31 @@ final class TreeDecoder
 
                 continue;
             }
-            $node->f[$key] = isset(self::OPAQUE[$key]) ? self::opaque($value) : self::value($value);
+            $node->f[self::shared((string)$key)] = isset(self::OPAQUE[$key]) ? self::opaque($value) : self::value($value);
         }
 
         return $node;
+    }
+
+    private static function readPos(Node $node, mixed $value): void
+    {
+        $pos = [];
+        if ($value instanceof stdClass) {
+            foreach (get_object_vars($value) as $k => $v) {
+                $pos[self::shared((string)$k)] = self::number($v);
+            }
+        }
+        if (!is_int($pos['startOffset'] ?? null) || !is_int($pos['endOffset'] ?? null)) {
+            return;
+        }
+        $node->start = $pos['startOffset'];
+        $node->end = $pos['endOffset'];
+        if (array_keys($pos) === self::POS_KEYS && array_filter($pos, 'is_int') === $pos) {
+            // A hash array per node costs about 1 KB; the packed form is a tenth of that.
+            $node->treePos = pack('q6', ...array_values($pos));
+        } else {
+            $node->layout['pos'] = $pos;
+        }
     }
 
     /**
@@ -231,7 +266,7 @@ final class TreeDecoder
             }
             $out = [];
             foreach ($vars as $k => $v) {
-                $out[$k] = self::value($v);
+                $out[self::shared((string)$k)] = self::value($v);
             }
 
             return $out;
@@ -245,7 +280,7 @@ final class TreeDecoder
             return $out;
         }
 
-        return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : self::number($value);
+        return is_string($value) ? self::shared(str_replace("\0", "\u{FFFD}", $value)) : self::number($value);
     }
 
     /**
@@ -274,6 +309,96 @@ final class TreeDecoder
         }
 
         return is_string($value) ? str_replace("\0", "\u{FFFD}", $value) : self::number($value);
+    }
+
+    /**
+     * The `pos` a node was read with, or null.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function position(Node $node): ?array
+    {
+        if ($node->treePos === '') {
+            /** @var array<string, mixed>|null $pos */
+            $pos = $node->layout['pos'] ?? null;
+
+            return is_array($pos) ? $pos : null;
+        }
+
+        /** @var array<string, int> $pos */
+        $pos = array_combine(self::POS_KEYS, array_values((array)unpack('q6', $node->treePos)));
+
+        return $pos;
+    }
+
+    /**
+     * Gives each node of `$to`, read from the JSON of `$from` without its packed positions, the position of its twin
+     * in `$from`. False when the trees do not pair up or a position breaks the schema minimums.
+     */
+    public static function movePackedPositions(Node $from, Node $to): bool
+    {
+        if ($from->type !== $to->type || count($from->children ?? []) !== count($to->children ?? [])) {
+            return false;
+        }
+        if ($from->treePos !== '') {
+            if ($to->start !== -1 || $to->treePos !== '' || isset($to->layout['pos'])) {
+                return false;
+            }
+            $pos = array_values((array)unpack('q6', $from->treePos));
+            if (min($pos[0], $pos[1], $pos[3], $pos[4]) < 1 || min($pos[2], $pos[5]) < 0) {
+                return false;
+            }
+            $to->treePos = $from->treePos;
+            $to->start = $pos[5];
+            $to->end = $pos[2];
+        }
+        $toChildren = $to->children ?? [];
+        foreach ($from->children ?? [] as $at => $child) {
+            if (!isset($toChildren[$at]) || !self::movePackedPositions($child, $toChildren[$at])) {
+                return false;
+            }
+        }
+        $fromNodes = [];
+        $toNodes = [];
+        self::fieldNodes($from->f, $fromNodes);
+        self::fieldNodes($to->f, $toNodes);
+        if (count($fromNodes) !== count($toNodes)) {
+            return false;
+        }
+        foreach ($fromNodes as $at => $node) {
+            if (!self::movePackedPositions($node, $toNodes[$at])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param mixed $value
+     * @param array<\MarkupCarve\Carve\Node> $out
+     */
+    private static function fieldNodes(mixed $value, array &$out): void
+    {
+        if ($value instanceof Node) {
+            $out[] = $value;
+
+            return;
+        }
+        if (!is_array($value)) {
+            return;
+        }
+        if (!array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+        foreach ($value as $item) {
+            self::fieldNodes($item, $out);
+        }
+    }
+
+    private static function shared(string $text): string
+    {
+        return strlen($text) > 32 ? $text : (self::$shared[$text] ??= $text);
     }
 
     /**

@@ -66,6 +66,12 @@ final class Node
     public array $includeSources = [];
 
     /**
+     * The `pos` of a node read from JSON, packed by TreeDecoder when it has the six integer fields; see
+     * TreeDecoder::position().
+     */
+    public string $treePos = '';
+
+    /**
      * @param string $type
      * @param array<\MarkupCarve\Carve\Node>|null $children
      */

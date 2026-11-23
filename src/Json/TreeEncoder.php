@@ -77,6 +77,13 @@ final class TreeEncoder
     private bool $compactEmptyCells = false;
 
     /**
+     * Whether a `pos` that TreeDecoder packed is left out, and how many bytes the JSON would have held for those.
+     */
+    private bool $omitPackedPos = false;
+
+    private int $omittedPosBytes = 0;
+
+    /**
      * @var array<int, array<bool>>
      */
     private array $omittedAbbreviationExpansions = [];
@@ -100,8 +107,25 @@ final class TreeEncoder
     public static function json(Node $root, ?string $source): string
     {
         $encoder = new self();
+        $out = '';
+        self::canonicalJson($encoder->encode($root, $source), $out);
 
-        return self::jsonValue(self::canonical($encoder->encode($root, $source)));
+        return $out;
+    }
+
+    /**
+     * `json()` of a tree without positions from a source, leaving out every `pos` TreeDecoder packed.
+     *
+     * @return array{0: string, 1: int} The JSON and the length the JSON of `json()` has.
+     */
+    public static function jsonWithoutPackedPositions(Node $root): array
+    {
+        $encoder = new self();
+        $encoder->omitPackedPos = true;
+        $out = '';
+        self::canonicalJson($encoder->encode($root, null), $out);
+
+        return [$out, strlen($out) + $encoder->omittedPosBytes];
     }
 
     /**
@@ -168,50 +192,53 @@ final class TreeEncoder
     }
 
     /**
-     * C2-A-217: JCS orders object keys by UTF-16 code units and keeps array order.
+     * C2-A-217: JCS orders object keys by UTF-16 code units and keeps array order. Written in one pass,
+     * so no sorted copy of the tree is held beside it.
      */
-    private static function canonical(mixed $value): mixed
+    private static function canonicalJson(mixed $value, string &$out): void
     {
         if ($value instanceof stdClass) {
             $value = get_object_vars($value);
-            $object = true;
-        } else {
-            $object = false;
-        }
-        if (!is_array($value)) {
-            return $value;
-        }
-        if (!$object && array_is_list($value)) {
-            return array_map(self::canonical(...), $value);
-        }
-        uksort($value, static fn (string $a, string $b): int => strcmp(
-            mb_convert_encoding($a, 'UTF-16BE', 'UTF-8'),
-            mb_convert_encoding($b, 'UTF-16BE', 'UTF-8'),
-        ));
-        $sorted = new stdClass();
-        foreach ($value as $key => $item) {
-            $sorted->{(string)$key} = self::canonical($item);
-        }
+        } elseif (!is_array($value)) {
+            $out .= self::jsonScalar($value);
 
-        return $sorted;
+            return;
+        } elseif (array_is_list($value)) {
+            $out .= '[';
+            $first = true;
+            foreach ($value as $item) {
+                if (!$first) {
+                    $out .= ',';
+                }
+                $first = false;
+                self::canonicalJson($item, $out);
+            }
+            $out .= ']';
+
+            return;
+        }
+        uksort($value, static fn (string|int $a, string|int $b): int => strcmp(
+            mb_convert_encoding((string)$a, 'UTF-16BE', 'UTF-8'),
+            mb_convert_encoding((string)$b, 'UTF-16BE', 'UTF-8'),
+        ));
+        $out .= '{';
+        $first = true;
+        foreach ($value as $key => $item) {
+            if (!$first) {
+                $out .= ',';
+            }
+            $first = false;
+            $out .= self::jsonScalar((string)$key) . ':';
+            self::canonicalJson($item, $out);
+        }
+        $out .= '}';
     }
 
     /**
-     * The JSON string and number spellings of RFC 8785, after canonical() has ordered the object keys.
+     * The JSON string and number spellings of RFC 8785.
      */
-    private static function jsonValue(mixed $value): string
+    private static function jsonScalar(mixed $value): string
     {
-        if ($value instanceof stdClass) {
-            $members = [];
-            foreach (get_object_vars($value) as $key => $item) {
-                $members[] = self::jsonValue((string)$key) . ':' . self::jsonValue($item);
-            }
-
-            return '{' . implode(',', $members) . '}';
-        }
-        if (is_array($value)) {
-            return '[' . implode(',', array_map(self::jsonValue(...), $value)) . ']';
-        }
         if (is_float($value)) {
             return self::jsonNumber($value);
         }
@@ -425,11 +452,31 @@ final class TreeEncoder
             if ($file !== '') {
                 $out['pos']['file'] = $file;
             }
-        } elseif (!$positions && isset($node->layout['pos'])) {
-            $out['pos'] = $node->layout['pos'];
+        } elseif (!$positions) {
+            $this->treePos($node, $out);
         }
 
         return $out;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node $node
+     * @param array<string, mixed> $out
+     */
+    private function treePos(Node $node, array &$out): void
+    {
+        $pos = TreeDecoder::position($node);
+        if ($pos === null) {
+            return;
+        }
+        if ($this->omitPackedPos && $node->treePos !== '') {
+            $posJson = '';
+            self::canonicalJson($pos, $posJson);
+            $this->omittedPosBytes += strlen(',"pos":' . $posJson);
+
+            return;
+        }
+        $out['pos'] = $pos;
     }
 
     /**
