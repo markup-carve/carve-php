@@ -101,6 +101,14 @@ final class HtmlParser
                 $to->append($node);
                 if ($child instanceof HTMLElement && $child->localName === 'template' && $child->namespaceURI === self::XHTML) {
                     $node->content = self::templateContent($child->innerHTML);
+                } elseif ($child instanceof Element && $child->firstElementChild === null) {
+                    // Only texts and comments below: copied here, in the order the pending list would.
+                    foreach ($child->childNodes as $leaf) {
+                        $leafNode = self::node($leaf);
+                        if ($leafNode !== null) {
+                            $node->append($leafNode);
+                        }
+                    }
                 } elseif ($child instanceof Element) {
                     $pending[] = [$child, $node];
                 }
@@ -264,6 +272,15 @@ final class HtmlParser
                         $inner->parent = null;
                     }
                     $node->content = $holder->children;
+                } elseif ($child instanceof DOMElement && $child->firstElementChild === null) {
+                    // Only texts and comments below: copied here, in the order the pending list would. A long
+                    // paragraph of spans otherwise holds a DOM object and a pair per span (carve-php#5722).
+                    foreach ($child->childNodes as $leaf) {
+                        $leafNode = self::legacyNode($leaf);
+                        if ($leafNode !== null) {
+                            $node->append($leafNode);
+                        }
+                    }
                 } elseif ($child instanceof DOMElement) {
                     $pending[] = [$child, $node];
                 }
