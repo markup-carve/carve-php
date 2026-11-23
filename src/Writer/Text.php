@@ -1347,13 +1347,24 @@ final class Text
             $node = $c->flatNodes[$at] ?? null;
             if (
                 isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
-                && (isset(self::SEALED[$type]) || !str_contains(Inline::strings($node), ']')))
+                && ((isset(self::SEALED[$type]) && !self::openComment($node)) || !str_contains(Inline::strings($node), ']')))
             ) {
                 $out[$at] = true;
             }
         }
 
         return $out;
+    }
+
+    /**
+     * C2-I-074: a line comment runs to the line end as the bare parse reads it, so a `]` in it can close a bracket
+     * before it.
+     *
+     * @param array<mixed> $node
+     */
+    private static function openComment(array $node): bool
+    {
+        return ($node['type'] ?? null) === 'comment' && ($node['form'] ?? null) === 'line';
     }
 
     /**
@@ -1886,7 +1897,7 @@ final class Text
         $open = !Chars::isWord($prev) && !Chars::isSpace($after);
         $close = !Chars::isSpace($prev) && !Chars::isWord($after);
         if ($c->here < 0) {
-            return ($open || $close) && isset($c->localPartners[$ch][$i]);
+            return ($open || $close) && ($c->localPartners[$ch][$i] ?? false);
         }
         $at = $c->here + $i;
         $c->partners ??= self::flatPartners($c);
@@ -1916,15 +1927,16 @@ final class Text
     private static function partner(Context $c, int $at, string $ch): bool
     {
         $c->partners ??= self::flatPartners($c);
+        $paired = $c->partners[$ch][$at] ?? null;
 
-        return isset($c->partners[$ch][$at]);
+        return $paired === true || ($paired === false && self::undecided());
     }
 
     /**
      * The pairs of the leaf's own text. C2-I-055, C2-I-058: a mark glued behind a `{` that stays bare is the mark of a
      * braced opener and pairs with no bare mark; the brace takes the backslash only where a closer of that mark follows.
      *
-     * @return array<string, array<int, true>>
+     * @return array<string, array<int, bool>>
      */
     private static function flatPartners(Context $c): array
     {
@@ -1940,25 +1952,33 @@ final class Text
 
     /**
      * Pair bare marks with the same flanking and nearest-opener rule as the reader. Only a bracketed node bounds the
-     * delimiter stack (C2-I-007): a text bracket either forms nothing or takes a backslash.
+     * delimiter stack (C2-I-007): a text bracket either forms nothing or takes a backslash. An opener a node takes
+     * across a text bracket is marked false: the reader may pair the bracket's content first, so the read-back decides.
      *
      * @param string $text
      * @param array<int, string> $types
      * @param array<int, array<mixed>> $nodes
      * @param \Closure(int): bool|null $braced Whether the mark at an offset behind a `{` is the mark of a braced opener.
      *
-     * @return array<string, array<int, true>>
+     * @return array<string, array<int, bool>>
      */
     private static function pairedMarks(string $text, array $types = [], array $nodes = [], ?Closure $braced = null): array
     {
         $paired = ['*' => [], '/' => []];
         $open = ['*' => [], '/' => []];
         $inner = ['*' => -1, '/' => -1];
+        $bracket = -1;
         $n = strlen($text);
         for ($at = 0; $at < $n; $at++) {
             $ch = $text[$at];
             if ($ch === "\0") {
-                self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired);
+                $before = $at > 0 ? ord($text[$at - 1]) : -1;
+                self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired, $bracket, $before);
+
+                continue;
+            }
+            if ($ch === '[' || $ch === ']') {
+                $bracket = $at;
 
                 continue;
             }
@@ -1998,9 +2018,11 @@ final class Text
      * @param string $type
      * @param array<mixed> $node
      * @param array<string, array<int>> $open
-     * @param array<string, array<int, true>> $paired
+     * @param array<string, array<int, bool>> $paired
+     * @param int $bracket The offset of the last text bracket.
+     * @param int $before The byte before the node.
      */
-    private static function pairNode(string $type, array $node, array &$open, array &$paired): void
+    private static function pairNode(string $type, array $node, array &$open, array &$paired, int $bracket, int $before): void
     {
         // A bracketed node bounds the delimiter stack. Its marks cannot close
         // a pair opened in text outside its bracketed spelling.
@@ -2008,14 +2030,33 @@ final class Text
             return;
         }
         $held = Inline::strings($node);
+        $closes = !self::opensOnly($node, $before);
         foreach (['*', '/'] as $mark) {
             if (
                 $open[$mark] !== [] && (str_contains($held, $mark)
-                || ($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))
+                || ($closes && (($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))))
             ) {
-                $paired[$mark][array_pop($open[$mark])] = true;
+                $from = array_pop($open[$mark]);
+                $paired[$mark][$from] = $from > $bracket;
             }
         }
+    }
+
+    /**
+     * C2-I-047: the opening mark of a span after a space, or before a word character, cannot close a pair.
+     *
+     * @param array<mixed> $node
+     * @param int $before
+     */
+    private static function opensOnly(array $node, int $before): bool
+    {
+        if (Chars::isSpace($before)) {
+            return true;
+        }
+        $first = is_array($node['children'] ?? null) ? $node['children'][0] ?? null : null;
+        $value = is_array($first) && ($first['type'] ?? null) === 'text' && is_string($first['value'] ?? null) ? $first['value'] : '';
+
+        return $value !== '' && Chars::isWord(ord($value[0]));
     }
 
     /**
