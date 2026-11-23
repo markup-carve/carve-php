@@ -769,7 +769,12 @@ final class Inline
         $following = $nodes[$at + 1] ?? null;
         $c->beforeSoftBreak = self::isSoftBreak($following);
         $after = is_array($following) ? self::first($following, $c) : $next;
-        $retry = self::str($node, 'type') === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
+        // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form.
+        $type = self::str($node, 'type');
+        if (isset(self::PAIRED[$type]) && is_array($following) && self::str($following, 'type') === $type) {
+            $after = 0x7B;
+        }
+        $retry = $type === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
             && str_ends_with(self::str($node, 'value'), '{');
         $snapshot = $retry ? clone $c : null;
         $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
