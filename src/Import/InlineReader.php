@@ -74,6 +74,11 @@ final class InlineReader
 
     public readonly InlineCarriers $carriers;
 
+    /**
+     * @var array<string, array<string, string>>
+     */
+    private array $texts = [];
+
     public function __construct(public readonly ImportContext $context)
     {
         $this->carriers = new InlineCarriers($this);
@@ -102,6 +107,11 @@ final class InlineReader
     public function inline(HtmlNode $node): array
     {
         if ($node->isText()) {
+            if (strlen($node->name) <= 32 && strpbrk($node->name, "\r\n\0") === false) {
+                // One shared array per short text, as HtmlImporter::shareTexts() leaves the tree (carve-php#5722).
+                return $node->name === '' ? [] : [$this->texts[$node->name] ??= ['type' => 'text', 'value' => $node->name]];
+            }
+
             return Whitespace::soft($node->name);
         }
         if ($node->isComment()) {

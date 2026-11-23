@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve-php#5664: the writer's bookkeeping for one long paragraph stays within the default memory limit.
+ * carve-php#5664, carve-php#5722: an import of one long paragraph stays within the default memory limit.
  */
 final class LongParagraphImportMemoryTest extends TestCase
 {
@@ -20,6 +20,17 @@ final class LongParagraphImportMemoryTest extends TestCase
         return [
             'the ticket: 32,000 emphasis spans' => ['str_repeat("<em>a</em> ", 32000)', '1:63999:128000'],
             'strong spans between words' => ['str_repeat("<strong>ab</strong> cd ", 32000)', '1:64000:256000'],
+            // carve-php#5722: spans and links with attributes, repeated and distinct.
+            'spans with a class' => ['str_repeat("<span class=\\"x\\">a</span> ", 32000)', '1:63999:256000'],
+            'spans with distinct classes' => [
+                'implode(" ", array_map(fn ($i) => "<span class=\\"c$i\\">w$i</span>", range(1, 32000)))',
+                '1:63999:553788',
+            ],
+            'links' => ['str_repeat("<a href=\\"/u\\">a</a> ", 32000)', '1:63999:256000'],
+            'links with distinct hrefs' => [
+                'implode(" ", array_map(fn ($i) => "<a href=\\"/u$i\\">a</a>", range(1, 32000)))',
+                '1:63999:404894',
+            ],
         ];
     }
 

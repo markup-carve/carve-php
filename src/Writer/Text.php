@@ -276,7 +276,14 @@ final class Text
     {
         $out = self::escapedText($value, $c, $next);
         if (self::$recorded !== null) {
-            self::$recorded[$c->textPath] = array_filter($c->escapedAt);
+            // A path without escapes is left out: its seed is empty, and a long paragraph has one per text node
+            // (carve-php#5722).
+            $escaped = array_filter($c->escapedAt);
+            if ($escaped === []) {
+                unset(self::$recorded[$c->textPath]);
+            } else {
+                self::$recorded[$c->textPath] = $escaped;
+            }
         }
 
         return $out;
