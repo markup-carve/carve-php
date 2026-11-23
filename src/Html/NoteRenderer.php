@@ -121,7 +121,7 @@ final class NoteRenderer
 
     /**
      * The last block that renders something: a raw block of another format writes nothing (C2-H-054), unless
-     * the profile degrades it into paragraphs.
+     * the profile degrades it into a paragraph, which an empty block does not write.
      *
      * @param array<\MarkupCarve\Carve\Node> $visible
      * @param int $depth
@@ -133,10 +133,13 @@ final class NoteRenderer
         $profile = $this->r->profile;
         for ($i = count($visible) - 1; $i >= 0; $i--) {
             $block = $visible[$i];
-            if (
-                $block->type !== 'raw_block' || PlainText::str($block->f['format'] ?? '') === 'html'
-                || ($profile !== null && !$profile->allowsBlock($block, $depth))
-            ) {
+            if ($block->type !== 'raw_block') {
+                return $block;
+            }
+            $renders = $profile !== null && !$profile->allowsBlock($block, $depth)
+                ? rtrim(PlainText::str($block->f['value'] ?? ''), "\n") !== ''
+                : PlainText::str($block->f['format'] ?? '') === 'html';
+            if ($renders) {
                 return $block;
             }
         }
