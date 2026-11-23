@@ -75,6 +75,32 @@ final class Text
     ];
 
     /**
+     * C2-I-036: the inline nodes that take an attribute block glued behind them.
+     *
+     * @var array<string, true>
+     */
+    private const HOSTS = [
+        'span' => true,
+        'link' => true,
+        'image' => true,
+        'autolink' => true,
+        'code' => true,
+        'literal_inline' => true,
+        'math' => true,
+        'footnote_ref' => true,
+        'inline_footnote' => true,
+        'symbol' => true,
+        'inline_extension' => true,
+        'emphasis' => true,
+        'strong' => true,
+        'delete' => true,
+        'insert' => true,
+        'highlight' => true,
+        'superscript' => true,
+        'subscript' => true,
+    ];
+
+    /**
      * The inline nodes whose spelling holds no delimiter that pairs with text around them.
      *
      * @var array<string, true>
@@ -287,12 +313,45 @@ final class Text
             } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
                 $escape = self::potential($value, $i, $prev, $after, $c, $lineOpener);
             }
+            // A brace that starts a line is left to the line rules, where a block attribute line may form.
+            if (!$escape && $byte === 0x7B) {
+                $end = self::literalBlockEnd($value, $i);
+                if ($end > $i) {
+                    $c->escapedAt += array_fill($i, $end - $i, false);
+                    $out .= substr($value, $i, $end - $i);
+                    $prev = 0x7D;
+                    $i = $end - 1;
+
+                    continue;
+                }
+            }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
             $prev = $byte;
         }
 
         return $out;
+    }
+
+    /**
+     * C2-I-005, C2-I-035: a valid attribute block of text behind no host is literal text, read whole, so nothing in it
+     * takes a backslash. The end of the block that the bare brace at `$i` opens on its line, or -1.
+     *
+     * @param string $value
+     * @param int $i
+     *
+     * @return int
+     */
+    private static function literalBlockEnd(string $value, int $i): int
+    {
+        $close = strpos($value, '}', $i + 1);
+        if ($close === false) {
+            return -1;
+        }
+        $line = strpos($value, "\n", $i);
+        $end = AttributeParser::read($value, $i, $line === false ? strlen($value) : $line, new Attrs());
+
+        return $end > 0 && !AttributeParser::$lastEmpty ? $end : -1;
     }
 
     /**
@@ -394,6 +453,8 @@ final class Text
             $ch === '-' => isset($c->kinds['--']) && self::secondHyphen($value, $i, $prev, $c),
             $ch === '/' || $ch === '*' => isset($c->kinds[$ch]) && $prev !== ord($ch) && ($value[$i + 1] ?? '') !== $ch
                 && !Chars::isWord($prev) && !Chars::isSpace($after),
+            // C2-W-125 case five: a `]` closes only inside a bracketed node, so outside one it is no potential closer.
+            $ch === ']' => $c->inBracket && isset($c->kinds[']']) && ($prev !== 0x5D || ($i === 0 && !$c->afterText)),
             default => isset($c->kinds[$ch]) && ($prev !== ord($ch) || ($i === 0 && !$c->afterText)),
         };
     }
@@ -1355,10 +1416,11 @@ final class Text
         if (($flat[$at] ?? '') !== '{') {
             return true;
         }
-        // C2-I-036: a valid attribute block glued to the end of a host attaches to it.
+        // C2-I-036: a valid attribute block glued to the end of a host attaches to it; behind another node, as a
+        // non-breaking space, the read-back decides.
         if ($at > 0 && $flat[$at - 1] === "\0" && !isset(self::NO_HOSTS[$c->flatTypes[$at - 1] ?? ''])) {
             if (AttributeParser::readRun($flat, $at, strlen($flat), new Attrs()) >= 0) {
-                return true;
+                return isset(self::HOSTS[$c->flatTypes[$at - 1] ?? '']) || self::undecided();
             }
         }
         if (self::braceTakesNode($flat, $at, $c)) {
@@ -1981,6 +2043,10 @@ final class Text
         if ($end === $start && $offset === 0 && !$glued) {
             return false;
         }
+        // A run glued to the hyphen of the parent's mark, `{-` or `-}`, may not join it; the read-back decides.
+        if (($start === 0 && $c->hyphensBefore === 0 && $c->last === 0x2D) || ($glued && $c->lastInContent)) {
+            return self::undecided();
+        }
 
         return $offset % 2 === 1 || ($glued && $i === $end);
     }
@@ -2468,24 +2534,113 @@ final class Text
     private static function nodeOnLine(int $i, Context $c): ?string
     {
         $node = $c->flatNodes[$i] ?? null;
-        $type = $c->flatTypes[$i] ?? '';
-        if ($node === null || isset($node['attrs'])) {
+        if ($node === null) {
             return null;
         }
+        $spelled = self::nodeSpelling($node, $c->flatTypes[$i] ?? '', $c->flatFirst[$i] ?? -1);
+
+        // The brace block follows the node's spelling on its line.
+        return $spelled === null || !isset($node['attrs']) ? $spelled : $spelled . BraceBlock::of($node);
+    }
+
+    /**
+     * The spelling of a node on its line without its brace block, as `nodeOnLine()` reads it.
+     *
+     * @param array<mixed> $node
+     * @param string $type
+     * @param int $first
+     *
+     * @return string|null
+     */
+    private static function nodeSpelling(array $node, string $type, int $first): ?string
+    {
         if (in_array($type, self::TICK_ATOMS, true)) {
             return self::verbatimSpelling($node, $type);
         }
-        $first = $c->flatFirst[$i] ?? -1;
         if ($first <= 0 || $first >= 0x80) {
             return null;
         }
         if (Inline::spanMark($type) !== null) {
-            $inner = self::spanText($node);
-
-            return $inner === null ? null : chr($first) . $inner . 'x';
+            $inner = self::spanText(array_diff_key($node, ['attrs' => true]));
+            if ($inner !== null) {
+                return chr($first) . $inner . 'x';
+            }
+        }
+        // A backtick the node spells before any break stands on the line, which is all a backtick fence asks; a code
+        // span inside spells its own.
+        $tick = self::tickOnLine($node);
+        if ($tick !== null) {
+            return chr($first) . ($tick ? 'x`' : 'x');
         }
 
         return str_contains(Inline::strings($node), '`') ? null : chr($first) . 'x';
+    }
+
+    /**
+     * Whether the node spells a backtick on its first line: in a text, a verbatim node, an alt, the key of a
+     * reference, the destination of an inline link or an attribute value. Null where a break comes first.
+     *
+     * @param array<mixed> $node
+     *
+     * @return bool|null
+     */
+    private static function tickOnLine(array $node): ?bool
+    {
+        $type = $node['type'] ?? '';
+        if ($type === 'soft_break' || $type === 'hard_break') {
+            return null;
+        }
+        if (in_array($type, self::TICK_ATOMS, true)) {
+            return true;
+        }
+        $found = self::tickInFields($node);
+        if ($found !== false) {
+            return $found;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            $found = is_array($child) ? self::tickOnLine($child) : false;
+            if ($found !== false) {
+                return $found;
+            }
+        }
+
+        return str_contains(Inline::strings(is_array($node['attrs'] ?? null) ? $node['attrs'] : []), '`') ? true : false;
+    }
+
+    /**
+     * The `tickOnLine()` of the string fields a node spells before its content ends.
+     *
+     * @param array<mixed> $node
+     *
+     * @return bool|null
+     */
+    private static function tickInFields(array $node): ?bool
+    {
+        $target = isset($node['refForm']) ? $node['key'] ?? null : $node['href'] ?? null;
+        foreach ([$node['value'] ?? null, $node['alt'] ?? null, $target] as $field) {
+            $found = is_string($field) ? self::tickBeforeBreak($field) : false;
+            if ($found !== false) {
+                return $found;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $value
+     *
+     * @return bool|null Whether a backtick comes before the first line feed; null where the line feed comes first.
+     */
+    private static function tickBeforeBreak(string $value): ?bool
+    {
+        $tick = strpos($value, '`');
+        if ($tick === false) {
+            return false;
+        }
+        $break = strpos($value, "\n");
+
+        return $break !== false && $break < $tick ? null : true;
     }
 
     /**

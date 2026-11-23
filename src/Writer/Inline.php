@@ -815,6 +815,7 @@ final class Inline
         $probe->writerState = null;
         $probe->hyphensBefore = 0;
         $probe->hyphenAfter = false;
+        $probe->lastInContent = false;
         $probe->dotsBefore = 0;
         $probe->dotsAfter = 0;
         $probe->escapeFollowingPipeAt = -1;
@@ -970,6 +971,7 @@ final class Inline
         $c->hyphensBefore = $type === 'text' ? $hyphens : 0;
         $c->hyphenAfter = $type === 'text' && is_array($following) && ($following['type'] ?? '') === 'text'
             && str_starts_with(self::str($following, 'value'), '-');
+        $c->lastInContent = $type === 'text' && $following === null;
     }
 
     /**
@@ -2323,8 +2325,9 @@ final class Inline
             return $raw;
         }
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        // C2-W-074: `[](/u)` is an empty link; a reference with no text has no label to read.
-        if ($children === [] && isset($node['refForm'])) {
+        // C2-W-074: `[](/u)` is an empty link; a collapsed or shortcut reference with no text has no label to read,
+        // while the full form carries its label behind the empty pair (C2-W-075).
+        if ($children === [] && isset($node['refForm']) && $node['refForm'] !== 'full') {
             $this->w->lose($path, 'link', null);
 
             return '';
@@ -2997,8 +3000,9 @@ final class Inline
         if ($kept !== $value || str_contains($kept, "\n")) {
             $this->w->lose($path, 'comment', 'value');
         }
-        // C2-I-023: a line comment starts at the start of a line or after whitespace.
-        $lead = $c->last === -1 || $c->last === 10 || Chars::isSpace($c->last) ? '' : ' ';
+        // C2-I-023: a line comment starts at the start of a line or after whitespace, which it takes with it, so a
+        // space a node spells before it (the `\ ` of a non-breaking space) does not count.
+        $lead = $c->last === -1 || $c->last === 10 ? '' : ' ';
 
         return $lead . ($kept === '' ? '%%' : '%% ' . str_replace("\n", ' ', $kept));
     }

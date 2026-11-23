@@ -94,6 +94,11 @@ final class Context
     public bool $hyphenAfter = false;
 
     /**
+     * The text node is the last of its content, so a hyphen written behind it is the closing mark of its parent.
+     */
+    public bool $lastInContent = false;
+
+    /**
      * C2-I-114: the dots of the run a text node continues from the nodes before it, and goes on with in the nodes after.
      */
     public int $dotsBefore = 0;
