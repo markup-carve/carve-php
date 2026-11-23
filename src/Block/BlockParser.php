@@ -23,6 +23,13 @@ final class BlockParser
     private const OPAQUE = [Frame::CODE => true, Frame::COMMENT_BLOCK => true, Frame::LINE_BLOCK => true, Frame::FRONTMATTER => true];
 
     /**
+     * The containers whose body a comment-only line can end (C2-B-137).
+     *
+     * @var array<int, bool>
+     */
+    private const BODY_CONTAINER = [Frame::ITEM => true, Frame::DESC => true, Frame::FOOTNOTE => true, Frame::QUOTE => true];
+
+    /**
      * Containers that count toward the depth cap (C2-B-190).
      *
      * @var array<int, bool>
@@ -279,8 +286,7 @@ final class BlockParser
                 return;
             }
             if ($forced) {
-                $this->closeTo($owner);
-                $top = $owner;
+                $this->closeTo($this->bodyContainerKeep($owner));
             }
             $this->commentLine($j);
 
@@ -325,6 +331,24 @@ final class BlockParser
         $leaf->end = $le;
 
         return true;
+    }
+
+    /**
+     * C2-B-137, C2-W-123: a comment-only line that ended an opaque body closes only the body's container, the innermost
+     * item, description, footnote or quote above the owner, with the list of an item or description.
+     */
+    private function bodyContainerKeep(int $owner): int
+    {
+        $k = count($this->stack) - 1;
+        while ($k > $owner && !isset(self::BODY_CONTAINER[$this->stack[$k]->kind])) {
+            $k--;
+        }
+        if ($k === $owner) {
+            return $owner;
+        }
+        $wrapper = $this->stack[$k - 1]->kind;
+
+        return $wrapper === Frame::LIST || $wrapper === Frame::DLIST ? $k - 2 : $k - 1;
     }
 
     private function bareCommentCloser(int $ls, int $le, int $level): bool
