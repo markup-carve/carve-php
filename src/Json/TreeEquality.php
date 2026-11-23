@@ -13,6 +13,11 @@ use MarkupCarve\Carve\Generated\Tables;
 final class TreeEquality
 {
     /**
+     * @var int
+     */
+    private const FEED_CHUNK = 65536;
+
+    /**
      * @param mixed $a
      * @param mixed $b
      *
@@ -34,32 +39,40 @@ final class TreeEquality
     public static function fingerprint(mixed $value): string
     {
         $context = hash_init('xxh128');
-        self::feed($context, $value, false);
+        $buffer = '';
+        self::feed($context, $buffer, $value, false);
+        hash_update($context, $buffer);
 
         return hash_final($context);
     }
 
     /**
-     * Hashes what `normalize()` returns for the value without building it.
+     * Hashes what `normalize()` returns for the value without building it. The bytes are those of `serialize()` for
+     * scalars, gathered in `$buffer` and handed to the hash in large pieces.
      *
      * @param \HashContext $context
+     * @param string $buffer
      * @param mixed $value
      * @param bool $spanMarks
      *
      * @return void
      */
-    private static function feed(HashContext $context, mixed $value, bool $spanMarks): void
+    private static function feed(HashContext $context, string &$buffer, mixed $value, bool $spanMarks): void
     {
         if (!is_array($value)) {
-            hash_update($context, serialize($value));
+            $buffer .= is_string($value) ? 's:' . strlen($value) . ':"' . $value . '";' : serialize($value);
+            if (strlen($buffer) > self::FEED_CHUNK) {
+                hash_update($context, $buffer);
+                $buffer = '';
+            }
 
             return;
         }
         if (array_is_list($value)) {
             $items = self::coalesced($value);
-            hash_update($context, 'l' . count($items) . ':');
+            $buffer .= 'l' . count($items) . ':';
             foreach ($items as $item) {
-                self::feed($context, $item, $spanMarks);
+                self::feed($context, $buffer, $item, $spanMarks);
             }
 
             return;
@@ -75,10 +88,10 @@ final class TreeEquality
             }
         }
         ksort($names);
-        hash_update($context, 'm' . count($names) . ':');
+        $buffer .= 'm' . count($names) . ':';
         foreach ($names as $name => $_) {
-            hash_update($context, serialize($name));
-            self::feed($context, $value[$name], $spanMarks);
+            $buffer .= is_string($name) ? 's:' . strlen($name) . ':"' . $name . '";' : 'i:' . $name . ';';
+            self::feed($context, $buffer, $value[$name], $spanMarks);
         }
     }
 

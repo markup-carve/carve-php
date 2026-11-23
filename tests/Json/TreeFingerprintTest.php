@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Json;
 
+use HashContext;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
@@ -51,13 +52,13 @@ final class TreeFingerprintTest extends TestCase
     /**
      * The stream `fingerprint()` hashes, one `serialize()` per scalar and key, as `normalize()` orders it.
      */
-    private static function reference(\HashContext $context, mixed $value): void
+    private static function reference(HashContext $context, mixed $value): void
     {
         $value = TreeEquality::normalize($value);
         self::feed($context, $value);
     }
 
-    private static function feed(\HashContext $context, mixed $value): void
+    private static function feed(HashContext $context, mixed $value): void
     {
         if (!is_array($value)) {
             hash_update($context, serialize($value));
