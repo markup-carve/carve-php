@@ -111,7 +111,7 @@ final class TableWriter
                 $keys[] = ['body-header-cols', implode(',', $columns)];
             }
         }
-        $groups = $this->groups($node);
+        $groups = self::groups($node);
         $counts = self::rowCounts($groups);
         if ($delimited) {
             $head = $counts['table_head'];
@@ -243,7 +243,7 @@ final class TableWriter
      *
      * @return array<array{0: string, 1: array<array<string, mixed>>}>
      */
-    private function groups(array $node): array
+    private static function groups(array $node): array
     {
         $groups = [];
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $group) {
@@ -298,6 +298,23 @@ final class TableWriter
     }
 
     /**
+     * C2-W-066: the table is written in a delimited form. `$format` is its recorded `sourceFormat`.
+     *
+     * @param array<mixed> $node
+     * @param mixed $format
+     * @param bool $spans The table needs span marks, which have no delimited form.
+     *
+     * @return bool
+     */
+    public static function writesDelimited(array $node, mixed $format, bool $spans): bool
+    {
+        $rows = array_sum(self::rowCounts(self::groups($node)));
+        $wanted = in_array($format, ['csv', 'tsv'], true) || ($format === null && self::pipeCannotSpell($node));
+
+        return $rows === 0 || ($wanted && !$spans && self::allowsDelimited($node));
+    }
+
+    /**
      * @param array<mixed> $node
      * @param string $path
      * @param string $prefix
@@ -307,11 +324,8 @@ final class TableWriter
      */
     private function table(array $node, string $path, string $prefix, bool $prewritten): void
     {
-        $rows = array_sum(self::rowCounts($this->groups($node)));
         $format = $this->w->fact($path, 'sourceFormat');
-        $wanted = in_array($format, ['csv', 'tsv'], true) || ($format === null && $this->pipeCannotSpell($node));
-        // C2-W-066: span marks have no delimited form, so a table that needs them is a pipe table.
-        $delimited = $rows === 0 || ($wanted && $this->spans === null && $this->allowsDelimited($node));
+        $delimited = self::writesDelimited($node, $format, $this->spans !== null);
         $this->spanCounts($node, $path);
         if ($delimited) {
             $this->delimited($node, $path, $prefix, is_string($format) && $format !== 'pipe' ? $format : 'csv', $prewritten);
@@ -814,9 +828,9 @@ final class TableWriter
      *
      * @return bool
      */
-    private function pipeCannotSpell(array $node): bool
+    private static function pipeCannotSpell(array $node): bool
     {
-        foreach ($this->groups($node) as [, $rows]) {
+        foreach (self::groups($node) as [, $rows]) {
             foreach ($rows as $row) {
                 foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
                     $text = is_array($cell) ? self::plainCell($cell) : null;
@@ -837,9 +851,9 @@ final class TableWriter
      *
      * @return bool
      */
-    private function allowsDelimited(array $node): bool
+    private static function allowsDelimited(array $node): bool
     {
-        foreach ($this->groups($node) as [$type, $rows]) {
+        foreach (self::groups($node) as [$type, $rows]) {
             foreach ($rows as $row) {
                 if (isset($row['attrs'])) {
                     return false;
@@ -902,7 +916,7 @@ final class TableWriter
         }
         $separator = $format === 'tsv' ? "\t" : ',';
         $body = [];
-        $all = array_merge(...array_column($this->groups($node), 1));
+        $all = array_merge(...array_column(self::groups($node), 1));
         $last = count($all) - 1;
         foreach ($all as $r => $row) {
             $cells = is_array($row['children'] ?? null) ? $row['children'] : [];
