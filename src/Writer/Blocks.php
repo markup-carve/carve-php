@@ -961,7 +961,8 @@ final class Blocks
 
     /**
      * C2-B-157, C2-B-158, C2-B-198: the role a paragraph written as `$text` reads back with. The reader gives it to a
-     * paragraph of one line that is a block image or display math, and keeps it when that is its one child.
+     * paragraph of one line that is a block image or display math, and keeps it when that is its one child besides
+     * the comments of comment-only lines.
      *
      * @param string $text
      * @param array<mixed> $node
@@ -970,10 +971,17 @@ final class Blocks
      */
     private static function readRole(string $text, array $node): ?string
     {
-        $line = ltrim(rtrim($text, "\n"), " \t");
+        $lines = explode("\n", rtrim($text, "\n"));
+        $line = ltrim(array_shift($lines), " \t");
         $n = strlen($line);
-        if ($n === 0 || str_contains($line, "\n")) {
+        if ($n === 0) {
             return null;
+        }
+        foreach ($lines as $below) {
+            // C2-B-157: comment-only lines below the line leave the paragraph one line.
+            if (preg_match('/^[ \t]*%%(?!%)/', $below) !== 1) {
+                return null;
+            }
         }
         $role = match (true) {
             LineShapes::isBlockImage($line, 0, $n) => 'image',
@@ -985,9 +993,14 @@ final class Blocks
             is_array($node['children'] ?? null) ? $node['children'] : [],
             static fn (mixed $child): bool => !is_array($child) || !self::vanishes($child),
         ));
-        $only = $children[0] ?? null;
+        $only = array_shift($children);
+        foreach ($children as $child) {
+            if (!is_array($child) || ($child['type'] ?? '') !== 'comment') {
+                return null;
+            }
+        }
 
-        return count($children) === 1 && is_array($only) && ($only['type'] ?? '') === $role ? $role : null;
+        return is_array($only) && ($only['type'] ?? '') === $role ? $role : null;
     }
 
     /**

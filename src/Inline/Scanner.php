@@ -737,7 +737,7 @@ final class Scanner
      *
      * @return bool
      */
-    private static function isUrl(string $b): bool
+    public static function isUrl(string $b): bool
     {
         $len = strlen($b);
         if ($len < 3 || strspn($b[0], Tables::AUTOLINK_SCHEME_FIRST) === 0) {
@@ -775,7 +775,7 @@ final class Scanner
      *
      * @return bool
      */
-    private static function isEmail(string $b): bool
+    public static function isEmail(string $b): bool
     {
         $len = strlen($b);
         $at = strspn($b, Tables::AUTOLINK_EMAIL_CHARS);
