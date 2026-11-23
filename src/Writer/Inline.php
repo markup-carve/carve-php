@@ -1831,8 +1831,9 @@ final class Inline
     private static function pairedBrackets(array $nodes, string $path, array $labels, bool $notes): array
     {
         $open = [];
+        $nested = [];
         $paired = [];
-        $walk = static function (array $list, string $base) use (&$walk, &$open, &$paired, $labels, $notes): void {
+        $walk = static function (array $list, string $base) use (&$walk, &$open, &$nested, &$paired, $labels, $notes): void {
             foreach ($list as $at => $node) {
                 if (!is_array($node)) {
                     continue;
@@ -1841,22 +1842,12 @@ final class Inline
                 $key = $base . '/' . $at;
                 if ($type === 'text') {
                     $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-                    for ($i = 0, $n = strlen($value); $i < $n; $i++) {
-                        if ($value[$i] === '[') {
-                            $open[] = [$key, $i];
-                        } elseif ($value[$i] === ']' && $open !== []) {
-                            [$other, $offset] = array_pop($open);
-                            if ($other === $key && self::pairForms($value, $offset, $i, $labels, $notes)) {
-                                continue;
-                            }
-                            $paired[$other][$offset] = true;
-                            $paired[$key][$i] = true;
-                        }
-                    }
+                    self::pairText($value, $key, $open, $nested, $paired, $labels, $notes);
                 } elseif ($type === 'link') {
                     // A nested link's own bracketed spelling ends any pair that was
                     // still open in the containing label.
                     $open = [];
+                    $nested = [];
                 } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                     $walk($node['children'], $key . '/children');
                 }
@@ -1868,23 +1859,62 @@ final class Inline
     }
 
     /**
+     * The brackets of one text for `pairedBrackets()`. `$nested` runs beside `$open` and marks an open `[` that holds a
+     * closed pair.
+     *
+     * @param string $value
+     * @param string $key
+     * @param array<int, array{string, int}> $open
+     * @param array<int, bool> $nested
+     * @param array<string, array<int, true>> $paired
+     * @param array<string, true> $labels
+     * @param bool $notes
+     */
+    private static function pairText(
+        string $value,
+        string $key,
+        array &$open,
+        array &$nested,
+        array &$paired,
+        array $labels,
+        bool $notes,
+    ): void {
+        for ($i = 0, $n = strlen($value); $i < $n; $i++) {
+            if ($value[$i] === '[') {
+                $open[] = [$key, $i];
+                $nested[] = false;
+            } elseif ($value[$i] === ']' && $open !== []) {
+                [$other, $offset] = array_pop($open);
+                $inner = array_pop($nested) === true;
+                if ($nested !== []) {
+                    $nested[count($nested) - 1] = true;
+                }
+                if ($other === $key && self::pairForms($value, $offset, $i, $inner ? [] : $labels, $notes)) {
+                    continue;
+                }
+                $paired[$other][$offset] = true;
+                $paired[$key][$i] = true;
+            }
+        }
+    }
+
+    /**
      * @param string $value
      * @param int $open
      * @param int $close
-     * @param array<string, true> $labels
+     * @param array<string, true> $labels None for a pair around another pair: a key holds no bare bracket.
      * @param bool $notes
      */
     private static function pairForms(string $value, int $open, int $close, array $labels, bool $notes): bool
     {
-        $label = substr($value, $open + 1, $close - $open - 1);
-        if ($notes && (str_starts_with($label, '^') || ($open > 0 && $value[$open - 1] === '^'))) {
+        if ($notes && (($value[$open + 1] ?? '') === '^' || ($open > 0 && $value[$open - 1] === '^'))) {
             return true;
         }
         if (str_contains('([{', $value[$close + 1] ?? 'x')) {
             return true;
         }
 
-        return isset($labels[Chars::fold($label)]);
+        return $labels !== [] && isset($labels[Chars::fold(substr($value, $open + 1, $close - $open - 1))]);
     }
 
     /**

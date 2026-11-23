@@ -21,4 +21,16 @@ final class LinkRunLinearityTest extends TestCase
 
         $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
     }
+
+    /**
+     * A pair around other pairs holds no reference label, so its label is not copied out once per nesting level.
+     */
+    public function testNestedBracketPairsInLinkTextAreLinear(): void
+    {
+        $small = "[x]: /u\n\n[" . str_repeat('\\[', 2_000) . 'a' . str_repeat('\\]', 2_000) . "](u)\n";
+        $large = "[x]: /u\n\n[" . str_repeat('\\[', 64_000) . 'a' . str_repeat('\\]', 64_000) . "](u)\n";
+        $excess = Linearity::excess(static fn () => Carve::format($small), static fn () => Carve::format($large), 32, 1);
+
+        $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
+    }
 }
