@@ -47,6 +47,13 @@ final class Blocks
      */
     private const OPEN = ['list', 'list_item', 'definition_list', 'definition_description', 'footnote'];
 
+    /**
+     * C2-W-154: the containers whose last block decides how a column-0 line directly below them reads.
+     *
+     * @var array<string>
+     */
+    private const LIST_LIKE = ['list', 'list_item', 'block_quote', 'footnote', 'definition_list', 'definition_description'];
+
     private Inline $inline;
 
     /**
@@ -281,7 +288,7 @@ final class Blocks
                 && $this->listAttributes($node, Lists::markers($node, $this->w, $path)[1]) !== '' ? 1 : 0;
         }
 
-        if (self::directBelowList($before, $node, $path)) {
+        if (self::directBelowContainer($before, $node, $path)) {
             return 0;
         }
 
@@ -289,8 +296,9 @@ final class Blocks
     }
 
     /**
-     * C2-W-154: a top-level paragraph that would open with a typed opener, below a list whose last block takes no
-     * lazy line, is written on the line directly after the list; the opener closes the list and stays text (C2-B-026).
+     * C2-W-154: a top-level paragraph that would open with a typed opener, below a list, footnote or description
+     * whose last block takes no lazy line, is written on the line directly after it; the opener closes it and stays
+     * text (C2-B-026).
      *
      * @param array<mixed> $before
      * @param array<mixed> $node
@@ -298,16 +306,17 @@ final class Blocks
      *
      * @return bool
      */
-    private static function directBelowList(array $before, array $node, string $path): bool
+    private static function directBelowContainer(array $before, array $node, string $path): bool
     {
-        return ($before['type'] ?? '') === 'list' && ($node['type'] ?? '') === 'paragraph'
+        return in_array($before['type'] ?? '', ['list', 'footnote', 'definition_list'], true)
+            && ($node['type'] ?? '') === 'paragraph'
             && preg_match('#^/children/\d+$#', $path) === 1 && BraceBlock::of($node) === ''
             && self::listEnd($before) === 'closed' && self::opensWithTypedLead($node);
     }
 
     /**
-     * How the block a list ends on treats a column-0 line directly below it: `lazy` where the line would continue it
-     * (C2-B-024), `closed` where the line closes the list (C2-B-026), or `unknown`.
+     * How the block a list, footnote or description ends on treats a column-0 line directly below it: `lazy` where
+     * the line would continue it (C2-B-024), `closed` where the line closes it (C2-B-026), or `unknown`.
      *
      * @param array<mixed> $node
      *
@@ -316,7 +325,7 @@ final class Blocks
     private static function listEnd(array $node): string
     {
         $type = $node['type'] ?? '';
-        if ($type === 'list' || $type === 'list_item' || $type === 'block_quote') {
+        if (in_array($type, self::LIST_LIKE, true)) {
             $children = is_array($node['children'] ?? null) ? $node['children'] : [];
             $last = end($children);
 
@@ -730,8 +739,8 @@ final class Blocks
     }
 
     /**
-     * C2-W-154: the first line indented by one space; directly below a list that ends in a closed block it stays at
-     * column 0. Below a list that ends in a block taking lazy lines, or another open container, it has no spelling.
+     * C2-W-154: the first line indented by one space; directly below a list, footnote or description that ends in a
+     * closed block it stays at column 0. Below one that ends in a block taking lazy lines it has no spelling.
      *
      * @param array<mixed> $node
      * @param string $path
@@ -746,7 +755,7 @@ final class Blocks
         if ($attributes || $above === null || !$this->isOpenContainer($above)) {
             return ' ' . $text;
         }
-        if (self::directBelowList($above, $node, $path)) {
+        if (self::directBelowContainer($above, $node, $path)) {
             return $text;
         }
         // Below a blank line the indented line would be a block of the open container above (C2-B-026).

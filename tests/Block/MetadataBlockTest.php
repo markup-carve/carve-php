@@ -19,7 +19,7 @@ final class MetadataBlockTest extends TestCase
      */
     private const PINNED = [
         'CC-1585', 'CC-1613', 'CC-1653', 'CC-1654', 'CC-1655', 'CC-1656', 'CC-1657', 'CC-1658', 'CC-1659', 'CC-1660',
-        'CC-1661',
+        'CC-1661', 'CC-1666', 'CC-1667', 'CC-1668', 'CC-1669', 'CC-1670', 'CC-1671', 'CC-1672',
     ];
 
     /**
@@ -98,6 +98,10 @@ final class MetadataBlockTest extends TestCase
             'two in a row' => ["x\n\n ---yaml\n\n ---json\n"],
             'lazy line in a list' => ["- a\n  ---yaml\n"],
             'below a list ending in a quote that ends in a fence' => ["- > ```\n  > x\n  > ```\n---yaml\nk: v\n---\n"],
+            'below a footnote ending in a div' => ["a[^n]\n\n[^n]: x\n\n  ::: d\n  y\n  :::\n---yaml\nk: v\n---\n"],
+            'below a footnote ending in a heading' => ["a[^n]\n\n[^n]: x\n\n  = H\n---json\n{}\n---\n"],
+            'below a description ending in a table' => [":: t\n: | a |\n---toml\nk = 1\n---\n"],
+            'below a description ending in a nested list with a fence' => [":: t\n: - ```\n    y\n    ```\n---yaml\nk\n---\n"],
         ];
     }
 
@@ -177,6 +181,65 @@ final class MetadataBlockTest extends TestCase
 
         self::assertSame(
             [['structure-unspellable', '/children/1/children/0']],
+            array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics),
+        );
+    }
+
+    /**
+     * @return array<string, array{0: array<mixed>}>
+     */
+    public static function lazyContainerEnds(): array
+    {
+        $paragraph = ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'q']]];
+        $quote = ['type' => 'block_quote', 'children' => [$paragraph]];
+        $footnote = static fn (array $end): array => ['type' => 'footnote', 'key' => 'n', 'namespace' => 'footnote', 'children' => [$end]];
+        $description = static fn (array $end): array => [
+            'type' => 'definition_list',
+            'children' => [
+                ['type' => 'definition_term', 'children' => [['type' => 'text', 'value' => 't']]],
+                ['type' => 'definition_description', 'children' => [$end]],
+            ],
+        ];
+
+        return [
+            'footnote ending in a paragraph' => [$footnote($paragraph)],
+            'footnote ending in a quote' => [$footnote($quote)],
+            'description ending in a paragraph' => [$description($paragraph)],
+            'description ending in a quote' => [$description($quote)],
+        ];
+    }
+
+    /**
+     * C2-W-154 (ruling on carve#6397): a footnote or description follows the list rules, so below one that ends in a
+     * block taking lazy lines the paragraph has no spelling.
+     *
+     * @param array<mixed> $container
+     */
+    #[DataProvider('lazyContainerEnds')]
+    public function testNoSpellingBelowALazyContainerEnd(array $container): void
+    {
+        $children = [
+            [
+
+                'type' => 'paragraph',
+                'children' => [
+                    ['type' => 'text', 'value' => 'a'],
+                    ['type' => 'footnote_ref', 'key' => 'n', 'namespace' => 'footnote'],
+                ],
+            ],
+            $container,
+            [
+                'type' => 'paragraph',
+                'children' => [
+                    ['type' => 'smart_punctuation', 'kind' => 'em_dash', 'glyph' => "\u{2014}", 'source' => '---'],
+                    ['type' => 'text', 'value' => 'yaml'],
+                ],
+            ],
+        ];
+        $result = Carve::writeWithDiagnostics(['type' => 'document', 'astVersion' => '2.0', 'children' => $children]);
+
+        self::assertSame(
+            [['structure-unspellable', '/children/2/children/0']],
             array_map(static fn ($d): array => [$d->code, $d->path], $result->diagnostics),
         );
     }

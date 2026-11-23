@@ -1671,7 +1671,7 @@ final class NodeRulesA
             return;
         }
         $target = Support::str($node, 'key') ?? '';
-        if (isset($c->frontmatterIds[$target])) {
+        if (($c->idOwners[Support::nfc($target)] ?? null) === 'frontmatter') {
             return;
         }
         $candidates = Support::caseOnly($target, array_keys($c->xrefIds));
@@ -1687,7 +1687,7 @@ final class NodeRulesA
     }
 
     /**
-     * C2-W-153: a cross-reference to a frontmatter id, which has no HTML target.
+     * C2-W-153: a cross-reference to an id whose first owner is frontmatter and that no cross-reference target carries.
      *
      * @param array<string, mixed> $node
      * @param string $path
@@ -1698,7 +1698,11 @@ final class NodeRulesA
     public static function frontmatterCrossref(array $node, string $path, Context $c): void
     {
         $target = Support::str($node, 'key') ?? '';
-        if (($node['type'] ?? null) === 'xref' && !array_key_exists('href', $node) && isset($c->frontmatterIds[$target])) {
+        $key = Support::nfc($target);
+        if (
+            ($node['type'] ?? null) === 'xref' && !array_key_exists('href', $node)
+            && ($c->idOwners[$key] ?? null) === 'frontmatter' && !isset($c->xrefNfc[$key])
+        ) {
             Support::reportNode('frontmatter-crossref', $node, $path, $c, ['target' => $target]);
         }
     }
