@@ -1664,7 +1664,6 @@ final class Scanner
             return -1;
         }
 
-        // carve-js: the shortcut is found by its own source, and its key holds the literal pipe (C2-B-224).
-        return $this->refNode($frame, $i, $i + 1, $this->cell ? Chars::fold($this->cellPipes($text)) : $key, 'shortcut', $text, $image);
+        return $this->refNode($frame, $i, $i + 1, $key, 'shortcut', $text, $image);
     }
 }
