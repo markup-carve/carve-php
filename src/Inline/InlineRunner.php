@@ -14,6 +14,13 @@ use MarkupCarve\Carve\Node;
 final class InlineRunner
 {
     /**
+     * The scans that narrow the formed images (C2-I-074), as in carve-js.
+     *
+     * @var int
+     */
+    private const MAX_IMAGE_PASSES = 8;
+
+    /**
      * @param \MarkupCarve\Carve\Node $doc
      * @param string $s
      * @param \MarkupCarve\Carve\Inline\InlineContext $ctx
@@ -267,12 +274,44 @@ final class InlineRunner
         if ($ctx->abbreviations === [] && strcspn($t, Scanner::SPECIALS) === $len && !Finisher::replaces($t)) {
             return [Node::text($t, $content->src(0), $content->src($len))];
         }
-        $scanner = new Scanner($content, $ctx, $depth, $mode);
-        $items = Delimiters::run($scanner, $scanner->scan(), $depth);
+        [$scanner, $tokens] = self::scan($content, $ctx, $depth, $mode);
+        $items = Delimiters::run($scanner, $tokens, $depth);
 
         $nodes = (new Finisher($scanner, $ctx))->build($items, -1, true);
 
         return $nodes;
+    }
+
+    /**
+     * C2-I-074: a `%%` stays alt source only inside an image that forms. Each further scan keeps the images that formed
+     * again, until the set holds.
+     *
+     * @param \MarkupCarve\Carve\Inline\Content $content
+     * @param \MarkupCarve\Carve\Inline\InlineContext $ctx
+     * @param int $depth
+     * @param int $mode
+     *
+     * @return array{\MarkupCarve\Carve\Inline\Scanner, array<int, array<mixed>>}
+     */
+    private static function scan(Content $content, InlineContext $ctx, int $depth, int $mode): array
+    {
+        $scanner = new Scanner($content, $ctx, $depth, $mode);
+        $tokens = $scanner->scan();
+        if (!$scanner->percentInImage || !$scanner->percentOutsideFormed()) {
+            return [$scanner, $tokens];
+        }
+        $formed = null;
+        for ($pass = 0; $pass < self::MAX_IMAGE_PASSES; $pass++) {
+            $next = $formed === null ? $scanner->formed : array_intersect_key($formed, $scanner->formed);
+            if ($formed !== null && count($next) === count($formed)) {
+                break;
+            }
+            $formed = $next;
+            $scanner = new Scanner($content, $ctx, $depth, $mode, $formed);
+            $tokens = $scanner->scan();
+        }
+
+        return [$scanner, $tokens];
     }
 
     /**

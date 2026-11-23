@@ -41,6 +41,25 @@ final class Text
     private const DEFINITIONS = ['link_reference_definition' => true, 'footnote' => true, 'abbreviation_def' => true];
 
     /**
+     * Inline nodes whose spelling holds no bracket that an outer bracket pairs with: the reader takes an atom whole, and
+     * a bracket construct closes its own brackets. Any other node holds no such bracket when no string in it holds `]`.
+     *
+     * @var array<string, true>
+     */
+    private const SEALED = [
+        'comment' => true,
+        'code' => true,
+        'raw_inline' => true,
+        'math' => true,
+        'autolink' => true,
+        'xref' => true,
+        'footnote_ref' => true,
+        'link' => true,
+        'image' => true,
+        'inline_footnote' => true,
+    ];
+
+    /**
      * C2-I-036: the inline nodes that take no attribute block glued behind them.
      *
      * @var array<string, true>
@@ -1053,7 +1072,7 @@ final class Text
         if ($c->here < 0 || $c->inBracket) {
             return true;
         }
-        $c->brackets ??= self::brackets((string)$c->flat, $c->labels, $c->flatFirst);
+        $c->brackets ??= self::brackets((string)$c->flat, $c->labels, $c->flatFirst, self::sealed($c));
 
         return $c->brackets[$c->here + $i] ?? true;
     }
@@ -1066,19 +1085,24 @@ final class Text
      * @param string $flat
      * @param array<string, true> $labels
      * @param array<int, int> $nodeFirst
+     * @param array<int, true> $sealed
      *
      * @return array<int, bool>
      */
-    private static function brackets(string $flat, array $labels, array $nodeFirst): array
+    private static function brackets(string $flat, array $labels, array $nodeFirst, array $sealed): array
     {
         $out = [];
         $open = [];
         $node = PHP_INT_MAX;
+        $holder = PHP_INT_MAX;
         $first = PHP_INT_MAX;
         for ($k = strlen($flat) - 1; $k >= 0; $k--) {
             $ch = $flat[$k];
             if ($ch === "\0") {
                 $node = $k;
+                if (!isset($sealed[$k])) {
+                    $holder = $k;
+                }
             } elseif ($ch === ']') {
                 $open[] = $k;
                 $first = $k;
@@ -1086,10 +1110,31 @@ final class Text
                 // C2-I-076: a footnote label ends at the first closing bracket.
                 $pair = $open === [] ? PHP_INT_MAX : $open[count($open) - 1];
                 $close = ($flat[$k + 1] ?? '') === '^' ? $first : $pair;
-                $out[$k] = self::forms($flat, $k, $close, $node, $labels, $nodeFirst);
+                $out[$k] = self::forms($flat, $k, $close, $close === PHP_INT_MAX ? $holder : $node, $labels, $nodeFirst);
                 if (!$out[$k] && $open !== []) {
                     array_pop($open);
                 }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<int, true> The offsets of the flattened leaf that stand for a node no bracket pairs into.
+     */
+    private static function sealed(Context $c): array
+    {
+        $out = [];
+        foreach ($c->flatTypes as $at => $type) {
+            $node = $c->flatNodes[$at] ?? null;
+            if (
+                isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
+                && (isset(self::SEALED[$type]) || !str_contains(Inline::strings($node), ']')))
+            ) {
+                $out[$at] = true;
             }
         }
 
