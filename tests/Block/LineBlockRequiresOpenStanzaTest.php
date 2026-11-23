@@ -51,4 +51,34 @@ final class LineBlockRequiresOpenStanzaTest extends TestCase
             Carve::toHtml("- ::: |\n  a\n  %%%\n%%%\n  b\n"),
         );
     }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function commentRows(): array
+    {
+        $item = "<ul>\n  <li>%s\n    <ul>\n      <li>\n        <div class=\"line-block\">\n\n        </div>\n"
+            . "      </li>\n    </ul>\n  </li>\n</ul>\n<p>%s</p>";
+
+        return [
+            'A: unowned line closes the item with the comment' => ["- a\n  - ::: |\n    %%%\nb\n", sprintf($item, 'a', 'b')],
+            'B: no stanza takes the line lazily' => ["- a\n  - ::: |\n    %%%\n    x\n    %%%\nb\n", sprintf($item, 'a', 'b')],
+            'C: a line without quote marks is no closer' => [
+                "> > ::: |\n> > %%%\ny\n",
+                "<blockquote>\n  <blockquote>\n    <div class=\"line-block\">\n\n    </div>\n  </blockquote>\n</blockquote>\n<p>y</p>",
+            ],
+            'E: below-column closer' => ["- - ::: |\n    %%%\n   %%%%\n    %%%\n    b\nz\n", sprintf($item, '', 'z')],
+            'F: closer at column 2' => ["- - ::: |\n    %%%\n  %%%%\n    %%%\n    b\nz\n", sprintf($item, '', 'z')],
+            'H: comment opened at the root hides the rest' => ["- - ::: |\n    %%%\nx\n    %%%\nz\n", sprintf($item, '', 'x')],
+        ];
+    }
+
+    /**
+     * carve#6439 rows A, B, C, E, F and H (C2-B-024, C2-B-109, C2-B-137).
+     */
+    #[DataProvider('commentRows')]
+    public function testCommentBlockInALineBlock(string $source, string $expected): void
+    {
+        $this->assertSame($expected, Carve::toHtml($source));
+    }
 }
