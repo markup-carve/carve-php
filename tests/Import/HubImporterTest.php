@@ -99,6 +99,16 @@ final class HubImporterTest extends TestCase
         $this->assertSame("***\n\na\n", self::source("---\na\n", 'markdown'));
     }
 
+    public function testSkipsALeadingByteOrderMarkBeforeTheFrontmatterFence(): void
+    {
+        foreach (['markdown', 'gfm'] as $format) {
+            $this->assertSame("---\nx: y\n---\n\nz\n", self::source("\u{FEFF}---\nx: y\n---\nz\n", $format));
+            $this->assertSame("---toml\na = 1\n---\n\nz\n", self::source("\u{FEFF}+++\r\na = 1\r\n+++\r\nz\r\n", $format));
+            $this->assertSame("***\n\na\n", self::source("\u{FEFF}---\na\n", $format));
+            $this->assertSame("z\n", self::source("\u{FEFF}z\n", $format));
+        }
+    }
+
     public function testReadsMathAsMicromarkDoes(): void
     {
         $this->assertSame("\$`a b` and \$`c`\n", self::source("\$\$ a b \$\$ and \$c\$\n", 'markdown'));
