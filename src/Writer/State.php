@@ -25,6 +25,11 @@ final class State
     public ?string $lead = null;
 
     /**
+     * C2-B-003: the width of the pending lead in front of its innermost quote mark that the prefix lacks.
+     */
+    public int $leadSkip = 0;
+
+    /**
      * C2-W-044: the lead that ends in a bare-dot item marker, while nothing else follows it on the line.
      */
     public ?string $bareDotLead = null;
@@ -315,6 +320,7 @@ final class State
     {
         $head = $this->lead ?? $prefix;
         $this->lead = null;
+        $this->leadSkip = 0;
         $this->bareDotLead = null;
         $this->boxLead = null;
         $this->lines[] = $text === '' ? rtrim($head, " \t") : $head . $text;

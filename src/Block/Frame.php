@@ -161,6 +161,9 @@ final class Frame
 
     public int $indent = 0;
 
+    /**
+     * C2-B-003: the opener column, counted behind the innermost quote mark of its line.
+     */
     public int $openCol = 0;
 
     public ?Attrs $attrs = null;
