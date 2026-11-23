@@ -17,8 +17,8 @@ final class DjotHtml
 {
     public static function html(string $input, Sink $sink): string
     {
-        $converter = new DjotConverter(sections: false);
-        $renderer = $converter->getHtmlRenderer();
+        $renderer = (new DjotHtmlRenderer())->setSections(false);
+        $converter = new DjotConverter(renderer: $renderer);
         $converter->on('render.raw_inline', static function (RenderEvent $event): void {
             $node = $event->getNode();
             if ($node instanceof RawInline) {
