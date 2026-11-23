@@ -22,6 +22,18 @@ Carve::render($source, [
 `mode` defaults to `css`; `aria` writes a tablist with buttons and named panels. Both modes keep authored
 `role`, `aria-label` and `aria-labelledby` on the wrapper before generated defaults.
 
+On the command line, `--extensions` registers named standard extensions on `render`, `ast`, `lint` and `fmt`, and
+`render` gives each its standard renderer; `--extension-options` sets the renderer options (C2-T-010):
+
+```
+carve render --extensions '["carve.tabs"]' --extension-options '{"carve.tabs":{"mode":"aria"}}' doc.crv
+```
+
+The names are those of `data/extensions.json`: `carve.cite`, `carve.codeGroup`, `carve.details`,
+`carve.fencedRender.mermaid`, `carve.imgFence.image`, `carve.imgFence.img`, `carve.mathBlock`, `carve.spoiler`,
+`carve.spoilerBlock`, `carve.tab`, `carve.tabs` and `carve.wiki`. Any other name is a usage error, and so is an
+options entry for an extension that `--extensions` does not list. Host extensions stay library-only.
+
 ```php
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\Bundle;

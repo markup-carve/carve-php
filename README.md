@@ -118,6 +118,10 @@ vendor/bin/carve import --from gfm --directory SRC --output DST
 Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
 `--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br` and `--heading-shift N` (also with `--to markdown`); `render` and `import` take `--allow-loss CODE`
 (repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`.
+`render`, `ast`, `lint` and `fmt` take `--extensions=JSON`, a list of standard extension names from the
+[catalog](docs/extensions.md) (`render` uses their standard renderers), and `--extension-options=JSON`, their renderer
+options keyed by name: `carve render --extensions '["carve.tabs"]' --extension-options '{"carve.tabs":{"mode":"aria"}}'`.
+An unknown name, or options for an extension the list does not name, is a usage error.
 `-` reads standard input.
 
 Exit codes: `0` done; `1` a lint finding, a file that `fmt --check` would change, or a write loss; `2` a usage or

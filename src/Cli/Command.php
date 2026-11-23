@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Export\AnsiExporter;
 use MarkupCarve\Carve\Export\MarkdownExporter;
 use MarkupCarve\Carve\Export\PlainTextExporter;
+use MarkupCarve\Carve\Extension\Standard;
 use MarkupCarve\Carve\Include\FileResolver;
 use MarkupCarve\Carve\InputError as CoreInputError;
 use MarkupCarve\Carve\Json\TreeError;
@@ -17,6 +18,7 @@ use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Writer\CarveWriteError;
+use stdClass;
 
 /**
  * The `carve` command: `render` (the default), `ast`, `diagnostics`, `lint`, `fmt` and `import` (`ImportCommand`),
@@ -58,7 +60,16 @@ final class Command
         'symbols' => true,
         'report-losses' => true,
         'report-includes' => true,
+        'extensions' => true,
+        'extension-options' => true,
     ];
+
+    /**
+     * The commands that take `--extensions` and `--extension-options` (C2-T-010); `fix` is `lint --fix`.
+     *
+     * @var array<string>
+     */
+    private const EXTENSION_COMMANDS = ['render', 'ast', 'fmt', 'lint', 'fix'];
 
     /**
      * The output formats of `render --to`.
@@ -146,6 +157,8 @@ Render: --to html|markdown|plain|ansi, --heading-ids MODE, --heading-shift N,
   --social JSON, --soft-break newline|space|br, --source-lines,
   --symbols JSON, --url-policy JSON, --strict-losses,
   --allow-loss CODE, --max-render-losses N, --report-losses FILE
+Render, AST, lint and fmt: --extensions JSON (standard extension names),
+  --extension-options JSON (their renderer options by name)
 AST: --from-ast, --no-positions
 Lint and fix: --rules JSON, --platforms JSON, --ignore FILE-ID,
   --strict, --json, --fix, --write
@@ -293,6 +306,7 @@ HELP;
         if ($parsed['values']['tree'] ?? false) {
             $parsed['command'] = 'ast';
         }
+        self::extensionFlags($parsed);
 
         return $parsed;
     }
@@ -322,6 +336,9 @@ HELP;
                 'mode', 'labels', 'social', 'symbols', 'raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines', 'xhtml',
             ], true) && $parsed['command'] !== 'render'
         ) {
+            throw new OptionError('unknown option ' . $arg);
+        }
+        if (in_array($name, ['extensions', 'extension-options'], true) && !in_array($parsed['command'], self::EXTENSION_COMMANDS, true)) {
             throw new OptionError('unknown option ' . $arg);
         }
         if (isset(self::VALUED[$name]) || (isset(self::OPTION_FLAGS[$name]) && $parsed['command'] === 'render')) {
@@ -460,7 +477,7 @@ HELP;
 
             return;
         }
-        if (in_array($name, ['report-losses', 'report-includes'], true)) {
+        if (in_array($name, ['report-losses', 'report-includes', 'extensions', 'extension-options'], true)) {
             $parsed['values'][$name] = $value;
 
             return;
@@ -499,6 +516,98 @@ HELP;
         } else {
             $options[$option] = $value;
         }
+    }
+
+    /**
+     * C2-T-010: `--extensions` registers standard extensions by name, each with its standard renderer on `render`, and
+     * `--extension-options` gives those renderers their options. A name outside the catalog is a usage error, and so is
+     * an options entry for an extension the list does not register.
+     *
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @return void
+     */
+    private static function extensionFlags(array &$parsed): void
+    {
+        $list = $parsed['values']['extensions'] ?? null;
+        $settings = $parsed['values']['extension-options'] ?? null;
+        unset($parsed['values']['extensions'], $parsed['values']['extension-options']);
+        if (!is_string($list) && !is_string($settings)) {
+            return;
+        }
+        $names = self::extensionNames(is_string($list) ? $list : '[]');
+        $byName = is_string($settings) ? self::extensionSettings($settings, $names) : [];
+        $parsed['options']['extensions'] = $names;
+        if ($parsed['command'] !== 'render') {
+            return;
+        }
+        $renderers = [];
+        foreach ($names as $name) {
+            if (($byName[$name] ?? []) !== []) {
+                $renderers[$name] = ['standard' => $byName[$name]];
+            } elseif (Standard::renderer($name, 'interactive') !== null) {
+                $renderers[$name] = 'standard';
+            }
+        }
+        if ($renderers !== []) {
+            $parsed['options']['renderers'] = $renderers;
+        }
+    }
+
+    /**
+     * @param string $value
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return array<string>
+     */
+    private static function extensionNames(string $value): array
+    {
+        $names = self::json('extensions', $value);
+        if (!is_array($names) || !array_is_list($names)) {
+            throw new OptionError('--extensions takes a JSON list of standard extension names');
+        }
+        foreach ($names as $name) {
+            if (!is_string($name) || Standard::definitions($name) === null) {
+                $shown = json_encode($name, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+                throw new OptionError('--extensions: ' . $shown . ' is no standard extension');
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @param string $value
+     * @param array<string> $names The names `--extensions` lists.
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function extensionSettings(string $value, array $names): array
+    {
+        $decoded = json_decode($value);
+        if (!$decoded instanceof stdClass) {
+            throw new OptionError('--extension-options takes a JSON object keyed by extension name');
+        }
+        $byName = [];
+        foreach (get_object_vars($decoded) as $name => $settings) {
+            $name = (string)$name;
+            if (Standard::definitions($name) === null) {
+                throw new OptionError('--extension-options: ' . $name . ' is no standard extension');
+            }
+            if (!in_array($name, $names, true)) {
+                throw new OptionError('--extension-options: ' . $name . ' is not in --extensions');
+            }
+            if (!$settings instanceof stdClass) {
+                throw new OptionError('--extension-options: the options of ' . $name . ' are not an object');
+            }
+            $byName[$name] = get_object_vars($settings);
+        }
+
+        return $byName;
     }
 
     private static function json(string $name, string $value): mixed
@@ -613,7 +722,7 @@ HELP;
                 $input = ($parsed['values']['from-ast'] ?? false) ? self::decodedTree($source) : $source;
                 if ($to !== 'html') {
                     Options::from($options);
-                    $parseOptions = array_intersect_key($options, ['includes' => true]);
+                    $parseOptions = array_intersect_key($options, ['includes' => true, 'extensions' => true]);
                     $tree = is_string($input) ? Carve::parse($input, $parseOptions) : $input;
                     $exporter = match ($to) {
                         'markdown' => new MarkdownExporter(),
@@ -1044,6 +1153,9 @@ HELP;
         }
         if (isset($parsed['options']['headingIds'])) {
             $out['headingIds'] = $parsed['options']['headingIds'];
+        }
+        if (isset($parsed['options']['extensions'])) {
+            $out['extensions'] = $parsed['options']['extensions'];
         }
 
         return $out;
