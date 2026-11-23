@@ -891,7 +891,8 @@ final class Blocks
     private function textLeaf(array $node, string $path, string $prefix, string $mark, string $indent): ?string
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        if ($children === []) {
+        // C2-W-151: content of only spaces and tabs that end its line is dropped, which leaves the leaf empty.
+        if (self::onlyBlankText($children)) {
             $this->w->lose($path, Inline::str($node, 'type'), null);
 
             return null;
@@ -1961,6 +1962,22 @@ final class Blocks
             }
             $this->bareBreaks = false;
         });
+    }
+
+    /**
+     * @param array<mixed> $children
+     *
+     * @return bool
+     */
+    private static function onlyBlankText(array $children): bool
+    {
+        foreach ($children as $child) {
+            if (!self::blankText($child)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static function blankText(mixed $node): bool
