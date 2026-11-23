@@ -1664,7 +1664,8 @@ final class Text
         // C2-I-036: a valid attribute block glued to the end of a host attaches to it; behind another node, as a
         // non-breaking space, the read-back decides.
         if ($at > 0 && $flat[$at - 1] === "\0" && !isset(self::NO_HOSTS[$c->flatTypes[$at - 1] ?? ''])) {
-            if (AttributeParser::readRun($flat, $at, strlen($flat), new Attrs()) >= 0) {
+            $spelled = self::spelledFrom($c, $at);
+            if (AttributeParser::readRun($spelled, 0, strlen($spelled), new Attrs()) >= 0) {
                 return isset(self::HOSTS[$c->flatTypes[$at - 1] ?? '']) || self::undecided();
             }
         }
@@ -1687,6 +1688,21 @@ final class Text
         }
 
         return self::closerFollows($flat, $at + 1, $mark, $c);
+    }
+
+    /**
+     * The flattened leaf from `$at` to the end of its line, each atom as written (C2-I-005: an atom such as a smart
+     * quote or a code span stands in an attribute block as its spelling).
+     */
+    private static function spelledFrom(Context $c, int $at): string
+    {
+        $flat = (string)$c->flat;
+        $out = '';
+        for ($n = strlen($flat); $at < $n && $flat[$at] !== "\n"; $at++) {
+            $out .= $flat[$at] === "\0" ? $c->flatAtoms[$at] ?? self::nodeOnLine($at, $c) ?? "\0" : $flat[$at];
+        }
+
+        return $out;
     }
 
     /**
@@ -1898,6 +1914,14 @@ final class Text
     }
 
     /**
+     * Whether a `}` stands in the spelling of the node at `$node` or in the leaf behind it on its line.
+     */
+    private static function closeAtOrBehind(string $flat, int $node, int $end, Context $c): bool
+    {
+        return str_contains(substr($flat, $node + 1, $end - $node - 1), '}') || str_contains(self::nodeOnLine($node, $c) ?? '}', '}');
+    }
+
+    /**
      * C2-I-035: a valid attribute block is one atom, so one that reads on into the spelling of a later node takes that
      * node in as text. Atoms are read with their spelling; at any other node the first character of its spelling is
      * probed, where a closing brace can still follow: `{key=` before a span takes it, `{k` before a link cannot.
@@ -1933,7 +1957,7 @@ final class Text
         if ($node === false || $valid) {
             return $valid;
         }
-        if (!($c->flatBraces[$node] ?? true) && !str_contains(substr($flat, $node + 1, $end - $node - 1), '}')) {
+        if (!($c->flatBraces[$node] ?? true) && !self::closeAtOrBehind($flat, $node, $end, $c)) {
             return false;
         }
         $first = $c->flatFirst[$node] ?? -1;

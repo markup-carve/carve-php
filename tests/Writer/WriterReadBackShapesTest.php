@@ -58,6 +58,11 @@ final class WriterReadBackShapesTest extends TestCase
             'brace before a dash in a delete' => ['{-{--}-}', '{-{--}-}'],
             'brace before a dash and a hyphen' => ['{-{--}--}', '{-{--}--}'],
             'attribute blocks in a strong' => ['\- ]```{#i}*x{k="`"}=}*{k="`"}', '\- ]```{#i}*x{k="`"}=}*{k=`}'],
+            // #5769: an attribute-shaped text behind a host, with atoms in the block.
+            'block text behind a strong with a backtick' => ['*b*\{k="`"}\`', '*b*\{k="`"}\`'],
+            'block text behind a strong into a code span' => ['*b*\{k="`"}x`', '*b*\{k="`"}x`'],
+            'block text behind a link into a code span' => ['[a](u)\{k="`"}`', '[a](u)\{k="`"}`'],
+            'block text into a code span' => ['$m$\{k="`"}` z', '$m$\{k="`"}` z'],
             // #5765: a line the bare parse opens behind an escaped opener line.
             'list item behind a heading line' => ["\\# a\n- c", "\\# a\n\\- c"],
             'list item behind a row line' => ["\\| a |\n- c", "\\| a |\n\\- c"],
