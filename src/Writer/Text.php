@@ -288,6 +288,10 @@ final class Text
 
             return $c->neighborTick ? [] : null;
         }
+        $c->neighborTick ??= self::hasNeighborTick($c);
+        if ($c->neighborTick) {
+            return null;
+        }
         $later = [];
         $escaped = [];
         for ($r = count($runs) - 1; $r >= 0; $r--) {
