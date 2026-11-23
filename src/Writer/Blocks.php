@@ -110,6 +110,9 @@ final class Blocks
     public function blocks(array $nodes, string $path, string $prefix, bool $tight = false): void
     {
         $this->blockDepth++;
+        if ($path === '/children') {
+            $this->planIndents($nodes, $path);
+        }
         try {
             $this->siblings($nodes, $path, $prefix, $tight ? self::TIGHT_ITEM : self::BLOCKS);
         } finally {
@@ -132,9 +135,6 @@ final class Blocks
         $list = null;
         $count = count($nodes);
         $followingAt = 0;
-        if ($path === '/children') {
-            $this->planIndents($nodes, $path);
-        }
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -232,29 +232,7 @@ final class Blocks
             if (!is_array($node) || !is_array($next) || !self::indentedAbove($node, $next, $path . '/' . ($at + 1))) {
                 continue;
             }
-            $marks = [];
-            $current = $at;
-            while (true) {
-                $aboveAt = self::aboveAt($nodes, $current);
-                $above = $aboveAt === null ? null : $nodes[$aboveAt];
-                if (!is_array($above) || !$this->isOpenContainer($above)) {
-                    $marks[$current] = false;
-
-                    break;
-                }
-                if ($this->ownAttributes($nodes[$current], $path . '/' . $current) !== '') {
-                    $marks[$current] = true;
-
-                    break;
-                }
-                if (!in_array($above['type'] ?? '', ['list', 'definition_list'], true)) {
-                    $marks = [];
-
-                    break;
-                }
-                $marks[$current] = false;
-                $current = $aboveAt;
-            }
+            $marks = $this->indentChain($nodes, $at, $path);
             if ($marks === []) {
                 continue;
             }
@@ -262,6 +240,39 @@ final class Blocks
                 $this->indentPlan[$path . '/' . $index] = $outdented;
             }
             $this->spelledLeads[$path . '/' . ($at + 1)] = true;
+        }
+    }
+
+    /**
+     * C2-W-155: walks upward from the list or description list at `at` and returns the blocks to write one space in,
+     * true where the attribute line stays at column 0, or none where no spelling keeps the tree. The order of the
+     * repairs lives here (carve#6418).
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     * @param string $path
+     *
+     * @return array<int, bool>
+     */
+    private function indentChain(array $nodes, int $at, string $path): array
+    {
+        $marks = [];
+        $current = $at;
+        while (true) {
+            $aboveAt = self::aboveAt($nodes, $current);
+            $above = $aboveAt === null ? null : $nodes[$aboveAt];
+            $node = $nodes[$current];
+            if (!is_array($above) || !$this->isOpenContainer($above)) {
+                return $marks + [$current => false];
+            }
+            if (is_array($node) && $this->ownAttributes($node, $path . '/' . $current) !== '') {
+                return $marks + [$current => true];
+            }
+            if (!in_array($above['type'] ?? '', ['list', 'definition_list'], true)) {
+                return [];
+            }
+            $marks[$current] = false;
+            $current = $aboveAt;
         }
     }
 
