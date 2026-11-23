@@ -1372,11 +1372,19 @@ final class Inline
         }
     }
 
-    private function reportLeadingValueLoss(string $value, Context $c): void
+    /**
+     * C2-I-002: a reader drops the spaces and tabs that start a line. Text of only them is dropped without a report
+     * where it also ends the line (C2-W-151), not where more of the line follows it.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     */
+    private function reportLeadingValueLoss(string $value, Context $c, int $next): void
     {
         if (
-            $c->lineStart && $c->last === -1 && !$c->inLineBlock && !$c->inCell
-            && strspn($value, " \t") > 0 && trim($value, " \t") !== ''
+            $c->lineStart && ($c->last === -1 || $c->last === 10) && !$c->inLineBlock && !$c->inCell
+            && strspn($value, " \t") > 0 && (trim($value, " \t") !== '' || ($next !== 10 && $next !== -1))
         ) {
             $this->w->lose($c->textPath, 'text', 'value');
         }
@@ -1393,7 +1401,7 @@ final class Inline
     private function text(array $node, Context $c, int $next, mixed $before): string
     {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-        $this->reportLeadingValueLoss($value, $c);
+        $this->reportLeadingValueLoss($value, $c, $next);
         $this->loseLineFeed($value, $c);
         // C2-W-022: no space or tab of text stands at the end of a line.
         if ($next === 10 && !$c->bareBreaks) {
