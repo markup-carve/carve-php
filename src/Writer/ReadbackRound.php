@@ -33,9 +33,64 @@ final class ReadbackRound
      */
     public static function inspect(array $candidate, array $expected, array $options = [], ?string $expectedPrint = null): array
     {
-        $source = $candidate['source'];
+        return self::compare($candidate, self::read($candidate['source'], $options), $expected, $expectedPrint);
+    }
+
+    /**
+     * The read-back of a source, in the form `compare()` takes.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    public static function read(string $source, array $options = []): array
+    {
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
-        $read = TreeEncoder::decodedWithOffsets(Carve::parse($source, $parseOptions), $source);
+
+        return TreeEncoder::decodedWithOffsets(Carve::parse($source, $parseOptions), $source);
+    }
+
+    /**
+     * @param array<string, mixed> $read
+     * @param array<string, mixed> $expected
+     * @param string|null $expectedPrint
+     */
+    public static function equal(array $read, array $expected, ?string $expectedPrint = null): bool
+    {
+        return $expectedPrint === null
+            ? TreeEquality::equal($expected, $read)
+            : TreeEquality::fingerprint($read) === $expectedPrint;
+    }
+
+    /**
+     * `inspect()` of a candidate whose source was read already.
+     *
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
+     * @param array<string, mixed> $read `read()` of the candidate's source.
+     * @param array<string, mixed> $expected
+     * @param string|null $expectedPrint
+     * @param bool|null $equal `equal()` of the read, when the caller has it.
+     *
+     * @return array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>,
+     *     read: array<string, mixed>
+     * }
+     */
+    public static function compare(
+        array $candidate,
+        array $read,
+        array $expected,
+        ?string $expectedPrint = null,
+        ?bool $equal = null,
+    ): array {
         $actual = [];
         $openers = [];
         self::readNodes($read, $candidate, $actual, $openers);
@@ -48,9 +103,7 @@ final class ReadbackRound
         }
 
         return [
-            'equal' => $expectedPrint === null
-                ? TreeEquality::equal($expected, $read)
-                : TreeEquality::fingerprint($read) === $expectedPrint,
+            'equal' => $equal ?? self::equal($read, $expected, $expectedPrint),
             'openers' => $openers,
             'moved' => $moved,
             'read' => $read,
@@ -94,13 +147,13 @@ final class ReadbackRound
      */
     private static function noteNode(array $node, array $text, array &$actual, array &$openers): bool
     {
-        $pos = $node['pos'] ?? null;
-        if (!is_array($pos) || !isset($pos[0], $pos[1])) {
+        $pos = TreeEncoder::offsets($node['pos'] ?? null);
+        if ($pos === null) {
             return false;
         }
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        $start = (int)$pos[0];
-        $actual[$type . "\0" . $start] = (int)$pos[1];
+        [$start, $end] = $pos;
+        $actual[$type . "\0" . $start] = $end;
         if (in_array($type, ['text', 'paragraph', 'cell_paragraph'], true)) {
             return false;
         }

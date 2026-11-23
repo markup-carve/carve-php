@@ -198,13 +198,12 @@ final class Writer
                 return $result;
             }
         }
-        $bare = self::bareCandidate($tree, $layout, $options);
-        $comparison = ReadbackRound::inspect($bare, $tree, $options, $treePrint);
+        $bareSource = self::bareSource($tree, $layout, $options, []);
+        $read = ReadbackRound::read($bareSource, $options);
         $seed = [];
         $planner = null;
-        if ($comparison['equal']) {
-            $bareSource = $bare['source'];
-            unset($bare, $comparison);
+        if (ReadbackRound::equal($read, $tree, $treePrint)) {
+            unset($read);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
                 return $result;
             }
@@ -213,9 +212,10 @@ final class Writer
             $seed = $removed === [] ? ($localEscapes ?? self::localWrite($original, $originalLayout, $options, false)[1]) : [];
         } else {
             // The first round would write and read this same candidate again.
+            $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
             $planner = new RepairPlanner($tree, $layout, $options, [], $treePrint);
-            $planner->startFrom($bare, $comparison);
-            unset($bare, $comparison);
+            $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false));
+            unset($bare, $read);
         }
         $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
         $repaired = $planner->repair();
@@ -716,8 +716,42 @@ final class Writer
 
             return $trace->decode($result->source);
         }
-        $plain = new RepairTrace($escapes, false);
-        $bare = self::writeInternal($tree, $layout, $options, $plain)->source;
+
+        return self::markedCandidate($tree, $layout, $options, $escapes, self::bareSource($tree, $layout, $options, $escapes));
+    }
+
+    /**
+     * The source of `bareCandidate()`, without the marked write that maps its positions.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $escapes
+     */
+    public static function bareSource(array $tree, ?array $layout, array $options, array $escapes): string
+    {
+        return self::writeInternal($tree, $layout, $options, new RepairTrace($escapes, false))->source;
+    }
+
+    /**
+     * `bareCandidate()` of a bare source already written with these escapes.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $escapes
+     * @param string $bare
+     *
+     * @return array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>,
+     *     ranges: array<string, array{int, int}>
+     * }
+     */
+    public static function markedCandidate(array $tree, ?array $layout, array $options, array $escapes, string $bare): array
+    {
         do {
             $marker = "\x01" . bin2hex(random_bytes(16)) . "\x03";
         } while (str_contains($bare, $marker));

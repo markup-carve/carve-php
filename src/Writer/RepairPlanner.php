@@ -133,6 +133,32 @@ final class RepairPlanner
     private ?array $first = null;
 
     /**
+     * The escapes of this round's candidate and its source, while the round is applied.
+     *
+     * @var array{array<string, array<int, true>>, string}|null
+     */
+    private ?array $roundSource = null;
+
+    /**
+     * `roundSource` and the round's read-back, while the trials of the round are read.
+     *
+     * @var array{array<string, array<int, true>>, string, array<string, mixed>}|null
+     */
+    private ?array $roundRead = null;
+
+    /**
+     * A source a trial read and its read-back, which the next round takes when it writes the same source.
+     *
+     * @var array{string, array<string, mixed>}|null
+     */
+    private ?array $nextRead = null;
+
+    /**
+     * Whether the last read-back of `compared()` is one paragraph, which a content probe's first round needs.
+     */
+    private bool $singleParagraph = false;
+
+    /**
      * The candidate of the starting escapes and its `ReadbackRound::inspect()`, when the caller already has them.
      *
      * @param array{
@@ -161,14 +187,10 @@ final class RepairPlanner
     {
         $seen = [];
         for ($round = 0; $round < 8192; $round++) {
-            if ($this->first !== null) {
-                [$candidate, $comparison] = $this->first;
-                $this->first = null;
-            } else {
-                $candidate = Writer::bareCandidate($this->tree, $this->layout, $this->options, $this->escapes);
-                $comparison = null;
-            }
-            $source = $candidate['source'];
+            $escapes = $this->escapes;
+            $first = $this->first;
+            $this->first = null;
+            $source = $first === null ? Writer::bareSource($this->tree, $this->layout, $this->options, $escapes) : $first[0]['source'];
             if (!$this->charge($source)) {
                 return null;
             }
@@ -177,11 +199,14 @@ final class RepairPlanner
                 return null;
             }
             $seen[$key] = true;
-            $comparison ??= ReadbackRound::inspect($candidate, $this->tree, $this->options, $this->treePrint);
-            if ($comparison['equal']) {
+            $compared = $first ?? $this->compared($source, $escapes, $this->layout);
+            unset($first);
+            if ($compared === null || $compared[1]['equal']) {
                 return $source;
             }
-            if (!$this->applyRound($candidate, $comparison)) {
+            [$candidate, $comparison] = $compared;
+            unset($compared);
+            if (!$this->appliedRound($escapes, $candidate, $comparison)) {
                 return null;
             }
             // The next round's write and parse do not need this round's candidate and read-back.
@@ -189,6 +214,93 @@ final class RepairPlanner
         }
 
         return null;
+    }
+
+    /**
+     * The candidate of a bare source and its comparison, or null where the source reads back as the tree: only a round
+     * that goes on needs the positions of the marked write.
+     *
+     * @param string $source
+     * @param array<string, array<int, true>> $escapes The escapes the source was written with.
+     * @param array<mixed>|null $layout
+     *
+     * @return array{
+     *     array{
+     *         source: string,
+     *         text: array<int, int>,
+     *         paths: array<int, string>,
+     *         nodes: array<int, array{string, string, int, int}>,
+     *         ranges: array<string, array{int, int}>
+     *     },
+     *     array{
+     *         equal: bool,
+     *         openers: array<string, array<int, true>>,
+     *         moved: array<int, array{string, string, int, int, int}>,
+     *         read: array<string, mixed>
+     *     }
+     * }|null
+     */
+    private function compared(string $source, array $escapes, ?array $layout): ?array
+    {
+        $read = $this->readOf($source);
+        $blocks = is_array($read['children'] ?? null) ? $read['children'] : [];
+        $this->singleParagraph = count($blocks) === 1 && is_array($blocks[0]) && ($blocks[0]['type'] ?? '') === 'paragraph';
+        if (ReadbackRound::equal($read, $this->tree, $this->treePrint)) {
+            return null;
+        }
+        $candidate = Writer::markedCandidate($this->tree, $layout, $this->options, $escapes, $source);
+
+        return [$candidate, ReadbackRound::compare($candidate, $read, $this->tree, $this->treePrint, false)];
+    }
+
+    /**
+     * The read-back of a source: the one a trial of the last round read, where it wrote this same source.
+     *
+     * @return array<string, mixed>
+     */
+    private function readOf(string $source): array
+    {
+        $next = $this->nextRead;
+        $this->nextRead = null;
+        if ($next !== null && $next[0] === $source) {
+            return $next[1];
+        }
+        unset($next);
+
+        return ReadbackRound::read($source, $this->options);
+    }
+
+    /**
+     * `applyRound()` with the round's read-back at hand for its trials.
+     *
+     * @param-out array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>
+     * } $comparison
+     *
+     * @param array<string, array<int, true>> $escapes The escapes the candidate was written with.
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
+     * @param array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>,
+     *     read: array<string, mixed>
+     * } $comparison
+     */
+    private function appliedRound(array $escapes, array $candidate, array &$comparison): bool
+    {
+        $this->roundSource = [$escapes, $candidate['source']];
+        try {
+            return $this->applyRound($candidate, $comparison);
+        } finally {
+            $this->roundSource = null;
+        }
     }
 
     /**
@@ -228,9 +340,13 @@ final class RepairPlanner
         if ($comparison['openers'] === [] && $missing === [] && $asked === []) {
             self::textDifferences($this->tree, $comparison['read'], '', $differences);
         }
-        // The trial below parses the whole document again; the read-back is not needed past this point.
+        // The trials below read the whole document again; only a trial read of the round's own source keeps the
+        // read-back.
+        $this->roundRead = $this->roundSource === null ? null : [...$this->roundSource, $comparison['read']];
         unset($comparison['read']);
-        foreach ($this->keptTrials($trials) as $trial) {
+        $kept = $this->keptTrials($trials);
+        $this->roundRead = null;
+        foreach ($kept as $trial) {
             foreach ($trial as [$path, $offset]) {
                 $this->addEscape($path, $offset);
                 $this->trialEscapes[$path][$offset] = true;
@@ -588,6 +704,8 @@ final class RepairPlanner
     {
         $small = array_filter($trials, static fn (array $trial): bool => count($trial) <= 4);
         if (count($small) < 2) {
+            $this->roundRead = null;
+
             return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
         }
         $first = [];
@@ -609,23 +727,47 @@ final class RepairPlanner
                 $with[$path][$offset] = true;
             }
         }
-        $without = $this->readTree($left);
-        $read = $without === null ? null : $this->readTree($with);
-        if ($without === null || $read === null || count(self::childrenOf($without)) !== count(self::childrenOf($read))) {
+        if ($this->roundRead !== null && $this->roundRead[0] !== $left) {
+            $this->roundRead = null;
+        }
+        [$count, $prints] = $this->leafPrints($left, $small);
+        $read = $count < 0 ? null : $this->readTree($with, true);
+        if ($read === null || $count !== count(self::childrenOf($read))) {
             return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
         }
         $kept = [];
         foreach ($trials as $k => $trial) {
             $leaf = $this->leafOf($trial[0][0]);
-            if (
-                !isset($small[$k])
-                || TreeEquality::fingerprint(self::nodeAt($without, $leaf)) !== TreeEquality::fingerprint(self::nodeAt($read, $leaf))
-            ) {
+            if (!isset($small[$k]) || $prints[$leaf] !== TreeEquality::fingerprint(self::nodeAt($read, $leaf))) {
                 $kept[] = $trial;
             }
         }
 
         return $kept;
+    }
+
+    /**
+     * The block count of the source these escapes write and the fingerprint of each trial's leaf in it; -1 past the
+     * budget. Only the fingerprints are kept, so the read is not held beside the next one.
+     *
+     * @param array<string, array<int, true>> $escapes
+     * @param array<array<array{string, int}>> $trials
+     *
+     * @return array{int, array<string, string>}
+     */
+    private function leafPrints(array $escapes, array $trials): array
+    {
+        $read = $this->readTree($escapes);
+        if ($read === null) {
+            return [-1, []];
+        }
+        $prints = [];
+        foreach ($trials as $trial) {
+            $leaf = $this->leafOf($trial[0][0]);
+            $prints[$leaf] = TreeEquality::fingerprint(self::nodeAt($read, $leaf));
+        }
+
+        return [count(self::childrenOf($read)), $prints];
     }
 
     /**
@@ -649,17 +791,29 @@ final class RepairPlanner
      * The tree the source written with these escapes reads back as, or null past the budget.
      *
      * @param array<string, array<int, true>> $escapes
+     * @param bool $keep Keep the read for the next round, which takes it where it writes the same source.
      *
      * @return array<mixed>|null
      */
-    private function readTree(array $escapes): ?array
+    private function readTree(array $escapes, bool $keep = false): ?array
     {
-        $source = Writer::bareCandidate($this->tree, $this->layout, $this->options, $escapes, false)['source'];
+        // The source of the round's own escapes is the round's candidate, read already; it is charged all the same.
+        if ($this->roundRead !== null && $this->roundRead[0] === $escapes) {
+            [, $source, $read] = $this->roundRead;
+            $this->roundRead = null;
+
+            return $this->charge($source) ? $read : null;
+        }
+        $source = Writer::bareSource($this->tree, $this->layout, $this->options, $escapes);
         if (!$this->charge($source)) {
             return null;
         }
+        $read = ReadbackRound::read($source, $this->options);
+        if ($keep) {
+            $this->nextRead = [$source, $read];
+        }
 
-        return TreeEncoder::decodedForWriter(Carve::parse($source, $this->parseOptions()));
+        return $read;
     }
 
     /**
@@ -741,11 +895,11 @@ final class RepairPlanner
      */
     private static function actualSpans(array $node, ?array $parent, array &$starts): void
     {
-        $pos = is_array($node['pos'] ?? null) ? $node['pos'] : null;
+        $pos = TreeEncoder::offsets($node['pos'] ?? null);
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        if ($pos !== null && isset($pos[0], $pos[1])) {
-            $start = (int)$pos[0];
-            $starts[$type . ':' . $start] = [(int)$pos[1], $parent];
+        if ($pos !== null) {
+            $start = $pos[0];
+            $starts[$type . ':' . $start] = [$pos[1], $parent];
             $parent = [$type, $start];
         }
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
@@ -889,16 +1043,21 @@ final class RepairPlanner
     private function probeRounds(): bool
     {
         for ($round = 0; $round < self::MAX_PROBE_ROUNDS; $round++) {
-            $candidate = Writer::bareCandidate($this->tree, null, $this->options, $this->escapes);
-            if (!$this->charge($candidate['source'])) {
+            $escapes = $this->escapes;
+            $source = Writer::bareSource($this->tree, null, $this->options, $escapes);
+            if (!$this->charge($source)) {
                 return true;
             }
-            $comparison = ReadbackRound::inspect($candidate, $this->tree, $this->options, $this->treePrint);
-            $blocks = is_array($comparison['read']['children'] ?? null) ? $comparison['read']['children'] : [];
-            if ($round === 0 && (count($blocks) !== 1 || !is_array($blocks[0]) || ($blocks[0]['type'] ?? '') !== 'paragraph')) {
+            $compared = $this->compared($source, $escapes, null);
+            if ($round === 0 && !$this->singleParagraph) {
                 return false;
             }
-            if ($comparison['equal'] || !$this->applyRound($candidate, $comparison)) {
+            if ($compared === null) {
+                return true;
+            }
+            [$candidate, $comparison] = $compared;
+            unset($compared);
+            if (!$this->appliedRound($escapes, $candidate, $comparison)) {
                 return true;
             }
         }
@@ -1343,12 +1502,11 @@ final class RepairPlanner
      */
     private function probeOpener(array $candidate, array $item, string $path, int $end, int $first, string $closer): ?array
     {
-        $pos = is_array($item['pos'] ?? null) ? $item['pos'] : [];
-        $startOffset = $pos[0] ?? null;
-        $endOffset = $pos[1] ?? null;
-        if (!is_int($startOffset) || !is_int($endOffset)) {
+        $pos = TreeEncoder::offsets($item['pos'] ?? null);
+        if ($pos === null) {
             return null;
         }
+        [$startOffset, $endOffset] = $pos;
         $start = $startOffset + $first - 2;
         $finish = $endOffset + $first - 2;
         $owned = RepairTrace::owner($candidate, $start);
