@@ -213,12 +213,7 @@ final class BlockParser
         $this->i = $ls;
         $this->col = 0;
         $this->base = 0;
-        if (
-            $this->leaf !== null && $this->leaf->kind === Frame::COMMENT_BLOCK
-            && $this->bareCommentCloser($ls, $le, $this->leaf->level)
-        ) {
-            $this->closeOpaque($this->leaf, $le);
-
+        if ($this->commentCloserLine($ls, $le)) {
             return;
         }
         $top = count($this->stack) - 1;
@@ -305,6 +300,31 @@ final class BlockParser
         $this->closeLeaf();
         $this->openLine($owner, $j, $c);
         $this->blank = 0;
+    }
+
+    /**
+     * C2-B-109, C2-B-137: a bare `%` run closes an open comment block, also one in a line block, before ownership is
+     * tested, and closes no container.
+     */
+    private function commentCloserLine(int $ls, int $le): bool
+    {
+        $leaf = $this->leaf;
+        if ($leaf !== null && $leaf->kind === Frame::COMMENT_BLOCK && $this->bareCommentCloser($ls, $le, $leaf->level)) {
+            $this->closeOpaque($leaf, $le);
+
+            return true;
+        }
+        $comment = $leaf !== null && $leaf->kind === Frame::LINE_BLOCK ? $leaf->lineComment : null;
+        if ($leaf === null || $comment === null || !$this->bareCommentCloser($ls, $le, $comment->level)) {
+            return false;
+        }
+        $comment->end = $le;
+        $comment->closed = true;
+        $leaf->hiddenComments[] = $comment;
+        $leaf->lineComment = null;
+        $leaf->end = $le;
+
+        return true;
     }
 
     private function bareCommentCloser(int $ls, int $le, int $level): bool
