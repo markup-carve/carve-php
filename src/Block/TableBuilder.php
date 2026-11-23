@@ -633,9 +633,9 @@ final class TableBuilder
      */
     private static function columns(int $width, ?Attrs $attrs): array
     {
-        $aligns = $attrs?->get('aligns');
-        $valigns = $attrs?->get('valigns');
-        $widths = $attrs?->get('widths');
+        $aligns = $attrs?->exact('aligns');
+        $valigns = $attrs?->exact('valigns');
+        $widths = $attrs?->exact('widths');
         $alignList = self::validList($aligns, false) ? explode(',', (string)$aligns) : [];
         $valignList = self::validValigns($valigns) ? explode(',', (string)$valigns) : [];
         $widthList = self::validList($widths, true) ? explode(',', (string)$widths) : [];
@@ -715,22 +715,22 @@ final class TableBuilder
     private static function consumeKeys(Attrs $attrs, bool $delimited, ?array $plan): void
     {
         foreach (['aligns', 'widths'] as $key) {
-            if (self::validList($attrs->get($key), $key === 'widths')) {
-                $attrs->remove($key);
+            if (self::validList($attrs->exact($key), $key === 'widths')) {
+                $attrs->removeExact($key);
             }
         }
-        if (self::validValigns($attrs->get('valigns'))) {
-            $attrs->remove('valigns');
+        if (self::validValigns($attrs->exact('valigns'))) {
+            $attrs->removeExact('valigns');
         }
         if (self::count($attrs, 'footer-rows') !== null) {
-            $attrs->remove('footer-rows');
+            $attrs->removeExact('footer-rows');
         }
         if ($delimited && self::count($attrs, 'header-rows') !== null) {
-            $attrs->remove('header-rows');
+            $attrs->removeExact('header-rows');
         }
         if ($plan !== null) {
             foreach (['body-rows', 'body-header-rows', 'body-header-cols'] as $key) {
-                $attrs->remove($key);
+                $attrs->removeExact($key);
             }
         }
     }
@@ -745,7 +745,7 @@ final class TableBuilder
      */
     public static function count(?Attrs $attrs, string $key): ?int
     {
-        $v = $attrs?->get($key);
+        $v = $attrs?->exact($key);
         if ($v === null) {
             return null;
         }
@@ -761,13 +761,13 @@ final class TableBuilder
      */
     private static function bodyPlan(?Attrs $attrs, int $available): ?array
     {
-        $value = $attrs?->get('body-rows');
+        $value = $attrs?->exact('body-rows');
         if ($value === null) {
             return null;
         }
         $rows = self::bodyEntries($value, false);
-        $headersValue = $attrs->get('body-header-rows');
-        $columnsValue = $attrs->get('body-header-cols');
+        $headersValue = $attrs->exact('body-header-rows');
+        $columnsValue = $attrs->exact('body-header-cols');
         $headers = $headersValue === null ? array_fill(0, count($rows ?? []), 0) : self::bodyEntries($headersValue, false);
         $columns = $columnsValue === null ? array_fill(0, count($rows ?? []), null) : self::bodyEntries($columnsValue, true);
         if (
@@ -1039,7 +1039,7 @@ final class TableBuilder
             $group->end = -1;
         }
         if ($attrs !== null) {
-            $attrs->remove('table');
+            $attrs->removeExact('table');
             self::consumeKeys($attrs, true, $plan);
             $attrs->applyTo($table);
         }

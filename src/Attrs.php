@@ -105,6 +105,43 @@ final class Attrs
     }
 
     /**
+     * A key a construct consumes, matched in the letter case written (C2-B-227, carve-php#5788).
+     *
+     * @param string $key
+     *
+     * @return string|null
+     */
+    public function exact(string $key): ?string
+    {
+        foreach ($this->pairs as [$k, $v]) {
+            if ($k === $key) {
+                return $v;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Removes a key matched in the letter case written.
+     *
+     * @param string $key
+     *
+     * @return void
+     */
+    public function removeExact(string $key): void
+    {
+        foreach ($this->pairs as $i => [$k]) {
+            if ($k === $key) {
+                unset($this->pairs[$i]);
+                $this->pairs = array_values($this->pairs);
+
+                return;
+            }
+        }
+    }
+
+    /**
      * @param string $key
      *
      * @return void

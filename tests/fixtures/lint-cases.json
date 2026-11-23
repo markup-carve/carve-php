@@ -704,7 +704,7 @@
      "consumed-key-near-miss",
      "/children/0",
      8,
-     14,
+     22,
      "\"tabel\" is not a consumed key here; did you mean {table}?"
     ]
    ]

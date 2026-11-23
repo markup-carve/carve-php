@@ -67,6 +67,11 @@ final class DataRules
     private static ?array $rulesCache = null;
 
     /**
+     * @var list<Rule>|null The rules over attribute records (C2-W-148).
+     */
+    private static ?array $attributeRulesCache = null;
+
+    /**
      * @var array{node: array<string, true>, item: array<string, true>}|null
      */
     private static ?array $nodeFields = null;
@@ -170,7 +175,7 @@ final class DataRules
 
     public static function enabled(): bool
     {
-        return getenv('CARVE_LINT_RULES') === 'data' && (self::data()['rules'] ?? []) !== [];
+        return (self::data()['rules'] ?? []) !== [];
     }
 
     /**
@@ -180,7 +185,7 @@ final class DataRules
     {
         if (self::$ids === null) {
             self::$ids = [];
-            foreach (self::rules() as $rule) {
+            foreach ([...self::rules(), ...self::attributeRules()] as $rule) {
                 self::$ids[$rule['id']] = true;
             }
         }
@@ -232,6 +237,70 @@ final class DataRules
         }
 
         return self::$rulesCache = $rules;
+    }
+
+    /**
+     * @return list<Rule>
+     */
+    private static function attributeRules(): array
+    {
+        if (self::$attributeRulesCache !== null) {
+            return self::$attributeRulesCache;
+        }
+        $rules = [];
+        foreach (self::rawRules() as $rule) {
+            if (is_array($rule) && is_string($rule['id'] ?? null) && ($rule['over'] ?? null) === 'attribute') {
+                $rule['verbatim'] = [];
+                $rule['types'] = is_array($rule['types'] ?? null) ? $rule['types'] : null;
+                $rule['when'] = $rule['when'] ?? null;
+                $rule['pre'] = [];
+                $rule['early'] = [];
+                $rule['key'] = 'attribute ' . $rule['id'];
+                $rules[] = $rule;
+            }
+        }
+
+        return self::$attributeRulesCache = $rules;
+    }
+
+    /**
+     * Whether a rule over attribute records is active, so the walk keeps the nodes that carry attributes.
+     */
+    public static function attributesActive(Context $context): bool
+    {
+        foreach (self::attributeRules() as $rule) {
+            if ($context->activeRule($rule['id'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * C2-W-148: the attribute rules over each attribute record whose owner has a type they name.
+     */
+    public static function runAttributes(Context $context): void
+    {
+        if ($context->attributed === [] || !str_contains($context->source, '{')) {
+            return;
+        }
+        $rules = [];
+        foreach (self::attributeRules() as $rule) {
+            if ($context->activeRule($rule['id'])) {
+                $rules[] = $rule;
+            }
+        }
+        $self = self::$interpreter ??= new self($context);
+        $self->context = $context;
+        foreach (DataAttributes::records($context) as $record) {
+            foreach ($rules as $rule) {
+                if ($rule['types'] === null || in_array($record->owner->type, $rule['types'], true)) {
+                    $self->apply($rule, $record);
+                }
+            }
+        }
+        unset($self->context);
     }
 
     /**

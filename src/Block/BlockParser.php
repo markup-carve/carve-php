@@ -1451,7 +1451,7 @@ final class BlockParser
         $f->label = $info->label;
         $this->openerFinding($f, $info);
         $this->take($f);
-        if ($f->attrs !== null && ($syntax === 'csv' || $syntax === 'tsv') && $f->attrs->get('table') !== null) {
+        if ($f->attrs !== null && ($syntax === 'csv' || $syntax === 'tsv') && $f->attrs->exact('table') !== null) {
             $f->delimited = $syntax === 'csv' ? ',' : "\t";
         }
         $this->startLeaf($f);
