@@ -1160,6 +1160,9 @@ final class Carve
      */
     private static function readTree(Node|array $tree, array $options): Node
     {
+        if ($tree instanceof Node && self::sourceOf($tree) === null) {
+            return TreeReader::readNode($tree, $options);
+        }
         $json = $tree instanceof Node ? TreeEncoder::json($tree, self::sourceOf($tree))
             : json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 
