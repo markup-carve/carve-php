@@ -140,6 +140,20 @@ final class AltSource
     }
 
     /**
+     * Whether `![$candidate][]` reads as one image with the key `$key` and the alt `$alt`.
+     *
+     * @param string $candidate
+     * @param string $key
+     * @param string $alt
+     *
+     * @return bool
+     */
+    public static function readsAsCollapsed(string $candidate, string $key, string $alt): bool
+    {
+        return self::readsAs('[' . $candidate . '][]', $key, 'collapsed', $alt);
+    }
+
+    /**
      * @param string $source
      * @param string $alt
      *

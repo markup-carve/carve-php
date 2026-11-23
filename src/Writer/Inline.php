@@ -118,6 +118,16 @@ final class Inline
     private int $leafDepth = 0;
 
     /**
+     * The depth of inline footnotes around the node being written: no footnote forms inside one.
+     */
+    private int $noteDepth = 0;
+
+    /**
+     * Whether the span being written follows a bare `!`, behind which its bracket reads as span text (C2-W-125).
+     */
+    private bool $spanAfterBang = false;
+
+    /**
      * C2-W-088: the characters of the leaf's text that the last write left bare.
      *
      * @var array<string, true>
@@ -513,6 +523,7 @@ final class Inline
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
+                $this->spanAfterBang = $type === 'span' && $this->followsBareBang($node, $out);
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
             $parts[0][] = strlen($out);
@@ -2077,13 +2088,62 @@ final class Inline
     private function bracketed(string $open, array $node, string $path, Context $c): string
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        $inner = $this->inside($children, $path . '/children', $c, $open !== '^[');
-        // C2-W-125 case five: a caret at the start of span text would read as a footnote reference.
-        if ($open === '[' && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')) {
+        $afterBang = $this->spanAfterBang;
+        $note = $open === '^[';
+        $this->noteDepth += $note ? 1 : 0;
+        try {
+            $inner = $this->inside($children, $path . '/children', $c, !$note);
+        } finally {
+            $this->noteDepth -= $note ? 1 : 0;
+        }
+        // C2-W-125 case five: a caret at the start of span text would read as a footnote reference, except behind a
+        // bare `!` and inside an inline footnote.
+        if (
+            !$note && !$afterBang && $this->noteDepth === 0 && self::leadsWithCaretText($children)
+            && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')
+        ) {
             $inner = '\\' . $inner;
         }
 
         return $open . $inner . ']';
+    }
+
+    /**
+     * Whether a span whose text starts with a caret follows a bare `!` in `$out`.
+     *
+     * @param array<mixed> $node
+     * @param string $out
+     *
+     * @return bool
+     */
+    private function followsBareBang(array $node, string $out): bool
+    {
+        if (!str_ends_with($out, '!') || !self::leadsWithCaretText(is_array($node['children'] ?? null) ? $node['children'] : [])) {
+            return false;
+        }
+        $out = $this->w->repairTrace?->decode($out)['source'] ?? $out;
+        $at = strlen($out) - 1;
+        $slashes = 0;
+        while ($at - $slashes - 1 >= 0 && $out[$at - $slashes - 1] === '\\') {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 0;
+    }
+
+    /**
+     * C2-W-125 case five escapes the caret of text only: an inline footnote that starts the content stays one.
+     *
+     * @param array<mixed> $children
+     *
+     * @return bool
+     */
+    private static function leadsWithCaretText(array $children): bool
+    {
+        $first = $children[0] ?? null;
+
+        return is_array($first) && ($first['type'] ?? null) === 'text' && is_string($first['value'] ?? null)
+            && str_starts_with($first['value'], '^');
     }
 
     /**
@@ -2271,7 +2331,10 @@ final class Inline
         }
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of link text would read as a footnote reference.
-        if (str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')) {
+        if (
+            $this->noteDepth === 0 && self::leadsWithCaretText($children)
+            && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')
+        ) {
             $inner = '\\' . $inner;
         }
 
@@ -2286,8 +2349,9 @@ final class Inline
     }
 
     /**
-     * C2-W-075, C2-I-079: the content of a collapsed reference folds to its key, so it takes the backslashes the key
-     * holds before ASCII punctuation; null where the two differ in more than those.
+     * C2-I-001, C2-I-079: the content with a backslash before each ASCII punctuation character that the key escapes and
+     * none before one it holds bare, where the two differ in nothing else than those and the whitespace the fold
+     * collapses; null otherwise.
      *
      * @param string $content
      * @param string $key
@@ -2299,27 +2363,99 @@ final class Inline
         $out = '';
         $k = 0;
         $n = strlen($content);
-        $keyLength = strlen($key);
-        for ($i = 0; $i < $n; $i++) {
-            $ch = $content[$i];
-            if ($ch === '\\' && $i + 1 < $n && substr($key, $k, 2) === '\\' . $content[$i + 1]) {
-                $out .= substr($key, $k, 2);
-                $k += 2;
-                $i++;
+        $at = 0;
+        while ($at < $n) {
+            $ch = $content[$at];
+            if ($ch === ' ' || $ch === "\t" || $ch === "\n") {
+                $end = $at + strspn($content, " \t\n", $at);
+                $out .= substr($content, $at, $end - $at);
+                // The fold drops the space at the start and at the end of a label and makes one of each run between.
+                $k = $k > 0 && $end < $n && ($key[$k] ?? '') === ' ' ? $k + 1 : $k;
+                $at = $end;
 
                 continue;
             }
-            if ($k < $keyLength && $key[$k] === '\\' && ($key[$k + 1] ?? '') === $ch && Text::isPunct($ch)) {
-                $out .= '\\' . $ch;
-                $k += 2;
+            $pair = self::escapePair($content, $at, $key, $k);
+            if ($pair !== null) {
+                $out .= $pair;
+                $k += strlen($pair);
+                $at += 2;
 
                 continue;
             }
-            $out .= $ch;
-            $k++;
+            // A backslash the writer left bare before a letter takes one where the key holds an escaped backslash.
+            $escape = ($key[$k] ?? '') === '\\' && ($key[$k + 1] ?? '') === $ch && Text::isPunct($ch);
+            if (!$escape && ($key[$k] ?? '') !== $ch) {
+                return null;
+            }
+            $out .= $escape ? '\\' . $ch : $ch;
+            $k += $escape ? 2 : 1;
+            $at++;
         }
 
-        return Chars::fold($out) === $key ? $out : null;
+        return $k === strlen($key) && Chars::fold($out) === $key ? $out : null;
+    }
+
+    /**
+     * A backslash pair of the content at `$at` as the key spells it at `$k`: kept where the key holds it, the backslash
+     * dropped where the key holds the punctuation character bare (C2-I-001); null where neither.
+     *
+     * @param string $content
+     * @param int $at
+     * @param string $key
+     * @param int $k
+     *
+     * @return string|null
+     */
+    private static function escapePair(string $content, int $at, string $key, int $k): ?string
+    {
+        $next = $content[$at + 1] ?? '';
+        if ($content[$at] !== '\\' || $next === '') {
+            return null;
+        }
+        if (substr($key, $k, 2) === '\\' . $next) {
+            return '\\' . $next;
+        }
+
+        return $next !== '\\' && ($key[$k] ?? '') === $next && Text::isPunct($next) ? $next : null;
+    }
+
+    /**
+     * C2-I-079: the key with each space replaced by the matching space run between the words of the content, so that a
+     * line break of the content stays; null where the counts differ.
+     *
+     * @param string $content
+     * @param string $key
+     *
+     * @return string|null
+     */
+    private static function spacedLike(string $content, string $key): ?string
+    {
+        $runs = [];
+        $n = strlen($content);
+        $at = strspn($content, " \t\n");
+        while ($at < $n) {
+            $length = strspn($content, " \t\n", $at);
+            if ($length === 0) {
+                $at++;
+
+                continue;
+            }
+            if ($at + $length < $n) {
+                $runs[] = substr($content, $at, $length);
+            }
+            $at += $length;
+        }
+        $words = explode(' ', $key);
+        if (count($words) !== count($runs) + 1 || array_filter($runs, static fn (string $run): bool => $run !== ' ') === []) {
+            return null;
+        }
+        $out = $words[0];
+        foreach ($runs as $i => $run) {
+            $out .= $run . $words[$i + 1];
+        }
+
+        return $out;
     }
 
     /**
@@ -2341,10 +2477,37 @@ final class Inline
         $alt = self::str($node, 'alt');
         $form = $node['refForm'] ?? null;
         $keyed = is_string($node['key'] ?? null);
-        $spelled = AltSource::image($alt, $form === 'collapsed' || $form === 'shortcut' ? null : ($keyed ? '[k]' : '()'));
+        $collapsed = $form === 'collapsed' || $form === 'shortcut';
+        $spelled = AltSource::image($alt, $collapsed ? null : ($keyed ? '[k]' : '()'));
+        if ($collapsed && $keyed) {
+            $spelled = self::collapsedAlt($spelled, $alt, $node['key']);
+        }
         $spelled = $c->inCell ? self::cellPipes($spelled) : $spelled;
 
         return '![' . $spelled . ']' . $this->target($node, self::str($node, 'src'), $c, $path);
+    }
+
+    /**
+     * C2-W-075: the alt text of a collapsed or shortcut image folds to its key (C2-I-079), or a spelling of it does.
+     *
+     * @param string $spelled
+     * @param string $alt
+     * @param string $key
+     *
+     * @return string
+     */
+    private static function collapsedAlt(string $spelled, string $alt, string $key): string
+    {
+        if (Chars::fold($spelled) === $key) {
+            return $spelled;
+        }
+        foreach ([self::escapedLike($spelled, $key), self::spacedLike($spelled, $key), $key] as $candidate) {
+            if ($candidate !== null && AltSource::readsAsCollapsed($candidate, $key, $alt)) {
+                return $candidate;
+            }
+        }
+
+        return $spelled;
     }
 
     /**
