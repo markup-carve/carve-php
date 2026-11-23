@@ -104,6 +104,8 @@ final class Scanner
 
     private bool $lineBlock;
 
+    private bool $cell;
+
     private bool $hardBreaks;
 
     private bool $caption;
@@ -258,6 +260,19 @@ final class Scanner
         $this->lineBlock = ($mode & self::LINE_BLOCK) !== 0;
         $this->hardBreaks = ($mode & self::HARD_BREAKS) !== 0;
         $this->caption = ($mode & self::CAPTION) !== 0;
+        $this->cell = ($mode & self::CELL) !== 0;
+    }
+
+    /**
+     * C2-B-224: in a cell an escaped pipe is a literal pipe in a destination and in a reference label.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    private function cellPipes(string $value): string
+    {
+        return $this->cell ? str_replace('\\|', '|', $value) : $value;
     }
 
     /**
@@ -1495,7 +1510,7 @@ final class Scanner
                 return $i + 2;
             }
             $node = $this->node($image ? 'image' : 'link', $frame[2], $tail[2]);
-            $node->f[$image ? 'src' : 'href'] = $tail[0];
+            $node->f[$image ? 'src' : 'href'] = $this->cellPipes($tail[0]);
             if ($tail[1] !== null) {
                 $node->f['tooltip'] = $tail[1];
             }
@@ -1565,7 +1580,7 @@ final class Scanner
     {
         $t = $this->t;
         if ($i + 2 < $this->n && $t[$i + 2] === ']') {
-            $key = Chars::fold($text);
+            $key = Chars::fold($this->cellPipes($text));
             if ($key === '') {
                 return $i + 1;
             }
@@ -1581,7 +1596,7 @@ final class Scanner
         if ($close < 0) {
             return -2;
         }
-        $key = Chars::fold(substr($t, $i + 2, $close - $i - 2));
+        $key = Chars::fold($this->cellPipes(substr($t, $i + 2, $close - $i - 2)));
         if ($key === '') {
             return -2;
         }
@@ -1649,6 +1664,7 @@ final class Scanner
             return -1;
         }
 
-        return $this->refNode($frame, $i, $i + 1, $key, 'shortcut', $text, $image);
+        // carve-js: the shortcut is found by its own source, and its key holds the literal pipe (C2-B-224).
+        return $this->refNode($frame, $i, $i + 1, $this->cell ? Chars::fold($this->cellPipes($text)) : $key, 'shortcut', $text, $image);
     }
 }
