@@ -225,6 +225,8 @@ final class Inline
         $first = clone $c;
         $kinds = [];
         $this->bareLeads = [];
+        $losses = count($this->w->losses);
+        $tickRounds = Text::$tickKindRounds;
         $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
         $reported = $out;
         $afterReported = $kinds === [] ? null : clone $c;
@@ -248,6 +250,19 @@ final class Inline
                 $c->{$name} = $field;
             }
             $out = $reported;
+        }
+        // C2-W-088: where a node did not read back, the backtick kind rounds give way to the reported openers.
+        if (count($this->w->losses) > $losses && Text::$tickKindRounds > $tickRounds) {
+            $again = clone $first;
+            $again->kinds = $c->kinds;
+            $again->tickReportedOnly = true;
+            $again->writerState = null;
+            $out = $this->contentPairs($nodes, $path, $again, $next, clone $again, $kinds);
+            foreach (get_object_vars($again) as $name => $field) {
+                $c->{$name} = $field;
+            }
+            $c->writerState = $first->writerState;
+            $c->tickReportedOnly = false;
         }
         $c->kinds = [];
 
@@ -1048,8 +1063,8 @@ final class Inline
     }
 
     /**
-     * The leaf whose backtick plan the texts of `$nodes` read: these nodes, or inside a bracket the leaf around it where
-     * that has a plan (C2-W-088).
+     * The leaf whose backtick plan the texts of `$nodes` read: these nodes, or inside a bracket the leaf around it,
+     * whose verbatim nodes the bracketed text cannot plan without (C2-W-088).
      *
      * @param array<mixed> $nodes
      * @param string $path
@@ -1059,7 +1074,7 @@ final class Inline
      */
     private static function startLeaf(array $nodes, string $path, Context $c): void
     {
-        if ($c->inBracket && is_array($c->tickPlan)) {
+        if ($c->inBracket && $c->tickPlan !== null) {
             return;
         }
         $c->leafNodes = $nodes;

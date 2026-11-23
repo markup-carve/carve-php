@@ -135,6 +135,11 @@ final class Context
     public array $tickForced = [];
 
     /**
+     * C2-W-088: the backtick rounds escape the reported openers only, for a leaf whose kind rounds lose a node.
+     */
+    public bool $tickReportedOnly = false;
+
+    /**
      * C2-W-080: a hard break is the bare line ending.
      */
     public bool $bareBreaks = false;

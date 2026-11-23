@@ -55,6 +55,10 @@ final class BacktickKindRoundsTest extends TestCase
                 [$text('1. ```'), $break, ['type' => 'code', 'value' => '`']],
                 "1\\. \\`\\`\\`\n`` ` ``\n",
             ],
+            'link text before a code span' => [
+                [['type' => 'link', 'href' => '/u', 'children' => [$text('```{}-')]], ['type' => 'code', 'value' => '*]``']],
+                "[```{}-](/u)` *]`` `\n",
+            ],
         ];
     }
 
@@ -75,6 +79,29 @@ final class BacktickKindRoundsTest extends TestCase
         $read = json_decode(Carve::toJson($source), true);
         $this->assertIsArray($read);
         $this->assertSame(self::strip($tree), self::strip($read['children']));
+    }
+
+    /**
+     * C2-W-088: where the leading blanks of a line are lost, the reported openers alone take a backslash.
+     *
+     * @return void
+     */
+    public function testLossyLeafEscapesReportedOpenersOnly(): void
+    {
+        $tree = [
+            [
+                'type' => 'paragraph',
+                'children' => [
+                    ['type' => 'text', 'value' => '/'],
+                    ['type' => 'soft_break'],
+                    ['type' => 'text', 'value' => '  ` `'],
+                ],
+            ],
+        ];
+        $result = Writer::writeBlocksWithDiagnostics($tree);
+
+        $this->assertSame("/\n  \\` `\n", $result->source);
+        $this->assertSame(['field-unspellable'], array_map(fn ($d) => $d->code, $result->diagnostics));
     }
 
     /**

@@ -162,6 +162,11 @@ final class Text
      */
     public static ?array $recorded = null;
 
+    /**
+     * How many backtick rounds escaped every potential opener of the kind; a leaf reads it to know its form took them.
+     */
+    public static int $tickKindRounds = 0;
+
     public static function isPunct(string $c): bool
     {
         return $c !== '' && strlen($c) === 1 && str_contains(self::PUNCT, $c);
@@ -414,7 +419,9 @@ final class Text
             return null;
         }
 
-        return self::tickRounds($runs, array_column($runs, 0), $lead >= 0 ? [$lead => true] : []);
+        $firsts = $c->tickReportedOnly ? [] : array_column($runs, 0);
+
+        return self::tickRounds($runs, $firsts, $lead >= 0 ? [$lead => true] : []);
     }
 
     /**
@@ -464,8 +471,8 @@ final class Text
 
     /**
      * C2-W-088: the rounds of the backtick kind. Each code span the runs open reports its opener; the first report
-     * also escapes every potential opener of the kind, `$firsts`. A rest that still opens a span is reported in a
-     * later round.
+     * also escapes every potential opener of the kind, `$firsts`, none where only the reported openers are escaped. A
+     * rest that still opens a span is reported in a later round.
      *
      * @param array<array{int, int}> $runs
      * @param array<int> $firsts
@@ -475,11 +482,12 @@ final class Text
      */
     private static function tickRounds(array $runs, array $firsts, array $escaped): array
     {
-        $kind = false;
+        $kind = $firsts === [];
         while (($open = self::spanOpeners($runs, $escaped)) !== []) {
             if (!$kind) {
                 $kind = true;
                 $escaped += array_fill_keys($firsts, true);
+                self::$tickKindRounds++;
             }
             $escaped += array_fill_keys($open, true);
         }
@@ -545,7 +553,7 @@ final class Text
             $start += strlen($line) + 1;
         }
         $plan = [];
-        foreach (array_keys(self::tickRounds($runs, $firsts, $escaped)) as $at) {
+        foreach (array_keys(self::tickRounds($runs, $c->tickReportedOnly ? [] : $firsts, $escaped)) as $at) {
             [$path, $offset] = $owners[$at];
             $plan[$path][$offset] = true;
         }
