@@ -956,7 +956,15 @@ final class Inline
         }
         $retry = $type === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
             && str_ends_with(self::str($node, 'value'), '{');
-        $snapshot = $retry ? clone $c : null;
+        $snapshot = null;
+        if ($retry) {
+            // The replay never reads the run log; a shared one would be copied in full on the next append.
+            $log = $c->runLog;
+            $c->runLog = [];
+            $snapshot = clone $c;
+            $c->runLog = $log;
+            unset($log);
+        }
         $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
         if ($redo !== null && str_starts_with($part, '{')) {
             [$from, $length, $text] = $redo;

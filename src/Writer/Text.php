@@ -1824,6 +1824,7 @@ final class Text
         $flat = (string)$c->flat;
         $out = '';
         $quote = '';
+        $check = 1;
         for ($n = strlen($flat); $at < $n && $flat[$at] !== "\n"; $at++) {
             $part = $flat[$at] === "\0" ? $c->flatAtoms[$at] ?? self::nodeOnLine($at, $c) ?? "\0" : $flat[$at];
             $out .= $part;
@@ -1840,6 +1841,13 @@ final class Text
                 if ($ch === '"' || $ch === "'") {
                     $quote = $quote === '' ? $ch : ($quote === $ch ? '' : $quote);
                 }
+            }
+            // C2-W-010: a block that already failed inside the spelling fails on any longer one, so stop there.
+            if (strlen($out) >= $check) {
+                if (AttributeParser::read($out, 0, strlen($out), new Attrs()) < 0 && !AttributeParser::$ranOut) {
+                    return $out;
+                }
+                $check = 2 * strlen($out);
             }
         }
 
