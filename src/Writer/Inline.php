@@ -1664,8 +1664,10 @@ final class Inline
             $c->here += $c->here >= 0 ? 1 : 0;
             $c->last = Chars::at($prefix, strlen($prefix) - 1);
         }
-        // C2-W-094: a parenthesis glued behind a closing bracket would read as a link tail.
-        if ($c->last === 0x5D && str_starts_with($value, '(')) {
+        // C2-W-094: a parenthesis glued behind a closing bracket would read as a link tail, unless that bracket ends a
+        // full or collapsed reference, a footnote reference or an inline footnote with no bracket inside, which take no
+        // tail (C2-I-066, C2-I-072).
+        if ($c->last === 0x5D && str_starts_with($value, '(') && self::tailCanFollow($before)) {
             $prefix .= '\\(';
             $value = substr($value, 1);
             $c->here += $c->here >= 0 ? 1 : 0;
@@ -1676,6 +1678,24 @@ final class Inline
         $this->textValue = $value;
 
         return $prefix . Text::escapePairs($value, $c, $next);
+    }
+
+    /**
+     * Whether a link tail can follow the closing bracket that ends the written form of `$before`.
+     */
+    private static function tailCanFollow(mixed $before): bool
+    {
+        if (!is_array($before)) {
+            return true;
+        }
+
+        return match ($before['type'] ?? '') {
+            'footnote_ref' => false,
+            // Bare, a bracket inside the note pairs with its closer, and the tail makes a link of that pair.
+            'inline_footnote' => str_contains(self::strings($before), '['),
+            'link', 'image' => !is_string($before['key'] ?? null) || ($before['refForm'] ?? 'full') === 'shortcut',
+            default => true,
+        };
     }
 
     /**

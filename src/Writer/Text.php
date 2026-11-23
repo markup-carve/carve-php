@@ -186,6 +186,18 @@ final class Text
      */
     public static int $tickKindRounds = 0;
 
+    /**
+     * C2-W-088: set where the bracket plan left a bracket bare that a node beside it may still pair, so the writer
+     * reads the form back instead of trusting the plan.
+     */
+    public static bool $undecided = false;
+
+    /**
+     * While set, the bracket plan takes the backslash wherever it cannot decide, the form the writer falls back to
+     * where the read-back rounds stop.
+     */
+    public static bool $conservative = false;
+
     public static function isPunct(string $c): bool
     {
         return $c !== '' && strlen($c) === 1 && str_contains(self::PUNCT, $c);
@@ -340,7 +352,7 @@ final class Text
     private static function kindOf(string $value, int $i, bool $line, int $after): string
     {
         $ch = $value[$i];
-        if ($line) {
+        if ($line && !self::taskBox($value, $i)) {
             // The second hyphen of a hyphen run and the delimiter of an ordered marker stand for the line.
             return 'line' . ($ch === '-' || ctype_punct($value[0]) ? $value[0] : $ch);
         }
@@ -349,6 +361,15 @@ final class Text
         }
 
         return $ch === '-' ? '--' : $ch;
+    }
+
+    /**
+     * A task box at the start of an item's text, `[ ]` or `[x]` before a space or the end, reports the kind `[`; with
+     * a bracket right behind its space it does not, as carve-js and carve-rs write it.
+     */
+    private static function taskBox(string $value, int $i): bool
+    {
+        return preg_match('/\G\[[ xX]\](?:$|[ \t]+(?!\[))/', $value, $m, 0, $i) === 1;
     }
 
     /**
@@ -1049,9 +1070,10 @@ final class Text
             return true;
         }
 
-        // C2-W-090: a sigil glued to the bracket or the backtick of a construct of the tree takes the backslash.
+        // C2-W-090: a sigil glued to the bracket or the backtick of a node may form a construct with it, as `![` an
+        // image; whether it does depends on that node, so the read-back decides.
         if ($i === strlen($value) - 1 && self::gluedSigil($ch, $next)) {
-            return true;
+            return self::undecided();
         }
 
         return match ($ch) {
@@ -1103,6 +1125,63 @@ final class Text
      * @return array<int, bool>
      */
     private static function brackets(string $flat, array $labels, array $nodeFirst, array $sealed): array
+    {
+        // C2-I-118: near the depth cap a bracket that pairs nothing still counts, so the plan keeps its backslash
+        // there rather than leave the bracket to the read-back.
+        $conservative = self::$conservative;
+        self::$conservative = $conservative || self::openDepth($flat) >= Tables::INLINE_DEPTH;
+        try {
+            return self::bracketPlan($flat, $labels, $nodeFirst, $sealed);
+        } finally {
+            self::$conservative = $conservative;
+        }
+    }
+
+    /**
+     * The most brackets of the flattened leaf open at once, and every node or mark that may open inside an open
+     * bracket, as carve-js counts toward the cap.
+     */
+    private static function openDepth(string $flat): int
+    {
+        $open = 0;
+        $most = 0;
+        $inside = 0;
+        $n = strlen($flat);
+        for ($k = strcspn($flat, "[]\0*/{"); $k < $n; $k += 1 + strcspn($flat, "[]\0*/{", $k + 1)) {
+            $ch = $flat[$k];
+            if ($ch === '[') {
+                $most = max($most, ++$open);
+            } elseif ($ch === ']') {
+                $open = max(0, $open - 1);
+            } elseif ($open > 0 && ($ch === "\0" || $ch === '{' || self::canOpen($flat, $k))) {
+                $inside++;
+            }
+        }
+
+        return $most + $inside;
+    }
+
+    /**
+     * C2-I-047: whether the `*` or `/` at `$k` of the flattened leaf may open, not after a word character and not
+     * before a space or the end.
+     */
+    private static function canOpen(string $flat, int $k): bool
+    {
+        $before = $k > 0 ? ord($flat[$k - 1]) : -1;
+        $after = $k + 1 < strlen($flat) ? ord($flat[$k + 1]) : -1;
+
+        return !Chars::isWord($before) && $after !== -1 && !Chars::isSpace($after);
+    }
+
+    /**
+     * @param string $flat
+     * @param array<string, true> $labels
+     * @param array<int, int> $nodeFirst
+     * @param array<int, true> $sealed
+     *
+     * @return array<int, bool>
+     */
+    private static function bracketPlan(string $flat, array $labels, array $nodeFirst, array $sealed): array
     {
         $out = [];
         $open = [];
@@ -1168,22 +1247,32 @@ final class Text
     {
         if ($close === PHP_INT_MAX) {
             // The written form of a node behind the bracket may hold its pair.
-            return $node !== PHP_INT_MAX;
+            return $node !== PHP_INT_MAX && self::undecided();
         }
         $tail = $flat[$close + 1] ?? '';
-        // A node glued behind the pair continues it only where its written form starts with `(`, `[` or `{`.
-        if ($tail === "\0" && ($nodeFirst[$close + 1] ?? -1) >= 0) {
-            $tail = chr(min(0x7F, $nodeFirst[$close + 1]));
-        }
         if ($node < $close || ($tail !== '' && str_contains("([{\0", $tail))) {
-            return true;
+            return self::undecided();
         }
         $label = substr($flat, $at + 1, $close - $at - 1);
         if (str_starts_with($label, '^') || ($at > 0 && $flat[$at - 1] === '^')) {
-            return true;
+            return self::undecided();
         }
 
         return isset($labels[Chars::fold($label)]);
+    }
+
+    /**
+     * C2-W-088: a bracket the plan cannot decide is written bare, and the read-back reports it where the bare parse
+     * forms a construct the tree lacks.
+     */
+    private static function undecided(): bool
+    {
+        if (self::$conservative) {
+            return true;
+        }
+        self::$undecided = true;
+
+        return false;
     }
 
     /**
