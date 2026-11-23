@@ -233,20 +233,25 @@ final class Blocks
         $this->indentPlan = [];
         $this->spelledLeads = [];
         $count = count($nodes);
-        for ($at = 0; $at + 1 < $count; $at++) {
-            $node = $nodes[$at];
-            $next = $nodes[$at + 1];
-            if (!is_array($node) || !is_array($next) || !self::indentedAbove($node, $next, $path . '/' . ($at + 1))) {
+        $above = $this->blocksAbove($nodes);
+        for ($next = 1; $next < $count; $next++) {
+            $at = $above[$next];
+            $node = $at === null ? null : $nodes[$at];
+            $paragraph = $nodes[$next];
+            if (
+                $at === null || !is_array($node) || !is_array($paragraph)
+                || !self::indentedAbove($node, $paragraph, $path . '/' . $next)
+            ) {
                 continue;
             }
-            $marks = $this->indentChain($nodes, $at, $path);
+            $marks = $this->indentChain($nodes, $above, $at, $path);
             if ($marks === []) {
                 continue;
             }
             foreach ($marks as $index => $outdented) {
                 $this->indentPlan[$path . '/' . $index] = $outdented;
             }
-            $this->spelledLeads[$path . '/' . ($at + 1)] = true;
+            $this->spelledLeads[$path . '/' . $next] = true;
         }
     }
 
@@ -256,26 +261,27 @@ final class Blocks
      * repairs lives here (carve#6418).
      *
      * @param array<mixed> $nodes
+     * @param array<int, int|null> $above
      * @param int $at
      * @param string $path
      *
      * @return array<int, bool>
      */
-    private function indentChain(array $nodes, int $at, string $path): array
+    private function indentChain(array $nodes, array $above, int $at, string $path): array
     {
         $marks = [];
         $current = $at;
         while (true) {
-            $aboveAt = self::aboveAt($nodes, $current);
-            $above = $aboveAt === null ? null : $nodes[$aboveAt];
+            $aboveAt = $above[$current];
+            $container = $aboveAt === null ? null : $nodes[$aboveAt];
             $node = $nodes[$current];
-            if (!is_array($above) || !$this->isOpenContainer($above)) {
+            if (!is_array($container) || !$this->isOpenContainer($container)) {
                 return $marks + [$current => false];
             }
             if (is_array($node) && $this->ownAttributes($node, $path . '/' . $current) !== '') {
                 return $marks + [$current => true];
             }
-            if (!in_array($above['type'] ?? '', ['list', 'definition_list'], true)) {
+            if (!in_array($container['type'] ?? '', ['list', 'definition_list'], true)) {
                 return [];
             }
             $marks[$current] = false;
@@ -284,23 +290,51 @@ final class Blocks
     }
 
     /**
-     * The index of the last block above `at` that is no comment-only line, or null. Comment-only lines are not seen by
-     * block structure (C2-B-137); a comment block at column 0 closes the containers above (C2-B-053).
+     * For each block, the index of the last block above it that is no comment-only line, or null where no container
+     * reaches it. Comment-only lines are not seen by block structure (C2-B-137); a comment block, a region marker line
+     * and the comment line of C2-W-123 close the containers above (C2-B-053, C2-W-155).
      *
      * @param array<mixed> $nodes
-     * @param int $at
      *
-     * @return int|null
+     * @return array<int, int|null>
      */
-    private static function aboveAt(array $nodes, int $at): ?int
+    private function blocksAbove(array $nodes): array
     {
-        for ($index = $at - 1; $index >= 0; $index--) {
-            if (is_array($nodes[$index]) && !self::isCommentLine($nodes[$index])) {
-                return $index;
+        $above = [];
+        $last = null;
+        $count = count($nodes);
+        for ($index = 0; $index < $count; $index++) {
+            $node = $nodes[$index] ?? null;
+            $above[$index] = $last;
+            if (!is_array($node)) {
+                continue;
+            }
+            if (!self::isCommentLine($node)) {
+                $last = $index;
+
+                continue;
+            }
+            $previous = $nodes[$index - 1] ?? null;
+            $fenceEnds = $last === $index - 1 && is_array($previous) && $this->isOpenContainer($previous)
+                && $this->lastFence($previous) !== null;
+            if ($fenceEnds || self::isRegionMarker($node)) {
+                $last = null;
             }
         }
 
-        return null;
+        return $above;
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return bool
+     */
+    private static function isRegionMarker(array $node): bool
+    {
+        $marker = '/^#(?:region[ \t]+[A-Za-z_][A-Za-z0-9_-]*|endregion(?:[ \t]+[A-Za-z_][A-Za-z0-9_-]*)?)$/';
+
+        return preg_match($marker, Inline::str($node, 'value')) === 1;
     }
 
     /**
@@ -564,8 +598,7 @@ final class Blocks
             if ($this->lastFence($before) !== null) {
                 return 0;
             }
-            $marker = '/^#(?:region[ \t]+[A-Za-z_][A-Za-z0-9_-]*|endregion(?:[ \t]+[A-Za-z_][A-Za-z0-9_-]*)?)$/';
-            if (preg_match($marker, Inline::str($node, 'value')) === 1) {
+            if (self::isRegionMarker($node)) {
                 return 1;
             }
             // C2-B-138: an ordinary comment line stays in the open container.

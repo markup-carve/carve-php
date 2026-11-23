@@ -27,7 +27,10 @@ final class MetadataBlockTest extends TestCase
     /**
      * @var array<string>
      */
-    private const PINNED_WRITES = ['CC-1695', 'CC-1696', 'CC-1697', 'CC-1698'];
+    private const PINNED_WRITES = [
+        'CC-1695', 'CC-1696', 'CC-1697', 'CC-1698', 'CC-1705', 'CC-1706', 'CC-1707', 'CC-1708', 'CC-1709', 'CC-1710',
+        'CC-1711', 'CC-1712',
+    ];
 
     /**
      * @return array<string, array{0: string, 1: array<string>}>
