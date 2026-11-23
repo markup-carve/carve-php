@@ -407,6 +407,7 @@ final class RepairPlanner
     private function escapeEarlyNoteClosers(array &$reported): bool
     {
         $fired = false;
+        $this->notesDone = [];
         foreach ($reported as $path => $offsets) {
             $cut = strrpos($path, '/children/');
             if ($cut === false) {
@@ -443,7 +444,8 @@ final class RepairPlanner
     }
 
     /**
-     * @var array<string, array<int, true>> C2-W-125, case eight: the `[` of each text `^[` whose early closer is escaped.
+     * @var array<string, array<int, true>> C2-W-125, case eight: the `[` of each text `^[` whose early closer this round
+     *   escaped.
      */
     private array $notesDone = [];
 

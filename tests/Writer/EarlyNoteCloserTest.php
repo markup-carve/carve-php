@@ -56,6 +56,7 @@ final class EarlyNoteCloserTest extends TestCase
             'table cell' => ['| ^[ \] t [^[b] c][] |'],
             'two text notes' => ['^[a \] ^[b \] [^[x]][]'],
             'real note before' => ['^[real] ^[a \] [^[x] y](/u)'],
+            'a second closer of a later note' => ['^[a \] ^[c \]  \] [^[b] c](/u)'],
         ];
     }
 
