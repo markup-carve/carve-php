@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '693f4f7f89dc750cdc7c6e44eb03f477058f6044',
+        'commit' => '965ba343c07380dd1a6d548d469f2cfe3511c855',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6907,7 +6907,7 @@ final class Tables
             ],
         ],
         'extension-fallback-rendered' => [
-            'Rendered the fallback of the unknown extension "${name}"',
+            'Rendered the fallback of the extension "${name}", which has no matching renderer',
         ],
         'fence-closer-indented' => [
             'This line closes the block opened on line (n) although it is indented differently. If it is content, make the outer fence longer.',
@@ -7377,7 +7377,7 @@ final class Tables
         'extension-fallback-rendered' => [
             'warning',
             'render-loss',
-            'Rendered the fallback of the unknown extension "${name}"',
+            'Rendered the fallback of the extension "${name}", which has no matching renderer',
         ],
         'extension-renderer-failed' => [
             'warning',
