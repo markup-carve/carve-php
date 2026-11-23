@@ -60,23 +60,34 @@ final class Writer
      */
     private static function writeChecked(array $tree, ?array $layout, array $options): WriteResult
     {
-        Text::$recorded = [];
-        try {
-            $result = self::writeInternal($tree, $layout, $options, null);
-            $localEscapes = Text::$recorded;
-        } finally {
-            Text::$recorded = null;
+        [$result, $localEscapes, $undecided] = self::localWrite($tree, $layout, $options, false);
+        if ($result->diagnostics !== []) {
+            return $result;
         }
-        if ($result->diagnostics !== [] || !self::hasRoundRisk($tree)) {
+        $risk = self::hasRoundRisk($tree);
+        if (!$undecided && !$risk) {
             return $result;
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
         // and repairs the tree without them. The local write keeps the supplied tree, and with it the loss paths.
         $removed = [];
+        $original = $tree;
+        $originalLayout = $layout;
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
-        $bare = self::bareCandidate($tree, $layout, $options);
         $treePrint = TreeEquality::fingerprint($tree);
+        if ($undecided) {
+            // C2-W-088: a bracket the plan left bare stays bare where the form reads back; otherwise the plan takes
+            // its backslash there, and the rounds below go on from that form.
+            if (self::readsBack($result->source, $treePrint, $options)) {
+                return $result;
+            }
+            [$result, $localEscapes] = self::localWrite($original, $originalLayout, $options, true);
+            if ($result->diagnostics !== [] || !$risk) {
+                return $result;
+            }
+        }
+        $bare = self::bareCandidate($tree, $layout, $options);
         $equal = ReadbackRound::inspect($bare, $tree, $options, $treePrint)['equal'];
         $bareSource = $bare['source'];
         unset($bare);
@@ -104,6 +115,33 @@ final class Writer
         }
 
         return new WriteResult($repaired, []);
+    }
+
+    /**
+     * The local write and the escapes it placed, by text path; with `$conservative` every bracket the plan cannot
+     * decide takes its backslash.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param bool $conservative
+     *
+     * @return array{\MarkupCarve\Carve\Writer\WriteResult, array<string, array<int, true>>, bool}
+     */
+    private static function localWrite(array $tree, ?array $layout, array $options, bool $conservative): array
+    {
+        Text::$recorded = [];
+        Text::$undecided = false;
+        Text::$conservative = $conservative;
+        try {
+            $result = self::writeInternal($tree, $layout, $options, null);
+
+            return [$result, Text::$recorded, Text::$undecided];
+        } finally {
+            Text::$recorded = null;
+            Text::$undecided = false;
+            Text::$conservative = false;
+        }
     }
 
     /**
