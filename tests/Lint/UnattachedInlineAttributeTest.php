@@ -26,7 +26,7 @@ final class UnattachedInlineAttributeTest extends TestCase
             'escaped brace' => ["a \\{x} b\n", []],
             'heading' => ["# h {x} y\n", [[4, 7]]],
             'cell' => ["| a {x} b |\n", [[4, 7]]],
-            'glued blocks' => ["a {x}{y} b\n", [[2, 5], [5, 8]]],
+            'glued blocks' => ["a {x}{y} b\n", [[2, 8]]],
             'empty block' => ["a {} b\n", []],
             'block of spaces' => ["a { } b\n", []],
             'quoted closing brace' => ["a {k=\"x}y\"} b\n", [[2, 11]]],

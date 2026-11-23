@@ -4,19 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\AttributeParser;
-use MarkupCarve\Carve\Attrs;
-
 /**
  * The node rules of carve-js `lint/structure.ts`, first half.
  */
 final class NodeRulesA
 {
-    /**
-     * @var array<string, true>
-     */
-    private const ATTRIBUTE_HOSTS = ['paragraph' => true, 'heading' => true, 'definition_term' => true, 'cell_paragraph' => true];
-
     /**
      * @var array<string>
      */
@@ -309,105 +301,6 @@ final class NodeRulesA
         foreach ($matches[0] as [$char, $at]) {
             $code = strtoupper(str_pad(dechex(mb_ord($char, 'UTF-8') ?: 0), 4, '0', STR_PAD_LEFT));
             $c->report('bidi-control-in-source', $range[0] + $at, $range[0] + $at + strlen($char), $path, ['code' => $code]);
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
-    public static function headingContinuation(array $node, string $path, Context $c): void
-    {
-        $pos = Support::pos($node);
-        if (($node['type'] ?? null) !== 'heading' || $pos === null || $pos['endLine'] <= $pos['startLine']) {
-            return;
-        }
-        $quotes = $c->layout->quoteDepth($path);
-        // The marker line stands behind the heading's attribute lines.
-        $marker = NodeRulesB::openerBehindAttributes($node, $pos['startOffset'], $quotes, $c);
-        $markerLine = $c->lineOf($marker);
-        // C2-B-137: comment-only lines may stand between the attribute lines and the marker line.
-        while ($marker !== $pos['startOffset'] && $markerLine < $pos['endLine'] && str_starts_with(substr($c->source, $marker, 2), '%%')) {
-            $markerLine++;
-            $marker = $c->lines[$markerLine - 1]->start + strspn($c->lines[$markerLine - 1]->text, " \t>");
-        }
-        $first = $c->lines[$markerLine - 1] ?? null;
-        // C2-B-137: the line that continues the heading may stand below comment-only lines.
-        $next = $markerLine;
-        while ($next < $pos['endLine'] && isset($c->lines[$next]) && str_starts_with(self::jsTrimStart($c->lines[$next]->text), '%%')) {
-            $next++;
-        }
-        $second = $next < $pos['endLine'] ? $c->lines[$next] ?? null : null;
-        if ($first === null || $second === null) {
-            return;
-        }
-        $markerOffset = $marker - $first->start;
-        $markerColumn = $quotes === 0 && strspn($first->text, ' ') === $markerOffset
-            ? $markerOffset : $c->layout->columnOf($marker, $quotes);
-        $indentOffset = strspn($second->text, " \t>");
-        $indent = $quotes === 0 && !str_contains(substr($second->text, 0, $indentOffset), "\t")
-            ? $indentOffset : $c->layout->columnOf($second->start + $indentOffset, $quotes);
-        if ($indent > $markerColumn) {
-            $c->report('deprecated-indented-line-under-heading', $second->start, $second->end, $path);
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
-    public static function figurePanelNumber(array $node, string $path, Context $c): void
-    {
-        if (($node['type'] ?? null) !== 'figure_group') {
-            return;
-        }
-        foreach (Support::kids($node) as $at => $panel) {
-            $caption = Support::kids(['caption' => [$panel['caption'] ?? null]], 'caption')[0] ?? null;
-            if ($caption !== null && preg_match('/(?<!\\\\)#(?=\s|[:.]|$|[^A-Za-z0-9_])/u', Support::raw($caption, $c)) === 1) {
-                Support::reportNode('figure-group-panel-number', $panel, "{$path}/children/{$at}", $c);
-            }
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
-    public static function unattachedInline(array $node, string $path, Context $c): void
-    {
-        if (($node['type'] ?? null) !== 'text') {
-            return;
-        }
-        // carve#6176: the text of a paragraph, heading, term or cell; a description's through its paragraphs.
-        $parent = substr($path, 0, (int)strrpos($path, '/children/'));
-        if (!isset(self::ATTRIBUTE_HOSTS[$c->nodeTypes[$parent] ?? ''])) {
-            return;
-        }
-        $source = Support::raw($node, $c);
-        $range = Support::bounds($node);
-        if ($range === null) {
-            return;
-        }
-        $length = strlen($source);
-        for ($at = strpos($source, '{'); $at !== false; $at = strpos($source, '{', $at + 1)) {
-            if ($at < 1 || self::escapedAt($source, $at)) {
-                continue;
-            }
-            // The parser's end, so a quoted `}` stays inside the block; `{}` is no attribute block to report.
-            $end = AttributeParser::read($source, $at, $length, new Attrs());
-            if ($end > $at && !AttributeParser::$lastEmpty) {
-                $c->report('unattached-inline-attribute', $range[0] + $at, $range[0] + $end, $path);
-                $at = $end - 1;
-            }
         }
     }
 

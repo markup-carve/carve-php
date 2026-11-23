@@ -44,12 +44,17 @@ final class Next2ParityTest extends TestCase
             // carve#6176: a cell is inline content, so a block glued to no host is also unattached there.
             'glued brace' => [
                 '| ~{.x} a |',
-                [['deprecated-cell-alignment', 2, 7], ['unattached-inline-attribute', 3, 7]],
+                [
+                    ['deprecated-cell-alignment', 2, 7],
+                    ['emphasis-marker-before-attributes', 2, 7],
+                    ['unattached-inline-attribute', 3, 7],
+                ],
             ],
             'later attribute' => [
                 '| ~{.x} a ~{.y} b |',
                 [
                     ['deprecated-cell-alignment', 2, 7],
+                    ['emphasis-marker-before-attributes', 2, 7],
                     ['unattached-inline-attribute', 3, 7],
                     ['emphasis-marker-before-attributes', 10, 15],
                     ['unattached-inline-attribute', 11, 15],
@@ -59,8 +64,7 @@ final class Next2ParityTest extends TestCase
                 '| ~{.x}{.y} a |',
                 [
                     ['emphasis-marker-before-attributes', 2, 7],
-                    ['unattached-inline-attribute', 3, 7],
-                    ['unattached-inline-attribute', 7, 11],
+                    ['unattached-inline-attribute', 3, 11],
                 ],
             ],
             'ordinary cell attribute' => ['| a {.x} b |', [['unattached-inline-attribute', 4, 8]]],
