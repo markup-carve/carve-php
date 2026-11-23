@@ -97,4 +97,39 @@ final class ImportResult
     {
         return $name === 'document' && $this->documentJson !== null;
     }
+
+    /**
+     * The fields as before the lazy `document`, decoded: `unserialize()` restores no unset property.
+     *
+     * @return array<string, mixed>
+     */
+    public function __serialize(): array
+    {
+        return [
+            'tree' => $this->tree,
+            'document' => $this->document,
+            'diagnostics' => $this->diagnostics,
+            'source' => $this->source,
+            'suppressedDiagnostics' => $this->suppressedDiagnostics,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function __unserialize(array $data): void
+    {
+        $tree = $data['tree'] ?? null;
+        $this->tree = $tree instanceof Node ? $tree : new Node('document', []);
+        $document = $data['document'] ?? [];
+        $this->document = is_array($document) ? $document : [];
+        $diagnostics = $data['diagnostics'] ?? [];
+        $this->diagnostics = is_array($diagnostics)
+            ? array_values(array_filter($diagnostics, static fn (mixed $d): bool => $d instanceof Diagnostic))
+            : [];
+        $source = $data['source'] ?? '';
+        $this->source = is_string($source) ? $source : '';
+        $suppressed = $data['suppressedDiagnostics'] ?? 0;
+        $this->suppressedDiagnostics = is_int($suppressed) ? $suppressed : 0;
+    }
 }

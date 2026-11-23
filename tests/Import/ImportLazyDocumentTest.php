@@ -76,6 +76,20 @@ final class ImportLazyDocumentTest extends TestCase
         $this->assertTrue((new ReflectionProperty(ImportResult::class, 'document'))->isInitialized($result));
     }
 
+    public function testASerializedResultKeepsItsDocument(): void
+    {
+        $html = '<p><em>a</em></p>';
+        $expected = HtmlImporter::import($html)->document;
+
+        $copy = unserialize(serialize(HtmlImporter::import($html)));
+        $clone = clone HtmlImporter::import($html);
+
+        $this->assertInstanceOf(ImportResult::class, $copy);
+        $this->assertSame($expected, $copy->document);
+        $this->assertSame('document', $copy->tree->type);
+        $this->assertSame($expected, $clone->document);
+    }
+
     public function testAnOverDeepInlineTreeIsRefusedBeforeTheWriter(): void
     {
         $this->expectException(ImportInputError::class);
