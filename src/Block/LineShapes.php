@@ -116,7 +116,7 @@ final class LineShapes
     private static function further(string $s, int $k, int $end, Opener $info): Opener
     {
         if ($k < $end) {
-            $info->extra = $k + strspn($s, ' ', $k, $end - $k);
+            $info->extra = $k + strspn($s, " \t", $k, $end - $k);
         }
 
         return $info;
@@ -197,9 +197,6 @@ final class LineShapes
         }
         $sp = strspn($s, ' ', $k, $end - $k);
         $p = $k + $sp;
-        if ($sp > 0 && $p < $end && $s[$p] === "\t") {
-            return null;
-        }
         if ($sp > 0 && $p < $end) {
             $ch = $s[$p];
             if (strpos(Tables::DIV_SIGILS, $ch) !== false) {

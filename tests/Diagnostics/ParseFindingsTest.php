@@ -34,6 +34,7 @@ final class ParseFindingsTest extends TestCase
             'C2-B-122 after the label' => ["```js \"T\" [l] x\nx\n```", [['fence-title-syntax', '/children/0', 14, 15]]],
             'C2-B-122 glued to the title' => ["```js \"T\"x\nx\n```", [['fence-title-syntax', '/children/0', 9, 10]]],
             'C2-B-122 sigil div' => ["::: > x\ny\n:::", [['fence-title-syntax', '/children/0', 6, 7]]],
+            'C2-B-119 tab behind the spaces' => ["::: \tnote\nx\n:::", [['fence-title-syntax', '/children/0', 5, 9]]],
             'C2-B-225 raw format' => ["```=html~\nx\n```", [['fence-title-syntax', '/children/0', 8, 9]]],
             'C2-B-225 div name' => ["::: glossary>\nx\n:::", [['fence-title-syntax', '/children/0', 12, 13]]],
             'C2-B-117 title' => ["``` js \"T\"\nx\n```", []],
