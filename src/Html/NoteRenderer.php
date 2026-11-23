@@ -72,28 +72,76 @@ final class NoteRenderer
         if ($note->type === 'inline_footnote') {
             $lines[] = $pad . '  <p>' . $this->r->inline->leaf($note->children ?? [], $depth + 2) . $back . '</p>';
         } else {
-            $visible = $this->r->visibleOf($note->children ?? []);
-            // C2-H-091: a raw block of another format writes nothing (C2-H-054), so it hosts no backlink.
-            $hosts = array_values(array_filter($visible, static fn (Node $block): bool => $block->type !== 'raw_block'
-                || PlainText::str($block->f['format'] ?? '') === 'html'));
-            $last = $hosts === [] ? null : $hosts[count($hosts) - 1];
-            $endsWithParagraph = $last !== null && $this->r->writesParagraph($last);
-            foreach ($visible as $block) {
-                $html = $block === $last && $endsWithParagraph
-                    ? $this->r->paragraph($block, $depth + 1, false, $back)
-                    : ($block->type === 'paragraph' && !(($block->f['caption'] ?? null) instanceof Node)
-                        ? $this->r->paragraph($block, $depth + 1, false)
-                        : $this->r->block($block, $depth + 1));
-                if ($html !== null) {
-                    $lines[] = $html;
-                }
-            }
-            if (!$endsWithParagraph) {
-                $lines[] = $pad . '  <p>' . $back . '</p>';
-            }
+            $lines = $this->blocks($note->children ?? [], $depth, $back);
         }
 
         return $pad . '<li' . AttrWriter::join($structural, $this->r->o->xhtml) . ">\n" . implode("\n", $lines) . "\n" . $pad . '</li>';
+    }
+
+    /**
+     * C2-H-091: the blocks of a note, the backlinks on the last block that renders something when it is written
+     * as `<p>`, and otherwise in a paragraph of their own.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $children
+     * @param int $depth
+     * @param string $back
+     *
+     * @return array<string>
+     */
+    private function blocks(array $children, int $depth, string $back): array
+    {
+        $visible = $this->r->visibleOf($children);
+        $last = $this->host($visible, $depth + 1);
+        $endsWithParagraph = $last !== null && $this->r->writesParagraph($last);
+        $profile = $this->r->profile;
+        // A block the profile degrades is written as paragraphs, so the last of them takes the backlinks.
+        $degraded = $last !== null && !$endsWithParagraph && $profile !== null && !$profile->allowsBlock($last, $depth + 1);
+        $hosted = $endsWithParagraph;
+        $lines = [];
+        foreach ($visible as $block) {
+            $html = $block === $last && $endsWithParagraph
+                ? $this->r->paragraph($block, $depth + 1, false, $back)
+                : ($block->type === 'paragraph' && !(($block->f['caption'] ?? null) instanceof Node)
+                    ? $this->r->paragraph($block, $depth + 1, false)
+                    : $this->r->block($block, $depth + 1));
+            if ($block === $last && $degraded && $html !== null && str_ends_with($html, '</p>')) {
+                $html = substr($html, 0, -4) . $back . '</p>';
+                $hosted = true;
+            }
+            if ($html !== null) {
+                $lines[] = $html;
+            }
+        }
+        if (!$hosted) {
+            $lines[] = HtmlRenderer::pad($depth) . '  <p>' . $back . '</p>';
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The last block that renders something: a raw block of another format writes nothing (C2-H-054), unless
+     * the profile degrades it into paragraphs.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $visible
+     * @param int $depth
+     *
+     * @return \MarkupCarve\Carve\Node|null
+     */
+    private function host(array $visible, int $depth): ?Node
+    {
+        $profile = $this->r->profile;
+        for ($i = count($visible) - 1; $i >= 0; $i--) {
+            $block = $visible[$i];
+            if (
+                $block->type !== 'raw_block' || PlainText::str($block->f['format'] ?? '') === 'html'
+                || ($profile !== null && !$profile->allowsBlock($block, $depth))
+            ) {
+                return $block;
+            }
+        }
+
+        return null;
     }
 
     /**
