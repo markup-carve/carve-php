@@ -16,7 +16,8 @@ use MarkupCarve\Carve\Test\TestCase\ProseMirror\SchemaMapProvenance;
  *   php scripts/check-schema-map.php --grammars <carve-grammars checkout>
  *
  *     --grammars DIR a carve-grammars checkout, full history
- *     --branch NAME the branch the pin must sit on; defaults to main
+ *     --ref REV the branch or tag the pin must sit on and the copy is compared
+ *     with; defaults to main (`--branch` is an alias)
  *     --map PATH the copy to check; defaults to the vendored one
  *     --github emit GitHub Actions annotations
  *
@@ -53,6 +54,9 @@ function parseOptions(array $argv): ?array
             continue;
         }
         $name = ltrim($argument, '-');
+        if ($name === 'ref') {
+            $name = 'branch';
+        }
         if (!str_starts_with($argument, '--') || !array_key_exists($name, $options) || !isset($argv[$i + 1])) {
             return null;
         }
@@ -85,7 +89,7 @@ function annotate(string $message, bool $github): void
 
 $options = parseOptions($argv);
 if ($options === null) {
-    fwrite(STDERR, "usage: php scripts/check-schema-map.php --grammars DIR [--branch NAME] [--map PATH] [--github]\n");
+    fwrite(STDERR, "usage: php scripts/check-schema-map.php --grammars DIR [--ref REV] [--map PATH] [--github]\n");
 
     exit(2);
 }
@@ -158,6 +162,21 @@ if ($failures === [] && $commit !== null && $path !== null) {
         }
     }
 
+    $head = $reference !== null ? upstreamAt($grammars, $reference, $path) : null;
+    if (is_string($head)) {
+        // No source to compare with is a setup fault, not drift: exit 1 would
+        // file a false drift ticket every day (carve-php#5256).
+        fwrite(STDERR, sprintf(
+            '%scheck-schema-map: nothing to compare with: %s; point --ref at a carve-grammars '
+                . "branch or tag that still ships %s\n",
+            $github ? '::error::' : '',
+            $head,
+            $path,
+        ));
+
+        exit(2);
+    }
+
     if (!git($grammars, 'cat-file', '-e', $commit . '^{commit}')['ok']) {
         $failures[] = [
             'check' => 'commit_exists',
@@ -201,13 +220,10 @@ if ($failures === [] && $commit !== null && $path !== null) {
         }
     }
 
-    if ($failures === [] && $reference !== null) {
+    if ($failures === [] && $reference !== null && $head !== null) {
         $pinned = upstreamAt($grammars, $commit, $path);
-        $head = upstreamAt($grammars, $reference, $path);
         if (is_string($pinned)) {
             $failures[] = ['check' => 'source_readable', 'message' => $pinned];
-        } elseif (is_string($head)) {
-            $failures[] = ['check' => 'pin_is_current', 'message' => $head];
         } else {
             $copy = $local;
             unset($copy['_provenance']);
