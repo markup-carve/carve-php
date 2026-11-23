@@ -1754,7 +1754,7 @@ final class Inline
     private function bracketed(string $open, array $node, string $path, Context $c): string
     {
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
-        $inner = $this->inside($children, $path . '/children', $c);
+        $inner = $this->inside($children, $path . '/children', $c, $open !== '^[');
         // C2-W-125 case five: a caret at the start of span text would read as a footnote reference.
         if ($open === '[' && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')) {
             $inner = '\\' . $inner;
@@ -1767,17 +1767,18 @@ final class Inline
      * @param array<mixed> $children
      * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param bool $notes Whether a footnote can form in the content: not inside an inline footnote.
      *
      * @return string
      */
-    private function inside(array $children, string $path, Context $c): string
+    private function inside(array $children, string $path, Context $c, bool $notes = true): string
     {
         $outer = clone $c;
         $bracket = $c->inBracket;
         $marks = $c->marks;
         $pairs = $c->bracketPairs;
         $c->inBracket = true;
-        $c->bracketPairs = self::pairedBrackets($children, $path);
+        $c->bracketPairs = self::pairedBrackets($children, $path, $c->labels, $notes);
         // A bracket is a barrier of the delimiter stack: no closer inside it reaches a node outside.
         $c->marks = '';
         $c->last = 0x5B;
@@ -1811,17 +1812,21 @@ final class Inline
 
     /**
      * Pair brackets in text across emphasis and other unbracketed nodes. Nested bracketed constructs own their pairs.
+     * C2-W-094: a pair inside one text that forms a construct of its own (its label resolves, a link tail, label or
+     * brace block follows, or a caret makes it a footnote) is no balanced text and keeps its backslashes.
      *
      * @param array<mixed> $nodes
      * @param string $path
+     * @param array<string, true> $labels
+     * @param bool $notes
      *
      * @return array<string, array<int, true>>
      */
-    private static function pairedBrackets(array $nodes, string $path): array
+    private static function pairedBrackets(array $nodes, string $path, array $labels, bool $notes): array
     {
         $open = [];
         $paired = [];
-        $walk = static function (array $list, string $base) use (&$walk, &$open, &$paired): void {
+        $walk = static function (array $list, string $base) use (&$walk, &$open, &$paired, $labels, $notes): void {
             foreach ($list as $at => $node) {
                 if (!is_array($node)) {
                     continue;
@@ -1835,6 +1840,9 @@ final class Inline
                             $open[] = [$key, $i];
                         } elseif ($value[$i] === ']' && $open !== []) {
                             [$other, $offset] = array_pop($open);
+                            if ($other === $key && self::pairForms($value, $offset, $i, $labels, $notes)) {
+                                continue;
+                            }
                             $paired[$other][$offset] = true;
                             $paired[$key][$i] = true;
                         }
@@ -1851,6 +1859,26 @@ final class Inline
         $walk($nodes, $path);
 
         return $paired;
+    }
+
+    /**
+     * @param string $value
+     * @param int $open
+     * @param int $close
+     * @param array<string, true> $labels
+     * @param bool $notes
+     */
+    private static function pairForms(string $value, int $open, int $close, array $labels, bool $notes): bool
+    {
+        $label = substr($value, $open + 1, $close - $open - 1);
+        if ($notes && (str_starts_with($label, '^') || ($open > 0 && $value[$open - 1] === '^'))) {
+            return true;
+        }
+        if (str_contains('([{', $value[$close + 1] ?? 'x')) {
+            return true;
+        }
+
+        return isset($labels[Chars::fold($label)]);
     }
 
     /**
