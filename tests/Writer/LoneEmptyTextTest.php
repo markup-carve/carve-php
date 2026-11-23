@@ -9,8 +9,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * C2-W-117, C2-A-040: no parse gives an empty text. Beside another text it joins that one; with no text beside it, it
- * reads back as none and is reported; at the end of its content its parent is, as carve-js and carve-rs `next2` do.
+ * C2-W-117, C2-A-040: no parse gives an empty text. In a run with other text it joins that; a run of only empty texts
+ * reads back as none and is reported at its first node, or at its parent when it ends the content, as carve-js and
+ * carve-rs `next2` do.
  */
 final class LoneEmptyTextTest extends TestCase
 {
@@ -55,6 +56,9 @@ final class LoneEmptyTextTest extends TestCase
                 $at('/children/0/children/1'),
             ],
             'beside text joins it' => [[$text(''), $text('a')], "a\n", []],
+            'after text joins it' => [[$text('a'), $text(''), $strong], "a{*b*}\n", []],
+            'a run of two before strong' => [[$text(''), $text(''), $strong], "*b*\n", $at('/children/0/children/0')],
+            'a run of two at the end' => [[$strong, $text(''), $text('')], "*b*\n", ['structure-unspellable /children/0']],
         ];
     }
 
