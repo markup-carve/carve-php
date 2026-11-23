@@ -121,11 +121,13 @@ final class ImportResult
     {
         $tree = $data['tree'] ?? null;
         $this->tree = $tree instanceof Node ? $tree : new Node('document', []);
-        $document = $data['document'] ?? [];
+        // A payload of a result serialized before `__serialize()` holds the undecoded JSON as a private field.
+        $json = $data["\0" . self::class . "\0documentJson"] ?? null;
+        $document = $data['document'] ?? (is_string($json) ? json_decode($json, true, self::JSON_DEPTH, JSON_THROW_ON_ERROR) : []);
         $this->document = is_array($document) ? $document : [];
         $diagnostics = $data['diagnostics'] ?? [];
         $this->diagnostics = is_array($diagnostics)
-            ? array_values(array_filter($diagnostics, static fn (mixed $d): bool => $d instanceof Diagnostic))
+            ? array_filter($diagnostics, static fn (mixed $d): bool => $d instanceof Diagnostic)
             : [];
         $source = $data['source'] ?? '';
         $this->source = is_string($source) ? $source : '';
