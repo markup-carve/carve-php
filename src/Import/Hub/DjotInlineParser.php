@@ -6,12 +6,16 @@ namespace MarkupCarve\Carve\Import\Hub;
 
 use Djot\Node\Inline\Link;
 use Djot\Node\Inline\Text;
+use Djot\Node\Node;
 use Djot\Parser\InlineParser;
 
 /**
  * The library inline parser with djot.js 0.3.2 autolinks (the reference library decides Djot syntax in the 0.2 hub):
  * `<`, content without `<`, `>` or white space, `>`; an email when the content matches `[^:]@`, else a URL when it
  * matches `[a-zA-Z]:`, else no autolink.
+ *
+ * The library keeps some fast paths to its own class (`$this::class === self::class`), so steps that need them run on a
+ * plain library instance.
  */
 final class DjotInlineParser extends InlineParser
 {
@@ -19,6 +23,8 @@ final class DjotInlineParser extends InlineParser
      * @var string The white space of JavaScript `\s` beyond ASCII, which the djot.js autolink pattern also excludes.
      */
     private const UNICODE_SPACE = '/[\x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}]/u';
+
+    private ?InlineParser $library = null;
 
     /**
      * @return array{node: \Djot\Node\Inline\Link, pos: int}|null
@@ -38,6 +44,20 @@ final class DjotInlineParser extends InlineParser
         }
 
         return ['node' => $link, 'pos' => $endPos];
+    }
+
+    /**
+     * Past 8,192 bytes of abbreviation keys only the library class switches to its matcher; a subclass loses every
+     * abbreviation to a regex PCRE refuses.
+     *
+     * @param \Djot\Node\Node $parent
+     * @param string $text
+     * @param array<string, string> $abbreviations
+     */
+    protected function flushTextWithAbbreviations(Node $parent, string $text, array $abbreviations): void
+    {
+        $this->library ??= new InlineParser($this->blockParser);
+        $this->library->flushTextWithAbbreviations($parent, $text, $abbreviations);
     }
 
     protected function findAutolinkEnd(string $text, int $pos): ?int

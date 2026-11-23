@@ -180,6 +180,16 @@ final class HubImporterTest extends TestCase
         $this->assertSame($expected, self::source($input, 'djot'));
     }
 
+    public function testKeepsDjotAbbreviationsPastTheLibraryPatternLimit(): void
+    {
+        $definitions = '';
+        for ($i = 1; $i <= 5000; $i++) {
+            $definitions .= '*[K-' . $i . "]: v\n";
+        }
+
+        $this->assertSame("[HTML]{abbr=h} x\n", self::source("HTML x\n\n" . $definitions . "*[HTML]: h\n", 'djot'));
+    }
+
     public function testWritesOnlyAnAuthoredDjotHeadingId(): void
     {
         $this->assertSame("= Head\n\ntext\n", self::source("# Head\n\ntext\n", 'djot'));
