@@ -350,14 +350,8 @@ final class Text
                     continue;
                 }
             }
-            // C2-I-035: an escaped brace starts no attribute block, so the plan's shielded backticks inside it are live.
-            if ($escape && $byte === 0x7B && $ticks !== null) {
-                $end = self::literalBlockEnd($value, $i);
-                for ($k = $end > $i ? strpos($value, '`', $i) : false; $k !== false && $k < $end; $k = strpos($value, '`', $k + 1)) {
-                    if (isset($c->tickShielded[$c->textPath][$k])) {
-                        $liveTicks[$k] = true;
-                    }
-                }
+            if ($escape && $byte === 0x7B) {
+                $liveTicks += self::liveTicks($value, $i, $c);
             }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
@@ -717,7 +711,6 @@ final class Text
         if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded) || $owners === []) {
             return null;
         }
-        $c->tickShielded = [];
         foreach ($owners as $at => [$path, $offset]) {
             $c->tickAt[$path][$offset] = $at;
         }
@@ -750,26 +743,45 @@ final class Text
         }
         $plan = [];
         $fixed = static fn (int $at): bool => !isset($owners[$at]);
-        foreach (array_keys(self::tickRounds($runs, $c->tickReportedOnly ? [] : $firsts, $escaped, $fixed, $shielded)) as $at) {
+        $firsts = $c->tickReportedOnly ? [] : $firsts;
+        foreach (array_keys(self::tickRounds($runs, $firsts, $escaped, $fixed, $shielded)) as $at) {
             if (!isset($owners[$at])) {
                 continue;
             }
             [$path, $offset] = $owners[$at];
             $plan[$path][$offset] = true;
         }
-        // Where the writer escapes the brace of such a block, its backticks take the plan without the shield.
-        if ($shielded !== []) {
-            $bare = self::tickRounds($runs, $c->tickReportedOnly ? [] : $firsts, $escaped, $fixed);
-            foreach (array_keys($shielded) as $at) {
-                if (isset($bare[$at], $owners[$at])) {
-                    [$path, $offset] = $owners[$at];
-                    $c->tickShielded[$path][$offset] = true;
-                }
-            }
-        }
+        $c->tickShielded = self::unshielded($shielded, $owners, [$runs, $firsts, $escaped, $fixed]);
         $c->tickPlan = $plan;
 
         return $plan;
+    }
+
+    /**
+     * Where the writer escapes the brace of a literal block, its backticks take the plan without the shield.
+     *
+     * @param array<int, true> $shielded
+     * @param array<int, array{string, int}> $owners
+     * @param array{array<array{int, int}>, array<int>, array<int, true>, \Closure(int): bool} $rounds The arguments of the
+     *   plan's rounds.
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function unshielded(array $shielded, array $owners, array $rounds): array
+    {
+        if ($shielded === []) {
+            return [];
+        }
+        $bare = self::tickRounds(...$rounds);
+        $out = [];
+        foreach (array_keys($shielded) as $at) {
+            if (isset($bare[$at], $owners[$at])) {
+                [$path, $offset] = $owners[$at];
+                $out[$path][$offset] = true;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -785,8 +797,14 @@ final class Text
      *
      * @return bool
      */
-    private static function planNodes(array $nodes, string $path, string &$flat, array &$owners, bool $atoms = false, array &$shielded = []): bool
-    {
+    private static function planNodes(
+        array $nodes,
+        string $path,
+        string &$flat,
+        array &$owners,
+        bool $atoms = false,
+        array &$shielded = [],
+    ): bool {
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
                 continue;
@@ -838,6 +856,29 @@ final class Text
         }
 
         return self::verbatimSpelling($node, $type);
+    }
+
+    /**
+     * C2-I-035: an escaped brace starts no attribute block, so the backticks the plan shielded inside it are live.
+     *
+     * @param string $value
+     * @param int $i The escaped brace.
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<int, true>
+     */
+    private static function liveTicks(string $value, int $i, Context $c): array
+    {
+        $shielded = $c->tickShielded[$c->textPath] ?? [];
+        $end = $shielded === [] ? -1 : self::literalBlockEnd($value, $i);
+        $live = [];
+        foreach (array_keys($shielded) as $k) {
+            if ($k > $i && $k < $end) {
+                $live[$k] = true;
+            }
+        }
+
+        return $live;
     }
 
     /**
@@ -2228,7 +2269,8 @@ final class Text
         foreach (['*', '/'] as $mark) {
             if (
                 $open[$mark] !== [] && (str_contains($held, $mark) && ($before !== ord($mark) || self::braceHolds($node, $mark))
-                || ($closes && $before !== ord($mark) && (($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))))
+                || ($closes && $before !== ord($mark)
+                && (($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))))
             ) {
                 $from = array_pop($open[$mark]);
                 $paired[$mark][$from] = $from > $bracket;
