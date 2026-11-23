@@ -157,7 +157,7 @@ jobs:
             echo
             echo "Refresh the vendored copy from carve-grammars and bump \`_provenance.commit\`,"
             echo "or declare each intended difference in \`_provenance.divergences\`. Reproduce"
-            echo "locally with \`composer schema-map-check -- --grammars <carve-grammars checkout>\`."
+            echo "locally with \`composer schema-map-check -- --grammars <carve-grammars checkout> --ref $GRAMMARS_REF\`."
             echo
             echo "This ticket is filed and maintained by the workflow. It is EDITED by each"
             echo "later drift verdict and CLOSED by the first clean run. Closing it by hand"
