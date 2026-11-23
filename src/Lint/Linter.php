@@ -184,6 +184,7 @@ final class Linter
 
         if ($c->dataRules) {
             DataRules::run($c);
+            DataRules::runAttributes($c);
         }
 
         $findings = self::ordered(self::filter($c, $controls));
@@ -270,6 +271,10 @@ final class Linter
         }
         if ($attrs !== null && $pos !== null) {
             $c->attachedLines[$pos['startLine']] = true;
+        }
+        // C2-B-227: a table may have consumed every key it took.
+        if ($c->attributeRules && $pos !== null && ($attrs !== null || $type === 'table')) {
+            $c->attributed[] = [$node, $path, $parent, $pos];
         }
         if ($pos !== null) {
             self::placed($node, $type, $path, $pos, $c, $controls);

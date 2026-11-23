@@ -220,40 +220,6 @@ final class NodeRulesB
      *
      * @return void
      */
-    public static function tableColumnOverlap(array $node, string $path, Context $c): void
-    {
-        if (
-            ($node['type'] ?? null) !== 'table'
-            || (!self::hasAttribute($node, $c, 'aligns') && !self::hasAttribute($node, $c, 'valigns'))
-        ) {
-            return;
-        }
-        $head = self::firstOfType(Support::kids($node), 'table_head');
-        $first = $head === null ? null : self::firstOfType(Support::kids($head), 'table_row');
-        if ($first === null) {
-            return;
-        }
-        $cells = Support::kids($first);
-        foreach (Support::kids($node, 'columns') as $at => $column) {
-            // C2-A-095: the column fields carry the fact that `aligns` or `valigns` wrote them.
-            $horizontal = isset($column['align'], $cells[$at]['align']);
-            $vertical = isset($column['valign'], $cells[$at]['valign']);
-            if ($horizontal || $vertical) {
-                $range = NodeRulesA::tableKeyRange($node, $horizontal ? 'aligns' : 'valigns', $c);
-                if ($range !== null) {
-                    $c->report('table-column-overlap', $range[0], $range[1], $path, ['n' => (string)($at + 1)]);
-                }
-            }
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
     public static function unclosedBracedComment(array $node, string $path, Context $c): void
     {
         $range = self::textRange($node);
@@ -413,45 +379,6 @@ final class NodeRulesB
      *
      * @return void
      */
-    public static function consumedNearMiss(array $node, string $path, Context $c): void
-    {
-        if (($node['type'] ?? null) !== 'code_block' || !in_array($node['syntax'] ?? null, ['csv', 'tsv'], true)) {
-            return;
-        }
-        $pos = Support::pos($node);
-        $opener = $pos === null ? null : ($c->lines[$pos['startLine']] ?? null);
-        foreach (Support::keyValues($node) as [$word, $value]) {
-            if ($value !== '' || $word === 'table') {
-                continue;
-            }
-            $lower = strtolower($word);
-            $distance = levenshtein($lower, 'table');
-            $swapped = false;
-            if (strlen($lower) === 5) {
-                for ($at = 0; $at < 4; $at++) {
-                    $candidate = $lower;
-                    [$candidate[$at], $candidate[$at + 1]] = [$candidate[$at + 1], $candidate[$at]];
-                    $swapped = $swapped || $candidate === 'table';
-                }
-            }
-            if ($distance <= 1 || $swapped) {
-                if ($opener !== null) {
-                    $c->report('consumed-key-near-miss', $opener->start, $opener->end, $path, [
-                        'word' => $word,
-                        'key' => 'table',
-                    ]);
-                }
-            }
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
     public static function nonDescriptiveLink(array $node, string $path, Context $c): void
     {
         $children = Support::kids($node);
@@ -518,47 +445,5 @@ final class NodeRulesB
     private static function textRange(array $node): ?array
     {
         return ($node['type'] ?? null) === 'text' ? Support::bounds($node) : null;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $nodes
-     * @param string $type
-     *
-     * @return array<string, mixed>|null
-     */
-    private static function firstOfType(array $nodes, string $type): ?array
-    {
-        foreach ($nodes as $node) {
-            if (($node['type'] ?? null) === $type) {
-                return $node;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Whether the attribute line of a node names `key` (the JS `attributeValue` is not undefined).
-     *
-     * @param array<string, mixed> $node
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     * @param string $key
-     *
-     * @return bool
-     */
-    private static function hasAttribute(array $node, Context $c, string $key): bool
-    {
-        $pos = Support::pos($node);
-        $line = $pos === null ? null : ($c->lines[$pos['startLine'] - 1] ?? null);
-        if ($line === null) {
-            return false;
-        }
-        $text = Support::trim($line->text);
-        if (!str_starts_with($text, '{') || !str_ends_with($text, '}')) {
-            return false;
-        }
-        $at = strpos($text, $key);
-
-        return $at !== false && ($at === 0 || $text[$at - 1] === '{' || $text[$at - 1] === ' ');
     }
 }

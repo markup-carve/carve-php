@@ -39,6 +39,14 @@ final class Context
     public bool $dataRules;
 
     /**
+     * @var list<array{0: array<string, mixed>, 1: string, 2: string, 3: array<string, int>}> The nodes that carry
+     * attributes and every table, with path, parent path and position, when a rule over attribute records runs.
+     */
+    public array $attributed = [];
+
+    public bool $attributeRules = false;
+
+    /**
      * @var array<string, true>
      */
     public array $dataNodeTypes = [];
@@ -111,6 +119,7 @@ final class Context
         if ($this->dataRules) {
             $this->dataIds = DataRules::ids();
             $this->dataNodeTypes = DataRules::nodeTypes($this);
+            $this->attributeRules = DataRules::attributesActive($this);
         }
         $start = 0;
         $number = 1;
