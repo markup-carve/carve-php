@@ -145,6 +145,71 @@ final class TreeReader
     }
 
     /**
+     * Whether a tree in array form is deeper than `read()` takes (C2-A-171), counted as `read()` counts, without
+     * encoding or decoding it.
+     *
+     * @param array<string, mixed> $tree
+     */
+    public static function exceedsDepth(array $tree): bool
+    {
+        $stack = [[$tree, 0, 0]];
+        while ($stack !== []) {
+            [$node, $blocks, $inlines] = array_pop($stack);
+            $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+            if (isset(self::INLINE[$type])) {
+                $inlines += isset($node['children']) ? 1 : 0;
+            } else {
+                $inlines = 0;
+                $blocks += isset(self::CONTAINERS[$type]) ? 1 : 0;
+            }
+            if ($blocks > Tables::BLOCK_DEPTH || $inlines > Tables::INLINE_DEPTH) {
+                return true;
+            }
+            if ($type === 'include') {
+                $blocks = 0;
+            }
+            foreach (self::arrayNodes($node) as $child) {
+                $stack[] = [$child, $blocks, $inlines];
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The nodes in the fields of a node in array form, as `pushNodes()` finds them.
+     *
+     * @param array<mixed> $node
+     *
+     * @return array<array<mixed>>
+     */
+    private static function arrayNodes(array $node): array
+    {
+        $out = [];
+        foreach ($node as $key => $value) {
+            if (!is_array($value) || isset(self::OPAQUE_FIELDS[$key])) {
+                continue;
+            }
+            $pending = [$value];
+            while ($pending !== []) {
+                $current = array_pop($pending);
+                if (is_string($current['type'] ?? null)) {
+                    $out[] = $current;
+
+                    continue;
+                }
+                foreach ($current as $item) {
+                    if (is_array($item)) {
+                        $pending[] = $item;
+                    }
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Runs every check of `read()` without building the tree.
      *
      * @param string $json

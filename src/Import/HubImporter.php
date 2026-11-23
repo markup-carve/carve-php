@@ -65,7 +65,8 @@ final class HubImporter
         // The library trees are cyclic; left to the collector they tax whatever the host runs next.
         gc_collect_cycles();
         $options = ['rawHtml' => true] + array_intersect_key($options, array_flip(['strictLosses', 'allowLosses', 'maxLosses']));
-        $result = HtmlImporter::import(
+
+        return HtmlImporter::import(
             $html,
             $options,
             prepare: static function (HtmlNode $root) use ($format): void {
@@ -80,14 +81,7 @@ final class HubImporter
 
                 return array_merge($lead, $sink->raw === [] ? $children : self::restoreRaw($children, $sink->raw));
             },
-        );
-
-        return new ImportResult(
-            $result->tree,
-            $result->document,
-            self::withoutHtmlRanges($result->diagnostics),
-            $result->source,
-            $result->suppressedDiagnostics,
+            report: self::withoutHtmlRanges(...),
         );
     }
 
