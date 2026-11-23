@@ -39,6 +39,11 @@ final class Finisher
     private bool $captionSeen = false;
 
     /**
+     * @var array<string, array{kind: string, glyph: string, source: string}>
+     */
+    private static array $smartFields = [];
+
+    /**
      * @param \MarkupCarve\Carve\Inline\Scanner $sc
      * @param \MarkupCarve\Carve\Inline\InlineContext $ctx
      */
@@ -385,9 +390,7 @@ final class Finisher
             $this->plain($plain, $j, $pieces);
             foreach ($matches as [$kind, $len]) {
                 $node = $this->sc->node('smart_punctuation', $j, $j + $len);
-                $node->f['kind'] = $kind;
-                $node->f['glyph'] = Tables::SMART_GLYPHS[$kind] ?? Tables::SMART_RUNS[substr($t, $j, $len)][1] ?? '';
-                $node->f['source'] = substr($t, $j, $len);
+                $node->f = $this->smartFields($kind, substr($t, $j, $len));
                 $pieces[] = $node;
                 $j += $len;
                 $this->smartEnd = $j;
@@ -399,6 +402,29 @@ final class Finisher
         if ($te > $ts) {
             $this->visible = Chars::before($t, $te);
         }
+    }
+
+    /**
+     * One shared field array per short spelling: a run of dashes is otherwise one hash array per node.
+     *
+     * @return array{kind: string, glyph: string, source: string}
+     */
+    private function smartFields(string $kind, string $source): array
+    {
+        $key = $kind . "\0" . $source;
+        if (isset(self::$smartFields[$key])) {
+            return self::$smartFields[$key];
+        }
+        $fields = [
+            'kind' => $kind,
+            'glyph' => Tables::SMART_GLYPHS[$kind] ?? Tables::SMART_RUNS[$source][1] ?? '',
+            'source' => $source,
+        ];
+        if (strlen($source) <= 3) {
+            self::$smartFields[$key] = $fields;
+        }
+
+        return $fields;
     }
 
     /**
