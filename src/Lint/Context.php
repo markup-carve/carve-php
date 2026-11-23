@@ -32,7 +32,7 @@ final class Context
     /**
      * The parsed nodes in source walk order for the shared data rule model.
      *
-     * @var list<array{node: array<string, mixed>, path: string, parent: string, index: int, pos: array<string, int>|null, type: string}>
+     * @var list<\MarkupCarve\Carve\Lint\WalkedNode>
      */
     public array $walked = [];
 
