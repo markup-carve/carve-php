@@ -155,7 +155,7 @@ final class DataRules
     private array $lookupIndexes = [];
 
     /**
-     * @var array<string, array<string, array<int>|null>> The starts of each index list, or null when the list is not
+     * @var array<string, array<string, array<int>|false>> The starts of each index list, or false when the list is not
      * in start order, so a before or after lookup can bisect instead of scanning from the first record.
      */
     private array $lookupStarts = [];
@@ -2838,7 +2838,7 @@ final class DataRules
         $before = ($expr['before'] ?? false) === true;
         if ($before || ($expr['after'] ?? false) === true) {
             $starts = $this->lookupStarts[$site][$key] ??= self::startsInOrder($list);
-            if ($starts !== null) {
+            if ($starts !== false) {
                 // The first record at or past `from` (before) or past it (after).
                 $low = 0;
                 $high = count($starts);
@@ -2882,16 +2882,16 @@ final class DataRules
     /**
      * @param list<\stdClass> $list
      *
-     * @return array<int>|null
+     * @return array<int>|false
      */
-    private static function startsInOrder(array $list): ?array
+    private static function startsInOrder(array $list): array|false
     {
         $starts = [];
         $last = PHP_INT_MIN;
         foreach ($list as $candidate) {
             $start = $candidate->start;
             if (!is_int($start) || $start < $last) {
-                return null;
+                return false;
             }
             $starts[] = $last = $start;
         }
