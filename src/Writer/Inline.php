@@ -434,10 +434,7 @@ final class Inline
         if ($c->flat === null) {
             $c->flat = '';
             $c->labels = $this->w->labels;
-            $c->leafNodes = $nodes;
-            $c->leafPath = $path;
-            $c->tickPlan = null;
-            $c->tickForced = [];
+            self::startLeaf($nodes, $path, $c);
             self::flatten($nodes, $path, $c);
         }
         $out = '';
@@ -1048,6 +1045,27 @@ final class Inline
         }
 
         return $next;
+    }
+
+    /**
+     * The leaf whose backtick plan the texts of `$nodes` read: these nodes, or inside a bracket the leaf around it where
+     * that has a plan (C2-W-088).
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return void
+     */
+    private static function startLeaf(array $nodes, string $path, Context $c): void
+    {
+        if ($c->inBracket && is_array($c->tickPlan)) {
+            return;
+        }
+        $c->leafNodes = $nodes;
+        $c->leafPath = $path;
+        $c->tickPlan = null;
+        $c->tickForced = [];
     }
 
     /**
@@ -1965,6 +1983,10 @@ final class Inline
     {
         // The copy must not share the leaf's run log: the content below appends to it, and a shared log is copied in
         // full on each append, once per bracketed node of the leaf.
+        // A code span reads over the bracket, so the backtick plan of the leaf around it stays (C2-W-088).
+        if ($c->flat !== null && $c->leafNodes !== null) {
+            Text::hasTickPlan($c);
+        }
         $log = $c->runLog;
         $c->runLog = [];
         $outer = clone $c;
@@ -1999,6 +2021,11 @@ final class Inline
         $c->flatNodes = $outer->flatNodes;
         $c->closers = $outer->closers;
         $c->partners = $outer->partners;
+        $c->leafNodes = $outer->leafNodes;
+        $c->leafPath = $outer->leafPath;
+        $c->tickPlan = $outer->tickPlan;
+        $c->tickAt = $outer->tickAt;
+        $c->tickForced = $outer->tickForced;
         $c->inBracket = $bracket;
         $c->bracketPairs = $pairs;
         $c->marks = $marks;

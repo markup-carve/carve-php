@@ -111,6 +111,26 @@ final class Text
     private const TICK_ATOMS = ['code', 'raw_inline', 'math', 'literal_inline'];
 
     /**
+     * C2-W-088: the nodes whose content a leaf's backtick plan reads, written at the path of their `children`; a code
+     * span reads over a bracket, so link and span text belong to the leaf around them.
+     *
+     * @var array<string, true>
+     */
+    private const PLAN_SPANS = [
+        'emphasis' => true,
+        'strong' => true,
+        'underline' => true,
+        'strike' => true,
+        'highlight' => true,
+        'superscript' => true,
+        'subscript' => true,
+        'insert' => true,
+        'delete' => true,
+        'link' => true,
+        'span' => true,
+    ];
+
+    /**
      * The characters that start a symbol name or an inline extension name.
      */
     private const NAME_STARTS = Tables::SIGIL_SYMBOL_FIRST . Tables::SIGIL_INLINE_EXTENSION_FIRST;
@@ -377,39 +397,69 @@ final class Text
         if (!str_contains($value, '`')) {
             return null;
         }
-        $plan = self::leafTickPlan($c);
-        if ($plan !== null) {
-            // A tick the line start of this text escapes stops a pair the plan read across it.
-            $forced = $c->tickForced;
-            foreach ([$marks, ...array_keys($c->behindMarker)] as $at) {
-                $global = $c->tickAt[$c->textPath][$at] ?? null;
-                if ($global !== null) {
-                    $forced[$global] = true;
-                }
-            }
-            if ($forced !== $c->tickForced) {
-                $c->tickForced = $forced;
-                $c->tickPlan = null;
-                $plan = (array)self::leafTickPlan($c);
-            }
-
-            return $plan[$c->textPath] ?? [];
+        if (self::leafTickPlan($c) !== null) {
+            return self::plannedTicks($c, $marks);
         }
         $runs = [];
         preg_match_all('/`+/', $value, $matches, PREG_OFFSET_CAPTURE);
         foreach ($matches[0] as [$run, $at]) {
             $runs[] = [$at, strlen($run)];
         }
+        $lead = self::leadTick($value, $c, $marks);
         if (count($runs) < 2) {
-            return self::singleRunEscapes($value, $runs[0], $c, $next, $marks);
+            return self::singleRunEscapes($value, $runs[0], $c, $next, $lead);
         }
         $c->neighborTick ??= self::hasNeighborTick($c);
         if ($c->neighborTick) {
             return null;
         }
-        $escaped = $marks >= 0 && $value[$marks] === '`' ? [$marks => true] : [];
 
-        return self::tickRounds($runs, array_column($runs, 0), $escaped);
+        return self::tickRounds($runs, array_column($runs, 0), $lead >= 0 ? [$lead => true] : []);
+    }
+
+    /**
+     * The backticks of the text by its leaf's plan. A tick the line start of this text escapes stops a pair the plan
+     * read across it, so the plan is made again with it.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $marks
+     *
+     * @return array<int, true>
+     */
+    private static function plannedTicks(Context $c, int $marks): array
+    {
+        $forced = $c->tickForced;
+        foreach ([$marks, ...array_keys($c->behindMarker)] as $at) {
+            $global = $c->tickAt[$c->textPath][$at] ?? null;
+            if ($global !== null) {
+                $forced[$global] = true;
+            }
+        }
+        if ($forced !== $c->tickForced) {
+            $c->tickForced = $forced;
+            $c->tickPlan = null;
+        }
+
+        return self::leafTickPlan($c)[$c->textPath] ?? [];
+    }
+
+    /**
+     * C2-W-092, C2-W-088: the backtick that a line opener or an opener behind a marker takes, or -1.
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $marks
+     *
+     * @return int
+     */
+    private static function leadTick(string $value, Context $c, int $marks): int
+    {
+        $lead = $marks >= 0 && $value[$marks] === '`' ? $marks : -1;
+        foreach (array_keys($c->behindMarker) as $at) {
+            $lead = $value[$at] === '`' ? $at : $lead;
+        }
+
+        return $lead;
     }
 
     /**
@@ -435,6 +485,18 @@ final class Text
         }
 
         return $escaped;
+    }
+
+    /**
+     * Whether the leaf of `$c` has a backtick plan, which the bracketed content inside it then reads too.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    public static function hasTickPlan(Context $c): bool
+    {
+        return self::leafTickPlan($c) !== null;
     }
 
     /**
@@ -518,8 +580,8 @@ final class Text
                 $flat .= $value;
             } elseif ($type === 'soft_break' || $type === 'hard_break') {
                 $flat .= "\n";
-            } elseif (is_string($type) && Inline::spanMark($type) !== null && is_array($node['children'] ?? null)) {
-                if (str_contains(Inline::strings(['attrs' => $node['attrs'] ?? null]), '`')) {
+            } elseif (is_string($type) && isset(self::PLAN_SPANS[$type]) && is_array($node['children'] ?? null)) {
+                if (str_contains(Inline::strings(array_diff_key($node, ['children' => true])), '`')) {
                     return false;
                 }
                 $flat .= "\1";

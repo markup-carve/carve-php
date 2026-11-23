@@ -43,6 +43,18 @@ final class BacktickKindRoundsTest extends TestCase
                 [$text('a'), $break, $text('| '), $span('emphasis', 'b'), $text(' |')],
                 "a\n\\| /b/ |\n",
             ],
+            'runs in link text and behind the link' => [
+                [['type' => 'link', 'href' => '/u', 'children' => [$text('``a` `b``')]], $text('| ```')],
+                "[\\`\\`a\\` \\`b\\``](/u)| \\```\n",
+            ],
+            'a pair in link text and one behind it' => [
+                [['type' => 'link', 'href' => '/u', 'children' => [$text('`x`')]], $text(' a `b`')],
+                "[\\`x\\`](/u) a \\`b\\`\n",
+            ],
+            'a fence behind a marker before a code span' => [
+                [$text('1. ```'), $break, ['type' => 'code', 'value' => '`']],
+                "1\\. \\`\\`\\`\n`` ` ``\n",
+            ],
         ];
     }
 
