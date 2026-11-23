@@ -32,6 +32,24 @@ final class Writer
     private const BRACKETED_INLINES = ['link', 'image', 'span', 'inline_footnote', 'inline_extension'];
 
     /**
+     * The fields the writer does not spell as text.
+     *
+     * @var array<string, true>
+     */
+    private const NO_SPELLING = ['type' => true, 'astVersion' => true];
+
+    /**
+     * @var string
+     */
+    private const PUNCTUATION = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+
+    /**
+     * The source while `formatWithDiagnostics` writes the tree of its parse, which a read-back can match field for
+     * field; a supplied tree may lack fields a parse adds, so its read-back is no proof of a misread.
+     */
+    private static ?string $parsedSource = null;
+
+    /**
      * C2-W-134: the nearest source and the report.
      *
      * @param array<string, mixed> $tree A decoded 2.0 tree.
@@ -60,12 +78,19 @@ final class Writer
      */
     private static function writeChecked(array $tree, ?array $layout, array $options): WriteResult
     {
+        $parsed = self::$parsedSource;
+        self::$parsedSource = null;
         [$result, $localEscapes, $undecided] = self::localWrite($tree, $layout, $options, false);
         if ($result->diagnostics !== []) {
             return $result;
         }
         $risk = self::hasRoundRisk($tree);
-        if (!$undecided && !$risk) {
+        // C2-W-124: a local write the heuristics call safe is still read back where the tree is a parse's; one that
+        // reads as another tree goes to the rounds.
+        $unchecked = !$undecided && !$risk;
+        // A form equal to the source the tree was parsed from reads back as that tree, and a tree without ASCII
+        // punctuation in its strings takes no escape decision that could misread.
+        if ($unchecked && ($parsed === null || $parsed === $result->source || !self::hasPunctuation($tree))) {
             return $result;
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
@@ -76,6 +101,13 @@ final class Writer
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
         $treePrint = TreeEquality::fingerprint($tree);
+        if ($unchecked) {
+            // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
+            unset($localEscapes);
+            if (self::readsBack($result->source, $treePrint, $options)) {
+                return $result;
+            }
+        }
         if ($undecided) {
             // C2-W-088: a bracket the plan left bare stays bare where the form reads back; otherwise the plan takes
             // its backslash there, and the rounds below go on from that form.
@@ -97,28 +129,38 @@ final class Writer
         unset($bare);
         $seed = [];
         if ($equal) {
-            if ($result->source === $bareSource || self::readsBack($result->source, $treePrint, $options)) {
+            if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
                 return $result;
             }
             // C2-W-091: the escapes of the local write can change how the text reads, as an escaped bracket that no
             // longer counts toward the depth limit of C2-I-118. The rounds go on from the local form.
-            $seed = $removed === [] ? $localEscapes : [];
+            $seed = $removed === [] ? ($localEscapes ?? self::localWrite($original, $originalLayout, $options, false)[1]) : [];
         }
         $repaired = (new RepairPlanner($tree, $layout, $options, $seed))->repair();
 
-        if ($repaired === null) {
-            $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
-            $read = TreeEncoder::decodedForWriter(Carve::parse($result->source, $parseOptions));
-            if (TreeEquality::equal($tree, $read)) {
-                return $result;
-            }
+        return $repaired === null ? self::unrepaired($tree, $result, $options) : new WriteResult($repaired, []);
+    }
 
-            return new WriteResult($result->source, [
-                new Diagnostic('writer-refused', 'warning', 'render-loss', 'Writer repair stopped for this block group', ''),
-            ]);
+    /**
+     * The local form where the rounds stopped: kept where it reads as the tree, reported otherwise.
+     *
+     * @param array<string, mixed> $tree
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param array<string, mixed> $options
+     *
+     * @return \MarkupCarve\Carve\Writer\WriteResult
+     */
+    private static function unrepaired(array $tree, WriteResult $result, array $options): WriteResult
+    {
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source, $parseOptions));
+        if (TreeEquality::equal($tree, $read)) {
+            return $result;
         }
 
-        return new WriteResult($repaired, []);
+        return new WriteResult($result->source, [
+            new Diagnostic('writer-refused', 'warning', 'render-loss', 'Writer repair stopped for this block group', ''),
+        ]);
     }
 
     /**
@@ -184,6 +226,27 @@ final class Writer
         }
 
         return $formats;
+    }
+
+    /**
+     * Whether a string field of the tree that the writer spells holds ASCII punctuation.
+     *
+     * @param array<mixed> $tree
+     */
+    private static function hasPunctuation(array $tree): bool
+    {
+        $pending = [$tree];
+        while (($node = array_pop($pending)) !== null) {
+            foreach ($node as $key => $value) {
+                if (is_array($value)) {
+                    $pending[] = $value;
+                } elseif (!isset(self::NO_SPELLING[$key]) && is_string($value) && strpbrk($value, self::PUNCTUATION) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -417,8 +480,12 @@ final class Writer
         // The read-back parser may need the same memory as the initial parse.
         // Release its object tree before the writer begins that repair work.
         unset($parsed);
-
-        return self::writeWithDiagnostics($tree, $writeLayout, $options);
+        self::$parsedSource = $source;
+        try {
+            return self::writeWithDiagnostics($tree, $writeLayout, $options);
+        } finally {
+            self::$parsedSource = null;
+        }
     }
 
     /**

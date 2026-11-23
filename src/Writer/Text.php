@@ -722,7 +722,11 @@ final class Text
         $flat = '';
         $owners = [];
         $shielded = [];
-        if ($c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded) || $owners === []) {
+        $atoms = [];
+        if (
+            $c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded, $atoms)
+            || $owners === []
+        ) {
             return null;
         }
         foreach ($owners as $at => [$path, $offset]) {
@@ -730,31 +734,35 @@ final class Text
         }
         $runs = [];
         $firsts = [];
+        $escaped = $c->tickForced;
+        $gluedSeen = false;
         preg_match_all('/`+/', $flat, $matches, PREG_OFFSET_CAPTURE);
         foreach ($matches[0] as [$run, $at]) {
             $length = strlen($run);
             $runs[] = [$at, $length];
-            // A tick of text glued to the fence of a verbatim node joins its run, which the plan does not measure.
             $owned = array_intersect_key($owners, array_flip(range($at, $at + $length - 1)));
             if ($owned !== [] && count($owned) < $length) {
-                return null;
+                // C2-W-125 case six: a tick of text glued behind the closing fence of a verbatim node always takes
+                // the backslash, which ends the fence there. A tick glued before an opening fence is not measured.
+                if (isset($owners[$at]) || array_key_last($owned) !== $at + $length - 1) {
+                    return null;
+                }
+                $escaped[array_key_first($owned)] = true;
+                $gluedSeen = true;
             }
             foreach ($owned as $k => [$path]) {
-                if ($k === $at || $path !== $owners[$k - 1][0]) {
+                if ($k === $at || !isset($owners[$k - 1]) || $path !== $owners[$k - 1][0]) {
                     $firsts[] = $k;
                 }
             }
         }
-        // C2-W-092: a fence line takes the backslash before its first backtick.
-        $escaped = $c->tickForced;
-        $start = 0;
-        foreach (explode("\n", $flat) as $line) {
-            $lead = strspn($line, " \t");
-            if (($line[$lead] ?? '') === '`' && isset($owners[$start + $lead]) && LineShapes::isFenceLine($line, $lead, strlen($line))) {
-                $escaped[$start + $lead] = true;
-            }
-            $start += strlen($line) + 1;
+        // C2-W-088: where the bare text pairs the runs otherwise than the verbatim nodes, its parse holds a code span
+        // the tree does not, which reports the kind: every first tick of a text run takes the backslash.
+        if ($gluedSeen && !$c->tickReportedOnly && self::barePairsOtherwise($flat, $atoms, $shielded)) {
+            $escaped += array_fill_keys($firsts, true);
+            self::$tickKindRounds++;
         }
+        $escaped += self::fenceLineTicks($flat, $owners);
         $plan = [];
         $fixed = static fn (int $at): bool => !isset($owners[$at]);
         $firsts = $c->tickReportedOnly ? [] : $firsts;
@@ -808,6 +816,7 @@ final class Text
      * @param array<int, array{string, int}> $owners
      * @param bool $atoms Whether a code span, math or literal node stands in by its spelling, whose ticks have no owner.
      * @param array<int, true> $shielded
+     * @param array<array{int, int}> $atomSpans The offsets of the first and past the last tick of each such spelling.
      *
      * @return bool
      */
@@ -818,6 +827,7 @@ final class Text
         array &$owners,
         bool $atoms = false,
         array &$shielded = [],
+        array &$atomSpans = [],
     ): bool {
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
@@ -838,12 +848,14 @@ final class Text
                     return false;
                 }
                 $flat .= "\1";
-                if (!self::planNodes($node['children'], $path . '/' . $k . '/children', $flat, $owners, $atoms, $shielded)) {
+                if (!self::planNodes($node['children'], $path . '/' . $k . '/children', $flat, $owners, $atoms, $shielded, $atomSpans)) {
                     return false;
                 }
                 $flat .= "\1";
             } elseif ($atoms && self::plannedAtom($node) !== null) {
-                $flat .= self::plannedAtom($node);
+                $spelled = (string)self::plannedAtom($node);
+                $atomSpans[] = [strlen($flat) + (int)strpos($spelled, '`'), strlen($flat) + (int)strrpos($spelled, '`') + 1];
+                $flat .= $spelled;
             } elseif (in_array($type, self::TICK_ATOMS, true) || str_contains(Inline::strings($node), '`')) {
                 return false;
             } else {
@@ -852,6 +864,85 @@ final class Text
         }
 
         return true;
+    }
+
+    /**
+     * C2-W-092: a fence line takes the backslash before its first backtick.
+     *
+     * @param string $flat
+     * @param array<int, array{string, int}> $owners
+     *
+     * @return array<int, true>
+     */
+    private static function fenceLineTicks(string $flat, array $owners): array
+    {
+        $escaped = [];
+        $start = 0;
+        foreach (explode("\n", $flat) as $line) {
+            $lead = strspn($line, " \t");
+            if (($line[$lead] ?? '') === '`' && isset($owners[$start + $lead]) && LineShapes::isFenceLine($line, $lead, strlen($line))) {
+                $escaped[$start + $lead] = true;
+            }
+            $start += strlen($line) + 1;
+        }
+
+        return $escaped;
+    }
+
+    /**
+     * C2-I-015: whether the backtick runs of the bare `$flat` pair otherwise than the verbatim spellings at `$atomSpans`
+     * stand. A run behind a backslash of text starts one tick later; a run in a literal attribute block opens nothing.
+     *
+     * @param string $flat
+     * @param array<array{int, int}> $atomSpans
+     * @param array<int, true> $shielded
+     *
+     * @return bool
+     */
+    private static function barePairsOtherwise(string $flat, array $atomSpans, array $shielded): bool
+    {
+        $inAtom = static function (int $at) use ($atomSpans): bool {
+            foreach ($atomSpans as [$from, $to]) {
+                if ($at >= $from && $at < $to) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+        $runs = [];
+        preg_match_all('/`+/', $flat, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as [$run, $at]) {
+            if (isset($shielded[$at])) {
+                continue;
+            }
+            $end = $at + strlen($run);
+            $slashed = $at > 0 && $flat[$at - 1] === '\\' && !$inAtom($at) && !$inAtom($at - 1);
+            $runs[] = [$slashed ? $at + 1 : $at, $end];
+        }
+        $held = [];
+        foreach ($atomSpans as [$from, $to]) {
+            $held[$from . ':' . $to] = true;
+        }
+        $count = count($runs);
+        for ($open = 0; $open < $count; $open++) {
+            [$start, $end] = $runs[$open];
+            if ($start === $end) {
+                continue;
+            }
+            for ($close = $open + 1; $close < $count; $close++) {
+                if ($runs[$close][1] - $runs[$close][0] === $end - $start) {
+                    if (!isset($held[$start . ':' . $runs[$close][1]])) {
+                        return true;
+                    }
+                    $open = $close;
+
+                    break;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

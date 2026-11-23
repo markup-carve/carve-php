@@ -362,10 +362,11 @@ final class RepairPlanner
         $ch = $kind[0];
         $first = $ch === '{' ? '{' : ($kind === '--' ? '-' : $ch);
         for ($i = strpos($value, $first); $i !== false && $i < $n; $i = strpos($value, $value[$i], $i + 1)) {
-            $prev = $value[$i - 1] ?? '';
+            // A negative string offset reads from the end, so the first character has no character before it.
+            $prev = $i > 0 ? $value[$i - 1] : '';
             $open = match (true) {
                 strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1] && $prev !== '{',
-                $kind === '--' => $prev === '-' && ($value[$i - 2] ?? '') !== '-' && ($value[$i + 1] ?? '') !== '',
+                $kind === '--' => $prev === '-' && ($i < 2 || $value[$i - 2] !== '-') && ($value[$i + 1] ?? '') !== '',
                 $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
                     && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),
                 default => $prev !== $ch,
