@@ -152,6 +152,34 @@ final class HubImporterTest extends TestCase
         );
     }
 
+    /**
+     * djot.js 0.3.2 decides a Djot autolink: an email when the content matches `[^:]@`, else a URL when it matches
+     * `[a-zA-Z]:` (carve-php#5706, #5707). Outputs as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotAutolinkProvider(): array
+    {
+        return [
+            'scheme with an at sign' => ["a <mailto:a@b> b\n", "a [mailto:a@b](mailto:mailto:a@b) b\n"],
+            'url scheme with an at sign' => ["<http://x@y>\n", "[http://x@y](mailto:http://x@y)\n"],
+            'tel with an at sign' => ["<tel:a@b.c>\n", "[tel:a@b.c](mailto:tel:a@b.c)\n"],
+            'email without a dot' => ["a <a@b> b\n", "a [a@b](mailto:a@b) b\n"],
+            'email with a query' => ["<a@b?subject=x>\n", "[a@b?subject=x](mailto:a@b?subject=x)\n"],
+            'colon right before the at sign' => ["<a:@b>\n", "[a:\\@b](a:@b)\n"],
+            'scheme not at the start' => ["<1a:b>\n", "[1a:b](1a:b)\n"],
+            'quoted local part' => ["<\"a\"@c.d>\n", "[\\\"a\\\"\\@c.d](mailto:\"a\"@c.d)\n"],
+            'attributes after the email' => ["<a@b>{.c}\n", "[a@b](mailto:a@b){.c}\n"],
+            'two in a row' => ["<a@b><c:d>\n", "[a@b](mailto:a@b)[c:d](c:d)\n"],
+        ];
+    }
+
+    #[DataProvider('djotAutolinkProvider')]
+    public function testLinksADjotAutolinkAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
     public function testWritesOnlyAnAuthoredDjotHeadingId(): void
     {
         $this->assertSame("= Head\n\ntext\n", self::source("# Head\n\ntext\n", 'djot'));
