@@ -26,7 +26,6 @@ final class LineRules
         }
         $rules = [
             'deprecated-indented-line-under-heading' => 'indentedHeadingContinuation',
-            'table-row-without-closing-pipe' => 'rowWithoutPipe',
         ];
         self::$all = [];
         foreach ($rules as $id => $method) {
@@ -34,20 +33,6 @@ final class LineRules
         }
 
         return self::$all;
-    }
-
-    /**
-     * The text of a line without leading spaces and tabs and without trailing whitespace, and where it starts.
-     *
-     * @param \MarkupCarve\Carve\Lint\Line $line
-     *
-     * @return array{0: string, 1: int}
-     */
-    private static function trimmed(Line $line): array
-    {
-        $at = strspn($line->text, " \t");
-
-        return [Support::trimEnd(substr($line->text, $at)), $line->start + $at];
     }
 
     private static function quoteDepth(Line $line): int
@@ -81,13 +66,5 @@ final class LineRules
             return;
         }
         $c->report('deprecated-indented-line-under-heading', $line->start, $line->end, $line->path);
-    }
-
-    private static function rowWithoutPipe(Line $line, Context $c): void
-    {
-        [$text, $start] = self::trimmed($line);
-        if ($line->paragraph && str_starts_with($text, '|') && !str_ends_with($text, '|')) {
-            $c->report('table-row-without-closing-pipe', $start, $start + strlen($text), $line->path);
-        }
     }
 }

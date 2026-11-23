@@ -205,11 +205,8 @@ final class Linter
             return;
         }
         foreach ($c->lines as $line) {
-            // Both remaining line rules read only a paragraph line that starts with a space or a pipe.
-            if (
-                $line->opaque || !$line->paragraph
-                || (($line->text[0] ?? '') !== ' ' && (ltrim($line->text, " \t")[0] ?? '') !== '|')
-            ) {
+            // The one hand-written line rule reads only a paragraph line that starts with a space.
+            if ($line->opaque || !$line->paragraph || ($line->text[0] ?? '') !== ' ') {
                 continue;
             }
             $scan = self::masked($line, $c, $maskCursor);

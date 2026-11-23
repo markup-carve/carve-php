@@ -382,32 +382,6 @@ final class NodeRulesA
      *
      * @return void
      */
-    public static function referencesPlacement(array $node, string $path, Context $c): void
-    {
-        if (self::nestedDirective($node, $path, 'references')) {
-            Support::reportNode('references-placement-in-container', $node, $path, $c);
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param string $kind
-     *
-     * @return bool
-     */
-    private static function nestedDirective(array $node, string $path, string $kind): bool
-    {
-        return ($node['type'] ?? null) === 'directive' && count(explode('/', $path)) > 3 && ($node['kind'] ?? null) === $kind;
-    }
-
-    /**
-     * @param array<string, mixed> $node
-     * @param string $path
-     * @param \MarkupCarve\Carve\Lint\Context $c
-     *
-     * @return void
-     */
     public static function unattachedInline(array $node, string $path, Context $c): void
     {
         if (($node['type'] ?? null) !== 'text') {

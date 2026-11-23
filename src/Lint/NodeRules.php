@@ -24,7 +24,6 @@ final class NodeRules
             ['bidi-control-in-source', ['text', 'code', 'code_block', 'math'], NodeRulesA::bidiControl(...)],
             ['deprecated-indented-line-under-heading', ['heading'], NodeRulesA::headingContinuation(...)],
             ['figure-group-panel-number', ['figure_group'], NodeRulesA::figurePanelNumber(...)],
-            ['references-placement-in-container', ['directive'], NodeRulesA::referencesPlacement(...)],
             ['unattached-inline-attribute', ['text'], NodeRulesA::unattachedInline(...)],
             ['platform-issue-reference', ['text'], NodeRulesA::platformIssue(...)],
             ['platform-mention-token', ['text', 'mention'], NodeRulesA::platformMention(...)],
