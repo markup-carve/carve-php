@@ -7,6 +7,8 @@ namespace MarkupCarve\Carve\Test\Conformance;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Import\HtmlImporter;
 use MarkupCarve\Carve\Import\HtmlParser;
+use MarkupCarve\Carve\Import\ImportInputError;
+use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Test\Support\Corpus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -112,6 +114,29 @@ final class ImportClauseCasesTest extends TestCase
     }
 
     /**
+     * @param array<string, mixed> $refusal
+     * @param \Throwable $error
+     *
+     * @return array<string>
+     */
+    private static function refusalMismatches(array $refusal, Throwable $error): array
+    {
+        $classes = ['CarveOptionError' => OptionError::class, 'ImportInputError' => ImportInputError::class];
+        $class = $classes[$refusal['error']] ?? null;
+        if ($class === null) {
+            return ['refusal ' . $refusal['error'] . ' has no runner mapping'];
+        }
+        if (!$error instanceof $class) {
+            return ['refusal: expected ' . $refusal['error'] . ', got ' . $error::class . ': ' . $error->getMessage()];
+        }
+        if (isset($refusal['path']) && (!$error instanceof OptionError || $error->path !== $refusal['path'])) {
+            return ['refusal path: expected ' . $refusal['path'] . ', got ' . json_encode($error->path ?? null)];
+        }
+
+        return [];
+    }
+
+    /**
      * @param array<string, mixed> $case
      * @param bool $legacy
      *
@@ -123,7 +148,9 @@ final class ImportClauseCasesTest extends TestCase
         try {
             $result = HtmlImporter::import($case['html'], Corpus::caseOptions($case), $legacy);
         } catch (Throwable $error) {
-            return isset($expected['refusal']) ? [] : ['threw ' . $error::class . ': ' . $error->getMessage()];
+            return isset($expected['refusal'])
+                ? self::refusalMismatches($expected['refusal'], $error)
+                : ['threw ' . $error::class . ': ' . $error->getMessage()];
         }
         if (isset($expected['refusal'])) {
             return ['no refusal'];
