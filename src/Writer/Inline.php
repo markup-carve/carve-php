@@ -221,7 +221,7 @@ final class Inline
     {
         if ($c->flat !== null) {
             $siblings = $c->siblings;
-            $c->siblings = self::siblingFlat($nodes, $path);
+            $c->siblings = self::siblingFlat($nodes, $path, $next);
             try {
                 return $this->contentOnce($nodes, $path, $c, $next);
             } finally {
@@ -1205,10 +1205,11 @@ final class Inline
      *
      * @param array<mixed> $nodes
      * @param string $path
+     * @param int $next The first character written behind the content.
      *
-     * @return array{flat: string, at: array<string, int>, types: array<int, string>, nodes: array<int, array<mixed>>}|null
+     * @return array{flat: string, at: array<string, int>, types: array<int, string>, nodes: array<int, array<mixed>>, next: int}|null
      */
-    private static function siblingFlat(array $nodes, string $path): ?array
+    private static function siblingFlat(array $nodes, string $path, int $next): ?array
     {
         // Most lists hold no mark, and the keys below are as long as the path.
         $marks = false;
@@ -1243,7 +1244,7 @@ final class Inline
             }
         }
 
-        return $marks ? ['flat' => $flat, 'at' => $at, 'types' => $types, 'nodes' => $held] : null;
+        return $marks ? ['flat' => $flat, 'at' => $at, 'types' => $types, 'nodes' => $held, 'next' => $next] : null;
     }
 
     /**
@@ -2250,11 +2251,19 @@ final class Inline
      * @param string $path The path of `$nodes`, to look up `$braced`.
      * @param array<string, true> $braced The emphasis and strong nodes written braced: a braced closer drops the marks
      *   between word characters its span held (C2-I-053).
+     * @param bool $nested Whether `$nodes` is the content of a span inside the content tested. Its closer drops the
+     *   openers opened in it (C2-I-047), so there only a mark that can close counts.
      *
      * @return bool
      */
-    public static function holdsMark(array $nodes, string $mark, bool $words = true, string $path = '', array $braced = []): bool
-    {
+    public static function holdsMark(
+        array $nodes,
+        string $mark,
+        bool $words = true,
+        string $path = '',
+        array $braced = [],
+        bool $nested = false,
+    ): bool {
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
                 continue;
@@ -2274,7 +2283,8 @@ final class Inline
                     $after = $at + 1 < $n ? Chars::at($value, $at + 1) : 0;
                     $counts = Chars::isWord($before) && Chars::isWord($after)
                         ? $words
-                        : !(Chars::isSpace($before) && Chars::isSpace($after));
+                        : !(Chars::isSpace($before) && Chars::isSpace($after))
+                        && (!$nested || (!Chars::isSpace($before) && !Chars::isWord($after)));
                     if ($counts) {
                         return true;
                     }
@@ -2282,7 +2292,7 @@ final class Inline
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                 $at = $path . '/' . $k . '/children';
                 $wordsInside = $words && !isset(self::BRACED[$type]) && !isset($braced[$path . '/' . $k]);
-                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced)) {
+                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true)) {
                     return true;
                 }
             }
@@ -2579,7 +2589,13 @@ final class Inline
         if ($notes && (($value[$open + 1] ?? '') === '^' || ($open > 0 && $value[$open - 1] === '^'))) {
             return true;
         }
-        if (str_contains('([{', $value[$close + 1] ?? 'x')) {
+        if (str_contains('({', $value[$close + 1] ?? 'x')) {
+            return true;
+        }
+        // C2-I-072, C2-I-075: a label glued to the pair forms a reference, resolved or not; the `]` that closes it may
+        // be written after this text. C2-I-078: a label that starts with a caret or an at-sign is none, and the pair is
+        // tested as a shortcut.
+        if (($value[$close + 1] ?? '') === '[' && !in_array($value[$close + 2] ?? '', ['^', '@'], true)) {
             return true;
         }
 

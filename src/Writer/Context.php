@@ -239,7 +239,7 @@ final class Context
      * The content of a node being written, flattened as the leaf is, so its texts pair across their siblings.
      *
      * @var array{flat: string, at: array<string, int>, types: array<int, string>, nodes: array<int, array<mixed>>,
-     *   partners?: array<string, array<int, bool>>}|null
+     *   next: int, partners?: array<string, array<int, bool>>}|null
      */
     public ?array $siblings = null;
 
