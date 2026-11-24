@@ -419,7 +419,8 @@ final class Writer
         $parsed = self::$parsedSource;
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
-        [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
+        [$result, $localEscapes, $undecided, $localDecided, $pairEscapes, $groups]
+            = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
         $cellTicks = self::$cellTicks;
         // C2-W-088: the backslashes a row's pairing across a pipe gives were placed as the first round places them;
         // where that form reads back, the procedure ends there.
@@ -450,19 +451,26 @@ final class Writer
         }
         $unsettledByKind = false;
         $firstBare = null;
+        // C2-W-146 places its pair escapes after the procedure of C2-W-088, for pairs of bare marks that stay text, so a
+        // write whose escapes are all of these and that reads back reads so bare too: no kind round, no bare read-back.
+        $pairsOnly = $localEscapes !== [] && $result->diagnostics === []
+            && self::onlyPairEscapes($tree, $localEscapes, $pairEscapes, $result->source)
+            && ($parsed === null || !self::mayTakeBare($tree, $localEscapes, $parsed));
+        $pairPrint = null;
+        if ($pairsOnly) {
+            $pairPrint = self::trimmedPrint($tree, $layout, $options);
+            $pairsOnly = self::readsBack($result->source, $pairPrint, $options);
+        }
         if (
             $parsed !== null && strlen($parsed) < 65536 && $result->diagnostics === [] && $localEscapes !== []
-            && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
+            && !$pairsOnly && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
         ) {
             $bare = self::bareSource($tree, $layout, $options, []);
             $readBare = ReadbackRound::read($bare, $options);
             $wanted = self::trimmedPrint($tree, $layout, $options);
             $firstBare = [$bare, $readBare, ...RepairPlanner::readPrints($readBare), $wanted];
             $bareHolds = $firstBare[2] === $wanted;
-            $unneededBrace = RepairPlanner::escapesOnly($tree, $localEscapes, '{');
-            $unneededInline = !str_contains($parsed, '\\')
-                && RepairPlanner::escapesOnly($tree, $localEscapes, '{:!+#</*|[');
-            if ($bareHolds && ($unneededBrace || $unneededInline) && Text::treePairOpeners($tree, []) === []) {
+            if ($bareHolds && self::mayTakeBare($tree, $localEscapes, $parsed) && Text::treePairOpeners($tree, []) === []) {
                 return new WriteResult($bare, []);
             }
             if (!$bareHolds) {
@@ -514,7 +522,7 @@ final class Writer
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
         // `trimmedPrint()` of the supplied tree, which the first bare read-back compared with.
-        $treePrint = $firstBare[4] ?? TreeEquality::fingerprint($tree);
+        $treePrint = $firstBare[4] ?? $pairPrint ?? TreeEquality::fingerprint($tree);
         // A nested link does not split the bracket pairs of the text around it. At the inline depth cap, the local
         // plan can still propose escapes for those pairs; C2-W-088 ends after round one if its bare form reads back.
         $bareNestedLink = self::bareNestedLink($tree, $layout, $options, $treePrint, $result->source);
@@ -527,7 +535,7 @@ final class Writer
         $readParts = null;
         $needsKindRound = false;
         if (
-            $localEscapes !== []
+            $localEscapes !== [] && !$pairsOnly
             && (self::takesLocalForm($unchecked, $undecided, $localDecided) || $undecided)
         ) {
             // Without trimmed line-end blanks the tree is the one the first bare read-back was taken of.
@@ -548,14 +556,14 @@ final class Writer
         if (!$needsKindRound && self::takesLocalForm($unchecked, $undecided, $localDecided)) {
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             unset($localEscapes);
-            if (self::readsBack($result->source, $treePrint, $options)) {
+            if ($pairsOnly || self::readsBack($result->source, $treePrint, $options)) {
                 return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
         }
         if ($undecided && !$needsKindRound) {
             // C2-W-088: a bracket the plan left bare stays bare where the form reads back; otherwise the plan takes
             // its backslash there, and the rounds below go on from that form.
-            if (self::readsBack($result->source, $treePrint, $options)) {
+            if ($pairsOnly || self::readsBack($result->source, $treePrint, $options)) {
                 return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
@@ -675,6 +683,57 @@ final class Writer
         }
 
         return $i === $sourceLength && $j === $writtenLength;
+    }
+
+    /**
+     * Whether the escapes of the local write are of the kinds whose bare form the writer takes where it reads back.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<string, array<int, true>> $localEscapes
+     * @param string $parsed
+     */
+    private static function mayTakeBare(array $tree, array $localEscapes, string $parsed): bool
+    {
+        return RepairPlanner::escapesOnly($tree, $localEscapes, '{')
+            || (!str_contains($parsed, '\\') && RepairPlanner::escapesOnly($tree, $localEscapes, '{:!+#</*|['));
+    }
+
+    /**
+     * Whether every backslash of the local write is a C2-W-146 pair escape on a `_`, `~` or `=` that no brace opens,
+     * the marks whose bare pairs are text (C2-I-043).
+     *
+     * @param array<string, mixed> $tree
+     * @param array<string, array<int, true>> $localEscapes
+     * @param array<string, array<int, true>> $pairEscapes
+     * @param string $written
+     */
+    private static function onlyPairEscapes(array $tree, array $localEscapes, array $pairEscapes, string $written): bool
+    {
+        // Some backslashes are written outside the text escapes, as before the tail of a link.
+        $count = array_sum(array_map('count', $localEscapes));
+        if (
+            substr_count($written, '\\') !== $count
+            || substr_count($written, '\\_') + substr_count($written, '\\~') + substr_count($written, '\\=') !== $count
+        ) {
+            return false;
+        }
+        foreach ($localEscapes as $path => $offsets) {
+            $pairs = $pairEscapes[$path] ?? [];
+            if (count($pairs) !== count($offsets)) {
+                return false;
+            }
+            $value = RepairPlanner::leafValue($tree, $path);
+            foreach ($offsets as $at => $_) {
+                if (
+                    !isset($pairs[$at]) || $value === null || !str_contains('_~=', $value[$at] ?? '')
+                    || ($at > 0 && $value[$at - 1] === '{')
+                ) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1038,6 +1097,7 @@ final class Writer
      *     \MarkupCarve\Carve\Writer\WriteResult,
      *     array<string, array<int, true>>,
      *     bool,
+     *     array<string, array<int, true>>,
      *     array<string, array<int, true>>,
      *     array<int, array{int, int, int, int, bool}>|null
      * }
@@ -1603,14 +1663,16 @@ final class Writer
      *     \MarkupCarve\Carve\Writer\WriteResult,
      *     array<string, array<int, true>>,
      *     bool,
+     *     array<string, array<int, true>>,
      *     array<string, array<int, true>>
-     * } The result, its escapes, whether a bracket was left undecided, and the escapes other than the glued braces of
-     *     C2-W-125 case one.
+     * } The result, its escapes, whether a bracket was left undecided, the escapes other than the glued braces of
+     *     C2-W-125 case one, and the pair escapes of C2-W-146.
      */
     private static function localWrite(array $tree, ?array $layout, array $options, bool $conservative, bool $bareSigils = false): array
     {
         Text::$recorded = [];
         Text::$recordedDecided = [];
+        Text::$recordedPairs = [];
         Text::$undecided = false;
         Text::$cellTicks = false;
         Text::$cellKinds = false;
@@ -1621,10 +1683,11 @@ final class Writer
             self::$cellTicks = Text::$cellTicks;
             self::$cellKinds = Text::$cellKinds;
 
-            return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided];
+            return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided, Text::$recordedPairs];
         } finally {
             Text::$recorded = null;
             Text::$recordedDecided = [];
+            Text::$recordedPairs = [];
             Text::$undecided = false;
             Text::$conservative = false;
             Text::$bareSigils = false;

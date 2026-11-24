@@ -219,6 +219,13 @@ final class Text
     public static array $recordedDecided = [];
 
     /**
+     * While `$recorded` is set, the escapes of each text path that C2-W-146 placed for a pair of bare marks, by path.
+     *
+     * @var array<string, array<int, true>>
+     */
+    public static array $recordedPairs = [];
+
+    /**
      * How many backtick rounds escaped every potential opener of the kind; a leaf reads it to know its form took them.
      */
     public static int $tickKindRounds = 0;
@@ -1533,6 +1540,14 @@ final class Text
             }
             $c->pairEscapes = [];
             $c->writerState = $start->writerState;
+        }
+        if (self::$recorded !== null) {
+            $pairs = array_intersect_key(self::$recorded[$c->textPath] ?? [], $forced);
+            if ($pairs === []) {
+                unset(self::$recordedPairs[$c->textPath]);
+            } else {
+                self::$recordedPairs[$c->textPath] = $pairs;
+            }
         }
 
         return $out;
