@@ -212,21 +212,31 @@ final class RepairPlanner
      *
      * @return array<string, array<int, true>>
      */
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     public static function expandedKindEscapes(array $tree, array $reported, array $localEscapes): array
     {
         if ($reported === []) {
             return $localEscapes;
         }
         $expanded = $localEscapes;
-        $planner = new self($tree, null);
-        $leaves = $planner->leafTexts();
+        $order = [];
+        self::textOrder($tree, '', $order);
+        $leaves = [];
+        $leafPaths = [];
+        foreach ($order as $text => $_) {
+            $leaf = self::leafOfTree($tree, $text);
+            $leaves[$leaf][] = $text;
+            $leafPaths[$text] = $leaf;
+        }
         $done = [];
+        $escapedHash = [];
         foreach ($reported as $path => $positions) {
             $value = self::nodeAt($tree, $path)['value'] ?? null;
             if (!is_string($value)) {
                 continue;
             }
-            $leaf = $planner->leafOf($path);
+            $leaf = $leafPaths[$path] ?? self::leafOfTree($tree, $path);
             foreach ($positions as $at => $_) {
                 $kind = self::kindAt($value, $at);
                 if ($kind === null) {
@@ -243,23 +253,64 @@ final class RepairPlanner
                 if ($kind !== '#' && $kind !== '{#') {
                     continue;
                 }
-                if (isset($done[$leaf][$kind])) {
-                    continue;
-                }
-                $done[$leaf][$kind] = true;
-                foreach ($leaves[$leaf] ?? [] as $otherPath) {
-                    $other = self::nodeAt($tree, $otherPath)['value'] ?? null;
-                    if (!is_string($other)) {
-                        continue;
-                    }
-                    foreach (self::kindOffsets($kind, $other) as $otherAt) {
-                        $expanded[$otherPath][$otherAt] = true;
-                    }
+                $hashRound = $kind === '{#'
+                    && ($escapedHash[$leaf] ??= self::hasEscapedHash($tree, $leaves[$leaf] ?? [], $localEscapes));
+                foreach ($hashRound ? ['{#', '#'] : [$kind] as $roundKind) {
+                    self::expandKindInLeaf($tree, $leaves[$leaf] ?? [], $leaf, $roundKind, $expanded, $done);
                 }
             }
         }
 
         return $expanded;
+    }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * @param array<mixed> $tree
+     * @param array<string> $texts
+     * @param string $leaf
+     * @param string $kind
+     * @param array<string, array<int, true>> $expanded
+     * @param array<string, array<string, true>> $done
+     */
+    private static function expandKindInLeaf(array $tree, array $texts, string $leaf, string $kind, array &$expanded, array &$done): void
+    {
+        if (isset($done[$leaf][$kind])) {
+            return;
+        }
+        $done[$leaf][$kind] = true;
+        foreach ($texts as $path) {
+            $value = self::nodeAt($tree, $path)['value'] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            foreach (self::kindOffsets($kind, $value) as $at) {
+                $expanded[$path][$at] = true;
+            }
+        }
+    }
+
+    /**
+     * @param array<mixed> $tree
+     * @param array<string> $texts
+     * @param array<string, array<int, true>> $escapes
+     */
+    private static function hasEscapedHash(array $tree, array $texts, array $escapes): bool
+    {
+        foreach ($texts as $path) {
+            $value = self::nodeAt($tree, $path)['value'] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            foreach ($escapes[$path] ?? [] as $at => $_) {
+                if (($value[$at] ?? '') === '#') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -821,8 +872,11 @@ final class RepairPlanner
      *
      * @param array<string, array<int, true>> $reported
      */
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     private function escapeKinds(array $reported): void
     {
+        $escapedHash = [];
         foreach ($reported as $path => $offsets) {
             $value = self::nodeAt($this->tree, $path)['value'] ?? null;
             if (!is_string($value)) {
@@ -831,21 +885,33 @@ final class RepairPlanner
             $leaf = $this->leafOf($path);
             foreach ($offsets as $offset => $_) {
                 $kind = self::kindAt($value, $offset);
-                if ($kind === null || isset($this->kindsDone[$leaf][$kind])) {
+                if ($kind === null) {
                     continue;
                 }
-                $this->kindsDone[$leaf][$kind] = true;
-                foreach ($this->leafTexts()[$leaf] ?? [] as $text) {
-                    $other = self::nodeAt($this->tree, $text)['value'] ?? null;
-                    if (is_string($other)) {
-                        foreach (self::kindOffsets($kind, $other) as $at) {
-                            $this->addEscape($text, $at);
+                $hashRound = $kind === '{#'
+                    && ($escapedHash[$leaf] ??= self::hasEscapedHash($this->tree, $this->leafTexts()[$leaf] ?? [], $this->escapes));
+                foreach ($hashRound ? ['{#', '#'] : [$kind] as $roundKind) {
+                    if (isset($this->kindsDone[$leaf][$roundKind])) {
+                        continue;
+                    }
+                    $this->kindsDone[$leaf][$roundKind] = true;
+                    foreach ($this->leafTexts()[$leaf] ?? [] as $text) {
+                        $other = self::nodeAt($this->tree, $text)['value'] ?? null;
+                        if (is_string($other)) {
+                            foreach (self::kindOffsets($roundKind, $other) as $at) {
+                                $this->addEscape($text, $at);
+                                if ($other[$at] === '#') {
+                                    $escapedHash[$leaf] = true;
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * C2-W-125 case six: only an ask for the first closer mark of text behind its node stays in a kind round.
@@ -996,12 +1062,23 @@ final class RepairPlanner
 
     private function leafOf(string $path): string
     {
+        return self::leafOfTree($this->tree, $path);
+    }
+
+    /**
+     * Find the leaf block of a text path without constructing a repair planner.
+     *
+     * @param array<mixed> $tree
+     * @param string $path
+     */
+    private static function leafOfTree(array $tree, string $path): string
+    {
         // The ancestors are found in one walk down the path: looking each up from the root costs a deep path its
         // depth squared.
-        $types = self::typesAlong($this->tree, $path);
+        $types = self::typesAlong($tree, $path);
         while (($cut = strrpos($path, '/children/')) !== false) {
             $path = substr($path, 0, $cut);
-            $type = array_key_exists($cut, $types) ? $types[$cut] : (self::nodeAt($this->tree, $path)['type'] ?? null);
+            $type = array_key_exists($cut, $types) ? $types[$cut] : (self::nodeAt($tree, $path)['type'] ?? null);
             if (!in_array($type, self::INLINE_CONTAINERS, true)) {
                 return $path;
             }
@@ -1065,11 +1142,15 @@ final class RepairPlanner
         $n = strlen($value);
         $ch = $kind[0];
         $first = $ch === '{' ? '{' : ($kind === '--' ? '-' : $ch);
+        // A `{#` without any later `#}` cannot open a comment. Find the last possible closer once, so a leaf
+        // with many sibling tags still takes one linear scan.
+        $commentClose = $kind === '{#' ? strrpos($value, '#}') : false;
         for ($i = strpos($value, $first); $i !== false && $i < $n; $i = strpos($value, $value[$i], $i + 1)) {
             // A negative string offset reads from the end, so the first character has no character before it.
             $prev = $i > 0 ? $value[$i - 1] : '';
             $open = match (true) {
-                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1] && $prev !== '{',
+                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1] && $prev !== '{'
+                    && ($kind !== '{#' || ($commentClose !== false && $commentClose > $i + 2)),
                 $kind === '--' => $prev === '-' && ($i < 2 || $value[$i - 2] !== '-') && ($value[$i + 1] ?? '') !== '',
                 $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
                     && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),
