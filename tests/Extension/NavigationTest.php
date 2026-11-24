@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\Navigation;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\RenderError;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -23,6 +24,46 @@ final class NavigationTest extends TestCase
      * @var string
      */
     private const DOC = "= Intro\n\nText.\n\n== Usage\n\n=== Deep\n\n== Next\n";
+
+    /**
+     * The pinned 0.2 extension conformance rows EXT-104 through EXT-106.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function copiedTitleCases(): array
+    {
+        return [
+            'EXT-104' => [
+                "{#a}\n= A </#b>\n\n{#b}\n== B </#c>\n\n{#c}\n== C\n",
+                '<h1><span class="section-number">1</span> A <a href="#b">Section 1.1 - B C</a>',
+            ],
+            'EXT-105' => [
+                "{#h0}\n= T0 </#h1> </#h2>\n\n{#h1}\n= T1 </#h2> </#h3>\n\n{#h2}\n= T2 </#h3> </#h4>\n",
+                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2',
+            ],
+            'EXT-106' => ["{#a}\n= Ref </#a>\n", '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref'],
+        ];
+    }
+
+    #[DataProvider('copiedTitleCases')]
+    public function testCopiedTitleConformance(string $source, string $expected): void
+    {
+        self::assertStringContainsString($expected, self::html($source, Navigation::headingNumbers()));
+    }
+
+    public function testCopiedTitleOutputAndMemoryStayLinear(): void
+    {
+        $memoryBefore = memory_get_usage(true);
+        $sizes = [];
+        foreach ([1, 40, 160, 320] as $references) {
+            $source = "{#a}\n= Ref\n\n" . str_repeat('See </#a>.\n\n', $references);
+            $html = self::html($source, Navigation::headingNumbers());
+            self::assertSame($references, substr_count($html, '<a href="#a">'));
+            $sizes[] = strlen($html);
+        }
+        self::assertLessThan($sizes[2] * 2.1, $sizes[3]);
+        self::assertLessThan(64 * 1024 * 1024, memory_get_usage(true) - $memoryBefore);
+    }
 
     private static function html(string $source, ExtensionDefinition ...$extensions): string
     {

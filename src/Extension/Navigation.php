@@ -135,7 +135,7 @@ final class Navigation
                         : [NavTree::text($label . ' ' . $target['number'] . ' - '), ...array_map(Extensions::copy(...), $target['title'])];
 
                     return [NavTree::link('#' . $key, $children, NavTree::attrs($node))];
-                }, true);
+                }, true, visitReplacements: false);
             }
             NavTree::freezeCrossReferences($view, $texts);
 
