@@ -310,7 +310,7 @@ final class InlineRunner
             }
             $open = (new Scanner($content, $ctx, $depth, $mode))->withCaretsOpen();
             $open->scan();
-            $plan = [$notes->caretCloses, $open->caretCloses];
+            $plan = [$notes->caretCloses, $open->caretCloses, $notes->caretRefCloses];
             $scanner = (new Scanner($content, $ctx, $depth, $mode))->withNotePlan(...$plan);
             $tokens = $scanner->scan();
         }

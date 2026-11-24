@@ -19,4 +19,14 @@ final class LaterNoteAfterUnclosedOpenerTest extends TestCase
         self::assertSame('[,', $children[2]['value']);
         self::assertSame([], $children[3]['children']);
     }
+
+    public function testEscapedCaretPairsDoNotDemoteALaterNote(): void
+    {
+        foreach (['^[^[][,^[a \\[^b]' => 'a [^b'] as $source => $value) {
+            $tree = json_decode(Carve::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+            $children = $tree['children'][0]['children'];
+            self::assertSame(['text', 'inline_footnote', 'text', 'inline_footnote'], array_column($children, 'type'));
+            self::assertSame($value, $children[3]['children'][0]['value']);
+        }
+    }
 }
