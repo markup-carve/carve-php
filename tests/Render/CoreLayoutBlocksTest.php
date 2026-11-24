@@ -115,6 +115,7 @@ final class CoreLayoutBlocksTest extends TestCase
             'duplicate definition' => ["a [b][k]\n\n[k]: https://b.org\n\n[k]: https://c.org"],
             'definition with a relative url' => ["a [b][k]\n\n[k]: /path"],
             'definition then paragraph line' => ["[k]: https://b.org\na"],
+            'definition line inside a fence' => ["```\n[k]: https://b.org\n```\n\nsee [x][k]"],
             'key equal to a heading' => ["# site\n\na [b][site]\n\n[site]: https://b.org"],
             'link with title' => ['a [b](https://b.org "t")'],
             'link with query' => ['a [b](https://b.org/?q=1)'],

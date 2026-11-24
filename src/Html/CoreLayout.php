@@ -138,6 +138,7 @@ final class CoreLayout
     private function blocks(): ?string
     {
         $blocks = 0;
+        $definitions = 0;
         $i = 0;
         while ($i < $this->n) {
             $line = $this->lines[$i];
@@ -163,6 +164,7 @@ final class CoreLayout
                 $i = $this->quote($i, $pad);
             } elseif ($first === '[') {
                 $i = preg_match(self::DEFINITION, $line, $m) === 1 && isset($this->defs[$m[1]]) && $this->blankAt($i + 1) ? $i + 1 : -1;
+                $definitions++;
             } elseif ($this->fenced && str_starts_with($line, '```')) {
                 $i = $this->fence($i, $pad);
             } else {
@@ -172,6 +174,10 @@ final class CoreLayout
                 return null;
             }
             $blocks++;
+        }
+        // The key scan reads the whole source, so a definition-shaped line in a fence counts there and not here.
+        if ($definitions !== count($this->defs)) {
+            return null;
         }
         // A heading's text is a reference key of its own; a defined key that equals one is left to the resolver.
         if ($this->keys !== [] && array_intersect_key($this->keys, $this->headings) !== []) {
