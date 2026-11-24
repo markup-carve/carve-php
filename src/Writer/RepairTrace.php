@@ -107,6 +107,53 @@ final class RepairTrace
     }
 
     /**
+     * The marked text with the backslashes `$respelled` adds to or drops from its decoded `$source`, its markers kept;
+     * null where the two differ in more than backslashes.
+     */
+    public function respelled(string $marked, string $source, string $respelled): ?string
+    {
+        if ($this->marker === '') {
+            return $respelled;
+        }
+        $out = '';
+        $length = strlen($marked);
+        $j = 0;
+        $k = 0;
+        for ($at = 0; $at < $length;) {
+            if (substr_compare($marked, $this->marker, $at, strlen($this->marker)) === 0) {
+                $close = strpos($marked, "\x02", $at + strlen($this->marker));
+                if ($close === false) {
+                    return null;
+                }
+                $out .= substr($marked, $at, $close + 1 - $at);
+                $at = $close + 1;
+
+                continue;
+            }
+            if (($marked[$at] ?? '') !== ($source[$j] ?? '')) {
+                return null;
+            }
+            if (($source[$j] ?? '') === ($respelled[$k] ?? '')) {
+                $out .= $marked[$at];
+                $at++;
+                $j++;
+                $k++;
+            } elseif (($respelled[$k] ?? '') === '\\') {
+                $out .= '\\';
+                $k++;
+            } elseif ($source[$j] === '\\') {
+                $at++;
+                $j++;
+            } else {
+                return null;
+            }
+        }
+        $rest = substr($respelled, $k);
+
+        return $j === strlen($source) && trim($rest, '\\') === '' ? $out . $rest : null;
+    }
+
+    /**
      * @return array{
      *     source: string,
      *     text: array<int, int>,
