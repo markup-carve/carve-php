@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '9ade9b1c83163c4f7d9865fca0cad470f2b79af0',
+        'commit' => '9a0ee0004fc0589d2d524785c7bd3fee485e30ed',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6949,7 +6949,7 @@ final class Tables
             'Rendered the fallback of the extension "${name}", which has no matching renderer',
         ],
         'fence-closer-indented' => [
-            'This line closes the block opened on line (n) although it is indented differently. If it is content, make the outer fence longer.',
+            'This line closes the block opened on line ${line} although it is indented differently. If it is content, make the outer fence longer.',
         ],
         'fence-opener-fallback' => [
             [

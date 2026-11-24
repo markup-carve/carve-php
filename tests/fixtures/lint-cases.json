@@ -1582,7 +1582,7 @@
      "/children/0/children/0/children/0",
      10,
      13,
-     "This line closes the block opened on line (n) although it is indented differently. If it is content, make the outer fence longer."
+     "This line closes the block opened on line 1 although it is indented differently. If it is content, make the outer fence longer."
     ]
    ]
   },
@@ -1943,7 +1943,7 @@
    ]
   },
   "table-row-attribute-as-cell": {
-   "trigger": "| Value |\n| {^2^} |\n",
+   "trigger": "| Value |\n| {.x} |\n",
    "near": "| Value |\n\n",
    "options": {},
    "findings": [
@@ -1951,7 +1951,7 @@
      "table-row-attribute-as-cell",
      "/children/0/children/0/children/1",
      10,
-     19,
+     18,
      "A row attribute is the brace block glued after the closing pipe. Here it is cell content."
     ]
    ]
@@ -2274,7 +2274,7 @@
      "/children/0/children/0",
      10,
      13,
-     "This line closes the block opened on line (n) although it is indented differently. If it is content, make the outer fence longer."
+     "This line closes the block opened on line 1 although it is indented differently. If it is content, make the outer fence longer."
     ]
    ]
   },
