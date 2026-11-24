@@ -462,6 +462,8 @@ final class Writer
      */
     private static function firstWrite(array $tree, ?array $layout, array $options, bool $risk, bool $supplied = false): array
     {
+        // A nested write (an extension's read-back) must not reset the flag of the outer write.
+        $outer = Text::$suppliedTree;
         Text::$suppliedTree = $supplied;
         try {
             if (self::$inGroups || !$risk) {
@@ -469,7 +471,7 @@ final class Writer
             }
             [$local, $records] = self::recording(static fn (): array => self::localWrite($tree, $layout, $options, false), false);
         } finally {
-            Text::$suppliedTree = false;
+            Text::$suppliedTree = $outer;
         }
 
         return [...$local, $records[0][1] ?? null];
