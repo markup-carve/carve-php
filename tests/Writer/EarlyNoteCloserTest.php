@@ -14,6 +14,28 @@ use PHPUnit\Framework\TestCase;
  */
 final class EarlyNoteCloserTest extends TestCase
 {
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function ruledCaretForms(): array
+    {
+        return [
+            'inline link after soft break' => ['^[\\]' . "\n" . '[^](u)', '^[\\]' . "\n" . "[^](u)\n"],
+            'authored inline link escape' => ['^[\\]' . "\n" . '[\\^](u)', '^[\\]' . "\n" . "[^](u)\n"],
+            'full reference keeps raw spelling' => ['^[\\]' . "\n" . '[\\^][n]', '^[\\]' . "\n" . "[\\^][n]\n"],
+            'collapsed reference keeps raw spelling' => ['^[\\] [\\^][]', "^[\\] [\\^][]\n"],
+        ];
+    }
+
+    #[DataProvider('ruledCaretForms')]
+    public function testRuledCaretForms(string $source, string $expected): void
+    {
+        $first = Carve::formatWithDiagnostics($source);
+        self::assertSame($expected, $first->source);
+        self::assertSame([], $first->diagnostics);
+        self::assertSame($expected, Carve::formatWithDiagnostics($first->source)->source);
+    }
+
     public function testPinnedClauseCases(): void
     {
         $spec = json_decode(
