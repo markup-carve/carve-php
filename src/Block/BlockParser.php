@@ -750,10 +750,8 @@ final class BlockParser
 
                 return;
             }
-            // A definition holds no children: the comment goes to its container and the definition stays open.
-            if ($kind !== Frame::LINK_DEF && $kind !== Frame::ABBR_DEF) {
-                $this->closeLeaf();
-            }
+            // C2-B-083, C2-B-084: a comment-only line ends an open definition too.
+            $this->closeLeaf();
         }
         $this->emitComment($j, $end);
     }
@@ -845,25 +843,31 @@ final class BlockParser
             return $this->tableLine($leaf, $j);
         }
         if (($kind === Frame::LINK_DEF || $kind === Frame::ABBR_DEF) && $top === 0 && $j > $this->ls) {
-            return $this->definitionLine($leaf, $j);
+            return $this->definitionLine($leaf, $owner, $j, $c);
         }
 
         return false;
     }
 
     /**
-     * C2-B-083, C2-B-084: an indented line below a link definition that holds exactly the rest of its tail, or any
-     * indented line below an abbreviation definition.
+     * C2-B-083, C2-B-084: an indented line below a link definition that holds exactly the rest of its tail, or an
+     * indented text line below an abbreviation definition.
      *
      * @param \MarkupCarve\Carve\Block\Frame $def
+     * @param int $owner
      * @param int $j
+     * @param int $c
      *
      * @return bool
      */
-    private function definitionLine(Frame $def, int $j): bool
+    private function definitionLine(Frame $def, int $owner, int $j, int $c): bool
     {
         $end = $this->trimEnd($j);
         if ($def->kind === Frame::ABBR_DEF) {
+            // The lines that end a heading continuation end the expansion too.
+            if ($this->interrupts($def, $owner, $j, $c)) {
+                return false;
+            }
             $def->href .= ' ' . substr($this->s, $j, $end - $j);
             $def->end = $this->le;
 
@@ -883,7 +887,8 @@ final class BlockParser
             $def->attrs ??= new Attrs();
             $def->attrs->merge($tail['attrs']);
         }
-        $def->n = 2;
+        // A title alone leaves the attribute block for the line below.
+        $def->n = isset($tail['attrs']) ? 2 : 1;
         $def->end = $this->le;
 
         return true;
