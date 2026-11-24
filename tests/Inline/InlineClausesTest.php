@@ -100,11 +100,11 @@ final class InlineClausesTest extends InlineTestCase
     /**
      * @return void
      */
-    public function testC2I016CodeSpanTrimsOneSpace(): void
+    public function testC2I016CodeSpanTrimsOnlyASpaceBesideABacktick(): void
     {
         $this->assertSame(
             'text@0-2(value="a ") code@2-11(value="`b`") text@11-12(value=" ") code@12-1'
-            . '5(value=" ") text@15-16(value=" ") code@16-23(value=" c ")',
+            . '5(value=" ") text@15-16(value=" ") code@16-23(value="  c  ")',
             self::inline('a `` `b` `` ` ` `  c  `'),
         );
     }

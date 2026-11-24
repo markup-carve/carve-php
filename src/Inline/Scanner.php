@@ -786,9 +786,11 @@ final class Scanner
         $value = substr($t, $run + $len, $close - $run - $len);
         $end = $close + $len;
         // C2-I-016
-        $vl = strlen($value);
-        if ($vl >= 2 && $value[0] === ' ' && $value[$vl - 1] === ' ' && strspn($value, ' ') !== $vl) {
-            $value = substr($value, 1, -1);
+        if (str_starts_with($value, ' `')) {
+            $value = substr($value, 1);
+        }
+        if (str_ends_with($value, '` ')) {
+            $value = substr($value, 0, -1);
         }
         if ($kind === 'code') {
             $raw = $this->rawSuffix($end);

@@ -2873,9 +2873,10 @@ final class Inline
             $length++;
         }
         $run = str_repeat('`', $length);
-        $padded = str_starts_with($value, '`') || str_ends_with($value, '`') || self::losesPadding($value);
+        $open = str_starts_with($value, '`') ? $run . ' ' : $run;
+        $close = str_ends_with($value, '`') ? ' ' . $run : $run;
 
-        return $padded ? $run . ' ' . $value . ' ' . $run : $run . $value . $run;
+        return $open . $value . $close;
     }
 
     /**
@@ -2921,19 +2922,8 @@ final class Inline
     }
 
     /**
-     * C2-I-016: a reader would take one space from each end.
-     *
-     * @param string $value
-     *
-     * @return bool
-     */
-    private static function losesPadding(string $value): bool
-    {
-        return str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '';
-    }
-
-    /**
-     * C2-W-077, C2-W-117: a value that starts with a line break and ends with a backtick has no spelling.
+     * C2-W-077, C2-W-117: a value that starts with a space and a backtick, or ends with a backtick and a space, has no
+     * spelling.
      *
      * @param array<mixed> $node
      * @param string $path
@@ -2957,7 +2947,7 @@ final class Inline
         if ($value === '') {
             // C2-W-116: an empty run pair reads back as text.
             $this->w->lose($path, self::str($node, 'type'), null);
-        } elseif ((str_starts_with($value, "\n") && str_ends_with($value, '`')) || self::losesLineEdges($value)) {
+        } elseif (str_starts_with($value, ' `') || str_ends_with($value, '` ') || self::losesLineEdges($value)) {
             $this->w->lose($path, self::str($node, 'type'), 'value');
         }
 

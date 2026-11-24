@@ -57,7 +57,7 @@ final class BacktickKindRoundsTest extends TestCase
             ],
             'link text before a code span' => [
                 [['type' => 'link', 'href' => '/u', 'children' => [$text('```{}-')]], ['type' => 'code', 'value' => '*]``']],
-                "[```{}-](/u)` *]`` `\n",
+                "[```{}-](/u)`*]`` `\n",
             ],
         ];
     }

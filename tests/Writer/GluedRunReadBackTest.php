@@ -26,17 +26,17 @@ final class GluedRunReadBackTest extends TestCase
         return [
             'two-backtick fence reads past a raw and a math span' => [
                 [$code('`q'), $raw('r'), $math('m'), $raw('r')],
-                "`` `q ```r`{=html}\$`m``r`{=html}\n",
+                "`` `q```r`{=html}\$`m``r`{=html}\n",
                 ['field-unspellable 0/value', 'structure-unspellable 1', 'structure-unspellable 2', 'structure-unspellable 3'],
             ],
             'an unclosed math opener reads as text and its neighbor as wider code' => [
                 [$math('q`'), $code('m')],
-                "\$`` q` ```m`\n",
+                "\$``q` ```m`\n",
                 ['structure-unspellable 0', 'structure-unspellable 1'],
             ],
             'math taken into a code span behind the run' => [
                 [$math('`'), $math('a``b'), $math('`q'), $code('a``b'), $math('r')],
-                "\$`` ` ``\$`a``b`\$`` `q ```a``b`\$`r`\n",
+                "\$`` ` ``\$`a``b`\$`` `q```a``b`\$`r`\n",
                 ['field-unspellable 2/value', 'structure-unspellable 3', 'structure-unspellable 4'],
             ],
             'spans behind the taken ones read back' => [
