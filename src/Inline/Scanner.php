@@ -298,6 +298,13 @@ final class Scanner
     public array $caretCloses = [];
 
     /**
+     * C2-I-089: ordinary `[^` brackets that closed in this scan, by the offset of their `[`.
+     *
+     * @var array<int, int>
+     */
+    public array $caretRefCloses = [];
+
+    /**
      * C2-I-089: whether an `^[` read outside every note was still open at the end of the scan.
      */
     public bool $noteUnclosed = false;
@@ -330,6 +337,16 @@ final class Scanner
      * @var array{0: array<int, int>, 1: array<int, int>}|null
      */
     private ?array $notePlan = null;
+
+    /**
+     * @var array<int>|null The active caret-bracket starts, in source order; built only for a note with content.
+     */
+    private ?array $plannedCaretStarts = null;
+
+    /**
+     * @var array<int, int>
+     */
+    private array $plannedRefCloses = [];
 
     /**
      * C2-I-089: up to this offset the caret pairs are ordinary brackets (the tie-break).
@@ -392,12 +409,14 @@ final class Scanner
      *
      * @param array<int, int> $noteCloses
      * @param array<int, int> $openCloses
+     * @param array<int, int> $refCloses
      *
      * @return $this
      */
-    public function withNotePlan(array $noteCloses, array $openCloses)
+    public function withNotePlan(array $noteCloses, array $openCloses, array $refCloses)
     {
         $this->notePlan = [$noteCloses, $openCloses];
+        $this->plannedRefCloses = $refCloses;
 
         return $this;
     }
@@ -1603,9 +1622,42 @@ final class Scanner
         if ($this->notePlan === null || isset($this->notePlan[0][$i + 1])) {
             return $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '');
         }
-        $this->ordinaryUntil = $this->notePlan[1][$i + 1] ?? -1;
+        $close = $this->notePlan[1][$i + 1] ?? -1;
+        // A preceding unclosed note can swallow this pair in the first scan. If it closes on its own without
+        // another caret bracket inside it, that missing first-scan entry does not demote this note.
+        if ($close === $i + 2) {
+            return $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '');
+        }
+        if ($close >= 0 && !$this->hasInnerPlannedCaret($i + 1, $close)) {
+            return $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '');
+        }
+        $this->ordinaryUntil = $close;
 
         return $i + 2;
+    }
+
+    /**
+     * C2-I-089: only a caret bracket that opened in the all-open scan can make this note close by changing the stack.
+     */
+    private function hasInnerPlannedCaret(int $opener, int $close): bool
+    {
+        if ($this->plannedCaretStarts === null) {
+            $this->plannedCaretStarts = array_keys(($this->notePlan[1] ?? []) + $this->plannedRefCloses);
+            sort($this->plannedCaretStarts, SORT_NUMERIC);
+        }
+        $starts = $this->plannedCaretStarts;
+        $lo = 0;
+        $hi = count($starts);
+        while ($lo < $hi) {
+            $mid = ($lo + $hi) >> 1;
+            if ($starts[$mid] <= $opener) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid;
+            }
+        }
+
+        return isset($starts[$lo]) && $starts[$lo] <= $close;
     }
 
     /**
@@ -1687,6 +1739,9 @@ final class Scanner
         }
         if ($frame[0] === self::F_FOOTNOTE || ($frame[0] === self::F_BRACKET && $frame[2] > 0 && $this->t[$frame[2] - 1] === '^')) {
             $this->caretCloses[$frame[3] - 1] = $i;
+        }
+        if ($frame[0] === self::F_BRACKET && ($this->t[$frame[2] + 1] ?? '') === '^') {
+            $this->caretRefCloses[$frame[2]] = $i;
         }
         $lastBrace = count($this->openBraces) - 1;
         while ($lastBrace >= 0 && $this->openBraces[$lastBrace][1] > $frame[2]) {
