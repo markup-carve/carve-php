@@ -225,34 +225,45 @@ final class RepairPlanner
     public function repair(): ?string
     {
         $seen = [];
+        $settled = null;
+        $pairRounds = 0;
         for ($round = 0; $round < 8192; $round++) {
             $escapes = $this->escapes;
             $first = $this->first;
             $this->first = null;
             $source = $first === null ? Writer::bareSource($this->tree, $this->layout, $this->options, $escapes) : $first[0]['source'];
             if (!$this->charge($source)) {
-                return null;
+                return $settled;
             }
             $key = hash('xxh3', $source . "\0" . serialize($this->attempts));
             if (isset($seen[$key])) {
-                return null;
+                return $settled;
             }
             $seen[$key] = true;
             $compared = $first ?? $this->compared($source, $escapes, $this->layout);
             unset($first);
             if ($compared === null || $compared[1]['equal']) {
-                return $source;
+                // C2-W-146: the settled spelling is tested with the pair rules too, and their escapes go through the
+                // rounds again; where those do not settle, the spelling before them stands.
+                $asked = $pairRounds < 64 ? Text::treePairOpeners($this->tree, $this->escapes) : [];
+                if (!$this->addAsked($asked)) {
+                    return $source;
+                }
+                $settled = $source;
+                $pairRounds++;
+
+                continue;
             }
             [$candidate, $comparison] = $compared;
             unset($compared);
             if (!$this->appliedRound($escapes, $candidate, $comparison)) {
-                return null;
+                return $settled;
             }
             // The next round's write and parse do not need this round's candidate and read-back.
             unset($candidate, $comparison);
         }
 
-        return null;
+        return $settled;
     }
 
     /**
