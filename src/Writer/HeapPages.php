@@ -14,16 +14,35 @@ namespace MarkupCarve\Carve\Writer;
 final class HeapPages
 {
     /**
-     * Unused heap worth the walk over the allocator's free lists, as `Linter` and `DataModel` use it.
+     * Unused heap worth the walk over the allocator's free lists.
      *
      * @var int
      */
     private const UNUSED = 16 * 1024 * 1024;
 
-    public static function release(): void
+    /**
+     * The allocated heap after the last release, or the least seen since. A long-lived host keeps the chunks of its
+     * largest call; until the heap takes a new chunk those hold the call, and a release would cost every call a walk
+     * over the allocator's free lists.
+     *
+     * @var int
+     */
+    private static int $allocated = 0;
+
+    /**
+     * Whether the free lists were handed back.
+     */
+    public static function release(): bool
     {
-        if (memory_get_usage(true) - memory_get_usage() > self::UNUSED) {
-            gc_mem_caches();
+        $allocated = memory_get_usage(true);
+        if ($allocated <= self::$allocated || $allocated - memory_get_usage() <= self::UNUSED) {
+            self::$allocated = min(self::$allocated, $allocated);
+
+            return false;
         }
+        gc_mem_caches();
+        self::$allocated = memory_get_usage(true);
+
+        return true;
     }
 }

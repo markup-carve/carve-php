@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Resolve\Resolver;
+use MarkupCarve\Carve\Writer\HeapPages;
 use MarkupCarve\Carve\Writer\Writer;
 
 /**
@@ -117,7 +118,7 @@ final class HtmlImporter
         // The DOM is done with. Its parent links are cycles, so it is collected before the tree is decoded.
         unset($root, $reader, $child);
         gc_collect_cycles();
-        gc_mem_caches();
+        HeapPages::release();
         $document = ['type' => 'document', 'astVersion' => '2.0', 'children' => $children];
         if ($context->rootLang !== null) {
             $document['lang'] = $context->rootLang;
@@ -138,7 +139,7 @@ final class HtmlImporter
         $json = self::encode($document);
         unset($document, $children);
         // Return the pages the arrays held, so the tree's nodes can take them.
-        gc_mem_caches();
+        HeapPages::release();
         $tree = self::readJson($json);
         [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
