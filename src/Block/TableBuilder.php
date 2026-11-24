@@ -905,7 +905,10 @@ final class TableBuilder
                 }
                 if ($inBody < $plan[$index]['headers']) {
                     foreach ($child->children ?? [] as $cell) {
-                        $cell->f['header'] = true;
+                        // C2-A-092: a span mark keeps `header` false.
+                        if (!isset($cell->f['span'])) {
+                            $cell->f['header'] = true;
+                        }
                     }
                 }
                 $inBody++;

@@ -187,7 +187,13 @@ final class TableWriter
                 is_array($row['children'] ?? null) ? $row['children'] : [],
                 static fn (mixed $cell): bool => is_array($cell) && ($cell['type'] ?? '') === 'table_cell',
             ));
-            if ($cells === [] || array_filter($cells, static fn (array $cell): bool => ($cell['header'] ?? false) !== true) !== []) {
+            // C2-W-136: a span mark has no header mark of its own, so it neither makes nor breaks a header row.
+            $isHeader = static fn (array $cell): bool => ($cell['header'] ?? false) === true;
+            $headerOrMark = static fn (array $cell): bool => $isHeader($cell) || isset($cell['span']);
+            if (
+                array_filter($cells, $isHeader) === []
+                || count(array_filter($cells, $headerOrMark)) !== count($cells)
+            ) {
                 break;
             }
             $count++;
@@ -567,6 +573,10 @@ final class TableWriter
     private function group(array $group, string $path, bool $last, array &$lines): void
     {
         $items = is_array($group['children'] ?? null) ? $group['children'] : [];
+        // C2-W-117: a pipe table has no spelling of the attributes of a head, a body or a foot.
+        if (isset($group['attrs'])) {
+            $this->w->lose($path, self::typeOf($group), 'attrs');
+        }
         $bodyHeaders = ($group['type'] ?? '') === 'table_body' ? self::leadingHeaderRows($items) : 0;
         $rowIndex = 0;
         $lastAt = count($items) - 1;
@@ -690,11 +700,11 @@ final class TableWriter
      */
     private function cell(array $cell, string $path, bool $head, bool $bodyHeader): array
     {
-        $header = !$bodyHeader && (($cell['header'] ?? false) === true || ($head && isset($cell['span']))) ? '=' : '';
-        $this->unspellable($cell, $path);
         if (isset($cell['span'])) {
-            return [$header . BraceBlock::of($cell, ['pipes' => true]), [$cell['span'] === 'colspan' ? '<' : '^']];
+            return $this->mark($cell, $path, $head);
         }
+        $header = !$bodyHeader && ($cell['header'] ?? false) === true ? '=' : '';
+        $this->unspellable($cell, $path);
         $prefix = $header . BraceBlock::of($cell, ['mark' => self::alignmentMark($cell), 'pipes' => true]);
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
         $lines = $this->registerWraps($path);
@@ -753,6 +763,88 @@ final class TableWriter
         $valign = is_string($cell['valign'] ?? null) ? (self::VALIGN_MARKS[$cell['valign']] ?? '') : '';
 
         return $valign === '' ? $align : ($align === '' ? '?' : $align) . $valign;
+    }
+
+    private static function typeOf(mixed $node): string
+    {
+        return is_array($node) && is_string($node['type'] ?? null) ? $node['type'] : '';
+    }
+
+    /**
+     * C2-L-036: what the delimited form of a table without rows cannot hold: a head, a foot, a comment, the attributes
+     * of a body and what a body holds.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return void
+     */
+    private function loseEmptyGroups(array $node, string $path): void
+    {
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $g => $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+            $at = $path . '/children/' . $g;
+            $type = self::typeOf($group);
+            if ($type !== 'table_body') {
+                $this->w->lose($at, $type, null);
+
+                continue;
+            }
+            if (isset($group['attrs'])) {
+                $this->w->lose($at, $type, 'attrs');
+            }
+            foreach (is_array($group['children'] ?? null) ? $group['children'] : [] as $e => $entry) {
+                if (is_array($entry)) {
+                    $this->w->lose($at . '/children/' . $e, self::typeOf($entry), null);
+                }
+            }
+        }
+    }
+
+    /**
+     * C2-W-063: a mark is written bare, with the header mark in the head only.
+     *
+     * @param array<mixed> $cell
+     * @param string $path
+     * @param bool $head
+     *
+     * @return array{0: string, 1: array<string>}
+     */
+    private function mark(array $cell, string $path, bool $head): array
+    {
+        $this->markLoss($cell, $path);
+
+        return [$head ? '=' : '', [$cell['span'] === 'colspan' ? '<' : '^']];
+    }
+
+    /**
+     * C2-W-063, C2-A-092: a mark cell reads back with `header` false, no children and no other field, so the first
+     * field that differs from that is lost. One entry per cell, as the carve-js read-back comparison reports it.
+     *
+     * @param array<mixed> $cell
+     * @param string $path
+     *
+     * @return void
+     */
+    private function markLoss(array $cell, string $path): void
+    {
+        foreach ($cell as $field => $value) {
+            $kept = match ($field) {
+                'type', 'pos', 'span', 'children' => true,
+                'header' => $value === false,
+                default => false,
+            };
+            if (!$kept) {
+                $this->w->lose($path, 'table_cell', (string)$field);
+
+                break;
+            }
+        }
+        foreach (is_array($cell['children'] ?? null) ? $cell['children'] : [] as $at => $block) {
+            $this->w->lose($path . '/children/' . $at, self::typeOf($block), null);
+        }
     }
 
     /**
@@ -945,6 +1037,11 @@ final class TableWriter
      */
     private static function allowsDelimited(array $node): bool
     {
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $group) {
+            if (is_array($group) && isset($group['attrs'])) {
+                return false;
+            }
+        }
         foreach (self::groups($node) as [$type, $rows]) {
             // C2-B-230: `body-header-rows` spells the leading header rows of a body.
             $bodyHeaders = $type === 'table_body' ? self::leadingHeaderRows($rows) : 0;
@@ -1006,6 +1103,9 @@ final class TableWriter
      */
     private function delimited(array $node, string $path, string $prefix, string $format, bool $prewritten): void
     {
+        if (array_sum(self::rowCounts(self::groups($node))) === 0) {
+            $this->loseEmptyGroups($node, $path);
+        }
         if (!$prewritten) {
             $this->w->emit($prefix, $this->attributeLine($node, $path, true));
         }
