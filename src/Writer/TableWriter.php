@@ -43,6 +43,11 @@ final class TableWriter
     private array $blocked = [];
 
     /**
+     * Whether the row being written holds backticks in two or more cells.
+     */
+    private bool $tickedRow = false;
+
+    /**
      * @var int
      */
     private const PERCENT_CACHE = 256;
@@ -593,8 +598,12 @@ final class TableWriter
                 continue;
             }
             if (($item['type'] ?? '') === 'comment') {
+                // C2-W-135: a comment that ends the last group is kept in it by an empty continuation row, which
+                // stands for the empty continuation rows recorded below the last row.
+                if ($last && $at === $lastAt) {
+                    self::dropBlankTail($lines);
+                }
                 $lines[] = self::commentLine($item);
-                // C2-W-135: a comment that ends the last group is kept in it by an empty continuation row.
                 if ($last && $at === $lastAt) {
                     $lines[] = ['lead' => '+', 'segments' => [' '], 'tail' => ''];
                 }
@@ -606,6 +615,25 @@ final class TableWriter
                 $lines[] = $line;
             }
             $rowIndex++;
+        }
+    }
+
+    /**
+     * Removes the continuation rows of only empty fragments that end the last row written.
+     *
+     * @param array<array{lead: string, segments: array<string>, tail: string}|string> $lines
+     *
+     * @return void
+     */
+    private static function dropBlankTail(array &$lines): void
+    {
+        $at = count($lines) - 1;
+        while ($at >= 0 && is_string($lines[$at])) {
+            $at--;
+        }
+        while ($at > 0 && is_array($lines[$at]) && $lines[$at]['lead'] === '+' && trim(implode('', $lines[$at]['segments'])) === '') {
+            array_splice($lines, $at, 1);
+            $at--;
         }
     }
 
@@ -637,9 +665,14 @@ final class TableWriter
     {
         $first = [];
         $continued = [];
-        $height = 1;
+        // C2-L-019: the recorded continuation rows include those with only empty fragments.
+        $below = $this->w->fact($path, 'continuationLines');
+        // Without the count the wraps alone place the continuation rows.
+        $below = is_int($below) ? max(0, $below) : PHP_INT_MAX;
+        $height = $below === PHP_INT_MAX ? 1 : $below + 1;
+        $this->tickedRow = self::tickedCells($row) >= 2;
         foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
-            [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader);
+            [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader, $below);
             $text = $fragments[0] ?? '';
             $first[] = $text === '' ? $prefix . ' ' : $prefix . ' ' . $text . ' ';
             if (count($fragments) > 1) {
@@ -664,8 +697,45 @@ final class TableWriter
             }
             $lines[] = ['lead' => '+', 'segments' => $segments, 'tail' => ''];
         }
-
         return $lines;
+    }
+
+    /**
+     * C2-B-169: a bare backtick run of one cell can pair with a run of a later cell of its line and hide the pipes
+     * between them. The cells of a row that hold a backtick, up to two.
+     *
+     * @param array<mixed> $row
+     */
+    private static function tickedCells(array $row): int
+    {
+        $count = 0;
+        foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
+            if (is_array($cell) && self::holdsTick($cell) && ++$count >= 2) {
+                break;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param array<mixed> $node
+     */
+    private static function holdsTick(array $node): bool
+    {
+        if (in_array($node['type'] ?? '', ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
+            return true;
+        }
+        if (is_string($node['value'] ?? null) && str_contains($node['value'], '`')) {
+            return true;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (is_array($child) && self::holdsTick($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -703,10 +773,11 @@ final class TableWriter
      * @param string $path
      * @param bool $head
      * @param bool $bodyHeader
+     * @param int $below The continuation rows recorded for the cell's row.
      *
      * @return array{0: string, 1: array<string>}
      */
-    private function cell(array $cell, string $path, bool $head, bool $bodyHeader): array
+    private function cell(array $cell, string $path, bool $head, bool $bodyHeader, int $below): array
     {
         if (isset($cell['span'])) {
             return $this->mark($cell, $path, $head, $bodyHeader);
@@ -715,13 +786,9 @@ final class TableWriter
         $this->unspellable($cell, $path);
         $prefix = $header . BraceBlock::of($cell, ['mark' => self::alignmentMark($cell), 'pipes' => true]);
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
-        $lines = $this->registerWraps($path);
-        $content = $this->content($blocks, $path);
-        // C2-W-063: a cell whose content is only a span mark is written with an escape.
+        $lines = $this->registerWraps($path, $below);
+        $content = $this->content($blocks, $path, $lines !== [] || $this->tickedRow);
         $visibleContent = $this->w->repairTrace?->decode($content)['source'] ?? $content;
-        if ($visibleContent === '^' || $visibleContent === '<') {
-            $content = '\\' . $content;
-        }
         $this->loseLeadingBlank($visibleContent, $blocks, $path);
 
         $first = is_array($blocks[0] ?? null) ? $blocks[0] : [];
@@ -729,7 +796,26 @@ final class TableWriter
         $last = end($inlines);
         $terminalHardBreak = is_array($last) && ($last['type'] ?? '') === 'hard_break';
 
-        return [$prefix, $this->fragments($content, $lines, $path, $terminalHardBreak, $blocks)];
+        return [$prefix, $this->escapedLead($this->fragments($content, $lines, $path, $terminalHardBreak, $blocks))];
+    }
+
+    /**
+     * C2-W-063, C2-B-184: a cell whose first line holds only a span mark is written with an escape, since span marks
+     * are read from the first line of the row.
+     *
+     * @param array<int, string> $fragments
+     *
+     * @return array<int, string>
+     */
+    private function escapedLead(array $fragments): array
+    {
+        $lead = $fragments[0] ?? '';
+        $visible = $this->w->repairTrace?->decode($lead)['source'] ?? $lead;
+        if ($visible === '^' || $visible === '<') {
+            $fragments[0] = '\\' . $lead;
+        }
+
+        return $fragments;
     }
 
     /**
@@ -997,7 +1083,7 @@ final class TableWriter
      *
      * @return string
      */
-    private function content(array $blocks, string $path): string
+    private function content(array $blocks, string $path, bool $wrapped): string
     {
         $parts = [];
         foreach ($blocks as $at => $block) {
@@ -1005,6 +1091,7 @@ final class TableWriter
             $c = new Context();
             $c->writerState = $this->w;
             $c->inCell = true;
+            $c->cellWrapped = $wrapped;
             $c->blockLines = false;
             $c->counts = Inline::counts($inlines);
             $outer = $this->w->takeSmartRun();
@@ -1095,26 +1182,38 @@ final class TableWriter
     /**
      * C2-L-020: the wraps of a cell, as split points of its text nodes; returns the continuation line of each.
      *
+     * C2-L-006: a wrap on a later row of a spanning cell, past the row's continuation rows or not behind the wrap
+     * before it contradicts the record, and the cell then keeps no wrap (C2-L-035).
+     *
      * @param string $path
+     * @param int $below
      *
      * @return array<int>
      */
-    private function registerWraps(string $path): array
+    private function registerWraps(string $path, int $below): array
     {
         $wraps = $this->w->fact($path, 'wraps');
         if (!is_array($wraps)) {
             return [];
         }
         $lines = [];
+        $points = [];
         foreach ($wraps as $wrap) {
             if (
-                !is_array($wrap) || !is_int($wrap['line'] ?? null) || !is_string($wrap['path'] ?? null) || !is_int($wrap['offset'] ?? null)
-                || isset($wrap['row'])
+                !is_array($wrap) || !is_int($wrap['line'] ?? null) || !is_string($wrap['path'] ?? null)
+                || !is_int($wrap['offset'] ?? null)
             ) {
-                continue;
+                return [];
             }
-            $this->w->wrapPoints[$wrap['path']][] = $wrap['offset'];
-            $lines[] = $wrap['line'];
+            $line = $wrap['line'];
+            if (($wrap['row'] ?? 0) !== 0 || $line < 1 || $line > $below || $line <= (end($lines) ?: 0)) {
+                return [];
+            }
+            $points[] = [$wrap['path'], $wrap['offset']];
+            $lines[] = $line;
+        }
+        foreach ($points as [$at, $offset]) {
+            $this->w->wrapPoints[$at][] = $offset;
         }
 
         return $lines;

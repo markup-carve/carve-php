@@ -82,6 +82,12 @@ final class Context
     public bool $inCell = false;
 
     /**
+     * Whether a cell keeps a backslash on every backtick: its row has backticks in another cell (C2-B-169), or it
+     * continues on continuation rows, whose bounds the tick plan of the leaf does not see (C2-B-184).
+     */
+    public bool $cellWrapped = false;
+
+    /**
      * C2-A-069: the content is one line of a line block, so every line ending in it ends the line.
      */
     public bool $inLineBlock = false;

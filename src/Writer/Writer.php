@@ -1400,7 +1400,7 @@ final class Writer
     {
         $facts = [];
         $used = array_fill_keys([
-            'bare', 'fenced', 'hardBreakOpener', 'headerRows', 'sourceFormat', 'wraps', 'rawRef',
+            'bare', 'continuationLines', 'fenced', 'hardBreakOpener', 'headerRows', 'sourceFormat', 'wraps', 'rawRef',
         ], true);
         foreach (is_array($layout['nodes'] ?? null) ? $layout['nodes'] : [] as $entry) {
             if (

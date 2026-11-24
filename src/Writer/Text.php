@@ -528,7 +528,7 @@ final class Text
 
         return [
             $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [],
-            !$c->inCell ? self::tickEscapes($value, $c, $next, $marks) : null,
+            !$c->cellWrapped ? self::tickEscapes($value, $c, $next, $marks) : null,
             $marks < 0 && $c->lineStart && $c->kinds !== [] ? self::lineOpenerAt($value, $c) : -1,
         ];
     }
