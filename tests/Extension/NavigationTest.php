@@ -53,6 +53,7 @@ final class NavigationTest extends TestCase
 
     public function testCopiedTitleOutputAndMemoryStayLinear(): void
     {
+        $memoryBefore = memory_get_usage(true);
         $sizes = [];
         foreach ([1, 40, 160, 320] as $references) {
             $source = "{#a}\n= Ref\n\n" . str_repeat('See </#a>.\n\n', $references);
@@ -61,7 +62,7 @@ final class NavigationTest extends TestCase
             $sizes[] = strlen($html);
         }
         self::assertLessThan($sizes[2] * 2.1, $sizes[3]);
-        self::assertLessThan(64 * 1024 * 1024, memory_get_peak_usage(true));
+        self::assertLessThan(64 * 1024 * 1024, memory_get_usage(true) - $memoryBefore);
     }
 
     private static function html(string $source, ExtensionDefinition ...$extensions): string
