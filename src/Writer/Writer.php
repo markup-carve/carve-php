@@ -155,8 +155,7 @@ final class Writer
         $parsed = self::$parsedSource;
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
-        [$result, $localEscapes, $undecided, $groups] = self::firstWrite($tree, $layout, $options, $risk);
-        $localDecided = Text::$recordedDecided;
+        [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk);
         $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
             return $settled;
@@ -249,7 +248,12 @@ final class Writer
      * @param array<string, mixed> $options
      * @param string $treePrint
      *
-     * @return array{\MarkupCarve\Carve\Writer\WriteResult, array<string, array<int, true>>, bool}
+     * @return array{
+     *     \MarkupCarve\Carve\Writer\WriteResult,
+     *     array<string, array<int, true>>,
+     *     bool,
+     *     array<string, array<int, true>>
+     * }
      */
     private static function conservativeWrite(array $tree, ?array $layout, array $options, string $treePrint): array
     {
@@ -319,6 +323,7 @@ final class Writer
      *     \MarkupCarve\Carve\Writer\WriteResult,
      *     array<string, array<int, true>>,
      *     bool,
+     *     array<string, array<int, true>>,
      *     array<int, array{int, int, int, int, bool}>|null
      * }
      */
@@ -862,7 +867,13 @@ final class Writer
      * @param bool $conservative
      * @param bool $bareSigils With `$conservative`, a sigil glued to a node stays bare.
      *
-     * @return array{\MarkupCarve\Carve\Writer\WriteResult, array<string, array<int, true>>, bool}
+     * @return array{
+     *     \MarkupCarve\Carve\Writer\WriteResult,
+     *     array<string, array<int, true>>,
+     *     bool,
+     *     array<string, array<int, true>>
+     * } The result, its escapes, whether a bracket was left undecided, and the escapes other than the glued braces of
+     *     C2-W-125 case one.
      */
     private static function localWrite(array $tree, ?array $layout, array $options, bool $conservative, bool $bareSigils = false): array
     {
@@ -874,9 +885,10 @@ final class Writer
         try {
             $result = self::writeInternal($tree, $layout, $options, null);
 
-            return [$result, Text::$recorded, Text::$undecided];
+            return [$result, Text::$recorded, Text::$undecided, Text::$recordedDecided];
         } finally {
             Text::$recorded = null;
+            Text::$recordedDecided = [];
             Text::$undecided = false;
             Text::$conservative = false;
             Text::$bareSigils = false;
