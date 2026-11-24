@@ -313,6 +313,7 @@ final class DataModel
         $fragments = false;
         $pipeTables = [];
         $rows = [];
+        $holderOf = [];
         foreach ($c->walked as $item) {
             $parentHolder = $this->holderByPath[$item->parent] ?? null;
             $type = $item->type;
@@ -383,29 +384,28 @@ final class DataModel
                         $open = $openRuns[$key] ?? null;
                         $pending = $pendingRuns[$key] ?? null;
                         if ($item->startLine > 0) {
-                            if ($open !== null && $runs[$open]['next'] === $item->index) {
-                                $runs[$open]['end'] = $item->end;
-                                $runs[$open]['next'] = $item->index + 1;
+                            if ($open !== null && $runs[$open]->next === $item->index) {
+                                $runs[$open]->end = $item->end;
+                                $runs[$open]->next = $item->index + 1;
                             } else {
-                                $candidate = [
-                                    'type' => 'text_run',
-                                    'path' => $key,
-                                    'parent' => $parentType,
-                                    'leaf' => $parentHolder['type'] ?? $parentType,
-                                    'start' => $pending !== null && $pending['next'] === $item->index
-                                        ? $pending['start'] : $item->start,
-                                    'end' => $item->end,
-                                    'next' => $item->index + 1,
-                                ];
+                                $candidate = new TextRunRecord(
+                                    'text_run',
+                                    $key,
+                                    $parentType,
+                                    $parentHolder['type'] ?? $parentType,
+                                    $pending !== null && $pending->next === $item->index ? $pending->start : $item->start,
+                                    $item->end,
+                                    $item->index + 1,
+                                );
                                 if (
                                     $this->textRunNeedles !== ''
                                     && strcspn(
                                         $c->source,
                                         $this->textRunNeedles,
-                                        $candidate['start'],
-                                        $candidate['end'] - $candidate['start'],
+                                        $candidate->start,
+                                        $candidate->end - $candidate->start,
                                     )
-                                    === $candidate['end'] - $candidate['start']
+                                    === $candidate->end - $candidate->start
                                 ) {
                                     $pendingRuns[$key] = $candidate;
                                 } else {
@@ -414,10 +414,10 @@ final class DataModel
                                     unset($pendingRuns[$key]);
                                 }
                             }
-                        } elseif ($open !== null && $runs[$open]['next'] === $item->index) {
-                            $runs[$open]['next'] = $item->index + 1;
-                        } elseif ($pending !== null && $pending['next'] === $item->index) {
-                            $pendingRuns[$key]['next'] = $item->index + 1;
+                        } elseif ($open !== null && $runs[$open]->next === $item->index) {
+                            $runs[$open]->next = $item->index + 1;
+                        } elseif ($pending !== null && $pending->next === $item->index) {
+                            $pending->next = $item->index + 1;
                         }
                     } else {
                         unset($openRuns[$key], $pendingRuns[$key]);
@@ -453,16 +453,18 @@ final class DataModel
             }
             if (!empty($item->node['children'])) {
                 if (isset(self::INLINE_HOLDERS[$type])) {
-                    $this->holderByPath[$item->path] = ['type' => $type, 'inline' => isset(self::INLINE_LEAVES[$type])];
+                    // One shared array per holder type; there is one entry per path below a holder.
+                    $holderOf[$type] ??= ['type' => $type, 'inline' => isset(self::INLINE_LEAVES[$type])];
+                    $this->holderByPath[$item->path] = $holderOf[$type];
                 } elseif ($parentHolder !== null) {
                     $this->holderByPath[$item->path] = $parentHolder;
                 }
             }
         }
         foreach ($runs as $run) {
-            if (($this->mightUseInline)('text_run', null, $run['start'], $run['end'])) {
-                $run['text'] = substr($c->source, $run['start'], $run['end'] - $run['start']);
-                ($this->onInline)((object)$run);
+            if (($this->mightUseInline)('text_run', null, $run->start, $run->end)) {
+                $run->text = substr($c->source, $run->start, $run->end - $run->start);
+                ($this->onInline)($run);
             }
         }
         unset($runs, $openRuns);
