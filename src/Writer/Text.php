@@ -27,6 +27,13 @@ use MarkupCarve\Carve\Node;
 final class Text
 {
     /**
+     * The lines `blockRead()` keeps for one outer write.
+     *
+     * @var int
+     */
+    private const BLOCK_READS = 512;
+
+    /**
      * @var string
      */
     private const PUNCT = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
@@ -315,9 +322,11 @@ final class Text
     private static ?array $nestedCap = null;
 
     /**
-     * @var array{string, array{int, string}}|null
+     * `blockRead()` by line, at most `BLOCK_READS` of them.
+     *
+     * @var array<string, array{int, string}>
      */
-    private static ?array $lastBlockRead = null;
+    private static array $blockReads = [];
 
     public static function isPunct(string $c): bool
     {
@@ -4229,19 +4238,33 @@ final class Text
     }
 
     /**
-     * The number of top blocks a line parses to and the type of the first. The rounds of a leaf test the same line
-     * again, so the last read is kept (carve-php#5704).
+     * Drops the kept `blockRead()` results, so each outer write starts without those of the last.
+     */
+    public static function forgetBlockReads(): void
+    {
+        self::$blockReads = [];
+    }
+
+    /**
+     * The number of top blocks a line parses to and the type of the first. The rounds of a leaf, and each write of
+     * a document, test the same lines again, so the reads are kept (carve-php#5704, carve-php#5917).
      *
      * @return array{int, string}
      */
     private static function blockRead(string $source): array
     {
-        if (self::$lastBlockRead !== null && self::$lastBlockRead[0] === $source) {
-            return self::$lastBlockRead[1];
+        $read = self::$blockReads[$source] ?? null;
+        if ($read !== null) {
+            return $read;
         }
         $children = Carve::parse($source)->children ?? [];
         $read = [count($children), (string)($children[0]->type ?? '')];
-        self::$lastBlockRead = [$source, $read];
+        if (count(self::$blockReads) >= self::BLOCK_READS) {
+            self::$blockReads = [];
+        }
+        if (strlen($source) <= 1024) {
+            self::$blockReads[$source] = $read;
+        }
 
         return $read;
     }

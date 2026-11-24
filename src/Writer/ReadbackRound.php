@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
@@ -13,6 +14,22 @@ use MarkupCarve\Carve\Json\TreeEquality;
  */
 final class ReadbackRound
 {
+    /**
+     * The source bytes the read-back memo keeps. A longer source is kept only where the caller reads it again, and
+     * only the last one, so a long document holds at most one tree beside the writer's (carve#6413).
+     *
+     * @var int
+     */
+    private const MEMO_BYTES = 65536;
+
+    /**
+     * The last read-backs of the outer write, each with its source, oldest first and at most `MEMO_BYTES` of source;
+     * null outside `memoized()`.
+     *
+     * @var array<int, array{string, array<string, mixed>}>|null
+     */
+    private static ?array $memo = null;
+
     /**
      * @param array{
      *     source: string,
@@ -41,17 +58,73 @@ final class ReadbackRound
      *
      * @param string $source
      * @param array<string, mixed> $options
+     * @param bool $keep Keep the read-back of a long source too, which the caller reads again.
      *
      * @return array<string, mixed>
      */
-    public static function read(string $source, array $options = []): array
+    public static function read(string $source, array $options = [], bool $keep = false): array
     {
+        $memo = isset($options['extensions']) ? null : self::$memo;
+        if ($memo !== null) {
+            foreach ($memo as $at => [$read, $tree]) {
+                if ($read === $source) {
+                    unset($memo[$at]);
+                    $memo[] = [$read, $tree];
+                    self::$memo = $memo;
+
+                    return $tree;
+                }
+            }
+        }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 
         $parsed = Carve::parse($source, $parseOptions);
         HeapPages::release();
+        $tree = TreeEncoder::decodedWithOffsets($parsed, $source);
+        if ($memo !== null && ($keep || strlen($source) <= self::MEMO_BYTES)) {
+            $memo[] = [$source, $tree];
+            $bytes = 0;
+            $long = false;
+            foreach (array_reverse($memo, true) as $at => [$read]) {
+                $length = strlen($read);
+                $bytes += $length > self::MEMO_BYTES ? 0 : $length;
+                if ($bytes > self::MEMO_BYTES || ($length > self::MEMO_BYTES && $long)) {
+                    unset($memo[$at]);
+                }
+                $long = $long || $length > self::MEMO_BYTES;
+            }
+            self::$memo = $memo;
+        }
 
-        return TreeEncoder::decodedWithOffsets($parsed, $source);
+        return $tree;
+    }
+
+    /**
+     * Runs one outer write with its last read-backs kept: its steps read the same source more than once.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $write
+     *
+     * @return T
+     */
+    public static function memoized(Closure $write): mixed
+    {
+        $outer = self::$memo;
+        if ($outer === null) {
+            Text::forgetBlockReads();
+        }
+        self::$memo ??= [];
+        try {
+            return $write();
+        } finally {
+            self::$memo = $outer;
+        }
+    }
+
+    public static function memoActive(): bool
+    {
+        return self::$memo !== null;
     }
 
     /**

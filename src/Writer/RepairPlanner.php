@@ -360,6 +360,13 @@ final class RepairPlanner
     private bool $singleParagraph = false;
 
     /**
+     * The escapes of the source `repair()` settled on.
+     *
+     * @var array<string, array<int, true>>|null
+     */
+    private ?array $settledEscapes = null;
+
+    /**
      * The candidate of the starting escapes and its `ReadbackRound::inspect()`, when the caller already has them.
      *
      * @param array{
@@ -584,12 +591,23 @@ final class RepairPlanner
     }
 
     /**
+     * The escapes `repair()` wrote its result with, null where it returned none.
+     *
+     * @return array<string, array<int, true>>|null
+     */
+    public function resultEscapes(): ?array
+    {
+        return $this->settledEscapes;
+    }
+
+    /**
      * C2-W-133: null means the repair could not settle inside the existing character budget.
      */
     public function repair(): ?string
     {
         $seen = [];
         $settled = null;
+        $this->settledEscapes = null;
         $pairRounds = 0;
         for ($round = 0; $round < 8192; $round++) {
             $escapes = $this->escapes;
@@ -611,9 +629,12 @@ final class RepairPlanner
                 // rounds again; where those do not settle, the spelling before them stands.
                 $asked = $pairRounds < 64 ? Text::treePairOpeners($this->tree, $this->escapes) : [];
                 if (!$this->addAsked($asked)) {
+                    $this->settledEscapes = $escapes;
+
                     return $source;
                 }
                 $settled = $source;
+                $this->settledEscapes = $escapes;
                 $pairRounds++;
 
                 continue;
