@@ -35,6 +35,13 @@ final class Writer
     ];
 
     /**
+     * Emphasis and strong may be written braced, where a braced opener of their mark in their text takes the closer.
+     *
+     * @var array<string, string>
+     */
+    private const PAIRED_CLOSERS = ['emphasis' => '/', 'strong' => '*'];
+
+    /**
      * @var array<string>
      */
     private const PAIRED_INLINES = [
@@ -181,13 +188,13 @@ final class Writer
         // A form equal to the source the tree was parsed from reads back as that tree, and a tree without ASCII
         // punctuation in its strings takes no escape decision that could misread.
         // Without the source, a braced opener in the text of its span is read back as a parse's tree is.
-        $plain = $parsed === null && !self::hasBracedCloserRisk($tree);
-        if ($unchecked && ($plain || $parsed === $result->source || !self::hasPunctuation($tree))) {
+        if ($unchecked && self::readsBackUnread($tree, $parsed, $result->source)) {
             return self::uncheckedPruned($result, $parsed, $tree, $layout, $options);
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
         // and repairs the tree without them. The local write keeps the supplied tree, and with it the loss paths.
         $removed = [];
+        $fallback = null;
         $original = $tree;
         $originalLayout = $layout;
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
@@ -210,7 +217,8 @@ final class Writer
             // span of a text `^[` keeps ordinary open; the rounds place the backslash on its early closer instead.
             if (!RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
                 [$result, $localEscapes] = self::conservativeWrite($original, $originalLayout, $options, $treePrint);
-                if ($result->diagnostics !== [] || !$risk) {
+                $fallback = self::conservativeFallback($result, $risk);
+                if (self::conservativeTaken($result, $fallback, $treePrint, $options)) {
                     return $result;
                 }
             }
@@ -238,9 +246,65 @@ final class Writer
         $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
         $repaired = $planner->repair();
 
-        return $repaired === null
-            ? self::unrepaired($tree, $result, $options)
-            : new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options, $parsed), []);
+        if ($repaired === null) {
+            return self::unrepairedOr($fallback, $tree, $result, $options);
+        }
+
+        return new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options, $parsed), []);
+    }
+
+    /**
+     * Whether a local write the heuristics call safe is taken without a read-back: it equals the source the tree was
+     * parsed from, the tree has no ASCII punctuation in its strings, or the tree is supplied and holds no brace or pair
+     * mark that may pair with the bare spelling of a span.
+     *
+     * @param array<string, mixed> $tree
+     * @param string|null $parsed
+     * @param string $source
+     */
+    private static function readsBackUnread(array $tree, ?string $parsed, string $source): bool
+    {
+        if ($parsed === null && !self::hasBracedCloserRisk($tree) && !self::hasPairMarkRisk($tree)) {
+            return true;
+        }
+
+        return $parsed === $source || !self::hasPunctuation($tree);
+    }
+
+    /**
+     * The conservative form the rounds could not improve on, else the report of `unrepaired()`.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult|null $fallback
+     * @param array<string, mixed> $tree
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param array<string, mixed> $options
+     */
+    private static function unrepairedOr(?WriteResult $fallback, array $tree, WriteResult $result, array $options): WriteResult
+    {
+        return $fallback ?? self::unrepaired($tree, $result, $options);
+    }
+
+    /**
+     * C2-W-091: the conservative form kept where the rounds find none, null where it reports a loss or the tree carries
+     * round risk.
+     */
+    private static function conservativeFallback(WriteResult $result, bool $risk): ?WriteResult
+    {
+        return $risk || $result->diagnostics !== [] ? null : $result;
+    }
+
+    /**
+     * Whether the conservative form is taken without the rounds: it reports a loss, or it reads back as the tree; a
+     * form that reads as another tree goes to the rounds.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param \MarkupCarve\Carve\Writer\WriteResult|null $fallback
+     * @param string $treePrint
+     * @param array<string, mixed> $options
+     */
+    private static function conservativeTaken(WriteResult $result, ?WriteResult $fallback, string $treePrint, array $options): bool
+    {
+        return $result->diagnostics !== [] || ($fallback !== null && self::readsBack($result->source, $treePrint, $options));
     }
 
     /**
@@ -1120,21 +1184,74 @@ final class Writer
     }
 
     /**
-     * C2-I-043: a braced opener of a span's own mark in its text takes the closer of the span, even one directly behind
-     * it, which the local write does not decide.
+     * C2-I-051, C2-I-057: whether a text beside emphasis or strong holds a pair mark or a brace, which may pair with
+     * the bare spelling of that span.
      *
      * @param array<mixed> $node
-     * @param string $closer The mark of the nearest span around the node.
      */
-    private static function hasBracedCloserRisk(array $node, string $closer = ''): bool
+    private static function hasPairMarkRisk(array $node): bool
+    {
+        [$paired, $marked] = self::pairMarkFacts($node);
+
+        return $paired && $marked;
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return array{bool, bool} Whether the node holds emphasis or strong, and a text with `/`, `*` or `{`.
+     */
+    private static function pairMarkFacts(array $node): array
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        if ($closer !== '' && $type === 'text') {
-            return is_string($node['value'] ?? null) && str_contains($node['value'], '{' . $closer);
+        if ($type === 'text') {
+            return [false, is_string($node['value'] ?? null) && strpbrk($node['value'], '/*{') !== false];
         }
-        $closer = self::BRACED_CLOSERS[$type] ?? $closer;
+        $paired = isset(self::PAIRED_CLOSERS[$type]);
+        $marked = false;
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
-            if (is_array($child) && self::hasBracedCloserRisk($child, $closer)) {
+            if (!is_array($child)) {
+                continue;
+            }
+            [$p, $m] = self::pairMarkFacts($child);
+            $paired = $paired || $p;
+            $marked = $marked || $m;
+            if ($paired && $marked) {
+                break;
+            }
+        }
+
+        return [$paired, $marked];
+    }
+
+    /**
+     * C2-I-043: a braced opener of a span's own mark in its text takes the closer of the span, even one directly behind
+     * it, which the local write does not decide. Inside emphasis or strong, a braced opener of either pair mark may
+     * also take a closer the bare form of the pair spells (C2-I-057).
+     *
+     * @param array<mixed> $node
+     * @param string $closers The marks of the spans around the node.
+     */
+    private static function hasBracedCloserRisk(array $node, string $closers = ''): bool
+    {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        if ($closers !== '' && $type === 'text') {
+            $value = is_string($node['value'] ?? null) ? $node['value'] : '';
+            for ($at = strpos($value, '{'); $at !== false; $at = strpos($value, '{', $at + 1)) {
+                if ($at + 1 < strlen($value) && str_contains($closers, $value[$at + 1])) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        if (isset(self::BRACED_CLOSERS[$type])) {
+            $closers .= self::BRACED_CLOSERS[$type];
+        } elseif (isset(self::PAIRED_CLOSERS[$type])) {
+            $closers .= '/*';
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (is_array($child) && self::hasBracedCloserRisk($child, $closers)) {
                 return true;
             }
         }

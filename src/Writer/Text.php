@@ -1663,7 +1663,7 @@ final class Text
         // C2-I-055, C2-I-060: a mark before `}` closes the node of that mark open around the text, so the mark takes the
         // backslash; with none open the closer is text.
         if (self::closesOpenMark($ch, $after, $c)) {
-            return !self::emptyBracedCloser($value, $i, $c);
+            return !self::emptyBracedCloser($value, $i, $c) && !self::bracedOpenerMark($value, $i, $c);
         }
 
         // C2-W-090: a sigil glued to the bracket or the backtick of a node may form a construct with it, as `![` an
@@ -2017,26 +2017,33 @@ final class Text
     private static function braceInSpan(string $value, int $i, Context $c): bool
     {
         $span = $c->spanTexts[$c->textPath] ?? null;
-        if ($span === null || $c->inBracket || ($i === 0 && $span[2])) {
+        if ($span === null || $c->inBracket) {
             return true;
-        }
-        // A node behind the text may supply the closer, or keep the brace from forming; the read-back decides.
-        if ($span[1]) {
-            return $i < strlen($value) - 1 || self::undecided();
         }
         $next = $value[$i + 1] ?? '';
         $rest = substr($value, $i);
+        if (self::emptyPairAt($rest, $i === 0 && $span[2])) {
+            return false;
+        }
+        if ($i === 0 && $span[2]) {
+            return true;
+        }
+        // A node behind the text may supply the closer, or keep the brace from forming; the read-back decides.
+        $later = self::laterSpanText($span, $next);
+        if ($later === null) {
+            return $i < strlen($value) - 1 || self::undecided();
+        }
         $probe = $rest . $span[0] . '}';
         // C2-I-043: a braced opener needs its closer behind at least one character, a comment none. A brace before `/`
         // or `*` takes the mark from the bare pairs (C2-I-060), so the pairing escapes decide those.
         $marks = '_~=+-^,#%';
         // C2-I-057, C2-W-125 case one: glued before the span's own closer, the opener takes that closer and holds
         // nothing, so the span does not form.
-        if ($rest === '{' . $next && $next === $span[0]) {
-            $paired = $next === '*' || $next === '/';
-            if ($paired ? $span[3] : $next !== '%' && ($i === 0 || $value[$i - 1] !== $next)) {
-                return true;
-            }
+        if (self::gluedBeforeOwnCloser($value, $i, $span, $later)) {
+            // C2-W-088: a backslash of C2-W-125 gives no kind.
+            $c->gluedBrace = true;
+
+            return true;
         }
         if ($next !== '' && str_contains($marks, $next) && !str_contains(substr($probe, $next === '%' ? 2 : 3), $next . '}')) {
             return false;
@@ -2051,7 +2058,7 @@ final class Text
         }
         // C2-I-043, C2-I-051, C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind at least one
         // character in the span opens nothing: the span's closer drops it, so C2-W-088 places no backslash there.
-        $closerProbe = $span[3] || $span[4] === 0x7D ? $probe : $rest . $span[0];
+        $closerProbe = $rest . $later . ($span[3] || $span[4] === 0x7D ? $span[0] . '}' : $span[0]);
         if (($next === '*' || $next === '/') && self::lastCloser($closerProbe, $next) < 3) {
             return false;
         }
@@ -2060,6 +2067,66 @@ final class Text
         }
 
         return AttributeParser::readRun($probe, 0, strlen($probe), new Attrs()) >= 0;
+    }
+
+    /**
+     * C2-I-057, C2-W-125 case one: whether the brace at `$i` stands glued before the closer of its own span: it ends
+     * the text with no node behind, and reads on into that closer, or it stands before the last character, the span's
+     * mark, and its opener takes the closer holding nothing.
+     *
+     * @param string $value
+     * @param int $i
+     * @param array{0: string, 1: bool, 2: bool, 3: bool, 4: int, 5: array<mixed>} $span
+     * @param string $later The texts behind the text, '' where no node stands behind it.
+     */
+    private static function gluedBeforeOwnCloser(string $value, int $i, array $span, string $later): bool
+    {
+        $next = $value[$i + 1] ?? '';
+        if ($later !== '') {
+            return false;
+        }
+        if ($next === '') {
+            return true;
+        }
+        if ($next !== $span[0] || $i + 2 !== strlen($value)) {
+            return false;
+        }
+
+        return $next === '*' || $next === '/' ? $span[3] : $next !== '%' && ($i === 0 || $value[$i - 1] !== $next);
+    }
+
+    /**
+     * C2-I-043, C2-I-057: whether `$rest` starts with an empty pair `{//}`, which takes its own closer and forms
+     * nothing whatever stands around it, unless it reads as an attribute block of a node before it (C2-I-036).
+     */
+    private static function emptyPairAt(string $rest, bool $afterNode): bool
+    {
+        $next = $rest[1] ?? '';
+        if ($next === '' || $next === '%' || $next === '#' || !str_contains(self::MARKS, $next) || substr($rest, 2, 2) !== $next . '}') {
+            return false;
+        }
+
+        return !$afterNode || AttributeParser::readRun(substr($rest, 0, 4), 0, 4, new Attrs()) < 0;
+    }
+
+    /**
+     * The texts of the siblings behind a span text, led by `\0`, where a brace before `/` or `*` reads its closer; ''
+     * without siblings behind, and null where a sibling spells that mark bare or the brace opens another mark.
+     *
+     * @param array{0: string, 1: bool, 2: bool, 3: bool, 4: int, 5: array<mixed>} $span
+     * @param string $next
+     */
+    private static function laterSpanText(array $span, string $next): ?string
+    {
+        if (!$span[1]) {
+            return '';
+        }
+        if ($next !== '*' && $next !== '/') {
+            return null;
+        }
+        $text = Inline::laterOpenText($span[5], $next);
+
+        return $text === null ? null : "\0" . $text;
     }
 
     /**
@@ -2568,6 +2635,14 @@ final class Text
     }
 
     /**
+     * C2-I-043, C2-I-055: the mark of `{/}` behind a brace left bare belongs to that braced opener, so it closes nothing.
+     */
+    private static function bracedOpenerMark(string $value, int $i, Context $c): bool
+    {
+        return $i >= 1 && $value[$i - 1] === '{' && ($c->escapedAt[$i - 1] ?? true) === false;
+    }
+
+    /**
      * Whether `$value` holds a `$mark` from `$from` on that is no braced opener's mark (C2-I-055).
      */
     private static function bareMarkBehind(string $value, int $from, string $mark): bool
@@ -2671,7 +2746,7 @@ final class Text
             // C2-I-060: the mark of a bare brace with no closer behind it is that opener's, and pairs with nothing. With
             // a node behind the text, the brace may take a backslash, which frees its mark.
             $alone = $behind !== 0x7D && ($at > 1 || !$afterNode);
-            if ($alone && $at > 0 && $value[$at - 1] === '{' && !str_contains(substr($value, $at + 2), $mark . '}')) {
+            if ($alone && $at > 0 && $value[$at - 1] === '{' && !self::bracedCloserPairs(substr($value, $at + 2), $mark)) {
                 continue;
             }
             $before = $at > 0 ? Chars::before($value, $at) : $edge;
@@ -2683,6 +2758,28 @@ final class Text
                 $closes = true;
             }
         }
+    }
+
+    /**
+     * Whether `$tail`, the text behind a braced opener of `$mark`, holds a braced closer of that mark. An empty pair
+     * `{//}` in it holds its own closer and forms nothing (C2-I-043, C2-I-057), so its `/}` is no closer for the
+     * opener, and the mark of a later braced opener is no closer either (C2-I-055).
+     */
+    public static function bracedCloserPairs(string $tail, string $mark): bool
+    {
+        $n = strlen($tail);
+        for ($i = 0; $i < $n; $i++) {
+            if ($tail[$i] === '{' && ($tail[$i + 1] ?? '') === $mark) {
+                $i += substr($tail, $i + 2, 2) === $mark . '}' ? 3 : 1;
+
+                continue;
+            }
+            if ($tail[$i] === $mark && ($tail[$i + 1] ?? '') === '}') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
