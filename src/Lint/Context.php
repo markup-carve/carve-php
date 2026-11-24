@@ -27,6 +27,8 @@ final class Context
 
     private ?TreeEncoder $positions = null;
 
+    private int $lastLine = 0;
+
     /**
      * @var array<string, string> The node type at each path.
      */
@@ -174,6 +176,16 @@ final class Context
 
     public function lineOf(int $offset): int
     {
+        // Offsets mostly come in source order, so the line of the last call or the one after it usually holds the answer.
+        $line = $this->lastLine;
+        if (($this->lineStarts[$line] ?? PHP_INT_MAX) <= $offset) {
+            if (!isset($this->lineStarts[$line + 1]) || $offset < $this->lineStarts[$line + 1]) {
+                return $line + 1;
+            }
+            if (!isset($this->lineStarts[$line + 2]) || $offset < $this->lineStarts[$line + 2]) {
+                return ($this->lastLine = $line + 1) + 1;
+            }
+        }
         $low = 0;
         $high = count($this->lineStarts) - 1;
         while ($low < $high) {
@@ -184,6 +196,7 @@ final class Context
                 $high = $mid - 1;
             }
         }
+        $this->lastLine = $low;
 
         return $low + 1;
     }
