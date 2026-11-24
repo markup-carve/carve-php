@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => 'b723b166ff2e2cd2793ce92008b2061f9e51cb84',
+        'commit' => '5017605d61230777a8468878eb698b42ebfa1c18',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6731,6 +6731,9 @@ final class Tables
                 'when' => 'the selected declaration has a dotted numeric version greater than 0.2',
                 'text' => 'This engine implements 0.2; features of the declared ${version} version may be unsupported. Write `carve: 0.2` only if the source uses 0.2 features.',
             ],
+        ],
+        'code-span-padding-kept' => [
+            'The spaces at the ends of this span read otherwise than in 0.1, which removed one space from each end when both ends held one; 0.2 removes only a space next to a backtick. Check the spaces at the ends of the span.',
         ],
         'colon-fence-length-mismatch' => [
             [
