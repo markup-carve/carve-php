@@ -178,6 +178,9 @@ final class TableReader
         }
         if ($count === 0 || count($rows) > $count) {
             $out[] = $body + ['children' => $this->clamp(array_slice($rows, $count), $node)];
+        } elseif (count($body) > 1) {
+            // C2-M-082: the dropped body takes its attributes with it.
+            $this->context->report($node, 'import-attribute-dropped', 'Attributes of a table body left empty by its head rows dropped');
         }
 
         return $out;
