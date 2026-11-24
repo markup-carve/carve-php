@@ -77,10 +77,10 @@ final class WriterReadbackTest extends TestCase
             ],
             'C2-I-002 a space behind a backslash stays' => [$p($code("a\\ \nb")), "`a\\ \nb`\n", []],
             'C2-I-002 a line break before the closing run' => [$p($t('x '), $code("b\n"), $t(' y')), "x `b\n` y\n", []],
-            'C2-I-002 a pad before the closing run on its own line' => [
+            'C2-W-077 a value that starts with a backtick and ends with a line break' => [
                 $p($t('x '), $code("`\n")),
-                "x `` `\n ``\n",
-                ['field-unspellable /children/0/children/1/value'],
+                "x `` `\n``\n",
+                [],
             ],
             'C2-W-116 an empty code span' => [
                 $p($t('a'), $code('')),

@@ -54,9 +54,6 @@ final class FixLintDefaultCasesTest extends TestCase
         rewind($out);
         $expected = $case['expected'];
         $this->assertSame($expected['stdout'], (string)stream_get_contents($out));
-        // CC-1354 expects 0, but C2-T-050 gives the status of the fixed source, where djot-subscript-tilde-braced warns (carve#6532).
-        if ($case['id'] !== 'CC-1354') {
-            $this->assertSame($expected['status'], $status);
-        }
+        $this->assertSame($expected['status'], $status);
     }
 }
