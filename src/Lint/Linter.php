@@ -266,22 +266,6 @@ final class Linter
         }
         $attrs = $node['attrs'] ?? null;
         $pos = Support::pos($node, $c);
-        if ($c->dataRules) {
-            $modelType = $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type;
-            $c->walked[] = $pos === null
-                ? new WalkedNode($node, $path, $parent, $index, $modelType)
-                : new WalkedNode(
-                    $node,
-                    $path,
-                    $parent,
-                    $index,
-                    $modelType,
-                    $pos['startOffset'],
-                    $pos['endOffset'],
-                    $pos['startLine'],
-                    $pos['endLine'],
-                );
-        }
         if ($attrs !== null && $pos !== null) {
             $c->attachedLines[$pos['startLine']] = true;
         }

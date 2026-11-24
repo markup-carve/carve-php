@@ -34,13 +34,6 @@ final class Context
      */
     public array $nodeTypes = [];
 
-    /**
-     * The parsed nodes in source walk order for the shared data rule model.
-     *
-     * @var list<\MarkupCarve\Carve\Lint\WalkedNode>
-     */
-    public array $walked = [];
-
     public bool $dataRules;
 
     /**
