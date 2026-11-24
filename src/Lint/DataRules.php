@@ -2022,8 +2022,8 @@ final class DataRules
             if ($path === 'node' && isset($record->nodeSource) && $record->node === null) {
                 $record->node = $this->compactNode($record->nodeSource);
             }
-            if (($path === 'ancestors' || $path === 'ancestor_ids') && !property_exists($record, $path)) {
-                if (property_exists($record, 'ancestor_path') && !property_exists($record, 'ancestors')) {
+            if (($path === 'ancestors' || $path === 'ancestor_ids') && !isset($record->$path)) {
+                if (property_exists($record, 'ancestor_path') && !isset($record->ancestors)) {
                     $record->ancestors = DataModel::ancestors($this->context, $record->ancestor_path);
                 }
                 $this->populateAncestors($record);
@@ -2056,9 +2056,9 @@ final class DataRules
                 }
                 if (
                     $value instanceof stdClass && ($part === 'ancestors' || $part === 'ancestor_ids')
-                    && !property_exists($value, $part)
+                    && !isset($value->$part)
                 ) {
-                    if (property_exists($value, 'ancestor_path') && !property_exists($value, 'ancestors')) {
+                    if (property_exists($value, 'ancestor_path') && !isset($value->ancestors)) {
                         $value->ancestors = DataModel::ancestors($this->context, $value->ancestor_path);
                     }
                     $this->populateAncestors($value);
@@ -2149,7 +2149,7 @@ final class DataRules
             $types[] = $this->context->nodeTypes[$path] ?? 'document';
         }
         $record->ancestor_ids = $ids;
-        if (!property_exists($record, 'ancestors')) {
+        if (!isset($record->ancestors)) {
             $record->ancestors = $types;
         }
     }
