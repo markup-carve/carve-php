@@ -59,12 +59,12 @@ final class TreeEquality
      */
     private static function feed(HashContext $context, string &$buffer, mixed $value, bool $spanMarks): void
     {
+        if (strlen($buffer) > self::FEED_CHUNK) {
+            hash_update($context, $buffer);
+            $buffer = '';
+        }
         if (!is_array($value)) {
             $buffer .= is_string($value) ? 's:' . strlen($value) . ':"' . $value . '";' : serialize($value);
-            if (strlen($buffer) > self::FEED_CHUNK) {
-                hash_update($context, $buffer);
-                $buffer = '';
-            }
 
             return;
         }
