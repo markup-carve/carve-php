@@ -100,8 +100,9 @@ final class Navigation
 
     /**
      * Numbers the sections, `1`, `1.1` and so on, in a `<span class="section-number">` before the heading text, and
-     * writes a cross-reference `</#id>` to a numbered heading as "Section 1.2 - Title". Headings in a quote or a note,
-     * with the class `unnumbered` or above `$minLevel` take no number.
+     * writes a cross-reference `</#id>` to a numbered heading as "Section 1.2 - Title". A number follows nesting depth,
+     * not the level, so a skipped level repeats no number. Only the headings a section wraps are numbered: headings in a
+     * quote, note, footnote or list item, with the class `unnumbered` or above `$minLevel` take no number.
      *
      * @param int $minLevel Top numbered heading level.
      * @param string $label Word before the number in a cross-reference.
@@ -366,7 +367,8 @@ final class Navigation
 
     /**
      * Writes a table of contents at each `toc` directive, claimed as `carve.tocPlacement`; its headings window comes from
-     * `{depth=N}` or `{from=X to=Y}`. Without this extension the directive stays the core `<div class="toc">`.
+     * `{depth=N}` or `{from=X to=Y}`, and like `tableOfContents()` it lists only the headings a section wraps. Without
+     * this extension the directive stays the core `<div class="toc">`.
      */
     public static function tocPlacement(): ExtensionDefinition
     {
