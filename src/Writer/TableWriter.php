@@ -721,7 +721,7 @@ final class TableWriter
         $last = end($inlines);
         $terminalHardBreak = is_array($last) && ($last['type'] ?? '') === 'hard_break';
 
-        return [$prefix, $this->fragments($content, $lines, $path, $terminalHardBreak)];
+        return [$prefix, $this->fragments($content, $lines, $path, $terminalHardBreak, $blocks)];
     }
 
     /**
@@ -911,10 +911,11 @@ final class TableWriter
      * @param array<int> $lines
      * @param string $path
      * @param bool $terminalHardBreak
+     * @param array<mixed> $blocks
      *
      * @return array<int, string>
      */
-    private function fragments(string $content, array $lines, string $path, bool $terminalHardBreak): array
+    private function fragments(string $content, array $lines, string $path, bool $terminalHardBreak, array $blocks): array
     {
         if ($lines !== []) {
             $fragments = [];
@@ -926,12 +927,51 @@ final class TableWriter
         }
         if (str_contains($content, "\n")) {
             if (!$terminalHardBreak || !str_ends_with($content, "\\\n") || substr_count($content, "\n") !== 1) {
-                $this->w->lose($path, 'table_cell', 'children');
+                $this->loseLineFeed($blocks, $path);
             }
             $content = str_replace("\n", ' ', $content);
         }
 
         return [$content];
+    }
+
+    /**
+     * C2-W-067, C2-W-117: the first node in the cell whose line feed has no spelling loses it: a text its value, a break
+     * itself.
+     *
+     * @param array<mixed> $blocks
+     * @param string $path
+     *
+     * @return void
+     */
+    private function loseLineFeed(array $blocks, string $path): void
+    {
+        $stack = [];
+        for ($at = count($blocks) - 1; $at >= 0; $at--) {
+            $stack[] = [$blocks[$at] ?? null, $path . '/children/' . $at];
+        }
+        while ($stack !== []) {
+            [$node, $at] = array_pop($stack);
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = Inline::str($node, 'type');
+            if ($type === 'text' && str_contains(Inline::str($node, 'value'), "\n")) {
+                $this->w->lose($at, 'text', 'value');
+
+                return;
+            }
+            if ($type === 'soft_break' || $type === 'hard_break') {
+                $this->w->lose($at, $type, null);
+
+                return;
+            }
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            for ($k = count($children) - 1; $k >= 0; $k--) {
+                $stack[] = [$children[$k] ?? null, $at . '/children/' . $k];
+            }
+        }
+        $this->w->lose($path, 'table_cell', 'children');
     }
 
     /**
