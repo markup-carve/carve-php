@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '991f6170709e4d0573a3dbabe09d98eaab15102a',
+        'commit' => 'bbdf093ac88eae2d6dd4c9a800fb25771c6bf0ea',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6764,6 +6764,20 @@ final class Tables
         'consumed-key-near-miss' => [
             '"${word}" is not a consumed key here; did you mean {${key}}?',
         ],
+        'continuation-reading-changed' => [
+            [
+                'when' => 'the line continues a link definition or an abbreviation definition',
+                'text' => 'This indented line continues the definition above in 0.2; in 0.1 it started a paragraph. Remove the indent to make it a separate block again.',
+            ],
+            [
+                'when' => 'the line continues a term',
+                'text' => 'This indented line continues the term above in 0.2; in 0.1 it started a paragraph. Remove the indent to make it a separate block again.',
+            ],
+            [
+                'when' => 'the line stands directly below a caption and is not indented past its caret',
+                'text' => 'This line ends the caption above in 0.2; in 0.1 it continued the caption. Indent it past the caret to keep it in the caption.',
+            ],
+        ],
         'definition-in-container' => [
             'A definition is recognized only at column 0 outside every container, so this line is text. Put it at column 0 outside every container.',
         ],
@@ -7093,6 +7107,9 @@ final class Tables
         ],
         'indented-code-block' => [
             'Four-space indentation does not make a code block in Carve; this renders as a paragraph. Use a ``` fence.',
+        ],
+        'link-definition-indented-line' => [
+            'This indented line is not a title or attribute block, so it does not continue the link definition above; it starts a new block.',
         ],
         'link-gap-before-destination' => [
             'The gap after this label prevents the parenthesized destination from attaching; write `](` with no space for an inline link. A defined shortcut reference can still resolve the label.',
