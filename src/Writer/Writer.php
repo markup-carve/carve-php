@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
+use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Options;
 
 /**
@@ -638,6 +639,7 @@ final class Writer
         }
 
         $repaired = self::prunedNoteCarets($repaired, $treePrint, $options, $parsed);
+        $repaired = self::prunedEmptyLabelBrackets($repaired, $treePrint, $options);
 
         return new WriteResult($repaired, []);
     }
@@ -942,7 +944,11 @@ final class Writer
      */
     private static function withPrunedNoteCarets(WriteResult $result, string $treePrint, array $options, ?string $parsed): WriteResult
     {
-        $pruned = self::prunedNoteCarets($result->source, $treePrint, $options, $parsed);
+        $pruned = self::prunedEmptyLabelBrackets(
+            self::prunedNoteCarets($result->source, $treePrint, $options, $parsed),
+            $treePrint,
+            $options,
+        );
 
         return $pruned === $result->source ? $result : new WriteResult($pruned, $result->diagnostics);
     }
@@ -983,6 +989,223 @@ final class Writer
         $brackets = self::bareNoteBrackets($source, $starts, ['[', ']']);
 
         return $brackets !== $source && $brackets !== $bare && $readsBack($brackets) ? $brackets : $source;
+    }
+
+    /**
+     * C2-W-125: a backslash the rounds left before the `[` of a text `[^]` is taken out where the form still reads back
+     * and the bare parse reports no `[` kind in its leaf block (carve-js `prunableBracket`, `reportsBracketKind`).
+     *
+     * @param string $source
+     * @param string $treePrint
+     * @param array<string, mixed> $options
+     */
+    private static function prunedEmptyLabelBrackets(string $source, string $treePrint, array $options): string
+    {
+        $at = strpos($source, '\\[^]');
+        if ($at === false) {
+            return $source;
+        }
+        [$leaves, $prints] = self::bracketKindLeaves($source, $options);
+        $pending = [];
+        for (; $at !== false; $at = strpos($source, '\\[^]', $at + 1)) {
+            $run = 0;
+            while ($at - $run > 0 && $source[$at - $run - 1] === '\\') {
+                $run++;
+            }
+            if ($run % 2 === 0 && !self::reportsBracketKind($leaves, $at)) {
+                $pending[] = $at;
+            }
+        }
+        // C2-W-010: the candidates are taken out together, so one parse decides many (carve-js `pruneInRounds`). A
+        // candidate alone in a leaf that then differs keeps its backslash; of several there, the first is tried next.
+        $removed = [];
+        $waiting = [];
+        for ($round = 0; $pending !== []; $round++) {
+            if ($round === 16) {
+                return $source;
+            }
+            $drop = [...$removed, ...$pending];
+            sort($drop);
+            $trial = self::withoutBytes($source, $drop);
+            $read = ReadbackRound::read($trial, $options);
+            if (TreeEquality::fingerprint($read) === $treePrint) {
+                array_push($removed, ...$pending);
+                $pending = $waiting;
+                $waiting = [];
+
+                continue;
+            }
+            $read = self::leafBlocks($read);
+            if (count($read) !== count($prints)) {
+                return $source;
+            }
+            $decided = [];
+            foreach ($read as $index => $leaf) {
+                if (TreeEquality::fingerprint($leaf) === $prints[$index]) {
+                    continue;
+                }
+                [$start, $end] = $leaves[$index];
+                $inside = array_values(array_filter($pending, static fn (int $at): bool => $start <= $at && $at < $end));
+                if ($inside === []) {
+                    return $source;
+                }
+                foreach (count($inside) === 1 ? $inside : array_slice($inside, 1) as $at) {
+                    $decided[$at] = true;
+                }
+                array_push($waiting, ...array_slice($inside, 1));
+            }
+            $pending = array_values(array_filter($pending, static fn (int $at): bool => !isset($decided[$at])));
+            if ($pending === []) {
+                sort($waiting);
+                $pending = $waiting;
+                $waiting = [];
+            }
+        }
+        sort($removed);
+
+        return self::withoutBytes($source, $removed);
+    }
+
+    /**
+     * `$source` without the bytes at the ascending offsets `$drop`.
+     *
+     * @param string $source
+     * @param array<int> $drop
+     */
+    private static function withoutBytes(string $source, array $drop): string
+    {
+        $out = '';
+        $from = 0;
+        foreach ($drop as $at) {
+            $out .= substr($source, $from, $at - $from);
+            $from = $at + 1;
+        }
+
+        return $out . substr($source, $from);
+    }
+
+    /**
+     * @param array<array{int, int, bool}> $leaves
+     * @param int $at
+     */
+    private static function reportsBracketKind(array $leaves, int $at): bool
+    {
+        foreach ($leaves as [$start, $end, $reported]) {
+            if ($start <= $at && $at < $end) {
+                return $reported;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The leaf blocks of the parse of `$source` by their range, each with whether the parse of its bare text, every
+     * backslash before ASCII punctuation taken out, holds more nodes that open on a bracket (C2-W-088).
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return array{array<array{int, int, bool}>, array<string>} The leaves, and the fingerprint of each.
+     */
+    private static function bracketKindLeaves(string $source, array $options): array
+    {
+        $bare = (string)preg_replace_callback(
+            '/\\\\(.)/s',
+            static fn (array $m): string => Text::isPunct($m[1]) ? $m[1] : $m[0],
+            $source,
+        );
+        $bareLeaves = self::leafBlocks(ReadbackRound::read($bare, $options));
+        $leaves = self::leafBlocks(ReadbackRound::read($source, $options));
+        $found = [];
+        $prints = [];
+        foreach ($leaves as $index => $leaf) {
+            $range = TreeEncoder::offsets($leaf['pos'] ?? null) ?? [-1, -1];
+            $other = $bareLeaves[$index] ?? null;
+            $reported = count($bareLeaves) !== count($leaves) || $other === null || self::moreBracketNodes($other, $leaf, $bare);
+            $found[] = [$range[0], $range[1], $reported];
+            $prints[] = TreeEquality::fingerprint($leaf);
+        }
+
+        return [$found, $prints];
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return array<array<mixed>>
+     */
+    private static function leafBlocks(array $node): array
+    {
+        $leaves = [];
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            if (is_string($child['type'] ?? null) && isset(DataModel::INLINE_PARENTS[$child['type']])) {
+                $leaves[] = $child;
+            } else {
+                array_push($leaves, ...self::leafBlocks($child));
+            }
+        }
+
+        return $leaves;
+    }
+
+    /**
+     * Whether `$bare` holds more nodes of a type that opens on a bracket of `$text` (`[`, `^[`, `![`) than `$tree`.
+     *
+     * @param array<mixed> $bare
+     * @param array<mixed> $tree
+     * @param string $text
+     */
+    private static function moreBracketNodes(array $bare, array $tree, string $text): bool
+    {
+        $counts = [];
+        foreach (self::descendants($bare) as $node) {
+            $start = TreeEncoder::offsets($node['pos'] ?? null)[0] ?? -1;
+            $opens = $start >= 0 && (($text[$start] ?? '') === '['
+                || (($text[$start + 1] ?? '') === '[' && in_array($text[$start] ?? '', ['!', '^'], true)));
+            if ($opens) {
+                $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+                $counts[$type] = ($counts[$type] ?? 0) + 1;
+            }
+        }
+        foreach (self::descendants($tree) as $node) {
+            $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+            if (isset($counts[$type])) {
+                $counts[$type]--;
+            }
+        }
+
+        return array_filter($counts, static fn (int $count): bool => $count > 0) !== [];
+    }
+
+    /**
+     * The nodes below `$root` that are not text.
+     *
+     * @param array<mixed> $root
+     *
+     * @return array<array<mixed>>
+     */
+    private static function descendants(array $root): array
+    {
+        $found = [];
+        $pending = is_array($root['children'] ?? null) ? $root['children'] : [];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if (!is_array($node)) {
+                continue;
+            }
+            if (($node['type'] ?? '') !== 'text') {
+                $found[] = $node;
+            }
+            foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+                $pending[] = $child;
+            }
+        }
+
+        return $found;
     }
 
     /**
