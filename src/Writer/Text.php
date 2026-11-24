@@ -1949,11 +1949,10 @@ final class Text
         if ($next === '{') {
             return false;
         }
-        // C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind it takes the mark from the bare
-        // pairs, which its backslash would set free. A parsed tree goes to the rounds anyway; a supplied one leaves the
-        // brace to the read-back.
-        if (self::$suppliedTree && ($next === '*' || $next === '/') && !str_contains(substr($probe, 2), $next . '}')) {
-            return self::undecided();
+        // C2-I-051, C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind it in the span opens
+        // nothing: the span's closer drops it from the stack, so C2-W-088 places no backslash there.
+        if (($next === '*' || $next === '/') && !str_contains(substr($probe, 2), $next . '}')) {
+            return false;
         }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
             return true;
@@ -2399,8 +2398,12 @@ final class Text
         if (($c->counts[$ch] ?? 0) < 2) {
             return false;
         }
+        // C2-I-055: behind the mark a bare brace takes, a lone mark pairs only with a later one of its kind in the span.
         if ($i > 1 && $value[$i - 1] === $ch && $value[$i - 2] === '{' && ($value[$i + 1] ?? '') !== $ch && $c->here < 0) {
-            return true;
+            $span = $c->spanTexts[$c->textPath] ?? null;
+            if ($span === null || $span[0] === $ch || $span[1] || str_contains(substr($value, $i + 1), $ch)) {
+                return true;
+            }
         }
         // C2-I-049: a run of two or more is text, counted without the mark a bare brace takes (C2-I-055).
         $run = self::run($value, $i, $c);
@@ -2736,20 +2739,22 @@ final class Text
 
     /**
      * C2-I-047: the opening mark of a span after a space, or before a word character, cannot close a pair. Behind its
-     * own mark the span is braced, and a braced opener closes nothing either.
+     * own mark or a word character, or before a space, the span is braced (C2-W-069), and a braced opener closes
+     * nothing either.
      *
      * @param array<mixed> $node
      * @param int $before
      */
     private static function opensOnly(array $node, int $before): bool
     {
-        if (Chars::isSpace($before)) {
+        if (Chars::isSpace($before) || Chars::isWord($before)) {
             return true;
         }
         $first = is_array($node['children'] ?? null) ? $node['children'][0] ?? null : null;
         $value = is_array($first) && ($first['type'] ?? null) === 'text' && is_string($first['value'] ?? null) ? $first['value'] : '';
+        $code = $value !== '' ? Chars::at($value, 0) : -1;
 
-        return $value !== '' && Chars::isWord(Chars::at($value, 0));
+        return $code >= 0 && (Chars::isWord($code) || Chars::isSpace($code) || Chars::isGlue($code));
     }
 
     /**
