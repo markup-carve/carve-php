@@ -2086,7 +2086,7 @@ final class RepairPlanner
      * @param array<mixed> $tree
      * @param string $path
      */
-    private static function leafValue(array $tree, string $path): ?string
+    public static function leafValue(array $tree, string $path): ?string
     {
         $node = self::nodeAt($tree, $path);
 
