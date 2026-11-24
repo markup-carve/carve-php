@@ -50,6 +50,13 @@ final class WriterNeedlessEscapeTest extends TestCase
             'braced pair beside an empty pair' => ['{{/x/} {/{/}', '\{/x/ {/{/}'],
             'empty block in strong text' => ['*a{}*', '*a{}*'],
             'blank block at the start of strong text' => ['*{ }*', '*{ }*'],
+            // C2-I-057: the `*` of `{**}` closes the braced opener, so it pairs with no bare strong mark.
+            'empty braced strong before a strong' => ['{{**} {{*{x*}', '{{**} \{*{x*'],
+            'empty braced strong before a quoted strong' => ['> {{**} {{*{x*}', '> {{**} \{*{x*'],
+            'empty braced strong in the w-pairs unit' => [
+                '{*{  *}{{**} {/{ /}{{/x/} {*{*} {{*{x*} a *b*',
+                '{*{  *}{{**} {/{ /}\{/x/ {*{*} \{*{x* a *b*',
+            ],
         ];
     }
 
@@ -76,6 +83,7 @@ final class WriterNeedlessEscapeTest extends TestCase
             'block behind a strong' => ['*b*\{.c}', '*b*\{.c}'],
             'fence before a plain strong' => ['\- \``` *b x*{#foo}', '\- \``` *b x*{#foo}'],
             'hyphens beside a dash' => ['x-\-\---', 'x-\-\---'],
+            'stars of an empty braced pair under a reported star' => ['\*a* {*{*}', '\*a* {\*{\*}'],
         ];
     }
 

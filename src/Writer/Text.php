@@ -2448,6 +2448,7 @@ final class Text
     {
         $paired = ['*' => [], '/' => []];
         $open = ['*' => [], '/' => []];
+        $bracedOpen = ['*' => [], '/' => []];
         $inner = ['*' => -1, '/' => -1];
         $bracket = -1;
         $n = strlen($text);
@@ -2472,9 +2473,9 @@ final class Text
             // C2-I-049: the mark a bare brace takes as a braced opener does not count for the run behind it.
             $behindBraced = $braced !== null && $at > 1 && $text[$at - 1] === $ch && $text[$at - 2] === '{' && $braced($at - 1);
             if (
-                ($at > 0 && $text[$at - 1] === $ch && !$behindBraced) || ($at + 1 < $n && $text[$at + 1] === $ch)
+                self::bracedToken($at, $before, $after, $braced, $bracedOpen[$ch], $open)
+                || ($at > 0 && $text[$at - 1] === $ch && !$behindBraced) || ($at + 1 < $n && $text[$at + 1] === $ch)
                 || ($after >= 0 && Chars::isGlue($after))
-                || ($braced !== null && $before === 0x7B && $braced($at))
             ) {
                 continue;
             }
@@ -2494,6 +2495,44 @@ final class Text
         }
 
         return $paired;
+    }
+
+    /**
+     * C2-I-057, C2-I-059: before `}` with a braced opener of its mark open, a mark is that opener's closer, and the
+     * bare entries opened after the opener are text. Whether the mark at `$at` is a braced token: that closer, or the
+     * mark of a braced opener, which it records.
+     *
+     * @param int $at
+     * @param int $before
+     * @param int $after
+     * @param \Closure(int): bool|null $braced
+     * @param array<int> $bracedOpen The open braced openers of the mark.
+     * @param array<string, array<int>> $open
+     *
+     * @return bool
+     */
+    private static function bracedToken(int $at, int $before, int $after, ?Closure $braced, array &$bracedOpen, array &$open): bool
+    {
+        if ($braced === null) {
+            return false;
+        }
+        if ($after === 0x7D && $bracedOpen !== []) {
+            $from = array_pop($bracedOpen);
+            foreach (['*', '/'] as $mark) {
+                while ($open[$mark] !== [] && end($open[$mark]) > $from) {
+                    array_pop($open[$mark]);
+                }
+            }
+
+            return true;
+        }
+        if ($before === 0x7B && $braced($at)) {
+            $bracedOpen[] = $at;
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
