@@ -2205,7 +2205,7 @@ final class Inline
      */
     private static function bareFits(string $inner, string $mark, int $prev, int $next): bool
     {
-        if ($inner === '' || $inner[0] === $mark || $inner[strlen($inner) - 1] === $mark) {
+        if ($inner === '' || $inner[0] === $mark || ($inner[strlen($inner) - 1] === $mark && !self::bracedOpenerEnd($inner))) {
             return false;
         }
         $first = Chars::at($inner, 0);
@@ -2219,6 +2219,61 @@ final class Inline
 
         // A backslash at the end of the content would escape the closer.
         return !str_ends_with($inner, '\\') || str_ends_with($inner, "\\\n");
+    }
+
+    /**
+     * C2-W-069, C2-W-070: whether an emphasis or strong `$node` behind the character `$before` takes its braced form
+     * whatever its texts are escaped to: behind a word character or its own mark, with content that starts or ends with
+     * its mark, a space or a joining mark, or that holds its own kind or its mark where it pairs.
+     *
+     * @param array<mixed> $node
+     * @param int $before
+     *
+     * @return bool
+     */
+    public static function bracedAlways(array $node, int $before): bool
+    {
+        $type = self::str($node, 'type');
+        $mark = self::PAIRED[$type] ?? null;
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        if ($mark === null || $children === []) {
+            return false;
+        }
+        if ($before === ord($mark) || Chars::isWord($before)) {
+            return true;
+        }
+        $first = $children[0];
+        $last = $children[count($children) - 1];
+        $head = is_array($first) && self::str($first, 'type') === 'text' ? self::str($first, 'value') : '';
+        $tail = is_array($last) && self::str($last, 'type') === 'text' ? self::str($last, 'value') : '';
+        if ($head !== '') {
+            $code = Chars::at($head, 0);
+            if ($head[0] === $mark || Chars::isSpace($code) || Chars::isGlue($code)) {
+                return true;
+            }
+        }
+        $end = strlen($tail) - 1;
+        $markEnd = $end >= 0 && $tail[$end] === $mark && ($end === 0 || $tail[$end - 1] !== '{');
+        if ($markEnd || ($end >= 0 && Chars::isSpace(Chars::before($tail, $end + 1)))) {
+            return true;
+        }
+
+        return self::holdsKind($children, $type) || self::holdsMark($children, $mark);
+    }
+
+    /**
+     * C2-I-055: whether the written content ends with a bare `{` and a mark, the mark of a braced opener, which is no
+     * delimiter that pairs with the closer behind it.
+     */
+    private static function bracedOpenerEnd(string $inner): bool
+    {
+        $n = strlen($inner);
+        if ($n < 2 || $inner[$n - 2] !== '{') {
+            return false;
+        }
+        $slashes = strspn(strrev(substr($inner, 0, $n - 2)), '\\');
+
+        return $slashes % 2 === 0;
     }
 
     /**
@@ -2281,6 +2336,10 @@ final class Inline
                     if ($run > 1 && ($at === 0 || $value[$at - 1] !== '{') && ($value[$at + $run] ?? '') !== '}') {
                         $at += $run - 1;
 
+                        continue;
+                    }
+                    // C2-I-060: the mark of a bare brace with no closer behind it belongs to that opener.
+                    if ($run === 1 && $at > 0 && $value[$at - 1] === '{' && !str_contains(substr($value, $at + 2), $mark . '}')) {
                         continue;
                     }
                     $before = $at > 0 ? Chars::before($value, $at) : 0;

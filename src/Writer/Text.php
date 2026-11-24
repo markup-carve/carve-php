@@ -1949,9 +1949,9 @@ final class Text
         if ($next === '{') {
             return false;
         }
-        // C2-I-051, C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind it in the span opens
-        // nothing: the span's closer drops it from the stack, so C2-W-088 places no backslash there.
-        if (($next === '*' || $next === '/') && !str_contains(substr($probe, 2), $next . '}')) {
+        // C2-I-043, C2-I-051, C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind at least one
+        // character in the span opens nothing: the span's closer drops it, so C2-W-088 places no backslash there.
+        if (($next === '*' || $next === '/') && !str_contains(substr($probe, 3), $next . '}')) {
             return false;
         }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
@@ -2398,12 +2398,8 @@ final class Text
         if (($c->counts[$ch] ?? 0) < 2) {
             return false;
         }
-        // C2-I-055: behind the mark a bare brace takes, a lone mark pairs only with a later one of its kind in the span.
-        if ($i > 1 && $value[$i - 1] === $ch && $value[$i - 2] === '{' && ($value[$i + 1] ?? '') !== $ch && $c->here < 0) {
-            $span = $c->spanTexts[$c->textPath] ?? null;
-            if ($span === null || $span[0] === $ch || $span[1] || str_contains(substr($value, $i + 1), $ch)) {
-                return true;
-            }
+        if (self::loneBehindBrace($value, $i, $ch, $c)) {
+            return true;
         }
         // C2-I-049: a run of two or more is text, counted without the mark a bare brace takes (C2-I-055).
         $run = self::run($value, $i, $c);
@@ -2430,6 +2426,34 @@ final class Text
         }
 
         return ($open || $close) && self::partner($c, $at, $ch);
+    }
+
+    /**
+     * C2-I-055: in the text of a span, a lone mark behind the mark a bare brace takes pairs only with a later one of its
+     * kind: one in the text that no brace takes, the span's own closer, or one in a node behind the text.
+     */
+    private static function loneBehindBrace(string $value, int $i, string $ch, Context $c): bool
+    {
+        if ($i < 2 || $c->here >= 0 || $value[$i - 1] !== $ch || $value[$i - 2] !== '{' || ($value[$i + 1] ?? '') === $ch) {
+            return false;
+        }
+        $span = $c->spanTexts[$c->textPath] ?? null;
+
+        return $span === null || $span[0] === $ch || $span[1] || self::bareMarkBehind($value, $i + 1, $ch);
+    }
+
+    /**
+     * Whether `$value` holds a `$mark` from `$from` on that is no braced opener's mark (C2-I-055).
+     */
+    private static function bareMarkBehind(string $value, int $from, string $mark): bool
+    {
+        for ($at = strpos($value, $mark, $from); $at !== false; $at = strpos($value, $mark, $at + 1)) {
+            if ($value[$at - 1] !== '{') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -2514,6 +2538,10 @@ final class Text
             if ($run > 1 || ($at + 1 === $n && $behind === ord($mark))) {
                 $at += $run - 1;
 
+                continue;
+            }
+            // C2-I-060: the mark of a bare brace with no closer behind it is that opener's, and pairs with nothing.
+            if ($at > 0 && $value[$at - 1] === '{' && !str_contains(substr($value, $at + 2), $mark . '}')) {
                 continue;
             }
             $before = $at > 0 ? Chars::before($value, $at) : $edge;
@@ -2738,23 +2766,21 @@ final class Text
     }
 
     /**
-     * C2-I-047: the opening mark of a span after a space, or before a word character, cannot close a pair. Behind its
-     * own mark or a word character, or before a space, the span is braced (C2-W-069), and a braced opener closes
-     * nothing either.
+     * C2-I-047: the opening mark of a span after a space, or before a word character, cannot close a pair. A span that
+     * takes its braced form whatever its escapes (C2-W-069, C2-W-070) has a braced opener, which closes nothing either.
      *
      * @param array<mixed> $node
      * @param int $before
      */
     private static function opensOnly(array $node, int $before): bool
     {
-        if (Chars::isSpace($before) || Chars::isWord($before)) {
+        if (Chars::isSpace($before) || Inline::bracedAlways($node, $before)) {
             return true;
         }
         $first = is_array($node['children'] ?? null) ? $node['children'][0] ?? null : null;
         $value = is_array($first) && ($first['type'] ?? null) === 'text' && is_string($first['value'] ?? null) ? $first['value'] : '';
-        $code = $value !== '' ? Chars::at($value, 0) : -1;
 
-        return $code >= 0 && (Chars::isWord($code) || Chars::isSpace($code) || Chars::isGlue($code));
+        return $value !== '' && Chars::isWord(Chars::at($value, 0));
     }
 
     /**
