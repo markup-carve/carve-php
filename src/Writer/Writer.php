@@ -179,6 +179,18 @@ final class Writer
     {
         $parsed = self::$parsedSource;
         self::$parsedSource = null;
+        $children = $tree['children'] ?? null;
+        if (
+            $parsed !== null && !self::hasSourceEscapes($parsed) && is_array($children) && count($children) === 1
+            && is_array($children[0]) && ($children[0]['type'] ?? null) === 'paragraph'
+        ) {
+            // The bare form needs no repair when it is the source this tree was parsed from.
+            // Its block layout has already been written, and that source reads back as this tree.
+            $bare = self::writeInternal($tree, $layout, $options, new RepairTrace([], false));
+            if ($bare->diagnostics === [] && $bare->source === $parsed) {
+                return $bare;
+            }
+        }
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
         $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
@@ -278,6 +290,24 @@ final class Writer
         }
 
         return $parsed === $source || !self::hasPunctuation($tree);
+    }
+
+    /**
+     * A source escape may have a canonical spelling different from its bare write.
+     * Double backslashes spell a literal backslash and do not hide the next mark.
+     */
+    private static function hasSourceEscapes(string $source): bool
+    {
+        $at = 0;
+        while (($at = strpos($source, '\\', $at)) !== false) {
+            $run = strspn($source, '\\', $at);
+            if (($run & 1) !== 0) {
+                return true;
+            }
+            $at += $run;
+        }
+
+        return false;
     }
 
     /**
