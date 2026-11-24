@@ -33,6 +33,7 @@ final class UnclosedNoteTest extends TestCase
             'unclosed note inside strong' => ["*a ^[b [^1]*\n\n[^1]: n\n", 'p(strong(t"a ^[b " ref(1))) footnote(1)'],
             'tie-break on an empty label' => ["^[[^] w\n", 'p(t"^[[^] w")'],
             'tie-break keeps the note behind it' => ["^[[^] ^[n]\n", 'p(t"^[[^] " note(t"n"))'],
+            'a later note closes behind an ordinary bracket' => ["^[^[][,^[]\n", 'p(t"^[" note() t"[," note())'],
             'closed note keeps its caret pairs ordinary' => ["^[a [^1]]\n\n[^1]: n\n", 'p(note(t"a [^1]")) footnote(1)'],
         ];
     }

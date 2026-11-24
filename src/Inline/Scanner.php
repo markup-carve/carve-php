@@ -1603,7 +1603,17 @@ final class Scanner
         if ($this->notePlan === null || isset($this->notePlan[0][$i + 1])) {
             return $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '');
         }
-        $this->ordinaryUntil = $this->notePlan[1][$i + 1] ?? -1;
+        $close = $this->notePlan[1][$i + 1] ?? -1;
+        // A preceding unclosed note can swallow this pair in the first scan. If it closes on its own without
+        // another caret bracket inside it, that missing first-scan entry does not demote this note.
+        if ($close >= 0) {
+            $nestedNote = $this->nextPos('^[', $i + 2);
+            $nestedRef = $this->nextPos('[^', $i + 2);
+            if (($nestedNote < 0 || $nestedNote > $close) && ($nestedRef < 0 || $nestedRef > $close)) {
+                return $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '');
+            }
+        }
+        $this->ordinaryUntil = $close;
 
         return $i + 2;
     }
