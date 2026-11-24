@@ -78,39 +78,145 @@ final class TableReader
      */
     private function groups(HtmlNode $node): array
     {
+        $lead = $this->leadSource($node);
         $out = [];
-        $direct = $this->rows($node, false);
-        if ($direct !== []) {
-            $out[] = ['type' => 'table_body', 'children' => $direct];
+        if ($lead === $node) {
+            $out = $this->split($node, ['type' => 'table_body']);
+        } else {
+            $direct = $this->rows($node, false);
+            if ($direct !== []) {
+                $out[] = ['type' => 'table_body', 'children' => $direct];
+            }
         }
         $types = ['thead' => 'table_head', 'tbody' => 'table_body', 'tfoot' => 'table_foot'];
         $head = null;
         $foot = null;
         foreach ($node->elements() as $group) {
             $type = $types[$group->name] ?? null;
-            if ($type !== null) {
-                $entry = ['type' => $type, 'children' => $this->rows($group, $type === 'table_head')] + Attrs::of($group);
-                if ($type === 'table_head' && $head === null) {
-                    $head = $entry;
-                } elseif ($type === 'table_foot' && $foot === null) {
-                    $foot = $entry;
-                } else {
-                    if ($type !== 'table_body') {
-                        $entry['type'] = 'table_body';
-                        $this->context->report($group, 'import-structure-repaired', 'Further table head or foot read as a body');
-                    }
-                    $out[] = $entry;
-                }
+            if ($type === null) {
+                continue;
             }
+            if ($group === $lead) {
+                $entries = $this->split($group, ['type' => 'table_body'] + Attrs::of($group));
+                if ($group->name !== 'tbody') {
+                    $this->context->report($group, 'import-structure-repaired', 'Further table head or foot read as a body');
+                }
+                if (count($entries) > 1 || $entries[0]['type'] === 'table_head') {
+                    $head = array_shift($entries);
+                }
+                array_push($out, ...$entries);
+
+                continue;
+            }
+            $entry = ['type' => $type, 'children' => $this->rows($group, $type === 'table_head')] + Attrs::of($group);
+            if ($type === 'table_head' && $head === null) {
+                $head = $entry;
+            } elseif ($type === 'table_foot' && $foot === null) {
+                $foot = $entry;
+            } else {
+                if ($type !== 'table_body') {
+                    $entry['type'] = 'table_body';
+                    $this->context->report($group, 'import-structure-repaired', 'Further table head or foot read as a body');
+                }
+                $out[] = $entry;
+            }
+        }
+        if ($lead === $node && $out !== [] && $out[0]['type'] === 'table_head') {
+            $head = array_shift($out);
         }
 
         return array_merge($head === null ? [] : [$head], $out, $foot === null ? [] : [$foot]);
     }
 
     /**
+     * C2-M-037: the element whose rows form the first `table_body` of a table with no `<thead>`, or null.
+     */
+    private function leadSource(HtmlNode $node): ?HtmlNode
+    {
+        $first = null;
+        $foot = false;
+        foreach ($node->elements() as $child) {
+            if ($child->name === 'thead') {
+                return null;
+            }
+            if ($child->name === 'tr') {
+                return $node;
+            }
+            if ($first === null && ($child->name === 'tbody' || ($child->name === 'tfoot' && $foot))) {
+                $first = $child;
+            }
+            $foot = $foot || $child->name === 'tfoot';
+        }
+
+        return $first;
+    }
+
+    /**
+     * C2-M-037: the leading rows of all unscoped or `scope` `col` `<th>` cells form the head; an emptied body is dropped.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param array<string, mixed> $body
+     *
+     * @return array<array<string, mixed>>
+     */
+    private function split(HtmlNode $node, array $body): array
+    {
+        $count = 0;
+        foreach ($node->elements() as $child) {
+            if ($child->name !== 'tr') {
+                continue;
+            }
+            if (!self::headRow($child)) {
+                break;
+            }
+            $count++;
+        }
+        $rows = $this->build($node, false, $count);
+        $out = [];
+        if ($count > 0) {
+            $out[] = ['type' => 'table_head', 'children' => $this->clamp(array_slice($rows, 0, $count), $node)];
+        }
+        if ($count === 0 || count($rows) > $count) {
+            $out[] = $body + ['children' => $this->clamp(array_slice($rows, $count), $node)];
+        } elseif (count($body) > 1) {
+            // C2-M-082: the dropped body takes its attributes with it.
+            $this->context->report($node, 'import-attribute-dropped', 'Attributes of a table body left empty by its head rows dropped');
+        }
+
+        return $out;
+    }
+
+    private static function headRow(HtmlNode $row): bool
+    {
+        $cells = 0;
+        foreach ($row->elements() as $cell) {
+            if ($cell->name === 'td') {
+                return false;
+            }
+            if ($cell->name === 'th') {
+                $scope = $cell->attr('scope');
+                if ($scope !== null && strtolower($scope) !== 'col') {
+                    return false;
+                }
+                $cells++;
+            }
+        }
+
+        return $cells > 0;
+    }
+
+    /**
      * @return array<array<string, mixed>>
      */
     private function rows(HtmlNode $node, bool $inHead): array
+    {
+        return $this->clamp($this->build($node, $inHead, 0), $node);
+    }
+
+    /**
+     * @return array<array<string, mixed>>
+     */
+    private function build(HtmlNode $node, bool $inHead, int $headRows): array
     {
         $rows = [];
         foreach ($node->elements() as $child) {
@@ -122,9 +228,10 @@ final class TableReader
                 continue;
             }
             $cells = [];
+            $rowHead = $inHead || count($rows) < $headRows;
             foreach ($child->elements() as $entry) {
                 if ($entry->name === 'th' || $entry->name === 'td') {
-                    $cells[] = $this->cell($entry, $inHead);
+                    $cells[] = $this->cell($entry, $rowHead);
                 } else {
                     $this->context->report($entry, 'import-structure-repaired', 'Non-cell child in HTML row');
                 }
@@ -132,7 +239,7 @@ final class TableReader
             $rows[] = ['type' => 'table_row', 'children' => $cells] + Attrs::of($child);
         }
 
-        return $this->clamp($rows, $node);
+        return $rows;
     }
 
     /**

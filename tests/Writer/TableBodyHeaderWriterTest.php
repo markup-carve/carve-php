@@ -11,7 +11,8 @@ final class TableBodyHeaderWriterTest extends TestCase
 {
     public function testImportedBodyLedByHeaderRowsKeepsItsPartition(): void
     {
-        $html = '<table><tr><th>A</th><th>B</th></tr><tr><td>m</td><td>n</td></tr></table>';
+        // carve#6623 ruling B: an unscoped leading th row is the head; scope row keeps it in the body.
+        $html = '<table><tr><th scope="row">A</th><th scope="row">B</th></tr><tr><td>m</td><td>n</td></tr></table>';
         $result = Carve::importHtml($html);
 
         self::assertSame("{body-rows=1 body-header-rows=1}\n| A | B |\n| m | n |\n", $result->source);
@@ -22,7 +23,7 @@ final class TableBodyHeaderWriterTest extends TestCase
 
     public function testBodyHeaderCountsAreWrittenForEveryBody(): void
     {
-        $html = '<table><tbody><tr><th>A</th></tr><tr><td>a</td></tr></tbody>'
+        $html = '<table><tbody><tr><th scope="row">A</th></tr><tr><td>a</td></tr></tbody>'
             . '<tbody><tr><td>b</td></tr></tbody></table>';
         $result = Carve::importHtml($html);
 
