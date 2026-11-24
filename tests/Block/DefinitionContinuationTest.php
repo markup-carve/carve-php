@@ -19,9 +19,17 @@ final class DefinitionContinuationTest extends TestCase
     public static function documents(): array
     {
         return [
-            'only the line directly below is a tail line' => [
+            'a title line and an attribute block line form the tail' => [
                 "[a]: /u\n  \"T\"\n  {.c}\n\n[a]\n",
-                "<p>{.c}</p>\n<p><a href=\"/u\" title=\"T\">a</a></p>",
+                '<p><a href="/u" title="T" class="c">a</a></p>',
+            ],
+            'a title below an attribute block line is no tail' => [
+                "[a]: /u\n  {.c}\n  \"T\"\n\n[a]\n",
+                "<p>\u{201C}T\u{201D}</p>\n<p><a href=\"/u\" class=\"c\">a</a></p>",
+            ],
+            'a second attribute block line is an attribute line of the next block' => [
+                "[a]: /u\n  \"T\"\n  {.c}\n  {.d}\nP\n\n[a]\n",
+                "<p class=\"d\">P</p>\n<p><a href=\"/u\" title=\"T\" class=\"c\">a</a></p>",
             ],
             'a block glued to the title is no tail' => [
                 "[a]: /u\n  \"T\"{.c}\n\n[a]\n",
@@ -46,6 +54,18 @@ final class DefinitionContinuationTest extends TestCase
             'a tail line reads across a comment-only line (C2-B-137)' => [
                 "[a]: /u\n%% c\n  \"T\"\n\n[a]\n",
                 '<p><a href="/u" title="T">a</a></p>',
+            ],
+            'an indented fence line ends an expansion' => [
+                "*[X]: a\n  b\n  ```\n  c\n  ```\n\nX\n",
+                "<pre><code>c\n</code></pre>\n<p><abbr title=\"a b\">X</abbr></p>",
+            ],
+            'an indented thematic break ends an expansion' => [
+                "*[X]: a\n  ***\n\nX\n",
+                "<hr>\n<p><abbr title=\"a\">X</abbr></p>",
+            ],
+            'an indented div fence ends an expansion' => [
+                "*[X]: a\n  ::: x\n  b\n  :::\n\nX\n",
+                "<div class=\"x\">\n  <p>b</p>\n</div>\n<p><abbr title=\"a\">X</abbr></p>",
             ],
         ];
     }
