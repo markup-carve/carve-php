@@ -1522,13 +1522,14 @@ final class RepairPlanner
         // C2-W-088, C2-W-125: the procedure runs per text in its leaf block, so each leaf takes the trial of its own
         // first missing node in the same round, and a leaf's escapes do not depend on the leaves around it.
         $trials = [];
+        $across = null;
         foreach ($missing as [$path, $prior]) {
             $leaf = $this->leafOf($path);
             if (isset($trials[$leaf])) {
                 continue;
             }
             $step = $this->attempts[$path] ?? 0;
-            $trial = $this->trial($candidate, $actual, $path, $prior, $step);
+            $trial = $this->trial($candidate, $actual, $path, $prior, $step, $across);
             $this->attempts[$path] = $step;
             if ($trial !== null) {
                 $trials[$leaf] = $trial;
@@ -1855,10 +1856,11 @@ final class RepairPlanner
      * @param string $prior
      * @param string $path
      * @param int $step
+     * @param array{array<string, array{int, int}>, array<int, int>}|null $across The round's `acrossIndex()`, built on first use.
      *
      * @return array<array{string, int}>|null
      */
-    private function trial(array $candidate, array $actual, string $path, string $prior, int &$step): ?array
+    private function trial(array $candidate, array $actual, string $path, string $prior, int &$step, ?array &$across = null): ?array
     {
         $node = self::nodeAt($this->tree, $path);
         if ($node === null) {
@@ -1878,7 +1880,7 @@ final class RepairPlanner
             if ($case === 3 || $case === 4) {
                 $probed = $case === 3
                     ? $this->contentConstruct($path, $node)
-                    : self::acrossCloser($candidate, $actual, $path, $this->escapes);
+                    : self::acrossCloser($candidate, $actual, $across, $path, $this->escapes);
                 if ($probed !== []) {
                     return $probed;
                 }
@@ -2265,24 +2267,15 @@ final class RepairPlanner
      *     nodes: array<int, array{string, string, int, int}>
      * } $candidate
      * @param array<mixed> $actual
-     * @param string $path
-     * @param array<string, array<int, true>> $escapes
      *
-     * @return array<array{string, int}>
+     * @return array{array<string, array{int, int}>, array<int, int>}
      */
-    private static function acrossCloser(array $candidate, array $actual, string $path, array $escapes): array
+    private static function acrossIndex(array $candidate, array $actual): array
     {
-        $span = null;
-        $packed = RepairTrace::packPath($path);
+        // Built once per round: every leaf's trial reads the same candidate and read-back.
+        $spans = [];
         foreach ($candidate['nodes'] as [$expectedPath, , $start, $end]) {
-            if ($expectedPath === $packed) {
-                $span = [$start, $end];
-
-                break;
-            }
-        }
-        if ($span === null) {
-            return [];
+            $spans[$expectedPath] ??= [$start, $end];
         }
         $ends = [];
         $parents = [];
@@ -2299,13 +2292,41 @@ final class RepairPlanner
                 $endsByStart[$start] = max($endsByStart[$start] ?? 0, $readEnd);
             }
         }
+
+        return [$spans, $endsByStart];
+    }
+
+    /**
+     * @param-out array{array<string, array{int, int}>, array<int, int>} $index
+     *
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
+     * @param array<mixed> $actual
+     * @param array{array<string, array{int, int}>, array<int, int>}|null $index `acrossIndex()`, built on first use.
+     * @param string $path
+     * @param array<string, array<int, true>> $escapes
+     *
+     * @return array<array{string, int}>
+     */
+    private static function acrossCloser(array $candidate, array $actual, ?array &$index, string $path, array $escapes): array
+    {
+        [$spans, $endsByStart] = $index ??= self::acrossIndex($candidate, $actual);
+        $span = $spans[RepairTrace::packPath($path)] ?? null;
+        if ($span === null) {
+            return [];
+        }
         $found = [];
-        foreach ($candidate['text'] as $position => $code) {
+        for ($position = max(0, $span[0]); $position < $span[1]; $position++) {
+            $code = $candidate['text'][$position] ?? null;
+            if ($code === null) {
+                continue;
+            }
             [$owner, $offset] = [$candidate['paths'][$code >> 32], $code & 0xFFFFFFFF];
-            if (
-                !str_starts_with($owner, $path . '/') || $position < $span[0] || $position >= $span[1]
-                || isset($escapes[$owner][$offset])
-            ) {
+            if (!str_starts_with($owner, $path . '/') || isset($escapes[$owner][$offset])) {
                 continue;
             }
             $mark = $candidate['source'][$position] ?? '';

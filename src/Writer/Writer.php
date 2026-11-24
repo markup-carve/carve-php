@@ -1006,16 +1006,8 @@ final class Writer
             return $source;
         }
         [$leaves, $prints] = self::bracketKindLeaves($source, $options);
-        $pending = [];
-        for (; $at !== false; $at = strpos($source, '\\[^]', $at + 1)) {
-            $run = 0;
-            while ($at - $run > 0 && $source[$at - $run - 1] === '\\') {
-                $run++;
-            }
-            if ($run % 2 === 0 && !self::reportsBracketKind($leaves, $at)) {
-                $pending[] = $at;
-            }
-        }
+        $sorted = self::sortedLeaves($leaves);
+        $pending = self::prunableBrackets($source, $at, $leaves, $sorted);
         // C2-W-010: the candidates are taken out together, so one parse decides many (carve-js `pruneInRounds`). A
         // candidate alone in a leaf that then differs keeps its backslash; of several there, the first is tried next.
         $removed = [];
@@ -1040,12 +1032,12 @@ final class Writer
                 return $source;
             }
             $decided = [];
+            $byLeaf = self::pendingByLeaf($leaves, $sorted, $pending);
             foreach ($read as $index => $leaf) {
                 if (TreeEquality::fingerprint($leaf) === $prints[$index]) {
                     continue;
                 }
-                [$start, $end] = $leaves[$index];
-                $inside = array_values(array_filter($pending, static fn (int $at): bool => $start <= $at && $at < $end));
+                $inside = $byLeaf[$index] ?? [];
                 if ($inside === []) {
                     return $source;
                 }
@@ -1064,6 +1056,32 @@ final class Writer
         sort($removed);
 
         return self::withoutBytes($source, $removed);
+    }
+
+    /**
+     * The offsets of the unescaped backslashes before a text `[^]`, from `$at` on, whose leaf reports no `[` kind.
+     *
+     * @param string $source
+     * @param int $at
+     * @param array<array{int, int, bool}> $leaves
+     * @param array<int>|null $sorted
+     *
+     * @return array<int>
+     */
+    private static function prunableBrackets(string $source, int $at, array $leaves, ?array $sorted): array
+    {
+        $pending = [];
+        for (; $at !== false; $at = strpos($source, '\\[^]', $at + 1)) {
+            $run = 0;
+            while ($at - $run > 0 && $source[$at - $run - 1] === '\\') {
+                $run++;
+            }
+            if ($run % 2 === 0 && !self::reportsBracketKind($leaves, $sorted, $at)) {
+                $pending[] = $at;
+            }
+        }
+
+        return $pending;
     }
 
     /**
@@ -1086,17 +1104,106 @@ final class Writer
 
     /**
      * @param array<array{int, int, bool}> $leaves
+     * @param array<int>|null $sorted
      * @param int $at
      */
-    private static function reportsBracketKind(array $leaves, int $at): bool
+    private static function reportsBracketKind(array $leaves, ?array $sorted, int $at): bool
     {
-        foreach ($leaves as [$start, $end, $reported]) {
-            if ($start <= $at && $at < $end) {
-                return $reported;
+        $index = self::leafAt($leaves, $sorted, $at);
+
+        return $index !== null && $leaves[$index][2];
+    }
+
+    /**
+     * The indexes of the leaves with a range, by start, where those ranges do not overlap; null where they do.
+     *
+     * @param array<array{int, int, bool}> $leaves
+     *
+     * @return array<int>|null
+     */
+    private static function sortedLeaves(array $leaves): ?array
+    {
+        $sorted = [];
+        $last = -1;
+        foreach ($leaves as $index => [$start, $end]) {
+            if ($start < 0 || $end <= $start) {
+                continue;
+            }
+            if ($start < $last) {
+                return null;
+            }
+            $sorted[] = $index;
+            $last = $end;
+        }
+
+        return $sorted;
+    }
+
+    /**
+     * The first leaf whose range holds `$at`: a binary search over `sortedLeaves()`, a scan where that is null.
+     *
+     * @param array<array{int, int, bool}> $leaves
+     * @param array<int>|null $sorted
+     * @param int $at
+     */
+    private static function leafAt(array $leaves, ?array $sorted, int $at): ?int
+    {
+        if ($sorted === null) {
+            foreach ($leaves as $index => [$start, $end]) {
+                if ($start <= $at && $at < $end) {
+                    return $index;
+                }
+            }
+
+            return null;
+        }
+        $low = 0;
+        $high = count($sorted) - 1;
+        while ($low <= $high) {
+            $middle = ($low + $high) >> 1;
+            [$start, $end] = $leaves[$sorted[$middle]];
+            if ($at < $start) {
+                $high = $middle - 1;
+            } elseif ($at >= $end) {
+                $low = $middle + 1;
+            } else {
+                return $sorted[$middle];
             }
         }
 
-        return false;
+        return null;
+    }
+
+    /**
+     * The pending offsets inside each leaf, in their pending order.
+     *
+     * @param array<array{int, int, bool}> $leaves
+     * @param array<int>|null $sorted
+     * @param array<int> $pending
+     *
+     * @return array<int, array<int>>
+     */
+    private static function pendingByLeaf(array $leaves, ?array $sorted, array $pending): array
+    {
+        $byLeaf = [];
+        if ($sorted === null) {
+            foreach ($leaves as $index => [$start, $end]) {
+                $inside = array_values(array_filter($pending, static fn (int $at): bool => $start <= $at && $at < $end));
+                if ($inside !== []) {
+                    $byLeaf[$index] = $inside;
+                }
+            }
+
+            return $byLeaf;
+        }
+        foreach ($pending as $at) {
+            $index = self::leafAt($leaves, $sorted, $at);
+            if ($index !== null) {
+                $byLeaf[$index][] = $at;
+            }
+        }
+
+        return $byLeaf;
     }
 
     /**
