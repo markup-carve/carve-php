@@ -154,6 +154,20 @@ final class RepairPlanner
     private ?array $roundPrint = null;
 
     /**
+     * `readPrints()` of the read-back the next round starts from, when its comparison has them.
+     *
+     * @var array<string, string>|null
+     */
+    private ?array $readParts = null;
+
+    /**
+     * `readParts` of the round's read-back, while `roundRead` holds it.
+     *
+     * @var array<string, string>|null
+     */
+    private ?array $roundParts = null;
+
+    /**
      * A source a trial read and its read-back, which the next round takes when it writes the same source.
      *
      * @var array{string, array<string, mixed>}|null
@@ -181,10 +195,28 @@ final class RepairPlanner
      *     moved: array<int, array{string, string, int, int, int}>,
      *     read: array<string, mixed>
      * } $comparison
+     * @param array<string, string>|null $parts `readPrints()` of the read-back.
      */
-    public function startFrom(array $candidate, array $comparison): void
+    public function startFrom(array $candidate, array $comparison, ?array $parts = null): void
     {
         $this->first = [$candidate, $comparison];
+        $this->readParts = $parts;
+    }
+
+    /**
+     * `TreeEquality::fingerprint()` of a read-back, with the fingerprint of each block in it by path, so the trials of
+     * a round compare their leaves without hashing the read-back again.
+     *
+     * @param array<mixed> $read
+     *
+     * @return array{string, array<string, string>}
+     */
+    public static function readPrints(array $read): array
+    {
+        static $stop = null;
+        $stop ??= array_fill_keys(self::INLINE_CONTAINERS, true);
+
+        return TreeEquality::fingerprintParts($read, $stop);
     }
 
     /**
@@ -252,9 +284,11 @@ final class RepairPlanner
         $read = $this->readOf($source);
         $blocks = is_array($read['children'] ?? null) ? $read['children'] : [];
         $this->singleParagraph = count($blocks) === 1 && is_array($blocks[0]) && ($blocks[0]['type'] ?? '') === 'paragraph';
-        if (ReadbackRound::equal($read, $this->tree, $this->treePrint)) {
+        [$print, $parts] = self::readPrints($read);
+        if ($print === $this->treePrint) {
             return null;
         }
+        $this->readParts = $parts;
         $candidate = Writer::markedCandidate($this->tree, $layout, $this->options, $escapes, $source);
 
         return [$candidate, ReadbackRound::compare($candidate, $read, $this->tree, $this->treePrint, false)];
@@ -350,6 +384,8 @@ final class RepairPlanner
         // The trials below read the whole document again; only a trial read of the round's own source keeps the
         // read-back.
         $this->roundRead = $this->roundSource === null ? null : [...$this->roundSource, $comparison['read']];
+        $this->roundParts = $this->roundRead === null ? null : $this->readParts;
+        $this->readParts = null;
         unset($comparison['read']);
         // The probes behind the trials need only their own spans of the candidate, not all of it beside the trial reads.
         $groups = $this->movedByLeaf($comparison['moved']);
@@ -367,6 +403,7 @@ final class RepairPlanner
         $kept = $early ? [] : $this->keptTrials($trials);
         $asked = $early ? [] : $asked;
         $this->roundRead = null;
+        $this->roundParts = null;
         foreach ($kept as $trial) {
             foreach ($trial as [$path, $offset]) {
                 $this->addEscape($path, $offset);
@@ -1100,6 +1137,7 @@ final class RepairPlanner
      */
     private function leafPrints(array $escapes, array $trials): array
     {
+        $parts = $this->roundRead !== null && $this->roundRead[0] === $escapes ? $this->roundParts ?? [] : [];
         $read = $this->readTree($escapes);
         if ($read === null) {
             return [-1, []];
@@ -1107,7 +1145,7 @@ final class RepairPlanner
         $prints = [];
         foreach ($trials as $trial) {
             $leaf = $this->leafOf($trial[0][0]);
-            $prints[$leaf] = TreeEquality::fingerprint(self::nodeAt($read, $leaf));
+            $prints[$leaf] = ($leaf !== '' ? $parts[$leaf] ?? null : null) ?? TreeEquality::fingerprint(self::nodeAt($read, $leaf));
         }
 
         return [count(self::childrenOf($read)), $prints];

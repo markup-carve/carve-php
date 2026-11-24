@@ -18,6 +18,18 @@ final class TreeEquality
     private const FEED_CHUNK = 65536;
 
     /**
+     * `layout()` and the field names it was made for, by node type, the conditions `skipped()` reads and the names.
+     *
+     * @var array<string, array{string, array<string|int, string>, array<int, string|int>}>
+     */
+    private static array $layouts = [];
+
+    /**
+     * The buffer length at which `feed()` hands the bytes to the hash.
+     */
+    private static int $chunk = self::FEED_CHUNK;
+
+    /**
      * @param mixed $a
      * @param mixed $b
      *
@@ -47,6 +59,39 @@ final class TreeEquality
     }
 
     /**
+     * `fingerprint()` of a tree, with the fingerprint each node with content would have alone, by its path through
+     * `children`. The walk keeps paths down to the nodes of a type in `$stop`; below them it is `fingerprint()`'s.
+     *
+     * @param array<mixed> $tree A node with a type and content.
+     * @param array<string, true> $stop
+     *
+     * @return array{string, array<string, string>}
+     */
+    public static function fingerprintParts(array $tree, array $stop): array
+    {
+        $type = $tree['type'] ?? null;
+        if (!is_string($type)) {
+            return [self::fingerprint($tree), []];
+        }
+        $context = hash_init('xxh128');
+        $stream = '';
+        $ranges = [];
+        // The parts are hashed from the stream, so it is not handed on in pieces.
+        self::$chunk = PHP_INT_MAX;
+        try {
+            self::feedParts($context, $stream, $tree, $type, false, '', $stop, $ranges);
+        } finally {
+            self::$chunk = self::FEED_CHUNK;
+        }
+        $parts = [];
+        foreach ($ranges as $path => [$start, $end]) {
+            $parts[$path] = hash('xxh128', substr($stream, $start, $end - $start));
+        }
+
+        return [hash('xxh128', $stream), $parts];
+    }
+
+    /**
      * Hashes what `normalize()` returns for the value without building it. The bytes are those of `serialize()` for
      * scalars, gathered in `$buffer` and handed to the hash in large pieces.
      *
@@ -59,7 +104,7 @@ final class TreeEquality
      */
     private static function feed(HashContext $context, string &$buffer, mixed $value, bool $spanMarks): void
     {
-        if (strlen($buffer) > self::FEED_CHUNK) {
+        if (strlen($buffer) > self::$chunk) {
             hash_update($context, $buffer);
             $buffer = '';
         }
@@ -69,10 +114,14 @@ final class TreeEquality
             return;
         }
         if (array_is_list($value)) {
-            $items = self::coalesced($value);
+            $items = self::hasTextPair($value) ? self::coalesced($value) : $value;
             $buffer .= 'l' . count($items) . ':';
             foreach ($items as $item) {
-                self::feed($context, $buffer, $item, $spanMarks);
+                if (is_string($item)) {
+                    $buffer .= 's:' . strlen($item) . ':"' . $item . '";';
+                } else {
+                    self::feed($context, $buffer, $item, $spanMarks);
+                }
             }
 
             return;
@@ -81,18 +130,142 @@ final class TreeEquality
         if ($type === 'table') {
             $spanMarks = self::hasSpanMarks($value);
         }
+        [$head, $names] = self::fields($value, $type, $spanMarks);
+        $buffer .= $head;
+        foreach ($names as $name => $spelled) {
+            $buffer .= $spelled;
+            $item = $value[$name];
+            if (is_string($item)) {
+                $buffer .= 's:' . strlen($item) . ':"' . $item . '";';
+            } else {
+                self::feed($context, $buffer, $item, $spanMarks);
+            }
+        }
+    }
+
+    /**
+     * `fingerprintParts()` below the root: the node at `$path`, a map with a type and content.
+     *
+     * @param \HashContext $context
+     * @param string $stream
+     * @param array<mixed> $value
+     * @param string $type
+     * @param bool $spanMarks
+     * @param string $path
+     * @param array<string, true> $stop
+     * @param array<string, array{int, int}> $ranges
+     */
+    private static function feedParts(
+        HashContext $context,
+        string &$stream,
+        array $value,
+        string $type,
+        bool $spanMarks,
+        string $path,
+        array $stop,
+        array &$ranges,
+    ): void {
+        $start = strlen($stream);
+        // In a table with span marks the node is spelled otherwise than alone.
+        $alone = !$spanMarks;
+        if ($type === 'table') {
+            $spanMarks = self::hasSpanMarks($value);
+        }
+        [$head, $names] = self::fields($value, $type, $spanMarks);
+        $stream .= $head;
+        foreach ($names as $name => $spelled) {
+            $stream .= $spelled;
+            $item = $value[$name];
+            if ($name !== 'children' || !is_array($item) || !array_is_list($item) || self::hasTextPair($item)) {
+                if (is_string($item)) {
+                    $stream .= 's:' . strlen($item) . ':"' . $item . '";';
+                } else {
+                    self::feed($context, $stream, $item, $spanMarks);
+                }
+
+                continue;
+            }
+            $stream .= 'l' . count($item) . ':';
+            foreach ($item as $k => $child) {
+                $childType = is_array($child) ? $child['type'] ?? null : null;
+                if (is_array($child) && is_string($childType) && !isset($stop[$childType]) && is_array($child['children'] ?? null)) {
+                    self::feedParts($context, $stream, $child, $childType, $spanMarks, $path . '/children/' . $k, $stop, $ranges);
+                } elseif (is_string($child)) {
+                    $stream .= 's:' . strlen($child) . ':"' . $child . '";';
+                } else {
+                    self::feed($context, $stream, $child, $spanMarks);
+                }
+            }
+        }
+        if ($alone) {
+            $ranges[$path] = [$start, strlen($stream)];
+        }
+    }
+
+    /**
+     * The serialized count and fields of a map, kept by node type, the conditions `skipped()` reads and the names.
+     *
+     * @param array<mixed> $value
+     * @param string|null $type
+     * @param bool $spanMarks
+     *
+     * @return array{string, array<string|int, string>}
+     */
+    private static function fields(array $value, ?string $type, bool $spanMarks): array
+    {
+        if ($type === null) {
+            return self::layout($value, null, $spanMarks);
+        }
+        $keys = array_keys($value);
+        $shape = $type . ($spanMarks ? "\1" : "\2") . (isset($value['key']) ? "\1" : "\2") . implode("\0", $keys);
+        $kept = self::$layouts[$shape] ?? null;
+        // A key may hold the separator, so the kept layout is used only for the same keys.
+        if ($kept === null || $kept[2] !== $keys) {
+            $kept = self::$layouts[$shape] = [...self::layout($value, $type, $spanMarks), $keys];
+        }
+
+        return [$kept[0], $kept[1]];
+    }
+
+    /**
+     * The fields of a node that `normalize()` keeps, in its order, each with its serialized name, behind the count.
+     *
+     * @param array<mixed> $value
+     * @param string|null $type
+     * @param bool $spanMarks
+     *
+     * @return array{string, array<string|int, string>}
+     */
+    private static function layout(array $value, ?string $type, bool $spanMarks): array
+    {
         $names = [];
         foreach ($value as $name => $_) {
             if ($type === null || !self::skipped($value, $type, (string)$name, $spanMarks)) {
-                $names[$name] = true;
+                $names[$name] = is_string($name) ? 's:' . strlen($name) . ':"' . $name . '";' : 'i:' . $name . ';';
             }
         }
         ksort($names);
-        $buffer .= 'm' . count($names) . ':';
-        foreach ($names as $name => $_) {
-            $buffer .= is_string($name) ? 's:' . strlen($name) . ':"' . $name . '";' : 'i:' . $name . ';';
-            self::feed($context, $buffer, $value[$name], $spanMarks);
+
+        return ['m' . count($names) . ':', $names];
+    }
+
+    /**
+     * Whether two adjacent items of the list are text nodes, which `coalesced()` joins.
+     *
+     * @param array<mixed> $list
+     */
+    private static function hasTextPair(array $list): bool
+    {
+        $text = false;
+        foreach ($list as $item) {
+            $isText = is_array($item) && ($item['type'] ?? null) === 'text';
+            if ($isText && $text) {
+                return true;
+            }
+            $text = $isText;
         }
+
+        return false;
     }
 
     /**

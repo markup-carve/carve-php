@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Inline;
 
-use LogicException;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Generated\Tables;
@@ -139,6 +138,13 @@ final class Scanner
      * @var string
      */
     public const SPECIALS = "\\`!\$<{}%:@#[]^*/\n";
+
+    /**
+     * The characters that can follow the `{` of an attribute block: a space, `}`, or the first of a part.
+     *
+     * @var string
+     */
+    private const ATTR_STARTS = ' }#.:' . Tables::ATTR_KEY_FIRST;
 
     /**
      * @var int
@@ -664,7 +670,16 @@ final class Scanner
             return $this->emit([self::NODE, $this->node('non_breaking_space', $i, $i + 2), $i, $i + 2, false, null]);
         }
         if (ctype_punct($c)) {
-            return $this->emit([self::TEXT, $c, $i, $i + 2, true]);
+            // A run of escapes is one text token: the escapes behind the first are read the same way one at a time,
+            // and the finisher joins their pieces into one text.
+            $end = $i + 2;
+            $value = $c;
+            while ($end + 1 < $this->n && $t[$end] === '\\' && ctype_punct($t[$end + 1])) {
+                $value .= $t[$end + 1];
+                $end += 2;
+            }
+
+            return $this->emit([self::TEXT, $value, $i, $end, true]);
         }
 
         return -1;
@@ -957,13 +972,16 @@ final class Scanner
     private function brace(int $i): int
     {
         $t = $this->t;
-        $attrs = new Attrs();
-        $end = AttributeParser::read($t, $i, $this->lineEnd($i), $attrs);
-        if ($end > 0 && !AttributeParser::$lastEmpty) {
-            $this->sourceIdRange($attrs);
-            $this->attaches = true;
+        // An attribute block starts with a space, `}` or the first character of a part (C2-I-028).
+        if (strspn($t, self::ATTR_STARTS, $i + 1, 1) === 1) {
+            $attrs = new Attrs();
+            $end = AttributeParser::read($t, $i, $this->lineEnd($i), $attrs);
+            if ($end > 0 && !AttributeParser::$lastEmpty) {
+                $this->sourceIdRange($attrs);
+                $this->attaches = true;
 
-            return $this->emit([self::ATTR, $attrs, $i, $end]);
+                return $this->emit([self::ATTR, $attrs, $i, $end]);
+            }
         }
         if ($i + 1 >= $this->n) {
             return -1;
@@ -1320,7 +1338,7 @@ final class Scanner
             // A later failed bracket can flatten this token's list. Its opener
             // decision still uses the entries open when the scanner read it.
             $capDepth = $this->depth + count($this->frames) + count($this->capDelims);
-            if (!$this->trackCapDelimiter($token)) {
+            if (!$this->trackCapDelimiter($token[1], $token[2], $token[3], $token[4], $token[5])) {
                 $token[self::CAP_DEPTH] = $capDepth;
             }
         }
@@ -1331,25 +1349,20 @@ final class Scanner
     /**
      * C2-I-118: delimiter openers count while a later bracket opener is read.
      *
-     * @param array<mixed> $token
-     *
-     * @throws \LogicException
+     * @param int $role BARE, OPENER or CLOSER.
+     * @param int $start
+     * @param int $end
+     * @param string $mark
+     * @param int $flags
      */
-    private function trackCapDelimiter(array $token): bool
+    private function trackCapDelimiter(int $role, int $start, int $end, string $mark, int $flags): bool
     {
-        $mark = $token[4];
-        $start = $token[2];
-        $end = $token[3];
-        $flags = $token[5];
-        if (!is_string($mark) || !is_int($start) || !is_int($end) || !is_int($flags)) {
-            throw new LogicException('Invalid delimiter token');
-        }
-        if ($token[1] === self::OPENER) {
+        if ($role === self::OPENER) {
             $this->openCapDelimiter('{' . $mark, $end);
 
             return false;
         }
-        if ($token[1] === self::CLOSER) {
+        if ($role === self::CLOSER) {
             if ($this->closeCapDelimiter('{' . $mark, $start, false)) {
                 return true;
             }
@@ -1358,7 +1371,7 @@ final class Scanner
             }
         }
 
-        return $this->trackCapBare($token[1] === self::BARE, $flags, $mark, $start, $end);
+        return $this->trackCapBare($role === self::BARE, $flags, $mark, $start, $end);
     }
 
     /**
@@ -1402,7 +1415,11 @@ final class Scanner
             $entry = $this->capDelims[$i];
             if ($entry[0] === $kind) {
                 if ($bare && $this->capPoison[$kind] > $entry[$kind === '*' ? 1 : 2] || (!$bare && $entry[3] === $start)) {
-                    array_splice($this->capDelims, $i, 1);
+                    if ($i === count($this->capDelims) - 1) {
+                        array_pop($this->capDelims);
+                    } else {
+                        array_splice($this->capDelims, $i, 1);
+                    }
                 } else {
                     // Pops, not a slice, as in `delim()`: a copy at each closer made deep nesting quadratic.
                     for ($drop = count($this->capDelims) - $i; $drop > 0; $drop--) {
