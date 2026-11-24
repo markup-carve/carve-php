@@ -489,9 +489,7 @@ final class Writer
         }
         $settled = $unsettledByKind ? null : self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
-            $source = self::prunedNoteSigils($settled->source, $parsed);
-
-            return $source === $settled->source ? $settled : new WriteResult($source, $settled->diagnostics);
+            return $settled;
         }
         $children = $tree['children'] ?? null;
         if (
@@ -534,6 +532,7 @@ final class Writer
         $readPrint = null;
         $readParts = null;
         $needsKindRound = false;
+        $conservativeLater = false;
         if (
             $localEscapes !== [] && !$pairsOnly
             && (self::takesLocalForm($unchecked, $undecided, $localDecided) || $undecided)
@@ -566,15 +565,9 @@ final class Writer
             if ($pairsOnly || self::readsBack($result->source, $treePrint, $options)) {
                 return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
-            // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
-            // span of a text `^[` keeps ordinary open; the rounds place the backslash on its early closer instead.
-            if (!$cellTicks && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
-                [$result, $localEscapes] = self::conservativeWrite($original, $originalLayout, $options, $treePrint);
-                $fallback = self::conservativeFallback($result, $risk);
-                if (self::conservativeTaken($result, $fallback, $treePrint, $options)) {
-                    return $result;
-                }
-            }
+            // C2-W-088: the rounds decide the brackets the plan left open, as in carve-js; the conservative form, which
+            // escapes every undecided bracket, stands only where they stop.
+            $conservativeLater = !$cellTicks;
         }
         $glued = RepairPlanner::gluedTicks($tree);
         if ($read === null || $glued !== []) {
@@ -606,10 +599,15 @@ final class Writer
         $repaired = $planner->repair();
 
         if ($repaired === null) {
-            if ($cellTicks && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
+            // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
+            // span of a text `^[` keeps ordinary open.
+            if (($cellTicks || $conservativeLater) && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
                 // The local write left the cell backticks to the rounds, so the conservative form stands where they stop.
                 $result = self::conservativeWrite($original, $originalLayout, $options, $treePrint)[0];
                 $fallback = self::conservativeFallback($result, $risk);
+                if ($conservativeLater && self::conservativeTaken($result, $fallback, $treePrint, $options)) {
+                    return $result;
+                }
             }
 
             return self::unrepairedOr($fallback, $tree, $result, $options);
@@ -617,7 +615,7 @@ final class Writer
 
         $repaired = self::prunedNoteCarets($repaired, $treePrint, $options, $parsed);
 
-        return new WriteResult(self::prunedNoteSigils($repaired, $parsed), []);
+        return new WriteResult($repaired, []);
     }
 
     /**
@@ -767,67 +765,6 @@ final class Writer
         return $added && $i === $sourceLength && $j === $writtenLength;
     }
 
-    private static function prunedNoteSigils(string $written, ?string $parsed): string
-    {
-        if (
-            $parsed === null || (!str_contains($parsed, '^[') && !str_contains($parsed, '[^'))
-            || str_contains($parsed, '\\[') || str_contains($parsed, '\\]')
-            || !self::onlyAddedEscapes($parsed, $written, '!^')
-        ) {
-            return $written;
-        }
-
-        return str_ends_with($parsed, "\n") ? $parsed : $parsed . "\n";
-    }
-
-    /**
-     * Remove newly introduced punctuation escapes when the parsed tree still reads back.
-     * A batch trial keeps repeated text linear; a final single trial handles mixed required escapes.
-     *
-     * @param string $written
-     * @param string $source
-     * @param array<mixed> $tree
-     * @param array<string, mixed> $options
-     */
-    private static function prunedAddedEscapes(string $written, string $source, array $tree, array $options): string
-    {
-        if (!str_contains($source, '^[') && !str_contains($source, '[^')) {
-            return $written;
-        }
-        $wanted = TreeEquality::fingerprint($tree);
-        foreach (str_split('()!^') as $character) {
-            $needle = '\\' . $character;
-            $surplus = substr_count($written, $needle) - substr_count($source, $needle);
-            if ($surplus <= 0) {
-                continue;
-            }
-            $positions = [];
-            for ($at = strpos($written, $needle); $at !== false; $at = strpos($written, $needle, $at + 2)) {
-                $positions[] = $at;
-            }
-            $positions = array_slice($positions, -$surplus);
-            $batch = $written;
-            foreach (array_reverse($positions) as $at) {
-                $batch = substr_replace($batch, '', $at, 1);
-            }
-            if (self::readsBack($batch, $wanted, $options)) {
-                $written = $batch;
-
-                continue;
-            }
-            foreach (array_reverse($positions) as $at) {
-                $single = substr_replace($written, '', $at, 1);
-                if (self::readsBack($single, $wanted, $options)) {
-                    $written = $single;
-
-                    break;
-                }
-            }
-        }
-
-        return $written;
-    }
-
     /**
      * The conservative form the rounds could not improve on, else the report of `unrepaired()`.
      *
@@ -935,7 +872,6 @@ final class Writer
     private static function withPrunedNoteCarets(WriteResult $result, string $treePrint, array $options, ?string $parsed): WriteResult
     {
         $pruned = self::prunedNoteCarets($result->source, $treePrint, $options, $parsed);
-        $pruned = self::prunedNoteSigils($pruned, $parsed);
 
         return $pruned === $result->source ? $result : new WriteResult($pruned, $result->diagnostics);
     }
@@ -1021,7 +957,11 @@ final class Writer
                     $pruned .= substr($source, $from, $at + 1 - $from);
                     $from = $at + 2;
                     $starts[] = $at;
-                } elseif (!$note && $notes > 0 && $caret !== false && ($lineEnd === false || $caret < $lineEnd)) {
+                } elseif (
+                    !$note && $before !== '\\' && $notes > 0 && $caret !== false
+                    && ($lineEnd === false || $caret < $lineEnd)
+                ) {
+                    // An escaped bracket opens no text, so nothing up to the line end is its content.
                     $starts[] = $at;
                 }
                 $open[] = $note;
@@ -2226,14 +2166,7 @@ final class Writer
         unset($parsed);
         self::$parsedSource = $source;
         try {
-            $written = self::writeWithDiagnostics($tree, $writeLayout, $options);
-
-            $pruned = self::prunedNoteSigils($written->source, $source);
-            if ($written->diagnostics === []) {
-                $pruned = self::prunedAddedEscapes($pruned, $source, $tree, $options);
-            }
-
-            return new WriteResult($pruned, $written->diagnostics);
+            return self::writeWithDiagnostics($tree, $writeLayout, $options);
         } finally {
             self::$parsedSource = null;
         }

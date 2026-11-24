@@ -311,7 +311,7 @@ final class AltSource
      *
      * @return int
      */
-    private static function tailEnd(string $alt, int $at): int
+    public static function tailEnd(string $alt, int $at): int
     {
         $level = 0;
         $length = strlen($alt);

@@ -54,7 +54,7 @@ final class UnclosedNoteTest extends TestCase
             'unclosed note with two marks' => ["a ^[*e* *e* b\\]\n", "a ^\\[*e* *e* b]\n"],
             // C2-I-076: a footnote label ends at the first `]`, the closing bracket of a note behind it too.
             'caret bracket before a note' => ["a \\[^ ^[x]\n", "a \\[^ ^[x]\n"],
-            'bracket glued before a note' => ["[[\\]\\[^[^](u)\n", "\\[\\[]\\[^[^](u)\n"],
+            'bracket glued before a note' => ["[[\\]\\[^[^](u)\n", "\\[[]\\[^[^](u)\n"],
         ];
     }
 
