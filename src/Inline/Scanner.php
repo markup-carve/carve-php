@@ -1022,7 +1022,7 @@ final class Scanner
         if ($m === '#') {
             // C2-I-063: the first `#}` decides.
             $p = Chars::isGlue(Chars::at($t, $i + 2)) ? -1 : $this->nextPos('#}', $i + 2);
-            if ($p > $i + 2 && !$this->c->crossesAtomStop($i, $p)) {
+            if ($p > $i + 2) {
                 $node = $this->node('critic_comment', $i, $p + 2);
                 $node->f['value'] = substr($t, $i + 2, $p - $i - 2);
 

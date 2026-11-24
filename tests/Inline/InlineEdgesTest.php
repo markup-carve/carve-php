@@ -17,6 +17,14 @@ use MarkupCarve\Carve\Node;
  */
 final class InlineEdgesTest extends InlineTestCase
 {
+    public function testEditorialCommentOwnsLaterLineCommentMarker(): void
+    {
+        $this->assertSame(
+            'critic_comment@0-10(value="a\\n%% b")',
+            self::inline("{#a\n%% b#}"),
+        );
+    }
+
     /**
      * @return void
      */
