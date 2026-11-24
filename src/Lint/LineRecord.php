@@ -8,11 +8,20 @@ use stdClass;
 
 /**
  * One source line as the data rules read it. Declared fields keep a large document's records far smaller than a
- * dynamic property table; fields made on first read (`ancestors`) stay dynamic, so `property_exists()` still tells
- * whether they were made.
+ * dynamic property table, which PHP makes for every declared field once one dynamic field is added.
  */
 final class LineRecord extends stdClass
 {
+    /**
+     * @var array<string>|null The ancestor types, made on first read; null until then.
+     */
+    public ?array $ancestors = null;
+
+    /**
+     * @var array<string>|null The ancestor paths, made on first read.
+     */
+    public ?array $ancestor_ids = null;
+
     public mixed $prev = null;
 
     public mixed $prev2 = null;

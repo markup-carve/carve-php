@@ -8,10 +8,20 @@ use stdClass;
 
 /**
  * One block as the data rules read it; declared fields for the same reason as {@see LineRecord}. Fields made on first
- * read (`layout`, `ancestors`) stay dynamic, so `property_exists()` still tells whether they were made.
+ * read that may be null (`layout`) stay dynamic, so `property_exists()` still tells whether they were made.
  */
 final class BlockRecord extends stdClass
 {
+    /**
+     * @var array<string>|null The ancestor types, made on first read; null until then.
+     */
+    public ?array $ancestors = null;
+
+    /**
+     * @var array<string>|null The ancestor paths, made on first read.
+     */
+    public ?array $ancestor_ids = null;
+
     public mixed $source_format = null;
 
     public mixed $group = null;
