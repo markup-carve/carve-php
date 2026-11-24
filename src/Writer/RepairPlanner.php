@@ -1229,7 +1229,8 @@ final class RepairPlanner
      *     source: string,
      *     text: array<int, int>,
      *     paths: array<int, string>,
-     *     nodes: array<int, array{string, string, int, int}>
+     *     nodes: array<int, array{string, string, int, int}>,
+     *     ranges?: array<string, array{int, int}>
      * } $candidate
      * @param array<mixed> $actual
      *
@@ -1259,6 +1260,11 @@ final class RepairPlanner
                     continue;
                 }
             }
+            if (self::heldAsText($candidate['ranges'] ?? [], $ends, [$type, $start, $prior], $priorId !== null)) {
+                $missing[] = [RepairTrace::unpackPath((string)$packed), RepairTrace::unpackPath($prior)];
+
+                continue;
+            }
             $key = $type . ':' . $start;
             $parentId = isset($ends[$key]) ? $byPath[$parent] ?? null : null;
             if ($parentId === null) {
@@ -1271,6 +1277,29 @@ final class RepairPlanner
         }
 
         return $missing;
+    }
+
+    /**
+     * C2-W-091: the node did not form, and the parse holds its markup as text: the text before it reads on into it, or
+     * behind a node that formed a text starts where the node would.
+     *
+     * @param array<string, array{int, int}> $ranges The text ranges of the candidate, by path.
+     * @param array<string, int> $ends
+     * @param array{string, int, string} $node Its type, its start and the packed path of the sibling before it.
+     * @param bool $afterNode Whether the sibling before it is a node of the candidate.
+     */
+    private static function heldAsText(array $ranges, array $ends, array $node, bool $afterNode): bool
+    {
+        [$type, $start, $prior] = $node;
+        if (isset($ends[$type . ':' . $start])) {
+            return false;
+        }
+        if ($afterNode) {
+            return isset($ends['text:' . $start]);
+        }
+        $priorText = $ranges[RepairTrace::unpackPath($prior)] ?? null;
+
+        return $priorText !== null && ($ends['text:' . $priorText[0]] ?? $priorText[1]) > $start;
     }
 
     /**

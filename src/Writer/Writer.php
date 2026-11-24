@@ -20,6 +20,21 @@ use MarkupCarve\Carve\Options;
 final class Writer
 {
     /**
+     * The marks of the paired spans whose braced opener in their text the local write leaves to the read-back.
+     *
+     * @var array<string, string>
+     */
+    private const BRACED_CLOSERS = [
+        'superscript' => '^',
+        'subscript' => ',',
+        'underline' => '_',
+        'strike' => '~',
+        'highlight' => '=',
+        'insert' => '+',
+        'delete' => '-',
+    ];
+
+    /**
      * @var array<string>
      */
     private const PAIRED_INLINES = [
@@ -165,7 +180,9 @@ final class Writer
         $unchecked = !$undecided && !$risk;
         // A form equal to the source the tree was parsed from reads back as that tree, and a tree without ASCII
         // punctuation in its strings takes no escape decision that could misread.
-        if ($unchecked && ($parsed === null || $parsed === $result->source || !self::hasPunctuation($tree))) {
+        // Without the source, a braced opener in the text of its span is read back as a parse's tree is.
+        $plain = $parsed === null && !self::hasBracedCloserRisk($tree);
+        if ($unchecked && ($plain || $parsed === $result->source || !self::hasPunctuation($tree))) {
             return self::uncheckedPruned($result, $parsed, $tree, $layout, $options);
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
@@ -1100,6 +1117,29 @@ final class Writer
     private static function hasRoundRisk(array $tree): bool
     {
         return self::nodeHasRoundRisk($tree, false, false);
+    }
+
+    /**
+     * C2-I-043: a braced opener of a span's own mark in its text takes the closer of the span, even one directly behind
+     * it, which the local write does not decide.
+     *
+     * @param array<mixed> $node
+     * @param string $closer The mark of the nearest span around the node.
+     */
+    private static function hasBracedCloserRisk(array $node, string $closer = ''): bool
+    {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        if ($closer !== '' && $type === 'text') {
+            return is_string($node['value'] ?? null) && str_contains($node['value'], '{' . $closer);
+        }
+        $closer = self::BRACED_CLOSERS[$type] ?? $closer;
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (is_array($child) && self::hasBracedCloserRisk($child, $closer)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
