@@ -16,13 +16,6 @@ final class Fixer
     public static function fix(string $source, array $options): string
     {
         $fixable = self::catalogFixes();
-        $rules = is_array($options['rules'] ?? null) ? $options['rules'] : [];
-        foreach ($fixable as $code => $_) {
-            if (!isset($rules[$code])) {
-                $rules[$code] = 'on';
-            }
-        }
-        $options['rules'] = $rules;
         while (true) {
             $edits = [];
             foreach (Carve::lint($source, $options) as $entry) {

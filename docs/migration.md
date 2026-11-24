@@ -107,7 +107,8 @@ The bridge keeps its class names and moves to the schema of the 0.2 Tiptap kit i
 | `LintWarning`, `SourceOffsets` | `Diagnostics\Diagnostic` with byte offsets and a tree path |
 
 To find text that 0.1 or Djot read differently (a bare `_x_` pair, a 0.1 cell alignment prefix, a `---` break), lint with `['upgrade' => true]` (`carve lint --upgrade`). These notices also
-run for a document whose line-1 frontmatter declares `carve: 0.1` and stay off for a 0.2 document.
+run for a document whose line-1 frontmatter declares `carve: 0.1` and stay off for a 0.2 document. `carve fix` keeps the same
+gate: it rewrites them only under `--upgrade`, in such a document, or when `--rules` turns them on.
 
 ## Import
 
