@@ -1637,24 +1637,8 @@ final class Inline
         if ($kept !== null && $kept[0] === $children) {
             return $kept[1];
         }
-        $only = $children !== [];
-        $nested = [];
-        foreach ($children as $k => $child) {
-            if (!is_array($child)) {
-                $only = false;
-
-                break;
-            }
-            $type = is_string($child['type'] ?? null) ? $child['type'] : '';
-            if ($type === 'text' ? ($child['value'] ?? '') !== '' : !isset(self::PAIRED[$type]) && !isset(self::BRACED[$type])) {
-                $only = false;
-
-                break;
-            }
-            if (($child['children'] ?? null) !== []) {
-                $nested[$k] = $child['children'] ?? null;
-            }
-        }
+        $nested = self::emptyNested($children);
+        $only = $nested !== null;
         if ($only) {
             foreach ($nested as $k => $inner) {
                 // The path of a child is the node's path, `/children/` and its index.
@@ -1674,6 +1658,36 @@ final class Inline
         }
 
         return $only;
+    }
+
+    /**
+     * The flat test of `onlyEmptyText()`: null where a child writes something of its own, else the content of each
+     * child that holds some, by key.
+     *
+     * @param array<mixed> $children
+     *
+     * @return array<mixed>|null
+     */
+    private static function emptyNested(array $children): ?array
+    {
+        if ($children === []) {
+            return null;
+        }
+        $nested = [];
+        foreach ($children as $k => $child) {
+            if (!is_array($child)) {
+                return null;
+            }
+            $type = is_string($child['type'] ?? null) ? $child['type'] : '';
+            if ($type === 'text' ? ($child['value'] ?? '') !== '' : !isset(self::PAIRED[$type]) && !isset(self::BRACED[$type])) {
+                return null;
+            }
+            if (($child['children'] ?? null) !== []) {
+                $nested[$k] = $child['children'] ?? null;
+            }
+        }
+
+        return $nested;
     }
 
     /**
