@@ -210,6 +210,69 @@ final class SmartNeighborNodesTest extends TestCase
     }
 
     /**
+     * @return array<string, array{string, string}>
+     */
+    public static function otherNodeCases(): array
+    {
+        return [
+            'braced comment across an en dash (carve-php#5903)' => ['a{%>--{%\\}', "a\\{%>--\\{%}\n"],
+            'braced comment across an em dash' => ['a{%)---{%\\}', "a\\{%)---\\{%}\n"],
+            'braced comment across an ellipsis' => ['a{%>...{%\\} b', "a\\{%>...\\{%} b\n"],
+            'editorial comment across an en dash' => ['a{#>--#\\}', "a\\{#>--#}\n"],
+        ];
+    }
+
+    /**
+     * C2-W-078, C2-W-088: a text that reads back cut short by another node is no fault of the run beside it; the
+     * repair rounds escape that node's kind, and nothing is lost.
+     *
+     * @param string $source
+     * @param string $written
+     *
+     * @return void
+     */
+    #[DataProvider('otherNodeCases')]
+    public function testATextCutByAnotherNodeIsLeftToTheRepair(string $source, string $written): void
+    {
+        $result = Carve::formatWithDiagnostics($source);
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($written, $result->source);
+        $this->assertSame(self::shape($source), self::shape($written));
+    }
+
+    /**
+     * The tree of `source` without positions.
+     *
+     * @param string $source
+     *
+     * @return string
+     */
+    private static function shape(string $source): string
+    {
+        $tree = TreeEncoder::decoded(Carve::parse($source));
+        unset($tree['srcByteLength']);
+        self::dropPositions($tree);
+
+        return (string)json_encode($tree);
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return void
+     */
+    private static function dropPositions(array &$node): void
+    {
+        unset($node['pos']);
+        foreach ($node as &$value) {
+            if (is_array($value)) {
+                self::dropPositions($value);
+            }
+        }
+        unset($value);
+    }
+
+    /**
      * @param array<mixed> $node
      *
      * @return void
