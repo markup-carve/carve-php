@@ -41,6 +41,15 @@ final class WriterNeedlessEscapeTest extends TestCase
             'fence before a link with a backtick' => ['\- ``` [a`](u)', '\- ``` [a`](u)'],
             'fence before a link holding code' => ['\- ``` [`c`](u)', '\- ``` [`c`](u)'],
             'fence before a span with a backtick' => ['\> ``` [x`]{.c}', '\> ``` [x`]{.c}'],
+            // #5818: a brace before a brace opens nothing, and in `{/}` the mark belongs to the opener.
+            'braces in strong text' => ['*{{x*', '*{{x*'],
+            'braces in quoted strong text' => ['> *{{x*', '> *{{x*'],
+            'three braces in strong text' => ['*{{{_*', '*{{{_*'],
+            'emphasis opener before an empty pair' => ['{/{/}', '{/{/}'],
+            'emphasis opener with text before an empty pair' => ['{/x_{/}*', '{/x_{/}*'],
+            'braced pair beside an empty pair' => ['{{/x/} {/{/}', '\{/x/ {/{/}'],
+            'empty block in strong text' => ['*a{}*', '*a{}*'],
+            'blank block at the start of strong text' => ['*{ }*', '*{ }*'],
         ];
     }
 
