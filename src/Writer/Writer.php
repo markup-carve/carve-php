@@ -632,8 +632,9 @@ final class Writer
             }
             unset($read);
         }
+        $spans = null;
         if ($scoped !== null) {
-            $repaired = $scoped;
+            [$repaired, $spans] = $scoped;
         } else {
             $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
             $repaired = $planner->repair();
@@ -654,8 +655,8 @@ final class Writer
             return self::unrepairedOr($fallback, $tree, $result, $options);
         }
 
-        $repaired = self::prunedNoteCarets($repaired, $treePrint, $options, $parsed);
-        $repaired = self::prunedEmptyLabelBrackets($repaired, $treePrint, $options);
+        $pruned = self::prunedNoteCarets($repaired, $treePrint, $options, $parsed);
+        $repaired = self::prunedEmptyLabelBrackets($pruned, $treePrint, $options, $pruned === $repaired ? $spans : null);
 
         return new WriteResult($repaired, []);
     }
@@ -691,7 +692,8 @@ final class Writer
      * stage of another block) or takes a pair escape (C2-W-146). The kept groups are repaired as a document of their
      * own from their bare form, and each takes its range in the bare form of the whole. Null where that does not hold:
      * a group writes otherwise alone, the kept groups read back bare alone, the rounds stop, or the join does not read
-     * back; the rounds of the whole document decide there.
+     * back; the rounds of the whole document decide there. With the join come the kept groups' ranges in it, each with
+     * the source around it in its own document and the fingerprint of its blocks.
      *
      * @param array<string, mixed> $tree
      * @param array<mixed>|null $layout
@@ -702,6 +704,8 @@ final class Writer
      * @param array<int, array{int, int, int, int, bool}>|null $ranges Its group ranges.
      * @param array<string, mixed> $read Its read-back.
      * @param array<string, string>|null $readParts `RepairPlanner::readPrints()` of that read-back.
+     *
+     * @return array{string, array<int, array{int, int, string, string, string}>}|null
      */
     private static function scopedRepair(
         array $tree,
@@ -713,7 +717,7 @@ final class Writer
         ?array $ranges,
         array $read,
         ?array $readParts,
-    ): ?string {
+    ): ?array {
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         $readChildren = is_array($read['children'] ?? null) ? $read['children'] : [];
         if (
@@ -759,6 +763,7 @@ final class Writer
         }
         $index = self::rootIndex($layout);
         $forms = [];
+        $spans = [];
         $joined = '';
         $at = 0;
         foreach ($ranges as $g => [$first, $last, $start, $end]) {
@@ -788,25 +793,29 @@ final class Writer
             if ($key !== null) {
                 $forms[$key] = $form;
             }
-            $joined .= substr($bare, $at, $start - $at) . $form;
+            $joined .= substr($bare, $at, $start - $at);
+            $spans[] = [strlen($joined), strlen($joined) + strlen($form[0]), $form[1], $form[2], $form[3]];
+            $joined .= $form[0];
             $at = $end;
         }
         $joined .= substr($bare, $at);
 
-        return self::readsBack($joined, $treePrint, $options) ? $joined : null;
+        return self::readsBack($joined, $treePrint, $options) ? [$joined, $spans] : null;
     }
 
     /**
-     * The rounds of one kept group written as a document of its own, from its bare form: its text, or null where it
-     * writes otherwise alone or the rounds stop.
+     * The rounds of one kept group written as a document of its own, from its bare form: its text, the source before
+     * and after it there, and the fingerprint of the group; null where it writes otherwise alone or the rounds stop.
      *
      * @param array<string, mixed> $sub
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      * @param array<string, array<int, true>> $seed
      * @param string $text The group in the bare form of the whole.
+     *
+     * @return array{string, string, string, string}|null
      */
-    private static function groupRepair(array $sub, ?array $layout, array $options, array $seed, string $text): ?string
+    private static function groupRepair(array $sub, ?array $layout, array $options, array $seed, string $text): ?array
     {
         $bare = self::recordedBare($sub, $layout, $options, $seed, $ranges);
         if ($ranges === null || count($ranges) !== 1 || substr($bare, $ranges[0][2], $ranges[0][3] - $ranges[0][2]) !== $text) {
@@ -817,7 +826,9 @@ final class Writer
         [$readPrint, $parts] = RepairPlanner::readPrints($read);
         if ($readPrint === $print) {
             // The group misread in the whole only through another group, whose rounds the join reads back with it.
-            return Text::treePairOpeners($sub, $seed) === [] ? $text : null;
+            return Text::treePairOpeners($sub, $seed) === []
+                ? [$text, substr($bare, 0, $ranges[0][2]), substr($bare, $ranges[0][3]), $print]
+                : null;
         }
         $marked = self::markedCandidate($sub, $layout, $options, $seed, $bare);
         $planner = new RepairPlanner($sub, $layout, $options, $seed, $print);
@@ -834,7 +845,9 @@ final class Writer
             return null;
         }
 
-        return substr($repaired, $final[0][2], $final[0][3] - $final[0][2]);
+        [, , $start, $end] = $final[0];
+
+        return [substr($repaired, $start, $end - $start), substr($repaired, 0, $start), substr($repaired, $end), $print];
     }
 
     /**
@@ -1191,8 +1204,10 @@ final class Writer
      * @param string $source
      * @param string $treePrint
      * @param array<string, mixed> $options
+     * @param array<int, array{int, int, string, string, string}>|null $spans The groups `scopedRepair()` repaired alone
+     *   in `$source`: a trial that drops bytes only there is read group by group, as those groups were.
      */
-    private static function prunedEmptyLabelBrackets(string $source, string $treePrint, array $options): string
+    private static function prunedEmptyLabelBrackets(string $source, string $treePrint, array $options, ?array $spans = null): string
     {
         $at = strpos($source, '\\[^]');
         if ($at === false) {
@@ -1205,15 +1220,16 @@ final class Writer
         // candidate alone in a leaf that then differs keeps its backslash; of several there, the first is tried next.
         $removed = [];
         $waiting = [];
+        $alone = [];
         for ($round = 0; $pending !== []; $round++) {
             if ($round === 16) {
                 return $source;
             }
             $drop = [...$removed, ...$pending];
             sort($drop);
-            $trial = self::withoutBytes($source, $drop);
-            $read = ReadbackRound::read($trial, $options);
-            if (TreeEquality::fingerprint($read) === $treePrint) {
+            $grouped = $spans !== null && self::spansReadBack($source, $drop, $spans, $options, $alone);
+            $read = $grouped ? null : ReadbackRound::read(self::withoutBytes($source, $drop), $options);
+            if ($read === null || TreeEquality::fingerprint($read) === $treePrint) {
                 array_push($removed, ...$pending);
                 $pending = $waiting;
                 $waiting = [];
@@ -1293,6 +1309,41 @@ final class Writer
         }
 
         return $out . substr($source, $from);
+    }
+
+    /**
+     * Whether every byte of `$drop` lies in a group of `$spans`, and each such group without them reads back alone.
+     *
+     * @param string $source
+     * @param array<int> $drop Sorted offsets.
+     * @param array<int, array{int, int, string, string, string}> $spans
+     * @param array<string, mixed> $options
+     * @param array<string, bool> $alone The groups read so far, by source.
+     */
+    private static function spansReadBack(string $source, array $drop, array $spans, array $options, array &$alone): bool
+    {
+        $s = 0;
+        $count = count($spans);
+        $inside = [];
+        foreach ($drop as $at) {
+            while ($s < $count && $spans[$s][1] <= $at) {
+                $s++;
+            }
+            if ($s === $count || $at < $spans[$s][0]) {
+                return false;
+            }
+            $inside[$s][] = $at - $spans[$s][0];
+        }
+        foreach ($inside as $s => $offsets) {
+            [$start, $end, $before, $after, $print] = $spans[$s];
+            $text = $before . self::withoutBytes(substr($source, $start, $end - $start), $offsets) . $after;
+            $alone[$text] ??= self::readsBack($text, $print, $options);
+            if (!$alone[$text]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
