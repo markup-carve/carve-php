@@ -11,8 +11,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * C2-W-088: where the bare form reads back, no backslash is placed. A braced opener in the text of a span that its
  * closer drops, the mark a bare brace takes, and the opener of a span written braced pair with nothing (C2-I-051,
- * C2-I-055, C2-I-060); a strong whose content ends with its mark is braced before the rounds (C2-W-069, carve#6469)
- * (carve-php#5776).
+ * C2-I-055, C2-I-060), and `{//}` holds nothing (C2-I-043); a brace glued before its span's closer takes that closer
+ * (C2-I-057, C2-W-125 case one); a strong whose content ends with its mark is braced before the rounds (C2-W-069,
+ * carve#6469) (carve-php#5776).
  */
 final class SpanCloserDropsOpenerTest extends TestCase
 {
@@ -34,6 +35,11 @@ final class SpanCloserDropsOpenerTest extends TestCase
             'strong ending in a brace and its mark' => ['*{**©*}x*z*z', '*{**©*}x*z*z'],
             'emphasis ending in a brace and its mark' => ['./{//*©/}/./z', './{//*©/}/./z'],
             'braced strong opening with a brace and its mark' => ['.*{*b*\\**}x*z', '.{*\\{*b*}**}x*z'],
+            'empty braced strong inside a strong' => ['*}/{**}{**{* // /z', '*}/{**}{**{* // /z'],
+            'empty braced emphasis inside a strong before a slash' => ['\\``c`* {*{/{//}{/ b/c.**}}', '\\``c`* {*{/{//}{/ b/c.**}}'],
+            'text brace before a strong holding an empty braced emphasis' => ['\\``c`* {/*{//} {/  **^*|', '\\``c`* {/*{//} {/  **^*|'],
+            'brace glued before the closer of a subscript' => ['{, \\^\\{\\{,,} ', '{, ^{\\{,,}'],
+            'brace glued before the closer of a highlight' => ['{=a\\{=}', '{=a\\{=}'],
         ];
     }
 

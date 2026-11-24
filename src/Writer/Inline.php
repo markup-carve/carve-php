@@ -2277,6 +2277,19 @@ final class Inline
     }
 
     /**
+     * Whether the run of `$run` marks at `$at` belongs to a bare brace before it that no later closer gives a backslash:
+     * one mark is that opener's (C2-I-060), and in `{**}` the second closes it holding nothing (C2-I-043).
+     */
+    private static function bareBraceTakes(string $value, int $at, int $run, string $mark): bool
+    {
+        if ($at === 0 || $value[$at - 1] !== '{' || $run > 2 || ($run === 2 && ($value[$at + 2] ?? '') !== '}')) {
+            return false;
+        }
+
+        return !str_contains(substr($value, $at + $run + ($run === 1 ? 1 : 0)), $mark . '}');
+    }
+
+    /**
      * C2-W-070: the content holds its own kind.
      *
      * @param array<mixed> $nodes
@@ -2338,8 +2351,9 @@ final class Inline
 
                         continue;
                     }
-                    // C2-I-060: the mark of a bare brace with no closer behind it belongs to that opener.
-                    if ($run === 1 && $at > 0 && $value[$at - 1] === '{' && !str_contains(substr($value, $at + 2), $mark . '}')) {
+                    if (self::bareBraceTakes($value, $at, $run, $mark)) {
+                        $at += $run - 1;
+
                         continue;
                     }
                     $before = $at > 0 ? Chars::before($value, $at) : 0;

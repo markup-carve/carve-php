@@ -1571,7 +1571,7 @@ final class Text
         // C2-I-055, C2-I-060: a mark before `}` closes the node of that mark open around the text, so the mark takes the
         // backslash; with none open the closer is text.
         if (self::closesOpenMark($ch, $after, $c)) {
-            return true;
+            return !self::emptyBracedCloser($value, $i, $c);
         }
 
         // C2-W-090: a sigil glued to the bracket or the backtick of a node may form a construct with it, as `![` an
@@ -1938,6 +1938,12 @@ final class Text
         // C2-I-043: a braced opener needs its closer behind at least one character, a comment none. A brace before `/`
         // or `*` takes the mark from the bare pairs (C2-I-060), so the pairing escapes decide those.
         $marks = '_~=+-^,#%';
+        // C2-I-057, C2-W-125 case one: glued before the span's own closer, the opener takes that closer and holds
+        // nothing, so the span does not form.
+        $glued = $rest === '{' . $next && $next === $span[0] && ($i === 0 || $value[$i - 1] !== $next);
+        if ($glued && $next !== '%' && str_contains($marks, $next)) {
+            return true;
+        }
         if ($next !== '' && str_contains($marks, $next) && !str_contains(substr($probe, $next === '%' ? 2 : 3), $next . '}')) {
             return false;
         }
@@ -1951,7 +1957,7 @@ final class Text
         }
         // C2-I-043, C2-I-051, C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind at least one
         // character in the span opens nothing: the span's closer drops it, so C2-W-088 places no backslash there.
-        if (($next === '*' || $next === '/') && !str_contains(substr($probe, 3), $next . '}')) {
+        if (($next === '*' || $next === '/') && self::lastCloser($probe, $next) < 3) {
             return false;
         }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
@@ -2045,7 +2051,7 @@ final class Text
                     || ($raw && (str_contains($held, $mark . '}')
                         || str_contains(BraceBlock::of($c->flatNodes[$node] ?? []), $mark . '}')))
                     || (!$raw && $type !== 'critic_comment'
-                        && str_contains(Inline::openText($c->flatNodes[$node] ?? [], $mark), $mark . '}'));
+                        && self::lastCloser(Inline::openText($c->flatNodes[$node] ?? [], $mark), $mark) >= 0);
                 if ($supplies) {
                     $forced[$mark] = $node;
                 }
@@ -2061,12 +2067,15 @@ final class Text
 
     /**
      * The offset of the last closer of `$mark` in the written leaf, or -1. C2-I-043: in `{/}` the mark belongs to the
-     * opener, so that `/}` closes nothing.
+     * opener, and in `{//}` the closer holds no character, so that `/}` closes nothing.
      */
     private static function lastCloser(string $written, string $mark): int
     {
         $at = strrpos($written, $mark . '}');
-        while ($at !== false && $at > 0 && $written[$at - 1] === '{') {
+        while (
+            $at !== false && $at > 0
+            && ($written[$at - 1] === '{' || ($at > 1 && $written[$at - 1] === $mark && $written[$at - 2] === '{'))
+        ) {
             $at = $at > 1 ? strrpos($written, $mark . '}', $at - 2 - strlen($written)) : false;
         }
 
@@ -2401,6 +2410,9 @@ final class Text
         if (self::loneBehindBrace($value, $i, $ch, $c)) {
             return true;
         }
+        if (self::emptyBracedCloser($value, $i, $c)) {
+            return false;
+        }
         // C2-I-049: a run of two or more is text, counted without the mark a bare brace takes (C2-I-055).
         $run = self::run($value, $i, $c);
         if ($run === null || $run[1] > $run[0]) {
@@ -2437,9 +2449,23 @@ final class Text
         if ($i < 2 || $c->here >= 0 || $value[$i - 1] !== $ch || $value[$i - 2] !== '{' || ($value[$i + 1] ?? '') === $ch) {
             return false;
         }
+        // C2-I-043: in `{//}` the second mark closes the bare brace's opener, which holds nothing, and pairs with nothing.
+        if (($value[$i + 1] ?? '') === '}') {
+            return false;
+        }
         $span = $c->spanTexts[$c->textPath] ?? null;
 
         return $span === null || $span[0] === $ch || $span[1] || self::bareMarkBehind($value, $i + 1, $ch);
+    }
+
+    /**
+     * C2-I-043: the second mark of `{//}` behind a brace left bare closes that opener, which holds nothing, and is no
+     * delimiter.
+     */
+    private static function emptyBracedCloser(string $value, int $i, Context $c): bool
+    {
+        return $i >= 2 && ($value[$i + 1] ?? '') === '}' && $value[$i - 1] === $value[$i] && $value[$i - 2] === '{'
+            && ($c->escapedAt[$i - 2] ?? true) === false;
     }
 
     /**
