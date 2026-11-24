@@ -750,7 +750,10 @@ final class BlockParser
 
                 return;
             }
-            $this->closeLeaf();
+            // A definition holds no children: the comment goes to its container and the definition stays open.
+            if ($kind !== Frame::LINK_DEF && $kind !== Frame::ABBR_DEF) {
+                $this->closeLeaf();
+            }
         }
         $this->emitComment($j, $end);
     }
