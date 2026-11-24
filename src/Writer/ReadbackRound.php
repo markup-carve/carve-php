@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
@@ -13,6 +14,17 @@ use MarkupCarve\Carve\Json\TreeEquality;
  */
 final class ReadbackRound
 {
+    private const MEMO_SIZE = 4;
+
+    private const MEMO_BYTES = 262144;
+
+    /**
+     * The last read-backs of the outer write, each with its source; null outside `memoized()`.
+     *
+     * @var array<int, array{string, array<string, mixed>}>|null
+     */
+    private static ?array $memo = null;
+
     /**
      * @param array{
      *     source: string,
@@ -46,12 +58,52 @@ final class ReadbackRound
      */
     public static function read(string $source, array $options = []): array
     {
+        $memo = self::$memo !== null && !isset($options['extensions']) && strlen($source) <= self::MEMO_BYTES;
+        if ($memo) {
+            foreach (self::$memo as [$read, $tree]) {
+                if ($read === $source) {
+                    return $tree;
+                }
+            }
+        }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 
         $parsed = Carve::parse($source, $parseOptions);
         HeapPages::release();
+        $tree = TreeEncoder::decodedWithOffsets($parsed, $source);
+        if ($memo) {
+            self::$memo[] = [$source, $tree];
+            if (count(self::$memo) > self::MEMO_SIZE) {
+                array_shift(self::$memo);
+            }
+        }
 
-        return TreeEncoder::decodedWithOffsets($parsed, $source);
+        return $tree;
+    }
+
+    /**
+     * Runs one outer write with the last read-backs kept: its steps read the same source more than once.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $write
+     *
+     * @return T
+     */
+    public static function memoized(Closure $write): mixed
+    {
+        $outer = self::$memo;
+        self::$memo ??= [];
+        try {
+            return $write();
+        } finally {
+            self::$memo = $outer;
+        }
+    }
+
+    public static function memoActive(): bool
+    {
+        return self::$memo !== null;
     }
 
     /**

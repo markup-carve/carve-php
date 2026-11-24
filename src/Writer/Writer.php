@@ -174,7 +174,9 @@ final class Writer
         self::$inGroups = false;
         try {
             [$losses, $fallbackNodes] = self::normalizedAttributeValueLosses($tree);
-            $written = Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options));
+            $written = ReadbackRound::memoized(
+                static fn (): WriteResult => Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options)),
+            );
 
             return self::withAttributeValueLosses($written, $losses, $fallbackNodes);
         } finally {
@@ -2045,6 +2047,9 @@ final class Writer
      */
     private static function readsBack(string $source, string $treePrint, array $options): bool
     {
+        if (ReadbackRound::memoActive() && !isset($options['extensions'])) {
+            return TreeEquality::fingerprint(ReadbackRound::read($source, $options)) === $treePrint;
+        }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 
         return TreeEquality::fingerprint(TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions))) === $treePrint;
