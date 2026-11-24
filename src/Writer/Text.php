@@ -2099,7 +2099,8 @@ final class Text
             return false;
         }
 
-        return $next === '*' || $next === '/' ? $span[3] : $next !== '%' && ($i === 0 || $value[$i - 1] !== $next);
+        // C2-I-055: behind a braced opener of the same mark the brace is that opener's content, not glued to the closer.
+        return $next === '*' || $next === '/' ? $span[3] : $next !== '%' && ($i < 2 || $value[$i - 1] !== $next || $value[$i - 2] !== '{');
     }
 
     /**
