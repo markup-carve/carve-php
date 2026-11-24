@@ -1825,18 +1825,22 @@ final class Inline
         $value = self::str($node, 'value');
         $out = '';
         $from = 0;
+        $at = $c->flatAt[$c->textPath] ?? -1;
         sort($points);
         foreach ($points as $point) {
             if ($point < $from || $point > strlen($value)) {
                 continue;
             }
             $piece = substr($value, $from, max(0, $point - 1 - $from));
-            $out .= Text::escape($piece, $c, 10) . "\n";
+            $c->here = $at >= 0 ? $at + $from : -1;
+            // C2-W-146: each fragment is a content of its own (C2-B-223) and takes the pair escapes too.
+            $out .= Text::escapePairs($piece, $c, 10) . "\n";
             $c->last = 10;
             $from = $point;
         }
+        $c->here = $at >= 0 ? $at + $from : -1;
 
-        return $out . Text::escape(substr($value, $from), $c, $next);
+        return $out . Text::escapePairs(substr($value, $from), $c, $next);
     }
 
     /**
@@ -2071,7 +2075,7 @@ final class Inline
             'math' => $this->spanValue($node, $path, $c, ($node['display'] ?? false) === true ? '$$' : '$'),
             'raw_inline' => $this->spanValue($node, $path, $c, '') . '{=' . self::str($node, 'format') . '}',
             'autolink' => $this->autolink($node, $path),
-            'comment' => $this->comment($node, $path, $c),
+            'comment' => $this->comment($node, $path, $c, $next),
             'critic_comment' => '{#' . $this->cellValue($node, $path, $c, self::str($node, 'value')) . '#}',
             default => $this->extensionOrCitation($node, $type, $path, $c, $next),
         };
@@ -3279,10 +3283,11 @@ final class Inline
      * @param array<mixed> $node
      * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
      *
      * @return string
      */
-    private function comment(array $node, string $path, Context $c): string
+    private function comment(array $node, string $path, Context $c, int $next = -1): string
     {
         $braced = ($node['form'] ?? '') === 'braced';
         // A line comment outside a cell writes its line feeds as spaces below, so it reads back as a comment.
@@ -3294,11 +3299,28 @@ final class Inline
         if ($kept !== $value || str_contains($kept, "\n")) {
             $this->w->lose($path, 'comment', 'value');
         }
+        // C2-W-117: a line comment runs to the end of its line, so content behind it on that line has no spelling.
+        if ($c->inCell && $next !== -1 && $next !== 10 && !$this->wrapsBehind($path)) {
+            $this->w->lose($path, 'comment', null);
+        }
         // C2-I-023: a line comment starts at the start of a line or after whitespace, which it takes with it, so a
         // space a node spells before it (the `\ ` of a non-breaking space) does not count.
         $lead = $c->last === -1 || $c->last === 10 ? '' : ' ';
 
         return $lead . ($kept === '' ? '%%' : '%% ' . str_replace("\n", ' ', $kept));
+    }
+
+    /**
+     * Whether the text behind the node at `$path` starts a continuation row: its joining space is the wrap (C2-L-020).
+     */
+    private function wrapsBehind(string $path): bool
+    {
+        $cut = strrpos($path, '/');
+        if ($cut === false) {
+            return false;
+        }
+
+        return in_array(1, $this->w->wrapPoints[substr($path, 0, $cut + 1) . ((int)substr($path, $cut + 1) + 1)] ?? [], true);
     }
 
     /**

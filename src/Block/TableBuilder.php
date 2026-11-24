@@ -915,9 +915,12 @@ final class TableBuilder
             }
             $body = $bodies[$index];
             $body->children[] = $child;
-            if ($child->start >= 0) {
-                $body->start = $body->start < 0 ? $child->start : min($body->start, $child->start);
-                $body->end = max($body->end, $child->end);
+            // C2-A-154: a continued row has no position, and its group still spans it, as groups() does.
+            $start = $child->start >= 0 ? $child->start : $child->layout['startByte'] ?? -1;
+            $end = $child->start >= 0 ? $child->end : $child->layout['endByte'] ?? -1;
+            if (is_int($start) && $start >= 0 && is_int($end)) {
+                $body->start = $body->start < 0 ? $start : min($body->start, $start);
+                $body->end = max($body->end, $end);
             }
         }
 
