@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Writer;
+
+use MarkupCarve\Carve\Carve;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * C2-W-002, C2-W-088: a backslash stands where the bare form would read back as another tree, and nowhere else
+ * (carve-php#5735, #5757, #5764, #5772, #5773, #5786, #5797, #5841).
+ */
+final class WriterEscapePlacementTest extends TestCase
+{
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function provideCanonical(): array
+    {
+        return [
+            // #5773: C2-B-015, only a bullet or the value 1 opens a list below a paragraph line.
+            'later item line starting 2.' => ["- a\n  2\\. li", "- a\n  2. li"],
+            'later item line starting 10.' => ["- a\n  10\\. li", "- a\n  10. li"],
+            'later item line with a roman 2' => ["I) a\n II) b", "I) a\n   II) b"],
+            'later item line with a letter b' => ["- a\n  b\\) li", "- a\n  b) li"],
+            'later quoted item line starting 2.' => ["> - a\n>   2\\. li", "> - a\n>   2. li"],
+            'later footnote line starting 2.' => ["[^n]: a\n  2\\. li", "[^n]: a\n  2. li"],
+            'later item line starting 1. keeps it' => ["- a\n  1\\. li", "- a\n  1\\. li"],
+            'later item line with a roman 1 keeps it' => ["- a\n  i\\) li", "- a\n  i\\) li"],
+            'later item line with a bullet keeps it' => ["- a\n  \\- li", "- a\n  \\- li"],
+        ];
+    }
+
+    #[DataProvider('provideCanonical')]
+    public function testFormatPlacesOnlyTheNeededBackslash(string $source, string $expected): void
+    {
+        foreach ([[], ['normalize' => true]] as $options) {
+            $result = Carve::formatWithDiagnostics($source, $options);
+            self::assertSame($expected . "\n", $result->source);
+            self::assertSame([], $result->diagnostics);
+        }
+        $tree = json_decode(Carve::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame($expected . "\n", Carve::write($tree));
+        self::assertSame(Carve::toHtml($source), Carve::toHtml($expected));
+    }
+}

@@ -3540,7 +3540,12 @@ final class Text
 
             return $gap || substr($line, 1, 1) === ':' ? 0 : -1;
         }
-        if (Markers::quickReject($line, 0, strlen($line)) || Markers::read($line, 0, strlen($line)) === null) {
+        if (Markers::quickReject($line, 0, strlen($line))) {
+            return -1;
+        }
+        $marker = Markers::read($line, 0, strlen($line));
+        // C2-B-015, C2-B-056: below a paragraph only a bullet or the value 1 opens a list.
+        if ($marker === null || ($marker->ordered && $marker->value !== 1 && $marker->value !== -1)) {
             return -1;
         }
 
