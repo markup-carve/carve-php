@@ -167,6 +167,9 @@ final class Writer
         }
     }
 
+    // The first bare read-back adds one necessary branch to the writer's round procedure.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     /**
      * @param array<string, mixed> $tree
      * @param array<mixed>|null $layout
@@ -200,6 +203,12 @@ final class Writer
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
         $treePrint = TreeEquality::fingerprint($tree);
+        // A nested link does not split the bracket pairs of the text around it. At the inline depth cap, the local
+        // plan can still propose escapes for those pairs; C2-W-088 ends after round one if its bare form reads back.
+        $bareNestedLink = self::bareNestedLink($tree, $layout, $options, $treePrint, $result->source);
+        if ($bareNestedLink !== null) {
+            return $bareNestedLink;
+        }
         if (self::takesLocalForm($unchecked, $undecided, $localDecided)) {
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             unset($localEscapes);
@@ -306,6 +315,8 @@ final class Writer
     {
         return $result->diagnostics !== [] || ($fallback !== null && self::readsBack($result->source, $treePrint, $options));
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * Whether the local write is taken where it reads back, without the rounds: the heuristics call it safe, or it
@@ -1181,6 +1192,51 @@ final class Writer
     private static function hasRoundRisk(array $tree): bool
     {
         return self::nodeHasRoundRisk($tree, false, false);
+    }
+
+    /**
+     * The first round's bare result when a nested link's surrounding brackets need no repair.
+     *
+     * @param array<mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param string $treePrint
+     * @param string $localSource
+     */
+    private static function bareNestedLink(
+        array $tree,
+        ?array $layout,
+        array $options,
+        string $treePrint,
+        string $localSource,
+    ): ?WriteResult {
+        if (!str_contains($localSource, '\\[') || !self::hasNestedLink($tree)) {
+            return null;
+        }
+        $bareSource = self::bareSource($tree, $layout, $options, []);
+
+        return self::readsBack($bareSource, $treePrint, $options) ? new WriteResult($bareSource, []) : null;
+    }
+
+    /**
+     * Whether a bracketed leaf contains a link inside another link. Its surrounding text can pair across that link.
+     *
+     * @param array<mixed> $node
+     * @param bool $inLink
+     */
+    private static function hasNestedLink(array $node, bool $inLink = false): bool
+    {
+        $link = ($node['type'] ?? null) === 'link';
+        if ($link && $inLink) {
+            return true;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (is_array($child) && self::hasNestedLink($child, $inLink || $link)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
