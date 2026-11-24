@@ -61,6 +61,9 @@ final class WriterEscapePlacementTest extends TestCase
             'brace before hyphens in a delete' => ['{-{--}-}', '{-{--}-}'],
             'brace before a hyphen run in a delete' => ['{-{--}--}', '{-{--}--}'],
             'attribute-shaped text behind a fence' => ['\\- ]```{#i}*x{k="`"}=}*{k="`"}', '\\- ]```{#i}*x{k="`"}=}*{k=`}'],
+            // #5735: a run of two slashes is text (C2-I-049), so no escape splits it.
+            'slash run before an emphasis holding code' => ['{//}/`x`/', '{//}/`x`/'],
+            'slash run before an emphasis holding a link' => ['{//}/[x](u)/', '{//}/[x](u)/'],
         ];
     }
 
