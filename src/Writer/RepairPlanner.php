@@ -98,8 +98,8 @@ final class RepairPlanner
         foreach ($seed as $path => $offsets) {
             $value = self::leafValue($tree, $path);
             foreach ($offsets as $at => $_) {
-                // A backslash before punctuation is doubled by the bare write itself.
-                if ($value !== null && !($value[$at] === '\\' && Text::isPunct($value[$at + 1] ?? ''))) {
+                // A backslash the local write doubled (C2-W-097) is doubled by the bare write itself.
+                if ($value !== null && isset($value[$at]) && $value[$at] !== '\\') {
                     $this->escapes[$path][$at] = true;
                 }
             }
@@ -149,11 +149,146 @@ final class RepairPlanner
             if (($child['type'] ?? '') === 'text' && is_string($value) && Inline::gluesTick($value, $before)) {
                 $out[$path . '/children/' . $at][0] = true;
             }
+            if (($child['type'] ?? '') === 'cell_paragraph') {
+                $out = self::cellTickKind($child, $path . '/children/' . $at, $out);
+            }
             $out = self::gluedTicks($child, $path . '/children/' . $at, $out);
             $before = $child;
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-088, C2-W-125 case six: a glued backtick lengthens the closing run of its code span. Where the bare text of
+     * the cell then pairs its backtick runs otherwise than the tree, the parse reports the backtick kind, so every
+     * backtick that starts a run in the text of the cell takes a backslash (carve-js `escapeBacktickKind`).
+     *
+     * @param array<mixed> $block
+     * @param string $path
+     * @param array<string, array<int, true>> $out
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function cellTickKind(array $block, string $path, array $out): array
+    {
+        $bare = ['text' => '', 'fromText' => [], 'leaves' => [], 'spans' => [], 'glued' => false];
+        self::flattenTicks($block, $path, $bare);
+        if (!$bare['glued'] || array_diff(self::bareSpans($bare), $bare['spans']) === []) {
+            return $out;
+        }
+        foreach ($bare['leaves'] as [$leaf, $value]) {
+            for ($at = strpos($value, '`'); $at !== false; $at = strpos($value, '`', $at + 1)) {
+                if ($at === 0 || $value[$at - 1] !== '`') {
+                    $out[$leaf][$at] = true;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param string $path
+     * @param array{
+     *     text: string,
+     *     fromText: array<int, bool>,
+     *     leaves: array<int, array{string, string}>,
+     *     spans: array<int, string>,
+     *     glued: bool
+     * } $bare
+     */
+    private static function flattenTicks(array $node, string $path, array &$bare): void
+    {
+        $before = null;
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $at => $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            $type = $child['type'] ?? '';
+            $value = $child['value'] ?? null;
+            if ($type === 'text' && is_string($value)) {
+                $bare['glued'] = $bare['glued'] || Inline::gluesTick($value, $before);
+                $bare['leaves'][] = [$path . '/children/' . $at, $value];
+                $bare['fromText'] += array_fill(strlen($bare['text']), strlen($value), true);
+                $bare['text'] .= $value;
+            } elseif (in_array($type, ['code', 'literal_inline', 'math', 'raw_inline'], true) && is_string($value)) {
+                $spelled = Inline::codeSpan($value);
+                $bare['spans'][] = strlen($bare['text']) . ':' . (strlen($bare['text']) + strlen($spelled));
+                self::addBare($bare, $type === 'raw_inline' ? $spelled . "\x01" : $spelled);
+            } elseif ($type === 'soft_break' || $type === 'hard_break') {
+                self::addBare($bare, "\n");
+            } else {
+                self::addBare($bare, "\x01");
+                self::flattenTicks($child, $path . '/children/' . $at, $bare);
+                self::addBare($bare, "\x01");
+            }
+            $before = $child;
+        }
+    }
+
+    /**
+     * @param array{
+     *     text: string,
+     *     fromText: array<int, bool>,
+     *     leaves: array<int, array{string, string}>,
+     *     spans: array<int, string>,
+     *     glued: bool
+     * } $bare
+     * @param string $spelled
+     */
+    private static function addBare(array &$bare, string $spelled): void
+    {
+        if ($spelled !== '') {
+            $bare['fromText'] += array_fill(strlen($bare['text']), strlen($spelled), false);
+        }
+        $bare['text'] .= $spelled;
+    }
+
+    /**
+     * The code spans that the bare text forms by its backtick runs (C2-I-015), as `start:end`.
+     *
+     * @param array{
+     *     text: string,
+     *     fromText: array<int, bool>,
+     *     leaves: array<int, array{string, string}>,
+     *     spans: array<int, string>,
+     *     glued: bool
+     * } $bare
+     *
+     * @return array<int, string>
+     */
+    private static function bareSpans(array $bare): array
+    {
+        $text = $bare['text'];
+        $runs = [];
+        preg_match_all('/`+/', $text, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as [$run, $start]) {
+            $escaped = $start > 0 && ($bare['fromText'][$start] ?? false) && ($bare['fromText'][$start - 1] ?? false)
+                && $text[$start - 1] === '\\';
+            $runs[] = [$escaped ? $start + 1 : $start, $start + strlen($run)];
+        }
+        $next = [];
+        $nearest = [];
+        for ($at = count($runs) - 1; $at >= 0; $at--) {
+            $length = $runs[$at][1] - $runs[$at][0];
+            $next[$at] = $nearest[$length] ?? -1;
+            $nearest[$length] = $at;
+        }
+        $spans = [];
+        $count = count($runs);
+        for ($open = 0; $open < $count; $open++) {
+            [$start, $end] = $runs[$open];
+            $close = $next[$open];
+            if ($start === $end || $close < 0) {
+                continue;
+            }
+            $spans[] = $start . ':' . $runs[$close][1];
+            $open = $close;
+        }
+
+        return $spans;
     }
 
     /**

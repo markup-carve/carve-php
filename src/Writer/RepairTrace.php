@@ -62,8 +62,9 @@ final class RepairTrace
      * @param string $path
      * @param int $next The code point written after the text, -1 at the end of its leaf.
      * @param int $from Where `$value` starts in the text node: a fragment of a continued cell starts later.
+     * @param bool $inCell
      */
-    public function bareText(string $value, string $path, int $next = -1, int $from = 0): string
+    public function bareText(string $value, string $path, int $next = -1, int $from = 0, bool $inCell = false): string
     {
         $out = '';
         // Keep line endings after the final marker. The block writer decides whether a
@@ -79,7 +80,8 @@ final class RepairTrace
         }
         for ($at = 0; $at < $bodyLength; $at++) {
             $char = $value[$at];
-            if (isset($this->escapes[$path][$from + $at])) {
+            // C2-W-098: in a cell every pipe takes a backslash; that is its spelling, not an escape of the rounds.
+            if (isset($this->escapes[$path][$from + $at]) || ($inCell && $char === '|')) {
                 $out .= '\\';
             }
             // C2-W-097: a literal backslash is written as two before ASCII punctuation, a space or a line end, also where

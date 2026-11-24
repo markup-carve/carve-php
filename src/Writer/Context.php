@@ -87,6 +87,12 @@ final class Context
     public int $fragmentFrom = 0;
 
     /**
+     * C2-B-169: a bare run of the cell pairs with a run of a later cell, so each backtick that starts a run in its text
+     * takes the backslash of the backtick kind.
+     */
+    public bool $cellKind = false;
+
+    /**
      * C2-A-069: the content is one line of a line block, so every line ending in it ends the line.
      */
     public bool $inLineBlock = false;

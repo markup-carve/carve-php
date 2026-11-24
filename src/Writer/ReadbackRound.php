@@ -162,8 +162,14 @@ final class ReadbackRound
         }
         // C2-W-125 case five: an inline footnote is kept from forming by its bracket, not its caret. C2-W-090: so is
         // an image whose bracket is text; one whose bracket opens a node takes the backslash on its `!`.
-        $owner = RepairTrace::owner($text, $type === 'inline_footnote' || $type === 'image' ? $start + 1 : $start);
-        if ($owner === null && $type === 'image') {
+        // C2-W-090, C2-W-099: a literal or a math span takes the backslash on its backtick, behind its sigils.
+        $shift = match ($type) {
+            'inline_footnote', 'image', 'literal_inline' => 1,
+            'math' => ($node['display'] ?? false) === true ? 2 : 1,
+            default => 0,
+        };
+        $owner = RepairTrace::owner($text, $start + $shift);
+        if ($owner === null && $shift > 0) {
             $owner = RepairTrace::owner($text, $start);
         }
         if ($owner !== null) {

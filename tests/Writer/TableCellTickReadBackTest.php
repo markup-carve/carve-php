@@ -27,6 +27,16 @@ final class TableCellTickReadBackTest extends TestCase
             'last lone tick of the row stays bare' => ["| \\` | \\` | ` |\n", null],
             'tick that pairs with a later cell' => ["| \\`a | b ` |\n", null],
             'tick glued behind a code span' => ["| `x`\\` | y |\n", null],
+            'cell pipe is escaped in the bare candidate' => ["| `a|b`\\|!``` |\n", null],
+            'backtick kind of a cell behind a glued tick' => ["| \$\$`x`\\`a\\`b |\n", null],
+            'literal backslash before a tick inside the span' => ["| ab* | \\`\\\\\\`*{ |\n", null],
+            'no ask behind a code span that did not form' => ["| *\\``` ` ``{ | a`a|b` |\n", null],
+            'doubled backslash before a space is no seed escape' => [
+                "| !`x`{=html}a``` | \\\\  `ab | \\\\\\`\\` |\n| ^`] | \\`ab`x`{=html}``` | [/ |\n",
+                null,
+            ],
+            'sigil before a tick takes no backslash' => ["| `a`[b!\\`\\` | b\$`x`\$`x``a|b` |\n| !{\$\$`x` | |\n", null],
+            'every row pairs a run across a pipe' => ["| \\``b0 | ``b |\n| \\``b1 | ``b |\n", null],
         ];
     }
 

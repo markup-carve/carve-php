@@ -236,6 +236,11 @@ final class Text
     public static bool $cellTicks = false;
 
     /**
+     * Set where a cell took the backslashes of the backtick kind (`Context::$cellKind`).
+     */
+    public static bool $cellKinds = false;
+
+    /**
      * Starts the record of a top-level block group; returns the record of the groups before it.
      */
     public static function enterGroup(): bool
@@ -315,7 +320,7 @@ final class Text
     public static function escape(string $value, Context $c, int $next): string
     {
         if ($c->writerState?->repairTrace !== null) {
-            return $c->writerState->repairTrace->bareText($value, $c->textPath, $next, $c->fragmentFrom);
+            return $c->writerState->repairTrace->bareText($value, $c->textPath, $next, $c->fragmentFrom, $c->inCell);
         }
 
         return self::escapeText($value, $c, $next);
@@ -328,12 +333,17 @@ final class Text
             // A path without escapes is left out: its seed is empty, and a long paragraph has one per text node
             // (carve-php#5722).
             $escaped = array_filter($c->escapedAt);
+            $decided = array_diff_key($escaped, $c->gluedBraces);
+            if ($c->fragmentFrom > 0) {
+                // A later fragment of a continued cell adds its escapes, at their offsets in the text node.
+                $escaped = (self::$recorded[$c->textPath] ?? []) + self::shifted($escaped, $c->fragmentFrom);
+                $decided = (self::$recordedDecided[$c->textPath] ?? []) + self::shifted($decided, $c->fragmentFrom);
+            }
             unset(self::$recordedDecided[$c->textPath]);
             if ($escaped === []) {
                 unset(self::$recorded[$c->textPath]);
             } else {
                 self::$recorded[$c->textPath] = $escaped;
-                $decided = array_diff_key($escaped, $c->gluedBraces);
                 if ($decided !== []) {
                     self::$recordedDecided[$c->textPath] = $decided;
                 }
@@ -408,11 +418,31 @@ final class Text
         }
     }
 
+    /**
+     * @template T
+     *
+     * @param array<int, T> $offsets
+     * @param int $by
+     *
+     * @return array<int, T>
+     */
+    private static function shifted(array $offsets, int $by): array
+    {
+        $out = [];
+        foreach ($offsets as $at => $value) {
+            $out[$at + $by] = $value;
+        }
+
+        return $out;
+    }
+
     private static function escapedText(string $value, Context $c, int $next): string
     {
         $n = strlen($value);
         $c->escapeKinds = [];
         if ($n === 0) {
+            $c->escapedAt = [];
+
             return '';
         }
         if ((!$c->lineStart || ctype_alpha($value[0])) && strpbrk($value, self::PUNCT) === false) {
@@ -631,7 +661,7 @@ final class Text
 
         return [
             $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [],
-            $c->inCell && str_contains($value, '`') ? self::cellTicks() : self::tickEscapes($value, $c, $next, $marks),
+            $c->inCell && str_contains($value, '`') ? self::cellTicks($value, $c) : self::tickEscapes($value, $c, $next, $marks),
             $marks < 0 && $c->lineStart && $c->kinds !== [] ? self::lineOpenerAt($value, $c) : -1,
         ];
     }
@@ -727,19 +757,33 @@ final class Text
     }
 
     /**
-     * The cell backticks are left bare for the rounds; the conservative form escapes every one (C2-W-088).
+     * The cell backticks are left to the read-back, bare or with the backslashes of their kind where the row pairs a run
+     * of the cell across a pipe; the conservative form escapes every one (C2-W-088).
+     *
+     * @param string $value
+     * @param \MarkupCarve\Carve\Writer\Context $c
      *
      * @return array<int, true>|null
      */
-    private static function cellTicks(): ?array
+    private static function cellTicks(string $value, Context $c): ?array
     {
         if (self::$conservative) {
             return null;
         }
         self::$undecided = true;
         self::$cellTicks = true;
+        if (!$c->cellKind) {
+            return [];
+        }
+        self::$cellKinds = true;
+        $offsets = [];
+        for ($at = strpos($value, '`'); $at !== false; $at = strpos($value, '`', $at + 1)) {
+            if ($at === 0 || $value[$at - 1] !== '`') {
+                $offsets[$at] = true;
+            }
+        }
 
-        return [];
+        return $offsets;
     }
 
     /**

@@ -421,6 +421,14 @@ final class Writer
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
         $cellTicks = self::$cellTicks;
+        // C2-W-088: the backslashes a row's pairing across a pipe gives were placed as the first round places them;
+        // where that form reads back, the procedure ends there.
+        if (self::$cellKinds && $result->diagnostics === []) {
+            $print = self::trimmedPrint($tree, $layout, $options);
+            if (self::readsBack($result->source, $print, $options)) {
+                return self::withPrunedNoteCarets($result, $print, $options, $parsed);
+            }
+        }
         // A local bracket decision is no reported kind when the write without it already reads back as the tree.
         // Check only leaves whose local spelling actually contains an escaped bracket.
         if (
@@ -1576,6 +1584,11 @@ final class Writer
     private static bool $cellTicks = false;
 
     /**
+     * Whether the last local write gave a cell the backslashes of the backtick kind (`Text::$cellKinds`).
+     */
+    private static bool $cellKinds = false;
+
+    /**
      * The local write and the escapes it placed, by text path; with `$conservative` every bracket the plan cannot
      * decide takes its backslash.
      *
@@ -1599,11 +1612,13 @@ final class Writer
         Text::$recordedDecided = [];
         Text::$undecided = false;
         Text::$cellTicks = false;
+        Text::$cellKinds = false;
         Text::$conservative = $conservative;
         Text::$bareSigils = $bareSigils;
         try {
             $result = self::writeInternal($tree, $layout, $options, null);
             self::$cellTicks = Text::$cellTicks;
+            self::$cellKinds = Text::$cellKinds;
 
             return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided];
         } finally {
