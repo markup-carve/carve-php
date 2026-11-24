@@ -331,6 +331,11 @@ final class Context
     public ?array $brackets = null;
 
     /**
+     * @var array{string, array<int, bool>}|null The flat leaf, and whether a `]` may pair each of its `[` (C2-I-094).
+     */
+    public ?array $extensionCloses = null;
+
+    /**
      * @var array<string, true> The keys of the document's link definitions (C2-W-094).
      */
     public array $labels = [];

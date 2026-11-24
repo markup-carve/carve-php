@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Test\Support\Linearity;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -26,6 +27,8 @@ final class ExtensionColonPairTest extends TestCase
             'closed extension text keeps its colon escape' => ["\\%%\n\\:a[b]\n", "\\%%\n\\:a[b]\n"],
             'nested pair leaves the outer bracket open' => ["\\%%\n:a[x[y]\n", "\\%%\n:a[x[y]\n"],
             'bracket inside a code span closes nothing' => ["\\%%\n:a[`]`\n", "\\%%\n:a[`]`\n"],
+            'attributed node holds no closer' => ["\\%%\n:a[foo *bar*{#x}\n", "\\%%\n:a[foo *bar*{#x}\n"],
+            'closer inside an attributed node' => ["\\%%\n\\:a[foo *b]r*{#x}\n", "\\%%\n\\:a[foo *b]r*{#x}\n"],
             'bracket behind underscores still closes' => ["\\%%\n\\:a[_x_]\n", "\\%%\n\\:a[\\_x_]\n"],
         ];
     }
@@ -38,6 +41,19 @@ final class ExtensionColonPairTest extends TestCase
         $this->assertSame([], $result->codes());
         $this->assertSame(self::tree($source), self::tree($result->source));
         $this->assertSame($expected, Carve::format($expected));
+    }
+
+    public function testARunOfUnclosedExtensionsScalesLinearly(): void
+    {
+        $small = "\\%%\n" . str_repeat(':a[', 2000) . "\n";
+        $large = "\\%%\n" . str_repeat(':a[', 16000) . "\n";
+        $excess = Linearity::excess(
+            static fn () => Writer::formatWithDiagnostics($small),
+            static fn () => Writer::formatWithDiagnostics($large),
+            8,
+            2,
+        );
+        $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
     }
 
     /**
