@@ -1934,14 +1934,18 @@ final class Inline
             }
             $piece = substr($value, $from, max(0, $point - 1 - $from));
             $c->here = $at >= 0 ? $at + $from : -1;
+            $c->fragmentFrom = $from;
             // C2-W-146: each fragment is a content of its own (C2-B-223) and takes the pair escapes too.
             $out .= Text::escapePairs($piece, $c, 10) . "\n";
             $c->last = 10;
             $from = $point;
         }
         $c->here = $at >= 0 ? $at + $from : -1;
+        $c->fragmentFrom = $from;
+        $out .= Text::escapePairs(substr($value, $from), $c, $next);
+        $c->fragmentFrom = 0;
 
-        return $out . Text::escapePairs(substr($value, $from), $c, $next);
+        return $out;
     }
 
     /**
@@ -1974,6 +1978,35 @@ final class Inline
             && strspn($value, " \t") > 0 && (trim($value, " \t") !== '' || ($next !== 10 && $next !== -1))
         ) {
             $this->w->lose($c->textPath, 'text', 'value');
+        }
+    }
+
+    /**
+     * C2-I-015, C2-W-125 case six: a text that starts with a backtick right behind a code, literal or math span without
+     * attributes would lengthen that span's closing run.
+     *
+     * @param string $value
+     * @param mixed $before
+     */
+    public static function gluesTick(string $value, mixed $before): bool
+    {
+        return ($value[0] ?? '') === '`' && is_array($before) && !isset($before['attrs'])
+            && in_array($before['type'] ?? '', ['code', 'literal_inline', 'math'], true);
+    }
+
+    /**
+     * C2-W-125 case six: the glued backtick takes its backslash in every write of the rounds, their trials too
+     * (carve-js `escapeGluedBacktick`).
+     *
+     * @param string $prefix
+     * @param string $value
+     * @param mixed $before
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     */
+    private static function traceGluedTick(string $prefix, string $value, mixed $before, Context $c): void
+    {
+        if ($prefix === '' && self::gluesTick($value, $before)) {
+            $c->writerState?->repairTrace?->escapeAt($c->textPath, 0);
         }
     }
 
@@ -2026,6 +2059,7 @@ final class Inline
             $c->last = 0x28;
         }
 
+        self::traceGluedTick($prefix, $value, $before, $c);
         $this->textPrefix = strlen($prefix);
         $this->textValue = $value;
 

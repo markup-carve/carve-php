@@ -82,10 +82,15 @@ final class Context
     public bool $inCell = false;
 
     /**
-     * Whether a cell keeps a backslash on every backtick: a bare run of its row would pair across a pipe (C2-B-169),
-     * or it continues on continuation rows, whose bounds the tick plan of the leaf does not see (C2-B-184).
+     * Where the text being written starts in its text node: a fragment of a continued cell starts behind the wrap.
      */
-    public bool $cellWrapped = false;
+    public int $fragmentFrom = 0;
+
+    /**
+     * C2-B-169: a bare run of the cell pairs with a run of a later cell, so each backtick that starts a run in its text
+     * takes the backslash of the backtick kind.
+     */
+    public bool $cellKind = false;
 
     /**
      * C2-A-069: the content is one line of a line block, so every line ending in it ends the line.

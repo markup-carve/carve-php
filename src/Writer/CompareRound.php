@@ -38,6 +38,11 @@ final class CompareRound
     private array $firsts = [];
 
     /**
+     * @var array<string, array<int, true>> The asks of `matchPlain()`: a character the parse reads otherwise than the text.
+     */
+    private array $differs = [];
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -47,6 +52,7 @@ final class CompareRound
 
     /**
      * @param-out array<string, array<int, true>> $firsts
+     * @param-out array<string, array<int, true>> $differs
      *
      * @param array<mixed> $expected
      * @param array<mixed> $actual
@@ -55,6 +61,8 @@ final class CompareRound
      * @param string|null $probed
      * @param array<string, array<int, true>>|null $firsts Set to the asks for the first character of a node that did
      *   not form.
+     * @param array<string, array<int, true>> $differs Set to the escapes of characters the read-back spelled
+     *   otherwise, which the round adds as reported kinds.
      *
      * @return array<string, array<int, true>>
      */
@@ -65,6 +73,7 @@ final class CompareRound
         array $candidate = [],
         ?string $probed = null,
         ?array &$firsts = null,
+        array &$differs = [],
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
@@ -76,6 +85,7 @@ final class CompareRound
         }
         $comparison->children($expected, $actual, '', '');
         $firsts = $comparison->firsts;
+        $differs = $comparison->differs;
 
         return $comparison->asks;
     }
@@ -105,7 +115,7 @@ final class CompareRound
             $nodePath = $path . '/children/' . $i;
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $more = $type === 'text'
-                ? $this->matchText($node, $have, $nodePath, $owner, $i, $j, $vi, $aj, $i + 1 === $count ? $path : null)
+                ? $this->matchText($node, $have, $nodePath, $owner, $i, $j, $vi, $aj, $i + 1 === $count ? $path : null, $want)
                 : $this->matchNode($node, $have, $nodePath, $type, $i, $j, $aj, $want, $path);
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
                 return;
@@ -294,6 +304,7 @@ final class CompareRound
      * @param int $i
      * @param string $owner
      * @param string $path
+     * @param array<mixed> $want The expected siblings.
      */
     private function matchText(
         array $node,
@@ -305,6 +316,7 @@ final class CompareRound
         int &$vi,
         int &$aj,
         ?string $last = null,
+        array $want = [],
     ): bool {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
         $other = $have[$j] ?? null;
@@ -323,7 +335,10 @@ final class CompareRound
             return $this->matchConstruct($value, $other, $path, $i, $j, $vi);
         }
 
-        return $this->matchPlain($value, $other, $path, $i, $j, $vi, $aj, $last, $owner);
+        $after = $want[$i + 1] ?? null;
+        $textNext = is_array($after) && ($after['type'] ?? '') === 'text';
+
+        return $this->matchPlain($value, $other, $path, $i, $j, $vi, $aj, $last, $owner, $textNext);
     }
 
     /**
@@ -341,6 +356,7 @@ final class CompareRound
             $at += 2;
         }
         $this->ask($path, $at);
+        $this->constructOpener($value, $other, $path, $at);
         $pos = TreeEncoder::offsets($other['pos'] ?? null);
         if ($pos === null) {
             return false;
@@ -361,6 +377,33 @@ final class CompareRound
     }
 
     /**
+     * C2-W-088, C2-W-090: the opener of a construct the parse read where the tree has text is reported in its round,
+     * at the character that takes the backslash (carve-js `escapeOpener`). A note opener and a smart quote are left
+     * to the later rounds, as before.
+     *
+     * @param string $value
+     * @param array<mixed> $other
+     * @param string $path
+     * @param int $at
+     */
+    private function constructOpener(string $value, array $other, string $path, int $at): void
+    {
+        $type = $other['type'] ?? '';
+        if ($type === 'inline_footnote' || $type === 'smart_punctuation') {
+            return;
+        }
+        $at += strspn($value, " \t", $at);
+        $at += match ($type) {
+            'image', 'literal_inline' => 1,
+            'math' => ($other['display'] ?? false) === true ? 2 : 1,
+            default => 0,
+        };
+        if (isset($value[$at]) && Text::isPunct($value[$at]) && !isset($this->escapes[$path][$at])) {
+            $this->differs[$path][$at] = true;
+        }
+    }
+
+    /**
      * @param string $value
      * @param array<mixed> $other
      * @param int $aj
@@ -370,6 +413,7 @@ final class CompareRound
      * @param int $j
      * @param int $i
      * @param string $path
+     * @param bool $textNext
      */
     private function matchPlain(
         string $value,
@@ -381,12 +425,16 @@ final class CompareRound
         int &$aj,
         ?string $last = null,
         string $owner = '',
+        bool $textNext = false,
     ): bool {
         $otherValue = is_string($other['value'] ?? null) ? $other['value'] : '';
         $limit = min(strlen($value) - $vi, strlen($otherValue) - $aj);
         for ($k = 0; $k < $limit; $k++) {
             if ($value[$vi + $k] !== $otherValue[$aj + $k]) {
                 $this->ask($path, $vi + $k);
+                if (isset($this->asks[$path][$vi + $k])) {
+                    $this->differs[$path][$vi + $k] = true;
+                }
 
                 return false;
             }
@@ -402,6 +450,11 @@ final class CompareRound
             $vi = 0;
             if ($aj > 0 && $last !== null) {
                 $this->contentEnd($last, $owner);
+            }
+            if ($aj > 0 && $last === null && !$textNext) {
+                // The parse holds more text where the next node was written: that node did not form, and the list is
+                // compared again from where the parse and the writing meet (carve-js `afterTextNode`).
+                return false;
             }
             if ($aj > 0) {
                 $j++;
@@ -421,10 +474,10 @@ final class CompareRound
     {
         $node = $this->textAt($path);
         $mark = self::closer($type);
-        if ($node === null || $mark === '') {
+        if ($node === null) {
             return;
         }
-        if ($this->askMark($node, $path, $mark) || ($mark === ']' && $this->askMark($node, $path, '['))) {
+        if ($mark !== '' && ($this->askMark($node, $path, $mark) || ($mark === ']' && $this->askMark($node, $path, '[')))) {
             return;
         }
         $last = self::lastText($node, $path);
@@ -434,11 +487,13 @@ final class CompareRound
         [$textPath, $value] = $last;
         $length = strlen($value);
         if ($length > 0 && str_contains('\\!^$`', $value[$length - 1]) && $this->tryAsk($textPath, $length - 1)) {
+            $this->differs[$textPath][$length - 1] = true;
+
             return;
         }
         $brace = strrpos($value, '{');
-        if ($brace !== false) {
-            $this->tryAsk($textPath, $brace);
+        if ($brace !== false && $this->tryAsk($textPath, $brace)) {
+            $this->differs[$textPath][$brace] = true;
         }
     }
 
@@ -504,11 +559,44 @@ final class CompareRound
         $node = $this->textAt($path);
         $value = is_array($node) && is_string($node['value'] ?? null) ? $node['value'] : '';
         if (
-            isset($value[$offset]) && Text::isPunct($value[$offset])
+            isset($value[$offset]) && Text::isPunct($value[$offset]) && !self::doubled($value, $offset)
             && !isset($this->escapes[$path][$offset]) && !isset($this->asks[$path][$offset])
         ) {
             $this->asks[$path][$offset] = true;
         }
+    }
+
+    /**
+     * C2-W-097: a literal backslash the bare write doubles, before punctuation, a space, a line end or the markup of the
+     * next node; a backslash asked for there changes nothing (carve-js `escaped`).
+     */
+    private static function doubled(string $value, int $at): bool
+    {
+        if ($value[$at] !== '\\') {
+            return false;
+        }
+        $next = $value[$at + 1] ?? '';
+
+        return $next === '' || $next === ' ' || $next === "\n" || Text::isPunct($next);
+    }
+
+    /**
+     * Whether the node at `$path` stands in a table cell.
+     */
+    private function inCell(string $path): bool
+    {
+        $node = $this->root;
+        foreach (explode('/', trim($path, '/')) as $part) {
+            if (!is_array($node[$part] ?? null)) {
+                return false;
+            }
+            $node = $node[$part];
+            if (($node['type'] ?? '') === 'table_cell') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -527,12 +615,21 @@ final class CompareRound
         return $node;
     }
 
+    /**
+     * Where the text at `$from` ends after `$bytes` of its written form: the bare write doubles a backslash before
+     * punctuation or a space (C2-W-097) and escapes a pipe in a cell (C2-W-098), as carve-js `spelledEnd` counts.
+     */
     private function spelledEnd(string $value, string $path, int $from, int $bytes): ?int
     {
         $at = $from;
         $length = strlen($value);
+        $cell = null;
         while ($bytes > 0 && $at < $length) {
-            $bytes -= 1 + (isset($this->escapes[$path][$at]) ? 1 : 0);
+            $char = $value[$at];
+            $always = $char === '\\'
+                ? $at + 1 < $length && ($value[$at + 1] === ' ' || $value[$at + 1] === "\n" || Text::isPunct($value[$at + 1]))
+                : $char === '|' && ($cell ??= $this->inCell($path));
+            $bytes -= 1 + (isset($this->escapes[$path][$at]) || $always ? 1 : 0);
             $at++;
         }
 

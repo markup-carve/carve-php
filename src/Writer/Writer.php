@@ -420,6 +420,15 @@ final class Writer
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
+        $cellTicks = self::$cellTicks;
+        // C2-W-088: the backslashes a row's pairing across a pipe gives were placed as the first round places them;
+        // where that form reads back, the procedure ends there.
+        if (self::$cellKinds && $result->diagnostics === []) {
+            $print = self::trimmedPrint($tree, $layout, $options);
+            if (self::readsBack($result->source, $print, $options)) {
+                return self::withPrunedNoteCarets($result, $print, $options, $parsed);
+            }
+        }
         // A local bracket decision is no reported kind when the write without it already reads back as the tree.
         // Check only leaves whose local spelling actually contains an escaped bracket.
         if (
@@ -461,7 +470,8 @@ final class Writer
                 $reported = ReadbackRound::compare($marked, $readBare, $tree, $wanted, false)['openers'];
                 $expanded = RepairPlanner::expandedKindEscapes($tree, $reported, $localEscapes);
                 $unsettledByKind = $expanded !== $localEscapes;
-                if ($unsettledByKind) {
+                // Cell backticks take the backslashes of their whole kind in the rounds, not the reported opener alone.
+                if ($unsettledByKind && !$cellTicks) {
                     $byKind = self::bareSource($tree, $layout, $options, $expanded);
                     if (Text::treePairOpeners($tree, $expanded) === [] && self::readsBack($byKind, $wanted, $options)) {
                         return new WriteResult($byKind, []);
@@ -550,7 +560,7 @@ final class Writer
             }
             // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
             // span of a text `^[` keeps ordinary open; the rounds place the backslash on its early closer instead.
-            if (!RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
+            if (!$cellTicks && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
                 [$result, $localEscapes] = self::conservativeWrite($original, $originalLayout, $options, $treePrint);
                 $fallback = self::conservativeFallback($result, $risk);
                 if (self::conservativeTaken($result, $fallback, $treePrint, $options)) {
@@ -558,12 +568,13 @@ final class Writer
                 }
             }
         }
-        if ($read === null) {
-            $bareSource = self::bareSource($tree, $layout, $options, []);
+        $glued = RepairPlanner::gluedTicks($tree);
+        if ($read === null || $glued !== []) {
+            $bareSource = self::bareSource($tree, $layout, $options, $glued);
             $read = ReadbackRound::read($bareSource, $options);
             [$readPrint, $readParts] = RepairPlanner::readPrints($read);
         }
-        $seed = [];
+        $seed = $glued;
         $planner = null;
         if ($readPrint === $treePrint) {
             unset($read);
@@ -572,11 +583,14 @@ final class Writer
             }
             // C2-W-091: the escapes of the local write can change how the text reads, as an escaped bracket that no
             // longer counts toward the depth limit of C2-I-118. The rounds go on from the local form.
-            $seed = $removed === [] ? ($localEscapes ?? self::localWrite($original, $originalLayout, $options, false)[1]) : [];
+            $local = $removed === [] ? ($localEscapes ?? self::localWrite($original, $originalLayout, $options, false)[1]) : [];
+            foreach ($local as $path => $offsets) {
+                $seed[$path] = ($seed[$path] ?? []) + $offsets;
+            }
         } else {
             // The first round would write and read this same candidate again.
-            $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
-            $planner = new RepairPlanner($tree, $layout, $options, [], $treePrint);
+            $bare = self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
+            $planner = new RepairPlanner($tree, $layout, $options, $glued, $treePrint);
             $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false), $readParts);
             unset($bare, $read);
         }
@@ -584,6 +598,12 @@ final class Writer
         $repaired = $planner->repair();
 
         if ($repaired === null) {
+            if ($cellTicks && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
+                // The local write left the cell backticks to the rounds, so the conservative form stands where they stop.
+                $result = self::conservativeWrite($original, $originalLayout, $options, $treePrint)[0];
+                $fallback = self::conservativeFallback($result, $risk);
+            }
+
             return self::unrepairedOr($fallback, $tree, $result, $options);
         }
 
@@ -1560,6 +1580,16 @@ final class Writer
     }
 
     /**
+     * Whether the last local write left a cell backtick to the rounds (`Text::$cellTicks`).
+     */
+    private static bool $cellTicks = false;
+
+    /**
+     * Whether the last local write gave a cell the backslashes of the backtick kind (`Text::$cellKinds`).
+     */
+    private static bool $cellKinds = false;
+
+    /**
      * The local write and the escapes it placed, by text path; with `$conservative` every bracket the plan cannot
      * decide takes its backslash.
      *
@@ -1582,10 +1612,14 @@ final class Writer
         Text::$recorded = [];
         Text::$recordedDecided = [];
         Text::$undecided = false;
+        Text::$cellTicks = false;
+        Text::$cellKinds = false;
         Text::$conservative = $conservative;
         Text::$bareSigils = $bareSigils;
         try {
             $result = self::writeInternal($tree, $layout, $options, null);
+            self::$cellTicks = Text::$cellTicks;
+            self::$cellKinds = Text::$cellKinds;
 
             return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided];
         } finally {
