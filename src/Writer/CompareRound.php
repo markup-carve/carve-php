@@ -13,6 +13,13 @@ use MarkupCarve\Carve\Json\TreeEncoder;
 final class CompareRound
 {
     /**
+     * The marks of braced openers (C2-I-055), as carve-js `BRACED_MARKS`.
+     *
+     * @var string
+     */
+    private const BRACED_MARKS = '*+,-/=^_~';
+
+    /**
      * @var array<string, array<int, true>>
      */
     private array $asks = [];
@@ -345,7 +352,7 @@ final class CompareRound
             return false;
         }
         if (($other['type'] ?? '') !== 'text') {
-            return $this->matchConstruct($value, $other, $path, $i, $j, $vi);
+            return $this->matchConstruct($value, $other, $path, $i, $j, $vi, $last !== null ? $owner : '');
         }
 
         $after = $want[$i + 1] ?? null;
@@ -361,15 +368,23 @@ final class CompareRound
      * @param int $j
      * @param int $i
      * @param string $path
+     * @param string $owner The type of the node whose content ends with this text, or ''.
      */
-    private function matchConstruct(string $value, array $other, string $path, int &$i, int &$j, int &$vi): bool
+    private function matchConstruct(string $value, array $other, string $path, int &$i, int &$j, int &$vi, string $owner = ''): bool
     {
         $at = $vi;
         if (($value[$at] ?? '') === '{' && ($other['type'] ?? '') === 'smart_punctuation') {
             $at += 2;
         }
         $this->ask($path, $at);
-        $this->constructOpener($value, $other, $path, $at);
+        // C2-W-125, case one: the content's last brace reads with the owner's closing mark as a braced opener, so the
+        // owner reads on; that repairs the tree's own node and gives no kind (C2-W-088).
+        $mark = self::closer($owner);
+        if ($mark === '' || $mark === ']' || $at !== strlen($value) - 1 || $value[$at] !== '{') {
+            $this->constructOpener($value, $other, $path, $at);
+        } elseif (isset($this->asks[$path][$at])) {
+            $this->cut = true;
+        }
         $pos = TreeEncoder::offsets($other['pos'] ?? null);
         if ($pos === null) {
             return false;
@@ -490,6 +505,13 @@ final class CompareRound
         if ($node === null) {
             return;
         }
+        // C2-W-125, case one: a brace of the content that reads as a braced opener with the mark behind it reads on.
+        // The span is the tree's own node (C2-W-088), so the backslash gives no kind, and the parse behind it asks nothing.
+        if ($mark !== '' && $mark !== ']' && $this->askOpeningBrace($node, $path, $mark)) {
+            $this->cut = true;
+
+            return;
+        }
         if ($mark !== '' && ($this->askMark($node, $path, $mark) || ($mark === ']' && $this->askMark($node, $path, '[')))) {
             return;
         }
@@ -508,6 +530,36 @@ final class CompareRound
         if ($brace !== false && $this->tryAsk($textPath, $brace)) {
             $this->differs[$textPath][$brace] = true;
         }
+    }
+
+    /**
+     * The last brace of the content's last text that reads as a braced opener, with its mark behind it (carve-js
+     * `escapeOpeningBrace`).
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $mark
+     */
+    private function askOpeningBrace(array $node, string $path, string $mark): bool
+    {
+        $last = self::lastText($node, $path);
+        if ($last === null) {
+            return false;
+        }
+        [$textPath, $value] = $last;
+        $at = strrpos($value, '{');
+        while ($at !== false) {
+            $next = $value[$at + 1] ?? $mark;
+            if (str_contains(self::BRACED_MARKS, $next) && !isset($this->escapes[$textPath][$at])) {
+                return $this->tryAsk($textPath, $at);
+            }
+            if ($at === 0) {
+                break;
+            }
+            $at = strrpos($value, '{', $at - strlen($value) - 1);
+        }
+
+        return false;
     }
 
     /**

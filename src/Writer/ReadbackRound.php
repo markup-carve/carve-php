@@ -15,6 +15,15 @@ use MarkupCarve\Carve\Json\TreeEquality;
 final class ReadbackRound
 {
     /**
+     * The inline nodes that close with a mark, not a bracket.
+     *
+     * @var array<int, string>
+     */
+    private const CLOSING_MARK_NODES = [
+        'superscript', 'subscript', 'emphasis', 'strong', 'underline', 'strike', 'highlight', 'insert', 'delete',
+    ];
+
+    /**
      * The source bytes the read-back memo keeps. A longer source is kept only where the caller reads it again, and
      * only the last one, so a long document holds at most one tree beside the writer's (carve#6413).
      *
@@ -169,7 +178,7 @@ final class ReadbackRound
     ): array {
         $actual = [];
         $openers = [];
-        self::readNodes($read, $candidate, $actual, $openers);
+        self::readNodes($read, $candidate, $actual, $openers, $expected);
         $moved = [];
         foreach ($candidate['nodes'] as [$path, $type, $start, $end]) {
             $readEnd = $actual[$type . "\0" . $start] ?? null;
@@ -191,8 +200,9 @@ final class ReadbackRound
      * @param array{text: array<int, int>, paths: array<int, string>} $text
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
+     * @param array<string, mixed> $expected
      */
-    private static function readNodes(array $root, array $text, array &$actual, array &$openers): void
+    private static function readNodes(array $root, array $text, array &$actual, array &$openers, array $expected): void
     {
         $pending = [$root];
         while ($pending !== []) {
@@ -200,7 +210,7 @@ final class ReadbackRound
             if (!is_array($node)) {
                 continue;
             }
-            $unexpected = self::noteNode($node, $text, $actual, $openers);
+            $unexpected = self::noteNode($node, $text, $actual, $openers, $expected);
             if ($unexpected && !in_array($node['type'] ?? '', ['div', 'admonition', 'block_quote', 'list', 'list_item'], true)) {
                 // An inline construct consumes its source. A block container still exposes its nested
                 // openers to the same kind round.
@@ -220,8 +230,9 @@ final class ReadbackRound
      * @param array{text: array<int, int>, paths: array<int, string>} $text
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
+     * @param array<string, mixed> $expected
      */
-    private static function noteNode(array $node, array $text, array &$actual, array &$openers): bool
+    private static function noteNode(array $node, array $text, array &$actual, array &$openers, array $expected): bool
     {
         $pos = TreeEncoder::offsets($node['pos'] ?? null);
         if ($pos === null) {
@@ -240,12 +251,46 @@ final class ReadbackRound
         }
         if ($owner !== null) {
             [$path, $offset] = $owner;
-            $openers[$path][$offset] = true;
+            if (!self::readsIntoCloser($expected, $path, $offset)) {
+                $openers[$path][$offset] = true;
+            }
 
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * C2-W-125, case one, C2-W-088: the brace that ends the content of a braced node reads with the node's closing mark
+     * as a braced opener, so the node reads on. That is a repair of the tree's own node, which reports no kind.
+     *
+     * @param array<string, mixed> $tree
+     * @param string $path
+     * @param int $offset
+     */
+    private static function readsIntoCloser(array $tree, string $path, int $offset): bool
+    {
+        $cut = strrpos($path, '/children/');
+        if ($cut === false) {
+            return false;
+        }
+        $owner = $tree;
+        foreach (explode('/', trim(substr($path, 0, $cut), '/')) as $key) {
+            if ($key === '') {
+                continue;
+            }
+            $owner = is_array($owner) ? ($owner[ctype_digit($key) ? (int)$key : $key] ?? null) : null;
+        }
+        if (!is_array($owner) || !in_array($owner['type'] ?? '', self::CLOSING_MARK_NODES, true)) {
+            return false;
+        }
+        $children = is_array($owner['children'] ?? null) ? $owner['children'] : [];
+        $index = (int)substr($path, $cut + 10);
+        $text = $children[$index] ?? null;
+        $value = is_array($text) && ($text['type'] ?? '') === 'text' && is_string($text['value'] ?? null) ? $text['value'] : '';
+
+        return $index === count($children) - 1 && $offset === strlen($value) - 1 && $value[$offset] === '{';
     }
 
     /**

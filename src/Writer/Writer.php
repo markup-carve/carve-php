@@ -592,8 +592,13 @@ final class Writer
         unset($firstBare);
         if ($read !== null && $readPrint !== $treePrint) {
             $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
-            $reported = ReadbackRound::compare($bare, $read, $tree, $treePrint, false)['openers'];
+            $bareCompared = ReadbackRound::compare($bare, $read, $tree, $treePrint, false);
+            $reported = $bareCompared['openers'];
             $needsKindRound = RepairPlanner::expandedKindEscapes($tree, $reported, $localEscapes) !== $localEscapes;
+            // C2-W-088, C2-W-125: a span the parse reads on a node's own opener with another extent is that node, which
+            // reports nothing; the rounds repair it, not the local heuristics.
+            $needsKindRound = $needsKindRound || ($reported === [] && $bareCompared['moved'] !== []);
+            unset($bareCompared);
         }
         if (!$needsKindRound && self::takesLocalForm($unchecked, $undecided, $localDecided)) {
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
