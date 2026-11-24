@@ -902,6 +902,9 @@ final class DataModel
     private function buildNodes(bool $needBounds): void
     {
         $c = $this->context;
+        // Without colon containers only fillPathsOnly() reads the spans, and a block there only names a line
+        // without a path that starts at or before the block's end, with its text at or after the block's start.
+        $pathless = $needBounds && !str_contains($c->source, ':::') ? $this->pathlessLines() : null;
         foreach ($this->blockWalked as $item) {
             $lastLine = null;
             $openerText = null;
@@ -942,7 +945,7 @@ final class DataModel
                 && !in_array($type, ['div', 'directive', 'admonition', 'figure_group', 'line_block'], true)
             ) {
                 // All blocks still contribute their source spans to line ownership, even when no rule can read a record.
-                if ($needBounds) {
+                if ($needBounds && ($pathless === null || self::coversPathless($pathless, $start, $end))) {
                     $this->blocks[] = new BlockBounds($type, $item->path, $start, $end, $start);
                 }
 
@@ -978,7 +981,7 @@ final class DataModel
             }
             $itemOwnerType = $c->nodeTypes[$itemPath] ?? 'document';
             if (!(($this->acceptBlock)($type, $parentType, $itemOwnerType, $node, $start, $end, $item->index))) {
-                if ($needBounds) {
+                if ($needBounds && ($pathless === null || self::coversPathless($pathless, $start, $end))) {
                     $this->blocks[] = new BlockBounds(...$bounds);
                 }
 
@@ -1033,15 +1036,57 @@ final class DataModel
                 $record->nodeSource = $node;
             }
             // A record the rules keep carries the same span fields, so it is its own bounds entry.
-            if (($this->onBlock)($record)) {
-                if ($needBounds) {
-                    $this->blocks[] = $record;
-                }
-            } elseif ($needBounds) {
-                $this->blocks[] = new BlockBounds(...$bounds);
+            $kept = ($this->onBlock)($record);
+            if ($needBounds && ($pathless === null || self::coversPathless($pathless, $start, $end))) {
+                $this->blocks[] = $kept ? $record : new BlockBounds(...$bounds);
             }
         }
         $this->blockWalked = [];
+    }
+
+    /**
+     * The text starts of the lines, and for each line the start of the first line from there on that has no path.
+     *
+     * @return array{0: array<int, mixed>, 1: array<int, mixed>}
+     */
+    private function pathlessLines(): array
+    {
+        $bodyStarts = [];
+        foreach ($this->lines as $line) {
+            $bodyStarts[] = $line->body_start;
+        }
+        $next = array_fill(0, count($this->lines), PHP_INT_MAX);
+        $following = PHP_INT_MAX;
+        for ($i = count($this->lines) - 1; $i >= 0; $i--) {
+            if ($this->lines[$i]->path === '') {
+                $following = $this->lines[$i]->start;
+            }
+            $next[$i] = $following;
+        }
+
+        return [$bodyStarts, $next];
+    }
+
+    /**
+     * @param array{0: array<int, mixed>, 1: array<int, mixed>} $pathless
+     * @param int $start
+     * @param int $end
+     */
+    private static function coversPathless(array $pathless, int $start, int $end): bool
+    {
+        [$bodyStarts, $next] = $pathless;
+        $low = 0;
+        $high = count($bodyStarts);
+        while ($low < $high) {
+            $mid = ($low + $high) >> 1;
+            if ($bodyStarts[$mid] < $start) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+
+        return ($next[$low] ?? PHP_INT_MAX) <= $end;
     }
 
     /**
