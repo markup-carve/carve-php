@@ -257,8 +257,9 @@ final class Context
     public string $textPath = '';
 
     /**
-     * @var array<string, array{0: string, 1: bool, 2: bool}> The text children of braced and paired spans, by path: the
-     * mark of the span, and whether a sibling node stands behind and before the text.
+     * @var array<string, array{0: string, 1: bool, 2: bool, 3: bool, 4: int}> The text children of braced and paired
+     * spans, by path: the mark of the span, whether a sibling node stands behind and before the text, whether the span
+     * is written braced whatever its escapes, and the character behind its bare closer.
      */
     public array $spanTexts = [];
 

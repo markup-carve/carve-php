@@ -1940,9 +1940,11 @@ final class Text
         $marks = '_~=+-^,#%';
         // C2-I-057, C2-W-125 case one: glued before the span's own closer, the opener takes that closer and holds
         // nothing, so the span does not form.
-        $glued = $rest === '{' . $next && $next === $span[0] && ($i === 0 || $value[$i - 1] !== $next);
-        if ($glued && $next !== '%' && str_contains($marks, $next)) {
-            return true;
+        if ($rest === '{' . $next && $next === $span[0]) {
+            $paired = $next === '*' || $next === '/';
+            if ($paired ? $span[3] : $next !== '%' && ($i === 0 || $value[$i - 1] !== $next)) {
+                return true;
+            }
         }
         if ($next !== '' && str_contains($marks, $next) && !str_contains(substr($probe, $next === '%' ? 2 : 3), $next . '}')) {
             return false;
@@ -1957,7 +1959,8 @@ final class Text
         }
         // C2-I-043, C2-I-051, C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind at least one
         // character in the span opens nothing: the span's closer drops it, so C2-W-088 places no backslash there.
-        if (($next === '*' || $next === '/') && self::lastCloser($probe, $next) < 3) {
+        $closerProbe = $span[3] || $span[4] === 0x7D ? $probe : $rest . $span[0];
+        if (($next === '*' || $next === '/') && self::lastCloser($closerProbe, $next) < 3) {
             return false;
         }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {

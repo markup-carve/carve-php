@@ -2152,7 +2152,8 @@ final class Inline
         $spanTexts = $c->spanTexts;
         // Only the escape decisions read the facts, and a traced write spells its texts bare.
         if ($c->writerState?->repairTrace === null) {
-            self::noteSpanTexts($children, $path . '/children', $mark, $c);
+            $braced = isset($open[$type]) || self::bracedAlways($node, $prev, $next);
+            self::noteSpanTexts($children, $path . '/children', $mark, $c, $braced, $next);
         }
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
         $c->spanTexts = $spanTexts;
@@ -2180,15 +2181,23 @@ final class Inline
      * @param string $path
      * @param string $mark
      * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param bool $braced Whether the span is written braced whatever its escapes.
+     * @param int $next The character behind the span's bare closer.
      *
      * @return void
      */
-    private static function noteSpanTexts(array $children, string $path, string $mark, Context $c): void
-    {
+    private static function noteSpanTexts(
+        array $children,
+        string $path,
+        string $mark,
+        Context $c,
+        bool $braced = true,
+        int $next = 0x7D,
+    ): void {
         $last = count($children) - 1;
         foreach ($children as $k => $child) {
             if (is_array($child) && ($child['type'] ?? '') === 'text') {
-                $c->spanTexts[$path . '/' . $k] = [$mark, $k < $last, $k > 0];
+                $c->spanTexts[$path . '/' . $k] = [$mark, $k < $last, $k > 0, $braced, $next];
             }
         }
     }
@@ -2223,15 +2232,16 @@ final class Inline
 
     /**
      * C2-W-069, C2-W-070: whether an emphasis or strong `$node` behind the character `$before` takes its braced form
-     * whatever its texts are escaped to: behind a word character or its own mark, with content that starts or ends with
+     * whatever its texts are escaped to: beside a word character or its own mark, with content that starts or ends with
      * its mark, a space or a joining mark, or that holds its own kind or its mark where it pairs.
      *
      * @param array<mixed> $node
      * @param int $before
+     * @param int $after The character behind the node, or -1 where it is not known.
      *
      * @return bool
      */
-    public static function bracedAlways(array $node, int $before): bool
+    public static function bracedAlways(array $node, int $before, int $after = -1): bool
     {
         $type = self::str($node, 'type');
         $mark = self::PAIRED[$type] ?? null;
@@ -2239,7 +2249,8 @@ final class Inline
         if ($mark === null || $children === []) {
             return false;
         }
-        if ($before === ord($mark) || Chars::isWord($before)) {
+        $code = ord($mark);
+        if ($before === $code || Chars::isWord($before) || $after === $code || Chars::isWord($after) || Chars::isGlue($after)) {
             return true;
         }
         $first = $children[0];
