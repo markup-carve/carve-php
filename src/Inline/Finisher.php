@@ -125,6 +125,14 @@ final class Finisher
                 return self::NODE_END;
             }
         }
+        if ($item[5] instanceof TokenList && $node->type === 'inline_footnote') {
+            // C2-I-109: an inline footnote is a flow of its own, so no word runs across its brackets.
+            $this->visible = -1;
+            $node->children = $this->build($item[5]->list);
+            $this->visible = -1;
+
+            return self::NODE_END;
+        }
         if ($item[5] instanceof TokenList) {
             $inner = $this->ctx->abbreviations === [] ? -1 : $this->firstVisible($items, $k, $after);
             $node->children = $this->build($item[5]->list, $inner);
