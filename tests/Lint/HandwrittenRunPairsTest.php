@@ -32,7 +32,6 @@ final class HandwrittenRunPairsTest extends TestCase
                 ":: d\n  **a\n       i== b**\n",
                 [
                     ['markdown-strong-double-star', '/children/0/children/0', 7, 25],
-                    ['description-term-multi-line', '/children/0/children/0', 7, 10],
                 ],
             ],
             'strong pair across the lines of a link' => [
@@ -52,9 +51,7 @@ final class HandwrittenRunPairsTest extends TestCase
             ],
             'underline span on a later line of a term' => [
                 ":: t\n  {_u_} b\n",
-                [
-                    ['description-term-multi-line', '/children/0/children/0', 7, 14],
-                ],
+                [],
             ],
             'underline span on a later line of a paragraph' => [
                 "a\n{_u_} b\n",

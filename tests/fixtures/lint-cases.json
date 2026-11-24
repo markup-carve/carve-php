@@ -548,16 +548,16 @@
    ]
   },
   "description-term-multi-line": {
-   "trigger": ":: term\nmore\n: desc",
+   "trigger": ":: term\n   : desc",
    "near": ":: term\n: desc",
    "options": {},
    "findings": [
     [
      "description-term-multi-line",
      "/children/0/children/0",
-     8,
-     12,
-     "This line continues the term above. Add a blank line after the term if it is a paragraph."
+     11,
+     17,
+     "This line continues the term above, so its `:` is term text and opens no description. Put the description mark at the column of the term mark."
     ]
    ]
   },
@@ -1495,7 +1495,7 @@
    "findings": [
     [
      "description-separator-below-content-column",
-     "/children/0/children/0/children/0",
+     "/children/0/children/1",
      16,
      19,
      "This description starts at column 1, below the column 4 of the definition list above, so it adds no entry to that list. Indent it to column 4 to continue the list."
@@ -1503,16 +1503,16 @@
    ]
   },
   "description-term-multi-line#2": {
-   "trigger": ":: t\n: \n",
-   "near": ":: t\n\n",
+   "trigger": ":: t\n   :\tx\n",
+   "near": ":: t\n:\tx\n",
    "options": {},
    "findings": [
     [
      "description-term-multi-line",
      "/children/0/children/0",
-     5,
-     7,
-     "This line continues the term above. Add a blank line after the term if it is a paragraph."
+     8,
+     11,
+     "This line continues the term above, so its `:` is term text and opens no description. Put the description mark at the column of the term mark."
     ]
    ]
   },
@@ -1595,7 +1595,7 @@
      "figure-group-empty",
      "/children/1",
      6,
-     42,
+     38,
      "This \"::: figure\" group holds no captionable panel; the panels wrapper renders around the preserved content only."
     ]
    ]
@@ -2251,16 +2251,16 @@
    ]
   },
   "description-term-multi-line#6220": {
-   "trigger": "> :: w\n> w",
-   "near": "> :: w",
+   "trigger": "> :: w\n>    : w",
+   "near": "> :: w\n> : w",
    "options": [],
    "findings": [
     [
      "description-term-multi-line",
      "/children/0/children/0/children/0",
-     9,
-     10,
-     "This line continues the term above. Add a blank line after the term if it is a paragraph."
+     12,
+     15,
+     "This line continues the term above, so its `:` is term text and opens no description. Put the description mark at the column of the term mark."
     ]
    ]
   },
@@ -2288,7 +2288,15 @@
    "trigger": "> :: a\n> :: t2\n>: key\n> > [!NOTE]",
    "near": "> :: a\n> plain",
    "options": [],
-   "findings": []
+   "findings": [
+    [
+     "github-alert-marker",
+     "/children/1",
+     26,
+     33,
+     "This spelling does not create a GitHub alert in Carve; use an admonition fence for an alert."
+    ]
+   ]
   },
   "unattached-block-attribute#6255": {
    "trigger": "{#id .c k=v}\n{#id .c k=v}\n\n",

@@ -101,7 +101,7 @@ final class Next2TicketParityTest extends TestCase
             ],
             '#5354 1' => [
                 ':: t
-> ---',
+   > ---',
                 'thematic-break-spelling',
                 [],
             ],

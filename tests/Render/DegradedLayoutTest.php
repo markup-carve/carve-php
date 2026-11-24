@@ -62,7 +62,7 @@ final class DegradedLayoutTest extends TestCase
             'caption of an empty quote degraded as a whole (C2-H-165)' => [
                 "> >\n> ^ c\n^ c",
                 ['profile' => 'minimal'],
-                '<p>&gt; c ^ c</p>',
+                "<p>&gt; c</p>\n<p>c</p>",
             ],
             'captioned image in a degraded div (C2-H-165)' => [
                 "::: figure\n![b](b.png)\n^ (b) B\n\n:::: figure\n![a](a.png)\n^ (a) A\n::::\n:::",

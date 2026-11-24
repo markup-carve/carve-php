@@ -51,7 +51,7 @@ final class IncludeCoreTest extends TestCase
 
     public function testC2N074CaptionOfAnUnexpandedIncludeIsPlainText(): void
     {
-        $html = Carve::toHtml("{table}\n{{ a.csv @code:csv }}\n^ Table #: *Plans*\n^ @code more");
+        $html = Carve::toHtml("{table}\n{{ a.csv @code:csv }}\n^ Table #: *Plans*\n  ^ @code more");
         $this->assertSame("<p>{{ a.csv @code:csv }}</p>\n<p>Table 1: Plans ^ @code more</p>", $html);
     }
 

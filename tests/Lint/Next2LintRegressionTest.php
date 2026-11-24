@@ -35,12 +35,12 @@ final class Next2LintRegressionTest extends TestCase
                 "> i) :::\n\t>   :: term\n", 'list-item-block-overindented', [],
             ],
             'caption on a term continuation line' => [
-                " :: term\n: | A | B |\n  | x | y |",
+                " :: term\n  : | A | B |\n  | x | y |",
                 'caption-looking-paragraph',
                 [],
             ],
             'caption on a term continuation line below a tab' => [
-                "\t:: t\n: ## H #\n | 1 | 2 |",
+                "\t:: t\n     : ## H #\n | 1 | 2 |",
                 'caption-looking-paragraph',
                 [],
             ],

@@ -32,7 +32,7 @@ final class Next2ParityTicketsRoundThreeTest extends TestCase
             'carve#6194 item boundary' => ["::::\n- a\n\n  :::  \n", 'colon-fence-length-mismatch', []],
             '#5387 lazy quote' => ["c\n> %%%\n", 'block-opener-without-blank-line', [[2, 3]]],
             '#5386 quoted after attrs' => ["{#id}\n> | x |\n", 'block-opener-overindented', []],
-            '#5388 caption quote' => [">\n^ Caption\n> code\n", 'block-opener-without-blank-line', [[12, 13]]],
+            '#5388 caption quote' => [">\n^ Caption\n  > code\n", 'block-opener-without-blank-line', [[14, 15]]],
         ];
     }
 

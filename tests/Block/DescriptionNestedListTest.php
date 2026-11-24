@@ -30,9 +30,10 @@ final class DescriptionNestedListTest extends TestCase
                 "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <ul>\n"
                 . "      <li>x</li>\n    </ul>\n  </li>\n</ul>",
             ],
-            'term only, value 2 stays a lazy line' => [
+            'term only, value 2 below the term mark opens a list' => [
                 "- :: t\n 2. x\n",
-                "<ul>\n  <li>\n    <dl>\n      <dt>t\n2. x</dt>\n    </dl>\n  </li>\n</ul>",
+                "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n    <ol start=\"2\">\n"
+                . "      <li>x</li>\n    </ol>\n  </li>\n</ul>",
             ],
             'item, ordered value 1 opens a nested list' => [
                 "10. :: t\n    : ---\n  1. ::\n",

@@ -374,7 +374,7 @@ final class BlockClausesTest extends TestCase
     public function testC2B016DescriptionListTermAndDescriptions(): void
     {
         $this->assertTree(
-            ":: term\nmore term text\n: first\n\n: second",
+            ":: term\n: first\n\n: second",
             '[{"type":"definition_list","children":[{"type":"definition_term"},{"type":"'
             . 'definition_description","children":[{"type":"paragraph"}]},{"type":"definit'
             . 'ion_description","children":[{"type":"paragraph"}]}]}]',

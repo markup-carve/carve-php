@@ -820,7 +820,7 @@ final class BlockParser
     private function continues(Frame $leaf, int $owner, int $top, int $j, int $c): bool
     {
         $kind = $leaf->kind;
-        if ($kind === Frame::PARAGRAPH || $kind === Frame::TERM || $kind === Frame::CAPTION) {
+        if ($kind === Frame::PARAGRAPH) {
             if ($this->interrupts($leaf, $owner, $j, $c)) {
                 return false;
             }
@@ -829,11 +829,15 @@ final class BlockParser
 
             return true;
         }
-        if ($kind === Frame::HEADING) {
-            if ($owner !== $top || $c - $this->base <= $leaf->markerCol || $this->interrupts($leaf, $owner, $j, $c)) {
+        // C2-B-234: a heading, a caption and a term continue only on owned lines indented past their marker.
+        if ($kind === Frame::HEADING || $kind === Frame::TERM || $kind === Frame::CAPTION) {
+            // A term's frame is its description list, which ownership skips.
+            $home = $kind === Frame::TERM ? $top - 1 : $top;
+            if ($owner !== $home || $c - $this->base <= $leaf->markerCol || $this->interrupts($leaf, $owner, $j, $c)) {
                 return false;
             }
             $this->append($leaf, $j);
+            $leaf->n++;
 
             return true;
         }
@@ -1340,7 +1344,7 @@ final class BlockParser
         ) {
             $this->closeTo($owner + 1);
             if ($term) {
-                $this->openTerm($j, $content);
+                $this->openTerm($j, $c, $content);
 
                 return true;
             }
@@ -1360,7 +1364,7 @@ final class BlockParser
         $list->end = $j + 2;
         $this->take($list);
         $this->push($list);
-        $this->openTerm($j, $content);
+        $this->openTerm($j, $c, $content);
 
         return true;
     }
@@ -1369,13 +1373,15 @@ final class BlockParser
      * C2-B-069, C2-B-075: a term is one inline leaf and takes no block opener.
      *
      * @param int $j
+     * @param int $c
      * @param int $content
      *
      * @return void
      */
-    private function openTerm(int $j, int $content): void
+    private function openTerm(int $j, int $c, int $content): void
     {
         $f = new Frame(Frame::TERM, $j);
+        $f->markerCol = $c - $this->base;
         $f->end = $this->le;
         // C2-B-069: spaces and tabs behind the mark's one space stand before the content column.
         $content += strspn($this->s, " \t", $content, max(0, $this->le - $content));
@@ -1433,7 +1439,7 @@ final class BlockParser
             '=', '#' => $this->openHeading($j, $c),
             '|' => $this->openTable($j),
             '*' => $this->openStar($j),
-            '^' => $this->openCaption($j),
+            '^' => $this->openCaption($j, $c),
             '[' => $this->openDefinition($j, $c),
             '{' => $this->openBrace($j),
             default => false,
@@ -1811,10 +1817,11 @@ final class BlockParser
      * C2-B-146 to C2-B-149, C2-B-096.
      *
      * @param int $j
+     * @param int $c
      *
      * @return bool
      */
-    private function openCaption(int $j): bool
+    private function openCaption(int $j, int $c): bool
     {
         $content = LineShapes::caption($this->s, $j, $this->le);
         if ($content < 0) {
@@ -1828,6 +1835,7 @@ final class BlockParser
             return false;
         }
         $f = new Frame(Frame::CAPTION, $j);
+        $f->markerCol = $c - $this->base;
         $f->end = $this->le;
         $f->spans = [$content, $f->end];
         $f->target = $target;
