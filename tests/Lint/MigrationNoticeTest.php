@@ -70,8 +70,8 @@ final class MigrationNoticeTest extends TestCase
 
     public function testOtherRulesKeepTheirDefaults(): void
     {
-        $codes = array_map(static fn ($d): string => $d->code, Carve::lint("{loose}\n- a\n"));
-        $this->assertContains('deprecated-loose-attribute', $codes);
+        $codes = array_map(static fn ($d): string => $d->code, Carve::lint("# a #\n"));
+        $this->assertContains('heading-closing-hashes', $codes);
     }
 
     public function testANonBooleanUpgradeIsRefused(): void

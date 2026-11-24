@@ -42,7 +42,8 @@ final class PairScanLinearityTest extends TestCase
     {
         $small = self::source($unit, $tail, 250);
         $large = self::source($unit, $tail, 2000);
-        $excess = Linearity::excess(static fn () => Carve::lint($small), static fn () => Carve::lint($large), 8, 1);
+        $options = ['upgrade' => true];
+        $excess = Linearity::excess(static fn () => Carve::lint($small, $options), static fn () => Carve::lint($large, $options), 8, 1);
 
         $this->assertLessThanOrEqual(Linearity::LIMIT, $excess);
     }

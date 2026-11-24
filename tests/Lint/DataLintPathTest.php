@@ -61,7 +61,7 @@ final class DataLintPathTest extends TestCase
         putenv($mode === 'data' ? 'CARVE_LINT_RULES=data' : 'CARVE_LINT_RULES');
         try {
             $paths = [];
-            foreach (Carve::lint($source) as $finding) {
+            foreach (Carve::lint($source, ['upgrade' => true]) as $finding) {
                 if ($finding->code === $rule) {
                     $paths[] = $finding->path;
                 }

@@ -29,7 +29,7 @@ final class LintParagraphLinearityTest extends TestCase
 
     public function testCrossLinePairsAreStillReported(): void
     {
-        $found = Carve::lint("a =b\nc= d\n");
+        $found = Carve::lint("a =b\nc= d\n", ['rules' => ['deprecated-bare-highlight' => 'on']]);
 
         $this->assertCount(1, $found);
         $this->assertSame(

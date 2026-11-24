@@ -77,7 +77,9 @@ final class HandwrittenRunPairsTest extends TestCase
     public function testFindings(string $source, array $expected): void
     {
         $found = [];
-        foreach (Linter::lint($source) as $diagnostic) {
+        // C2-W-156: two of the expected rules are migration notices, on here by id.
+        $on = ['description-term-multi-line' => 'on', 'deprecated-bare-underline' => 'on'];
+        foreach (Linter::lint($source, ['rules' => $on]) as $diagnostic) {
             $data = $diagnostic->toArray();
             $found[] = [$data['code'], $data['path'], $data['range']['startOffset'], $data['range']['endOffset']];
         }

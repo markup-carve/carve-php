@@ -106,7 +106,9 @@ final class LintRulesTest extends TestCase
 
     public function testC2W109RuleStates(): void
     {
-        $this->assertContains('deprecated-bare-underline', self::codes('_x_'));
+        // C2-W-156: a migration notice is off for a 0.2 document and on under the option `upgrade`.
+        $this->assertNotContains('deprecated-bare-underline', self::codes('_x_'));
+        $this->assertContains('deprecated-bare-underline', self::codes('_x_', ['upgrade' => true]));
         $this->assertNotContains('deprecated-bare-underline', self::codes('_x_', ['rules' => ['deprecated-bare-underline' => 'off']]));
         $this->assertNotContains('platform-mention-token', self::codes('See @bob.'));
         $this->assertContains('platform-mention-token', self::codes('See @bob.', ['platforms' => ['github']]));
@@ -116,12 +118,15 @@ final class LintRulesTest extends TestCase
 
     public function testC2B216ControlComments(): void
     {
-        $this->assertSame([], self::codes("_x_ %% carve-lint-disable-line\n"));
-        $this->assertSame([], self::codes("%% carve-lint-disable-next-line deprecated-bare-underline\n_x_\n"));
-        $this->assertSame(['deprecated-bare-underline'], self::codes("%% carve-lint-disable-next-line heading-level-skip\n_x_\n"));
-        $this->assertSame(['deprecated-bare-underline'], self::codes("%% carve-lint-disable\n_x_\n%% carve-lint-enable\n_y_\n"));
-        $this->assertSame(['deprecated-bare-underline', 'deprecated-bare-underline'], self::codes("%%  carve-lint-disable\n_x_\n_y_\n"));
-        $this->assertSame([], self::codes("%% carve-lint-disable deprecated-bare-underline, heading-level-skip\n_x_\n"));
+        // C2-W-156: the rule under test is a migration notice, on here by id.
+        $on = ['rules' => ['deprecated-bare-underline' => 'on']];
+        $this->assertSame([], self::codes("_x_ %% carve-lint-disable-line\n", $on));
+        $this->assertSame([], self::codes("%% carve-lint-disable-next-line deprecated-bare-underline\n_x_\n", $on));
+        $this->assertSame(['deprecated-bare-underline'], self::codes("%% carve-lint-disable-next-line heading-level-skip\n_x_\n", $on));
+        $this->assertSame(['deprecated-bare-underline'], self::codes("%% carve-lint-disable\n_x_\n%% carve-lint-enable\n_y_\n", $on));
+        $twice = ['deprecated-bare-underline', 'deprecated-bare-underline'];
+        $this->assertSame($twice, self::codes("%%  carve-lint-disable\n_x_\n_y_\n", $on));
+        $this->assertSame([], self::codes("%% carve-lint-disable deprecated-bare-underline, heading-level-skip\n_x_\n", $on));
     }
 
     public function testC2W103FindingsAreInByteOrder(): void

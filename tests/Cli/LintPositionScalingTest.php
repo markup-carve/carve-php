@@ -10,16 +10,23 @@ use PHPUnit\Framework\TestCase;
 
 final class LintPositionScalingTest extends TestCase
 {
+    /**
+     * C2-W-156: the bare underline is a migration notice, on here by id.
+     *
+     * @var array<string>
+     */
+    private const ON = ['--rules', '{"deprecated-bare-underline":"on"}'];
+
     public function testTextAndJsonPositionsAcrossUnicodeAndLines(): void
     {
         $source = "😀 _a_ _b_\n\n_c_\n";
-        [$status, $output] = self::call(['lint'], $source);
+        [$status, $output] = self::call(['lint', ...self::ON], $source);
         self::assertSame(1, $status);
         self::assertStringContainsString('<stdin>:1:3: warning deprecated-bare-underline', $output);
         self::assertStringContainsString('<stdin>:1:7: warning deprecated-bare-underline', $output);
         self::assertStringContainsString('<stdin>:3:1: warning deprecated-bare-underline', $output);
 
-        [$status, $json] = self::call(['lint', '--json'], $source);
+        [$status, $json] = self::call(['lint', '--json', ...self::ON], $source);
         self::assertSame(1, $status);
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($data);
@@ -37,7 +44,7 @@ final class LintPositionScalingTest extends TestCase
     public function testManyFindingsOnOneLineAndManyLines(): void
     {
         foreach ([str_repeat('_a_ ', 1024), str_repeat("_a_\n", 1024)] as $source) {
-            [$status, $output] = self::call(['lint'], $source);
+            [$status, $output] = self::call(['lint', ...self::ON], $source);
             self::assertSame(1, $status);
             self::assertCount(1024, array_filter(explode("\n", trim($output))));
         }
@@ -47,8 +54,8 @@ final class LintPositionScalingTest extends TestCase
     {
         $small = str_repeat('_a_ ', 2048);
         $large = str_repeat('_a_ ', 8192);
-        $smallTime = self::bestTime(static fn (): array => self::call(['lint'], $small));
-        $largeTime = self::bestTime(static fn (): array => self::call(['lint'], $large));
+        $smallTime = self::bestTime(static fn (): array => self::call(['lint', ...self::ON], $small));
+        $largeTime = self::bestTime(static fn (): array => self::call(['lint', ...self::ON], $large));
         self::assertLessThan($smallTime * 6, $largeTime);
     }
 

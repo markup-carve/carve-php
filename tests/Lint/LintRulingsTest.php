@@ -58,7 +58,7 @@ final class LintRulingsTest extends TestCase
     public function testRuling(string $source, string $code, array $expected): void
     {
         $found = [];
-        foreach (Carve::lint($source) as $d) {
+        foreach (Carve::lint($source, ['upgrade' => true]) as $d) {
             if ($d->code === $code) {
                 $found[] = [$d->startOffset, $d->endOffset];
             }

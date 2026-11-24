@@ -45,7 +45,9 @@ final class DataRulePairsTest extends TestCase
                 'djot-superscript-caret' => true,
             ];
             $actual = [];
-            foreach (Carve::lint($source) as $finding) {
+            // C2-W-156: the bare pair rows are migration notices, on here by id.
+            $on = ['deprecated-bare-underline' => 'on', 'deprecated-bare-strike' => 'on', 'deprecated-bare-highlight' => 'on'];
+            foreach (Carve::lint($source, ['rules' => $on]) as $finding) {
                 if (isset($pairs[$finding->code])) {
                     $actual[] = [$finding->code, $finding->startOffset, $finding->endOffset, $finding->path];
                 }
