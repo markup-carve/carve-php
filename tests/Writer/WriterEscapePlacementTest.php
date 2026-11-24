@@ -46,6 +46,16 @@ final class WriterEscapePlacementTest extends TestCase
             'escaped star behind a CJK letter' => ['日\\*本*[*', '日*本*[*'],
             'escaped star behind an accented letter' => ['é\\*x*[*', 'é*x*[*'],
             'star behind a non-breaking space' => ["a\\*\u{A0}*x*", "a*\u{A0}*x*"],
+            // #5797: C2-I-089, behind an open text `^[` and inside a note a caret pair is an ordinary bracket.
+            'caret pair behind an open text note' => ['^[a [^[b]](/u) z', '^[a [^[b]](/u) z'],
+            'caret pair behind a text note and a link' => ['^[a [b]  [^[b] c](/u)', '^[a [b]  [^[b] c](/u)'],
+            'caret pair behind a text note and code' => ['^[a  `s` [^[b] c]{.x}', '^[a  `s` [^[b] c]{.x}'],
+            'caret pair behind a closed and an open note' => ['^[r] ^[a [b]  [^[b] c]{.x}', '^[r] ^[a [b]  [^[b] c]{.x}'],
+            'caret pair behind a text note and strong' => ['^[a *s* [^[b]](/u)', '^[a *s* [^[b]](/u)'],
+            'caret pair in link text inside a note' => ['^[a [^[b]](/u)]', '^[a [^[b]](/u)]'],
+            'note pair in link text inside a note' => ['^[a [x ^[b]](/u)]', '^[a [x ^[b]](/u)]'],
+            'reference pair in link text inside a note' => ['^[a [a [^b]](/u)]', '^[a [a [^b]](/u)]'],
+            'caret pair behind an escaped bracket keeps the caret' => ['^[a \\[ [^[b]](/u)', '^[a [ [\\^[b]](/u)'],
         ];
     }
 
