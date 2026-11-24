@@ -23,13 +23,7 @@ final class ImportClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [
-        'CC-2046' => 'carve-js#5574, carve-php#5926 (C2-M-041, col style as CSS declarations)',
-        'CC-2047' => 'carve-js#5574, carve-php#5926 (C2-M-041, col style as CSS declarations)',
-        'CC-2048' => 'carve-js#5574, carve-php#5926 (C2-M-041, col style as CSS declarations)',
-        'CC-2049' => 'carve-js#5574, carve-php#5926 (C2-M-041, col style as CSS declarations)',
-        'CC-2050' => 'carve-js#5574, carve-php#5926 (C2-M-041, col style as CSS declarations)',
-    ];
+    private const KNOWN_FAIL = [];
 
     /**
      * Cases the libxml fallback (PHP below 8.4) imports differently, as `ImportCorpusTest::LEGACY_DIFFERS`.
