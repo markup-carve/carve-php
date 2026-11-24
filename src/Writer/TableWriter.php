@@ -36,6 +36,13 @@ final class TableWriter
     private ?SpanMarks $spans = null;
 
     /**
+     * The paths of the mark cells of the group being written that join nothing (C2-B-173).
+     *
+     * @var array<string, true>
+     */
+    private array $blocked = [];
+
+    /**
      * @var int
      */
     private const PERCENT_CACHE = 256;
@@ -578,6 +585,7 @@ final class TableWriter
             $this->w->lose($path, self::typeOf($group), 'attrs');
         }
         $bodyHeaders = ($group['type'] ?? '') === 'table_body' ? self::leadingHeaderRows($items) : 0;
+        $this->blocked = $this->blockedMarks($items, $path);
         $rowIndex = 0;
         $lastAt = count($items) - 1;
         foreach ($items as $at => $item) {
@@ -701,7 +709,7 @@ final class TableWriter
     private function cell(array $cell, string $path, bool $head, bool $bodyHeader): array
     {
         if (isset($cell['span'])) {
-            return $this->mark($cell, $path, $head);
+            return $this->mark($cell, $path, $head, $bodyHeader);
         }
         $header = !$bodyHeader && ($cell['header'] ?? false) === true ? '=' : '';
         $this->unspellable($cell, $path);
@@ -721,7 +729,7 @@ final class TableWriter
         $last = end($inlines);
         $terminalHardBreak = is_array($last) && ($last['type'] ?? '') === 'hard_break';
 
-        return [$prefix, $this->fragments($content, $lines, $path, $terminalHardBreak)];
+        return [$prefix, $this->fragments($content, $lines, $path, $terminalHardBreak, $blocks)];
     }
 
     /**
@@ -809,12 +817,13 @@ final class TableWriter
      * @param array<mixed> $cell
      * @param string $path
      * @param bool $head
+     * @param bool $bodyHeader
      *
      * @return array{0: string, 1: array<string>}
      */
-    private function mark(array $cell, string $path, bool $head): array
+    private function mark(array $cell, string $path, bool $head, bool $bodyHeader): array
     {
-        $this->markLoss($cell, $path);
+        $this->markLoss($cell, $path, isset($this->blocked[$path]) ? $head || $bodyHeader : null);
 
         return [$head ? '=' : '', [$cell['span'] === 'colspan' ? '<' : '^']];
     }
@@ -823,13 +832,22 @@ final class TableWriter
      * C2-W-063, C2-A-092: a mark cell reads back with `header` false, no children and no other field, so the first
      * field that differs from that is lost. One entry per cell, as the carve-js read-back comparison reports it.
      *
+     * A mark that joins nothing reads back as a text cell (C2-B-173), a header cell where its row reads as one, so its
+     * `header` or else its `span` differs, the first in node order.
+     *
      * @param array<mixed> $cell
      * @param string $path
+     * @param bool|null $blockedHeader The header of the read-back cell of a mark that joins nothing, else null.
      *
      * @return void
      */
-    private function markLoss(array $cell, string $path): void
+    private function markLoss(array $cell, string $path, ?bool $blockedHeader): void
     {
+        if ($blockedHeader !== null) {
+            $field = ($cell['header'] ?? false) !== $blockedHeader ? 'header' : 'span';
+            $this->w->lose($path, 'table_cell', $field);
+            $cell = ['children' => $cell['children'] ?? null];
+        }
         foreach ($cell as $field => $value) {
             $kept = match ($field) {
                 'type', 'pos', 'span', 'children' => true,
@@ -845,6 +863,106 @@ final class TableWriter
         foreach (is_array($cell['children'] ?? null) ? $cell['children'] : [] as $at => $block) {
             $this->w->lose($path . '/children/' . $at, self::typeOf($block), null);
         }
+    }
+
+    /**
+     * The mark cells of one group that join nothing, by the rule the reader applies to the written marks (C2-B-172): a
+     * `<` needs a cell of one row that ends at its left, a `^` a cell of one column that ends above it, in the group.
+     *
+     * @param array<mixed> $items
+     * @param string $path
+     *
+     * @return array<string, true>
+     */
+    private function blockedMarks(array $items, string $path): array
+    {
+        $rows = [];
+        foreach ($items as $at => $item) {
+            if (is_array($item) && ($item['type'] ?? '') === 'table_row') {
+                $rows[$path . '/children/' . $at] = $item;
+            }
+        }
+        if (!$this->hasMarks($rows)) {
+            return [];
+        }
+        // The covering cells by number: their first row and column and their spans, so a wide table stays small.
+        $cover = ['row' => [], 'col' => [], 'colspan' => [], 'rowspan' => []];
+        $blocked = [];
+        $previous = [];
+        $r = 0;
+        foreach ($rows as $rowPath => $row) {
+            $current = [];
+            $c = 0;
+            foreach ($this->spans->rows[$rowPath] ?? self::rowCells($row, (string)$rowPath) as [$cell, $cellPath]) {
+                $span = $cell['span'] ?? null;
+                $target = self::markTarget($span, $cover, [$previous, $current], [$r, $c]);
+                if ($target === null) {
+                    if ($span !== null) {
+                        $blocked[$cellPath] = true;
+                    }
+                    $target = count($cover['row']);
+                    $cover['row'][] = $r;
+                    $cover['col'][] = $c;
+                    $cover['colspan'][] = 1;
+                    $cover['rowspan'][] = 1;
+                } else {
+                    $cover[$span === 'colspan' ? 'colspan' : 'rowspan'][$target]++;
+                }
+                $current[$c] = $target;
+                $c++;
+            }
+            $previous = $current;
+            $r++;
+        }
+
+        return $blocked;
+    }
+
+    /**
+     * @param array<array<mixed>> $rows By row path.
+     *
+     * @return bool
+     */
+    private function hasMarks(array $rows): bool
+    {
+        foreach ($rows as $rowPath => $row) {
+            foreach ($this->spans->rows[$rowPath] ?? self::rowCells($row, (string)$rowPath) as [$cell]) {
+                if (isset($cell['span'])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The covering cell a mark at row `$r` and column `$c` joins, as TableBuilder::spanTarget() reads it, or null.
+     *
+     * @param mixed $span
+     * @param array{row: array<int>, col: array<int>, colspan: array<int>, rowspan: array<int>} $cover
+     * @param array{0: array<int, int>, 1: array<int, int>} $lines The covering cell of each column of the row above
+     *   and of this row so far.
+     * @param array{0: int, 1: int} $at
+     *
+     * @return int|null
+     */
+    private static function markTarget(mixed $span, array $cover, array $lines, array $at): ?int
+    {
+        [$r, $c] = $at;
+        if ($span === 'colspan') {
+            $left = $lines[1][$c - 1] ?? null;
+
+            return $left !== null && $cover['rowspan'][$left] === 1 && $cover['col'][$left] + $cover['colspan'][$left] === $c
+                ? $left : null;
+        }
+        if ($span !== 'rowspan') {
+            return null;
+        }
+        $above = $lines[0][$c] ?? null;
+
+        return $above !== null && $cover['colspan'][$above] === 1 && $cover['row'][$above] + $cover['rowspan'][$above] === $r
+            ? $above : null;
     }
 
     /**
@@ -911,10 +1029,11 @@ final class TableWriter
      * @param array<int> $lines
      * @param string $path
      * @param bool $terminalHardBreak
+     * @param array<mixed> $blocks
      *
      * @return array<int, string>
      */
-    private function fragments(string $content, array $lines, string $path, bool $terminalHardBreak): array
+    private function fragments(string $content, array $lines, string $path, bool $terminalHardBreak, array $blocks): array
     {
         if ($lines !== []) {
             $fragments = [];
@@ -926,12 +1045,51 @@ final class TableWriter
         }
         if (str_contains($content, "\n")) {
             if (!$terminalHardBreak || !str_ends_with($content, "\\\n") || substr_count($content, "\n") !== 1) {
-                $this->w->lose($path, 'table_cell', 'children');
+                $this->loseLineFeed($blocks, $path);
             }
             $content = str_replace("\n", ' ', $content);
         }
 
         return [$content];
+    }
+
+    /**
+     * C2-W-067, C2-W-117: the first node in the cell whose line feed has no spelling loses it: a text its value, a break
+     * itself.
+     *
+     * @param array<mixed> $blocks
+     * @param string $path
+     *
+     * @return void
+     */
+    private function loseLineFeed(array $blocks, string $path): void
+    {
+        $stack = [];
+        for ($at = count($blocks) - 1; $at >= 0; $at--) {
+            $stack[] = [$blocks[$at] ?? null, $path . '/children/' . $at];
+        }
+        while ($stack !== []) {
+            [$node, $at] = array_pop($stack);
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = Inline::str($node, 'type');
+            if ($type === 'text' && str_contains(Inline::str($node, 'value'), "\n")) {
+                $this->w->lose($at, 'text', 'value');
+
+                return;
+            }
+            if ($type === 'soft_break' || $type === 'hard_break') {
+                $this->w->lose($at, $type, null);
+
+                return;
+            }
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            for ($k = count($children) - 1; $k >= 0; $k--) {
+                $stack[] = [$children[$k] ?? null, $at . '/children/' . $k];
+            }
+        }
+        $this->w->lose($path, 'table_cell', 'children');
     }
 
     /**
