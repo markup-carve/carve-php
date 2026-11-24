@@ -84,7 +84,7 @@ final class WriterReadBackShapesTest extends TestCase
             'braced emphasis before brackets' => ['{/{ /}[/[/]', '{/{ /}[/[/]'],
             // carve#6461: the escape of a closer that would end its node early gives no kind.
             'closer repair in a superscript' => ['- \\{^{^^{^^}^^}^}', '- \\{^{^^\\{^\\^}^^}^}'],
-            'closer repair beside a group' => ['{^{^^}{,^{^[,}^}{^]\\{}[^}^}', '{^\\{^\\^}{,^{^[,}^}{^]\\{}[^}^}'],
+            'closer repair beside a group' => ['{^{^^}{,^{^[,}^}{^]\\{}[^}^}', '{^\\{^\\^}{,^\\{^\\[,}^}{^]{}\\[^}^}'],
         ];
     }
 

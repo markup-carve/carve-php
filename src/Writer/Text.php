@@ -433,10 +433,11 @@ final class Text
      *
      * @param string $value
      * @param int $i
+     * @param bool $empty Whether an empty block counts.
      *
      * @return int
      */
-    private static function literalBlockEnd(string $value, int $i): int
+    private static function literalBlockEnd(string $value, int $i, bool $empty = false): int
     {
         $close = strpos($value, '}', $i + 1);
         if ($close === false) {
@@ -445,7 +446,7 @@ final class Text
         $line = strpos($value, "\n", $i);
         $end = AttributeParser::read($value, $i, $line === false ? strlen($value) : $line, new Attrs());
 
-        return $end > 0 && !AttributeParser::$lastEmpty ? $end : -1;
+        return $end > 0 && ($empty || !AttributeParser::$lastEmpty) ? $end : -1;
     }
 
     /**
@@ -1912,8 +1913,12 @@ final class Text
         if ($next !== '' && str_contains($marks, $next) && !str_contains(substr($probe, $next === '%' ? 2 : 3), $next . '}')) {
             return false;
         }
-        // C2-I-036: a whole attribute block of the text behind no node is literal.
-        if (self::literalBlockEnd($value, $i) > $i) {
+        // C2-I-036: a whole attribute block of the text behind no node is literal, an empty one too.
+        if (self::literalBlockEnd($value, $i, true) > $i) {
+            return false;
+        }
+        // A brace before another brace opens nothing itself; the later brace decides.
+        if ($next === '{') {
             return false;
         }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
@@ -2015,11 +2020,24 @@ final class Text
         }
         $closes = [];
         foreach ($marks as $mark) {
-            $at = strrpos($written, $mark . '}');
-            $closes[$mark] = $at === false ? -1 : $at;
+            $closes[$mark] = self::lastCloser($written, $mark);
         }
 
         return [$offsets, $shifts, $closes, $forced, $opened];
+    }
+
+    /**
+     * The offset of the last closer of `$mark` in the written leaf, or -1. C2-I-043: in `{/}` the mark belongs to the
+     * opener, so that `/}` closes nothing.
+     */
+    private static function lastCloser(string $written, string $mark): int
+    {
+        $at = strrpos($written, $mark . '}');
+        while ($at !== false && $at > 0 && $written[$at - 1] === '{') {
+            $at = $at > 1 ? strrpos($written, $mark . '}', $at - 2 - strlen($written)) : false;
+        }
+
+        return $at === false ? -1 : $at;
     }
 
     /**
