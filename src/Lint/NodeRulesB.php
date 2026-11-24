@@ -19,7 +19,7 @@ final class NodeRulesB
      */
     public static function commentInLabel(array $node, string $path, Context $c): void
     {
-        $pos = Support::pos($node);
+        $pos = Support::pos($node, $c);
         if (($node['type'] ?? null) !== 'comment' || ($node['form'] ?? null) !== 'line' || $pos === null) {
             return;
         }

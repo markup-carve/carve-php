@@ -226,9 +226,7 @@ final class Layout
      */
     private static function start(?array $node): ?int
     {
-        $pos = $node['pos'] ?? null;
-
-        return is_array($pos) && is_int($pos['startOffset'] ?? null) ? $pos['startOffset'] : null;
+        return $node === null ? null : Support::bounds($node)[0] ?? null;
     }
 
     /**
@@ -238,9 +236,7 @@ final class Layout
      */
     private static function end(?array $node): ?int
     {
-        $pos = $node['pos'] ?? null;
-
-        return is_array($pos) && is_int($pos['endOffset'] ?? null) ? $pos['endOffset'] : null;
+        return $node === null ? null : Support::bounds($node)[1] ?? null;
     }
 
     /**

@@ -12,19 +12,25 @@ final class WalkedNode
 {
     /**
      * @param array<string, mixed> $node
-     * @param int $index
-     * @param string $parent
      * @param string $path
-     * @param array<string, int>|null $pos
+     * @param string $parent
+     * @param int $index
      * @param string $type
+     * @param int $start
+     * @param int $end
+     * @param int $startLine 0 when the node has no position.
+     * @param int $endLine
      */
     public function __construct(
         public array $node,
         public string $path,
         public string $parent,
         public int $index,
-        public ?array $pos,
         public string $type,
+        public int $start = 0,
+        public int $end = 0,
+        public int $startLine = 0,
+        public int $endLine = 0,
     ) {
     }
 }

@@ -1996,7 +1996,7 @@ final class DataRules
         $compact = [
             'type' => $type,
             'form' => $node['form'] ?? null,
-            'pos' => $node['pos'] ?? null,
+            'pos' => is_int($node['pos'] ?? null) ? $this->context->position($node['pos']) : $node['pos'] ?? null,
             'attrs' => $node['attrs'] ?? null,
             'imageLine' => DataModel::imageLine($node),
         ];
@@ -2083,6 +2083,9 @@ final class DataRules
                     $index += count($value);
                 }
                 $value = $value[$index] ?? null;
+                if ($index === 'pos' && is_int($value)) {
+                    $value = $this->context->position($value);
+                }
             } else {
                 return null;
             }

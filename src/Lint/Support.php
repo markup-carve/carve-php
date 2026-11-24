@@ -21,6 +21,9 @@ final class Support
     public static function bounds(array $node): ?array
     {
         $pos = $node['pos'] ?? null;
+        if (is_int($pos)) {
+            return [$pos >> 32, $pos & 0xFFFFFFFF];
+        }
         if (!is_array($pos) || !is_int($pos['startOffset'] ?? null) || !is_int($pos['endOffset'] ?? null)) {
             return null;
         }
@@ -29,18 +32,27 @@ final class Support
     }
 
     /**
-     * @param array<string, mixed> $node
+     * The lines and offsets of a node. A packed lint position needs the context for its lines.
      *
-     * @return array{startLine: int, endLine: int, startColumn: int, endColumn: int, startOffset: int, endOffset: int}|null
+     * @param array<string, mixed> $node
+     * @param \MarkupCarve\Carve\Lint\Context|null $c
+     *
+     * @return array{startLine: int, endLine: int, startOffset: int, endOffset: int}|null
      */
-    public static function pos(array $node): ?array
+    public static function pos(array $node, ?Context $c = null): ?array
     {
         $pos = $node['pos'] ?? null;
+        if (is_int($pos) && $c !== null) {
+            $start = $pos >> 32;
+            $end = $pos & 0xFFFFFFFF;
+
+            return ['startLine' => $c->lineOf($start), 'endLine' => $c->lineOf($end), 'startOffset' => $start, 'endOffset' => $end];
+        }
         if (!is_array($pos) || !is_int($pos['startLine'] ?? null) || !is_int($pos['endLine'] ?? null)) {
             return null;
         }
 
-        /** @var array{startLine: int, endLine: int, startColumn: int, endColumn: int, startOffset: int, endOffset: int} $pos */
+        /** @var array{startLine: int, endLine: int, startOffset: int, endOffset: int} $pos */
         return $pos;
     }
 

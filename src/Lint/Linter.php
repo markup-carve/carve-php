@@ -265,10 +265,22 @@ final class Linter
             $c->usedFootnotes[Support::str($node, 'key') ?? ''] = true;
         }
         $attrs = $node['attrs'] ?? null;
-        $pos = Support::pos($node);
+        $pos = Support::pos($node, $c);
         if ($c->dataRules) {
             $modelType = $type === 'comment' && ($node['form'] ?? null) === 'block' ? 'comment_block' : $type;
-            $c->walked[] = new WalkedNode($node, $path, $parent, $index, $pos, $modelType);
+            $c->walked[] = $pos === null
+                ? new WalkedNode($node, $path, $parent, $index, $modelType)
+                : new WalkedNode(
+                    $node,
+                    $path,
+                    $parent,
+                    $index,
+                    $modelType,
+                    $pos['startOffset'],
+                    $pos['endOffset'],
+                    $pos['startLine'],
+                    $pos['endLine'],
+                );
         }
         if ($attrs !== null && $pos !== null) {
             $c->attachedLines[$pos['startLine']] = true;
@@ -295,7 +307,7 @@ final class Linter
      * @param array<string, mixed> $node
      * @param string $type
      * @param string $path
-     * @param array{startLine: int, endLine: int, startColumn: int, endColumn: int, startOffset: int, endOffset: int} $pos
+     * @param array{startLine: int, endLine: int, startOffset: int, endOffset: int} $pos
      * @param \MarkupCarve\Carve\Lint\Context $c
      * @param array<int, array<array{0: string, 1: array<string>}>> $controls
      *
@@ -329,8 +341,8 @@ final class Linter
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $c->layout->register($path, $node, $quotes, $parent);
-        $pos = Support::pos($node);
-        $inner = $quotes + ($type === 'block_quote' && $pos !== null && self::marked($c->source, $pos['startOffset']) ? 1 : 0);
+        $bounds = $type === 'block_quote' ? Support::bounds($node) : null;
+        $inner = $quotes + ($bounds !== null && self::marked($c->source, $bounds[0]) ? 1 : 0);
         foreach (self::children($node, $type, $path) as [$child, $childPath]) {
             self::measure($child, $childPath, $path, $inner, $c);
         }
@@ -501,7 +513,7 @@ final class Linter
      * A leaf block starts its first line's text, and each break ends where the next line's text starts.
      *
      * @param string $type
-     * @param array{startLine: int, endLine: int, startColumn: int, endColumn: int, startOffset: int, endOffset: int} $pos
+     * @param array{startLine: int, endLine: int, startOffset: int, endOffset: int} $pos
      * @param \MarkupCarve\Carve\Lint\Context $c
      *
      * @return void
