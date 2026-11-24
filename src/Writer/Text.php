@@ -2421,12 +2421,107 @@ final class Text
         if (
             $open && !isset($c->partners[$ch][$at]) && $i === strlen($value) - 1 && ($c->flat[$behind] ?? '') === "\0"
             && !in_array($c->flatTypes[$behind] ?? '', ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)
-            && str_contains(Inline::strings($c->flatNodes[$behind] ?? []) . ($c->flatAtoms[$behind] ?? ''), $ch)
+            && (str_contains($c->flatAtoms[$behind] ?? '', $ch) || self::holdsPairable($c->flatNodes[$behind] ?? [], $ch))
         ) {
             return true;
         }
 
         return ($open || $close) && self::partner($c, $at, $ch);
+    }
+
+    /**
+     * Whether `$node` holds a `$mark` that can open or close: C2-I-047, one between two word characters cannot.
+     *
+     * @param array<mixed> $node
+     * @param string $mark
+     *
+     * @return bool
+     */
+    private static function holdsPairable(array $node, string $mark): bool
+    {
+        [$closes, , $blocked] = self::heldMarks($node, $mark);
+
+        return $closes && !$blocked;
+    }
+
+    /**
+     * Whether the texts of `$node` hold a bare `$mark` that can close a pair opened before it, and one between two word
+     * characters (C2-I-047), and whether such a one comes before the first closer, so that the span the closer would
+     * end does not form (C2-I-053). The content stands between the marks of its node, and a mark glued before a closing
+     * mark of its own kind makes a run, which is text (C2-I-049). A bracketed node keeps its marks to itself.
+     *
+     * @param array<mixed> $node
+     * @param string $mark
+     *
+     * @return array{0: bool, 1: bool, 2: bool}
+     */
+    private static function heldMarks(array $node, string $mark): array
+    {
+        $closes = false;
+        $between = false;
+        $blocked = false;
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        $edge = ['strong' => 0x2A, 'emphasis' => 0x2F][$type] ?? 0x7D;
+        $nodes = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $last = array_key_last($nodes);
+        foreach ($nodes as $k => $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            $type = is_string($child['type'] ?? null) ? $child['type'] : '';
+            if ($type === 'text' && is_string($child['value'] ?? null)) {
+                self::textMarks($child['value'], $mark, $edge, $k === $last ? $edge : 0x7D, $closes, $between, $blocked);
+            } elseif (
+                !isset(self::WHOLE[$type]) && !in_array($type, ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)
+                && is_array($child['children'] ?? null)
+            ) {
+                [$held, $inside, $first] = self::heldMarks($child, $mark);
+                $blocked = $blocked || (!$closes && $first);
+                $closes = $closes || $held;
+                $between = $between || $inside;
+            }
+        }
+
+        return [$closes, $between, $blocked];
+    }
+
+    /**
+     * The marks of one text for `heldMarks()`, between the characters `$edge` before it and `$behind` after it.
+     *
+     * @param string $value
+     * @param string $mark
+     * @param int $edge
+     * @param int $behind
+     * @param bool $closes
+     * @param bool $between
+     * @param bool $blocked
+     */
+    private static function textMarks(
+        string $value,
+        string $mark,
+        int $edge,
+        int $behind,
+        bool &$closes,
+        bool &$between,
+        bool &$blocked,
+    ): void {
+        $n = strlen($value);
+        for ($at = strpos($value, $mark); $at !== false; $at = strpos($value, $mark, $at + 1)) {
+            $run = strspn($value, $mark, $at);
+            if ($run > 1 || ($at + 1 === $n && $behind === ord($mark))) {
+                $at += $run - 1;
+
+                continue;
+            }
+            $before = $at > 0 ? Chars::before($value, $at) : $edge;
+            $after = $at + 1 < $n ? Chars::at($value, $at + 1) : $behind;
+            if (Chars::isWord($before) && Chars::isWord($after)) {
+                $blocked = $blocked || !$closes;
+                $between = true;
+            } elseif (!Chars::isSpace($before) && !Chars::isWord($after)) {
+                $closes = true;
+            }
+        }
     }
 
     /**
@@ -2475,22 +2570,29 @@ final class Text
      * @param array<int, string> $types
      * @param array<int, array<mixed>> $nodes
      * @param \Closure(int): bool|null $braced Whether the mark at an offset behind a `{` is the mark of a braced opener.
+     * @param string $behind The character written behind the text, read for flanking and runs only.
      *
      * @return array<string, array<int, bool>>
      */
-    private static function pairedMarks(string $text, array $types = [], array $nodes = [], ?Closure $braced = null): array
-    {
+    private static function pairedMarks(
+        string $text,
+        array $types = [],
+        array $nodes = [],
+        ?Closure $braced = null,
+        string $behind = '',
+    ): array {
         $paired = ['*' => [], '/' => []];
         $open = ['*' => [], '/' => []];
         $bracedOpen = ['*' => [], '/' => []];
         $inner = ['*' => -1, '/' => -1];
         $bracket = -1;
         $n = strlen($text);
+        $text .= $behind;
         for ($at = 0; $at < $n; $at++) {
             $ch = $text[$at];
             if ($ch === "\0") {
                 $before = Chars::before($text, $at);
-                self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired, $bracket, $before);
+                self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired, $inner, $at, $bracket, $before);
 
                 continue;
             }
@@ -2509,7 +2611,7 @@ final class Text
             $behindBraced = $braced !== null && $at > 1 && $text[$at - 1] === $ch && $text[$at - 2] === '{' && $braced($at - 1);
             if (
                 self::bracedToken($at, $before, $after, $braced, $bracedOpen[$ch], $open)
-                || ($at > 0 && $text[$at - 1] === $ch && !$behindBraced) || ($at + 1 < $n && $text[$at + 1] === $ch)
+                || ($at > 0 && $text[$at - 1] === $ch && !$behindBraced) || ($text[$at + 1] ?? '') === $ch
                 || ($after >= 0 && Chars::isGlue($after))
             ) {
                 continue;
@@ -2575,26 +2677,41 @@ final class Text
      * @param array<mixed> $node
      * @param array<string, array<int>> $open
      * @param array<string, array<int, bool>> $paired
+     * @param array<string, int> $inner The last offset of each mark between two word characters.
+     * @param int $at The offset of the node.
      * @param int $bracket The offset of the last text bracket.
      * @param int $before The byte before the node.
      */
-    private static function pairNode(string $type, array $node, array &$open, array &$paired, int $bracket, int $before): void
-    {
+    private static function pairNode(
+        string $type,
+        array $node,
+        array &$open,
+        array &$paired,
+        array &$inner,
+        int $at,
+        int $bracket,
+        int $before,
+    ): void {
         // A bracketed node bounds the delimiter stack. Its marks cannot close
         // a pair opened in text outside its bracketed spelling.
         if (isset(self::WHOLE[$type]) || in_array($type, ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)) {
             return;
         }
-        $held = Inline::strings($node);
         $closes = !self::opensOnly($node, $before);
         foreach (['*', '/'] as $mark) {
+            // C2-I-047: a held mark between two word characters closes nothing; C2-I-053: it keeps an outer span of
+            // its mark from forming.
+            [$held, $between, $blocked] = self::heldMarks($node, $mark);
+            if ($between) {
+                $inner[$mark] = $at;
+            }
             if (
-                $open[$mark] !== [] && (str_contains($held, $mark) && ($before !== ord($mark) || self::braceHolds($node, $mark))
+                $open[$mark] !== [] && ($held && ($before !== ord($mark) || self::braceHolds($node, $mark))
                 || ($closes && $before !== ord($mark)
                 && (($mark === '*' && $type === 'strong') || ($mark === '/' && $type === 'emphasis'))))
             ) {
                 $from = array_pop($open[$mark]);
-                $paired[$mark][$from] = $from > $bracket;
+                $paired[$mark][$from] = $from > $bracket && !($held && $blocked);
             }
         }
     }
@@ -3088,6 +3205,7 @@ final class Text
         }
         if (self::anyLine($value, $line, $eol, $c->last === -1, $next === 10)) {
             $c->openedLine = $line;
+            $c->behindMarker = self::markerLineOpeners($line, $c);
 
             return 0;
         }
@@ -3108,6 +3226,20 @@ final class Text
     }
 
     /**
+     * A line of marks such as `* * *` is a list or quote marker before another block opener, which takes its own
+     * escape (C2-W-088).
+     *
+     * @param string $line
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<int, true>
+     */
+    private static function markerLineOpeners(string $line, Context $c): array
+    {
+        return strlen($line) > 1 && str_contains('-*+>', $line[0]) ? self::nestedOpeners($line, 0, $c) : [];
+    }
+
+    /**
      * C2-W-093: the marks of a text inside a node that pair, read across the content that holds the text, so a mark
      * of a sibling node can take its partner.
      *
@@ -3122,7 +3254,14 @@ final class Text
         if ($c->siblings === null || $at === null || substr_compare($c->siblings['flat'], $value, $at, strlen($value)) !== 0) {
             return self::pairedMarks($value);
         }
-        $c->siblings['partners'] ??= self::pairedMarks($c->siblings['flat'], $c->siblings['types'], $c->siblings['nodes']);
+        // C2-I-049: the closing mark of a span stands behind its content, and a mark glued before it makes a run.
+        $c->siblings['partners'] ??= self::pairedMarks(
+            $c->siblings['flat'],
+            $c->siblings['types'],
+            $c->siblings['nodes'],
+            null,
+            in_array($c->siblings['next'], [0x2A, 0x2F], true) ? chr($c->siblings['next']) : '',
+        );
         $local = [];
         foreach ($c->siblings['partners'] as $mark => $offsets) {
             foreach ($offsets as $offset => $paired) {
