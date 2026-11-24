@@ -309,7 +309,7 @@ final class Text
     public static function escape(string $value, Context $c, int $next): string
     {
         if ($c->writerState?->repairTrace !== null) {
-            return $c->writerState->repairTrace->bareText($value, $c->textPath);
+            return $c->writerState->repairTrace->bareText($value, $c->textPath, $next);
         }
 
         return self::escapeText($value, $c, $next);

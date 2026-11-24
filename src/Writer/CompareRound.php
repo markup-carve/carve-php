@@ -33,6 +33,11 @@ final class CompareRound
     private ?string $probed = null;
 
     /**
+     * @var array<string, array<int, true>> The asks of `askFirst()`: the first character of a node that did not form.
+     */
+    private array $firsts = [];
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -41,11 +46,15 @@ final class CompareRound
     }
 
     /**
+     * @param-out array<string, array<int, true>> $firsts
+     *
      * @param array<mixed> $expected
      * @param array<mixed> $actual
      * @param array<string, array<int, true>> $escapes
      * @param array{nodes?: array<int, array{string, string, int, int}>, ranges?: array<string, array{int, int}>} $candidate
      * @param string|null $probed
+     * @param array<string, array<int, true>>|null $firsts Set to the asks for the first character of a node that did
+     *   not form.
      *
      * @return array<string, array<int, true>>
      */
@@ -55,6 +64,7 @@ final class CompareRound
         array $escapes,
         array $candidate = [],
         ?string $probed = null,
+        ?array &$firsts = null,
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
@@ -65,6 +75,7 @@ final class CompareRound
             $comparison->nodeStarts[$path] = $start;
         }
         $comparison->children($expected, $actual, '', '');
+        $firsts = $comparison->firsts;
 
         return $comparison->asks;
     }
@@ -179,8 +190,9 @@ final class CompareRound
      *
      * @param array<mixed> $node
      * @param string $path
+     * @param bool $bracedOnly Only where that character is the brace of a braced opener.
      */
-    private function askFirst(array $node, string $path): void
+    private function askFirst(array $node, string $path, bool $bracedOnly = false): void
     {
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $index => $child) {
             if (!is_array($child)) {
@@ -188,11 +200,18 @@ final class CompareRound
             }
             $at = $path . '/children/' . $index;
             if (($child['type'] ?? '') === 'text') {
+                $value = is_string($child['value'] ?? null) ? $child['value'] : '';
+                if ($bracedOnly && !($value !== '' && $value[0] === '{' && Text::isPunct($value[1] ?? 'a'))) {
+                    return;
+                }
                 $this->ask($at, 0);
+                if (isset($this->asks[$at][0])) {
+                    $this->firsts[$at][0] = true;
+                }
 
                 return;
             }
-            $this->askFirst($child, $at);
+            $this->askFirst($child, $at, $bracedOnly);
 
             return;
         }
@@ -243,6 +262,10 @@ final class CompareRound
                 // nothing, so only its first character is asked (C2-W-088).
                 $this->askFirst($node, $path);
                 $found = null;
+            } elseif ($found === null && $limit === count($have)) {
+                // The parse holds no node of the type behind: where the content starts with a braced opener, that
+                // opener is the one that kept the node from forming.
+                $this->askFirst($node, $path, true);
             }
             if ($found === null) {
                 return false;

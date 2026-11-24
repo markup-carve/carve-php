@@ -49,7 +49,12 @@ final class RepairTrace
     {
     }
 
-    public function bareText(string $value, string $path): string
+    /**
+     * @param string $value
+     * @param string $path
+     * @param int $next The code point written after the text, -1 at the end of its leaf.
+     */
+    public function bareText(string $value, string $path, int $next = -1): string
     {
         $out = '';
         // Keep line endings after the final marker. The block writer decides whether a
@@ -68,9 +73,13 @@ final class RepairTrace
             if (isset($this->escapes[$path][$at])) {
                 $out .= '\\';
             }
-            // A literal backslash before punctuation must remain a backslash in the read-back text.
-            if ($char === '\\' && $at + 1 < $bodyLength && Text::isPunct($value[$at + 1])) {
-                $out .= '\\';
+            // C2-W-097: a literal backslash is written as two before ASCII punctuation, a space or a line end, also where
+            // the next character is another node's; that is its spelling, not an escape of the rounds.
+            if ($char === '\\') {
+                $after = $at + 1 < $bodyLength ? ord($value[$at + 1]) : ($bodyLength < strlen($value) ? 10 : $next);
+                if ($after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && Text::isPunct(chr($after)))) {
+                    $out .= '\\';
+                }
             }
             if ($this->mark && Text::isPunct($char)) {
                 $id = count($this->text);
