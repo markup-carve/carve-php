@@ -34,7 +34,8 @@ final class SpanCloserDropsOpenerTest extends TestCase
             'slash before an emphasis behind a letter' => ['/a{/©a/} c/x /z', '/a{/©a/} c/x /z'],
             'strong ending in a brace and its mark' => ['*{**©*}x*z*z', '*{**©*}x*z*z'],
             'emphasis ending in a brace and its mark' => ['./{//*©/}/./z', './{//*©/}/./z'],
-            'braced strong opening with a brace and its mark' => ['.*{*b*\\**}x*z', '.{*\\{*b*}**}x*z'],
+            // carve-js#5464 ruling B keeps the C2-W-125 trial behind strong in the reported kind's round.
+            'braced strong opening with a brace and its mark' => ['.*{*b*\\**}x*z', '.{*\\{*b*}\\**}x*z'],
             'empty braced strong inside a strong' => ['*}/{**}{**{* // /z', '*}/{**}{**{* // /z'],
             'empty braced emphasis inside a strong before a slash' => ['\\``c`* {*{/{//}{/ b/c.**}}', '\\``c`* {*{/{//}{/ b/c.**}}'],
             'text brace before a strong holding an empty braced emphasis' => ['\\``c`* {/*{//} {/  **^*|', '\\``c`* {/*{//} {/  **^*|'],
