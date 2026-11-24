@@ -470,7 +470,8 @@ final class Writer
                 $reported = ReadbackRound::compare($marked, $readBare, $tree, $wanted, false)['openers'];
                 $expanded = RepairPlanner::expandedKindEscapes($tree, $reported, $localEscapes);
                 $unsettledByKind = $expanded !== $localEscapes;
-                if ($unsettledByKind) {
+                // Cell backticks take the backslashes of their whole kind in the rounds, not the reported opener alone.
+                if ($unsettledByKind && !$cellTicks) {
                     $byKind = self::bareSource($tree, $layout, $options, $expanded);
                     if (Text::treePairOpeners($tree, $expanded) === [] && self::readsBack($byKind, $wanted, $options)) {
                         return new WriteResult($byKind, []);

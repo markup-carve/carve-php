@@ -559,11 +559,25 @@ final class CompareRound
         $node = $this->textAt($path);
         $value = is_array($node) && is_string($node['value'] ?? null) ? $node['value'] : '';
         if (
-            isset($value[$offset]) && Text::isPunct($value[$offset])
+            isset($value[$offset]) && Text::isPunct($value[$offset]) && !self::doubled($value, $offset)
             && !isset($this->escapes[$path][$offset]) && !isset($this->asks[$path][$offset])
         ) {
             $this->asks[$path][$offset] = true;
         }
+    }
+
+    /**
+     * C2-W-097: a literal backslash the bare write doubles, before punctuation, a space, a line end or the markup of the
+     * next node; a backslash asked for there changes nothing (carve-js `escaped`).
+     */
+    private static function doubled(string $value, int $at): bool
+    {
+        if ($value[$at] !== '\\') {
+            return false;
+        }
+        $next = $value[$at + 1] ?? '';
+
+        return $next === '' || $next === ' ' || $next === "\n" || Text::isPunct($next);
     }
 
     /**

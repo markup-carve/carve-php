@@ -37,6 +37,11 @@ final class TableCellTickReadBackTest extends TestCase
             ],
             'sigil before a tick takes no backslash' => ["| `a`[b!\\`\\` | b\$`x`\$`x``a|b` |\n| !{\$\$`x` | |\n", null],
             'every row pairs a run across a pipe' => ["| \\``b0 | ``b |\n| \\``b1 | ``b |\n", null],
+            'no backslash asked on a doubled literal backslash' => ["| `a`} \\`\\`\\` | \\\\`` ` ``\$`x` | ```} |\n", null],
+            'kind of a reported cell tick reaches its continuation' => [
+                "| {\\\\ |\n| ] |\n+ |\n| ^b\\`\$\$`x` |\n+ b \\`]\\\\ |\n",
+                "| {\\\\ |\n| ] |\n| ^b\\`\$\$`x` b \\`]\\\\ |\n",
+            ],
         ];
     }
 
