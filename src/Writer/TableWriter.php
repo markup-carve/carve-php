@@ -682,11 +682,11 @@ final class TableWriter
         // C2-B-169: a cell whose bare run would pair with a run of a later cell keeps a backslash on every backtick.
         $ticked = $this->w->repairTrace === null && self::tickedCells($row) >= 2;
         while ($ticked) {
-            $cell = self::cellPairedAcross([$first, ...self::continuedSegments($first, $continued, $height)]);
-            if ($cell === null || isset($this->tickedCells[$cell])) {
+            $cells = self::cellsPairedAcross([$first, ...self::continuedSegments($first, $continued, $height)], $this->tickedCells);
+            if ($cells === []) {
                 break;
             }
-            $this->tickedCells[$cell] = true;
+            $this->tickedCells += $cells;
             $this->w->wrapPoints = $points;
             [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $start);
         }
@@ -763,12 +763,17 @@ final class TableWriter
     }
 
     /**
-     * The segment whose backtick run the row split (C2-B-169) pairs with a run of a later segment, on any line.
+     * The segments whose backtick run the row split (C2-B-169) pairs with a run of a later segment, on any line. A
+     * segment found takes a backslash on every backtick, so the scan reads it as holding no run, as later lines do.
      *
      * @param array<array<string>> $lines
+     * @param array<int, true> $ticked
+     *
+     * @return array<int, true>
      */
-    private static function cellPairedAcross(array $lines): ?int
+    private static function cellsPairedAcross(array $lines, array $ticked): array
     {
+        $found = [];
         foreach ($lines as $segments) {
             $line = implode('|', $segments);
             $pipes = [];
@@ -779,6 +784,8 @@ final class TableWriter
             }
             $end = strlen($line);
             $k = 0;
+            $cell = 0;
+            $open = [];
             while ($k < $end) {
                 $k += strcspn($line, '\\`', $k);
                 if ($k >= $end) {
@@ -789,30 +796,37 @@ final class TableWriter
 
                     continue;
                 }
+                while ($pipes[$cell] < $k) {
+                    $cell++;
+                }
+                if (isset($found[$cell]) || isset($ticked[$cell])) {
+                    $k = $pipes[$cell] + 1;
+
+                    continue;
+                }
                 $run = strspn($line, '`', $k);
-                $close = $k + $run;
-                while (($close = strpos($line, '`', $close)) !== false && strspn($line, '`', $close) !== $run) {
+                $close = isset($open[$run]) ? false : $k + $run;
+                while ($close !== false && ($close = strpos($line, '`', $close)) !== false && strspn($line, '`', $close) !== $run) {
                     $close += strspn($line, '`', $close);
                 }
                 if ($close === false) {
+                    // No later run of this length closes it, nor any later run of the same length.
+                    $open[$run] = true;
                     $k += $run;
 
                     continue;
                 }
-                foreach ($pipes as $at => $pipe) {
-                    if ($pipe > $k) {
-                        if ($pipe < $close) {
-                            return $at;
-                        }
+                if ($pipes[$cell] < $close) {
+                    $found[$cell] = true;
+                    $k = $pipes[$cell] + 1;
 
-                        break;
-                    }
+                    continue;
                 }
                 $k = $close + $run;
             }
         }
 
-        return null;
+        return $found;
     }
 
     /**
