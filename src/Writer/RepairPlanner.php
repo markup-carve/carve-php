@@ -112,6 +112,51 @@ final class RepairPlanner
     }
 
     /**
+     * @param array<string, array<int, true>> $escapes
+     * @param array<string, array<int, true>> $more
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function mergedEscapes(array $escapes, array $more): array
+    {
+        foreach ($more as $path => $offsets) {
+            $escapes[$path] = ($escapes[$path] ?? []) + $offsets;
+        }
+
+        return $escapes;
+    }
+
+    /**
+     * C2-I-015, C2-W-125 case six: a text that starts with a backtick right behind a code, literal or math span would
+     * lengthen that span's closing run, so the procedure takes that backslash in every case, before its first round
+     * (carve-js `escapeGluedBacktick`).
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param array<string, array<int, true>> $out
+     *
+     * @return array<string, array<int, true>>
+     */
+    public static function gluedTicks(array $node, string $path = '', array $out = []): array
+    {
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $before = null;
+        foreach ($children as $at => $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            $value = $child['value'] ?? null;
+            if (($child['type'] ?? '') === 'text' && is_string($value) && Inline::gluesTick($value, $before)) {
+                $out[$path . '/children/' . $at][0] = true;
+            }
+            $out = self::gluedTicks($child, $path . '/children/' . $at, $out);
+            $before = $child;
+        }
+
+        return $out;
+    }
+
+    /**
      * The first round's candidate and read-back.
      *
      * @var array{
@@ -536,9 +581,11 @@ final class RepairPlanner
     private function applyRound(array &$candidate, array &$comparison): bool
     {
         $firsts = [];
-        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed, $firsts);
+        $differs = [];
+        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed, $firsts, $differs);
         $missing = self::missingSiblings($candidate, $comparison['read']);
         $trials = $this->nextTrials($candidate, $comparison['read'], $missing);
+
         $differences = [];
         if ($comparison['openers'] === [] && $missing === [] && $asked === []) {
             self::textDifferences($this->tree, $comparison['read'], '', $differences);
@@ -574,9 +621,11 @@ final class RepairPlanner
         }
         $this->addAsked($comparison['openers']);
         if ($this->kindRounds && $comparison['openers'] !== []) {
-            // A C2-W-125 trial behind a node can stand beside a reported kind in the same round (ruling B).
-            // It gives no kind of its own, so the kind pass must run before these asked escapes are added.
-            $this->escapeKinds($comparison['openers']);
+            // The kind escapes go first; a C2-W-125 trial behind a node gives no kind of its own (ruling B), so the
+            // asked escapes below are added after them. A differing character the round reports joins the kinds.
+            $reported = self::mergedEscapes($comparison['openers'], $early ? [] : $differs);
+            $this->addAsked($reported);
+            $this->escapeKinds($reported);
             $this->escapePartnerClosers();
             $this->addAsked($this->lengtheningAsks($asked));
         } else {

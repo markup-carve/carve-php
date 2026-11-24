@@ -43,18 +43,6 @@ final class TableWriter
     private array $blocked = [];
 
     /**
-     * Whether the cell being written keeps a backslash on every backtick (C2-B-169).
-     */
-    private bool $tickedRow = false;
-
-    /**
-     * The cells of the row being written that keep a backslash on every backtick, by index.
-     *
-     * @var array<int, true>
-     */
-    private array $tickedCells = [];
-
-    /**
      * @var int
      */
     private const PERCENT_CACHE = 256;
@@ -675,22 +663,7 @@ final class TableWriter
         // Without the count the wraps alone place the continuation rows.
         $below = is_int($below) ? max(0, $below) : PHP_INT_MAX;
         $height = $below === PHP_INT_MAX ? 1 : $below + 1;
-        $this->tickedCells = [];
-        $points = $this->w->wrapPoints;
-        $start = $height;
-        [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $start);
-        // C2-B-169: a cell whose bare run would pair with a run of a later cell keeps a backslash on every backtick.
-        $ticked = $this->w->repairTrace === null && self::tickedCells($row) >= 2;
-        while ($ticked) {
-            $cells = self::cellsPairedAcross([$first, ...self::continuedSegments($first, $continued, $height)], $this->tickedCells);
-            if ($cells === []) {
-                break;
-            }
-            $this->tickedCells += $cells;
-            $this->w->wrapPoints = $points;
-            [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $start);
-        }
-        $this->tickedCells = [];
+        [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $height);
         if ($first === []) {
             // C2-W-057: a row with no cell has no spelling, `||` is a row of one empty cell.
             $this->w->lose($path, 'table_row', null);
@@ -722,9 +695,7 @@ final class TableWriter
         $first = [];
         $continued = [];
         foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
-            $this->tickedRow = isset($this->tickedCells[count($first)]);
             [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader, $below);
-            $this->tickedRow = false;
             $text = $fragments[0] ?? '';
             $first[] = $text === '' ? $prefix . ' ' : $prefix . ' ' . $text . ' ';
             if (count($fragments) > 1) {
@@ -760,111 +731,6 @@ final class TableWriter
         }
 
         return $lines;
-    }
-
-    /**
-     * The segments whose backtick run the row split (C2-B-169) pairs with a run of a later segment, on any line. A
-     * segment found takes a backslash on every backtick, so the scan reads it as holding no run, as later lines do.
-     *
-     * @param array<array<string>> $lines
-     * @param array<int, true> $ticked
-     *
-     * @return array<int, true>
-     */
-    private static function cellsPairedAcross(array $lines, array $ticked): array
-    {
-        $found = [];
-        foreach ($lines as $segments) {
-            $line = implode('|', $segments);
-            $pipes = [];
-            $from = -1;
-            foreach ($segments as $segment) {
-                $from += strlen($segment) + 1;
-                $pipes[] = $from;
-            }
-            $end = strlen($line);
-            $k = 0;
-            $cell = 0;
-            $open = [];
-            while ($k < $end) {
-                $k += strcspn($line, '\\`', $k);
-                if ($k >= $end) {
-                    break;
-                }
-                if ($line[$k] === '\\') {
-                    $k += 2;
-
-                    continue;
-                }
-                while ($pipes[$cell] < $k) {
-                    $cell++;
-                }
-                if (isset($found[$cell]) || isset($ticked[$cell])) {
-                    $k = $pipes[$cell] + 1;
-
-                    continue;
-                }
-                $run = strspn($line, '`', $k);
-                $close = isset($open[$run]) ? false : $k + $run;
-                while ($close !== false && ($close = strpos($line, '`', $close)) !== false && strspn($line, '`', $close) !== $run) {
-                    $close += strspn($line, '`', $close);
-                }
-                if ($close === false) {
-                    // No later run of this length closes it, nor any later run of the same length.
-                    $open[$run] = true;
-                    $k += $run;
-
-                    continue;
-                }
-                if ($pipes[$cell] < $close) {
-                    $found[$cell] = true;
-                    $k = $pipes[$cell] + 1;
-
-                    continue;
-                }
-                $k = $close + $run;
-            }
-        }
-
-        return $found;
-    }
-
-    /**
-     * C2-B-169: a bare backtick run of one cell can pair with a run of a later cell of its line and hide the pipes
-     * between them. The cells of a row that hold a backtick, up to two.
-     *
-     * @param array<mixed> $row
-     */
-    private static function tickedCells(array $row): int
-    {
-        $count = 0;
-        foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
-            if (is_array($cell) && self::holdsTick($cell) && ++$count >= 2) {
-                break;
-            }
-        }
-
-        return $count;
-    }
-
-    /**
-     * @param array<mixed> $node
-     */
-    private static function holdsTick(array $node): bool
-    {
-        if (in_array($node['type'] ?? '', ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
-            return true;
-        }
-        if (is_string($node['value'] ?? null) && str_contains($node['value'], '`')) {
-            return true;
-        }
-        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
-            if (is_array($child) && self::holdsTick($child)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -916,7 +782,7 @@ final class TableWriter
         $prefix = $header . BraceBlock::of($cell, ['mark' => self::alignmentMark($cell), 'pipes' => true]);
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
         $lines = $this->registerWraps($path, $below);
-        $content = $this->content($blocks, $path, $lines !== [] || $this->tickedRow);
+        $content = $this->content($blocks, $path);
         $visibleContent = $this->w->repairTrace?->decode($content)['source'] ?? $content;
         $this->loseLeadingBlank($visibleContent, $blocks, $path);
 
@@ -1209,11 +1075,10 @@ final class TableWriter
      *
      * @param array<mixed> $blocks
      * @param string $path
-     * @param bool $wrapped
      *
      * @return string
      */
-    private function content(array $blocks, string $path, bool $wrapped): string
+    private function content(array $blocks, string $path): string
     {
         $parts = [];
         foreach ($blocks as $at => $block) {
@@ -1221,7 +1086,6 @@ final class TableWriter
             $c = new Context();
             $c->writerState = $this->w;
             $c->inCell = true;
-            $c->cellWrapped = $wrapped;
             $c->blockLines = false;
             $c->counts = Inline::counts($inlines);
             $outer = $this->w->takeSmartRun();

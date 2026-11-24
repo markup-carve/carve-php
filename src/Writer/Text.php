@@ -230,6 +230,12 @@ final class Text
     public static bool $undecided = false;
 
     /**
+     * Set where a cell holds a text backtick: the tick plan of the leaf cannot see the pipes a code span pairs across
+     * (C2-B-169) or the fragments of a continued cell (C2-B-184), so the read-back rounds place those backslashes.
+     */
+    public static bool $cellTicks = false;
+
+    /**
      * Starts the record of a top-level block group; returns the record of the groups before it.
      */
     public static function enterGroup(): bool
@@ -309,7 +315,7 @@ final class Text
     public static function escape(string $value, Context $c, int $next): string
     {
         if ($c->writerState?->repairTrace !== null) {
-            return $c->writerState->repairTrace->bareText($value, $c->textPath, $next);
+            return $c->writerState->repairTrace->bareText($value, $c->textPath, $next, $c->fragmentFrom);
         }
 
         return self::escapeText($value, $c, $next);
@@ -625,7 +631,7 @@ final class Text
 
         return [
             $c->inBracket ? ($c->bracketPairs[$c->textPath] ?? []) : [],
-            !$c->cellWrapped ? self::tickEscapes($value, $c, $next, $marks) : null,
+            $c->inCell && str_contains($value, '`') ? self::cellTicks() : self::tickEscapes($value, $c, $next, $marks),
             $marks < 0 && $c->lineStart && $c->kinds !== [] ? self::lineOpenerAt($value, $c) : -1,
         ];
     }
@@ -718,6 +724,22 @@ final class Text
         $delimiter = $value[$at] ?? '';
 
         return $at > 0 && $at <= 9 && ($delimiter === '.' || $delimiter === ')') && isset($c->kinds['line' . $delimiter]) ? $at : -1;
+    }
+
+    /**
+     * The cell backticks are left bare for the rounds; the conservative form escapes every one (C2-W-088).
+     *
+     * @return array<int, true>|null
+     */
+    private static function cellTicks(): ?array
+    {
+        if (self::$conservative) {
+            return null;
+        }
+        self::$undecided = true;
+        self::$cellTicks = true;
+
+        return [];
     }
 
     /**

@@ -38,6 +38,11 @@ final class CompareRound
     private array $firsts = [];
 
     /**
+     * @var array<string, array<int, true>> The asks of `matchPlain()`: a character the parse reads otherwise than the text.
+     */
+    private array $differs = [];
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -47,6 +52,7 @@ final class CompareRound
 
     /**
      * @param-out array<string, array<int, true>> $firsts
+     * @param-out array<string, array<int, true>> $differs
      *
      * @param array<mixed> $expected
      * @param array<mixed> $actual
@@ -55,6 +61,8 @@ final class CompareRound
      * @param string|null $probed
      * @param array<string, array<int, true>>|null $firsts Set to the asks for the first character of a node that did
      *   not form.
+     * @param array<string, array<int, true>> $differs Set to the escapes of characters the read-back spelled
+     *   otherwise, which the round adds as reported kinds.
      *
      * @return array<string, array<int, true>>
      */
@@ -65,6 +73,7 @@ final class CompareRound
         array $candidate = [],
         ?string $probed = null,
         ?array &$firsts = null,
+        array &$differs = [],
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
@@ -76,6 +85,7 @@ final class CompareRound
         }
         $comparison->children($expected, $actual, '', '');
         $firsts = $comparison->firsts;
+        $differs = $comparison->differs;
 
         return $comparison->asks;
     }
@@ -341,6 +351,7 @@ final class CompareRound
             $at += 2;
         }
         $this->ask($path, $at);
+        $this->constructOpener($value, $other, $path, $at);
         $pos = TreeEncoder::offsets($other['pos'] ?? null);
         if ($pos === null) {
             return false;
@@ -358,6 +369,33 @@ final class CompareRound
         }
 
         return true;
+    }
+
+    /**
+     * C2-W-088, C2-W-090: the opener of a construct the parse read where the tree has text is reported in its round,
+     * at the character that takes the backslash (carve-js `escapeOpener`). A note opener and a smart quote are left
+     * to the later rounds, as before.
+     *
+     * @param string $value
+     * @param array<mixed> $other
+     * @param string $path
+     * @param int $at
+     */
+    private function constructOpener(string $value, array $other, string $path, int $at): void
+    {
+        $type = $other['type'] ?? '';
+        if ($type === 'inline_footnote' || $type === 'smart_punctuation') {
+            return;
+        }
+        $at += strspn($value, " \t", $at);
+        $at += match ($type) {
+            'image', 'literal_inline' => 1,
+            'math' => ($other['display'] ?? false) === true ? 2 : 1,
+            default => 0,
+        };
+        if (isset($value[$at]) && Text::isPunct($value[$at]) && !isset($this->escapes[$path][$at])) {
+            $this->differs[$path][$at] = true;
+        }
     }
 
     /**
@@ -387,6 +425,9 @@ final class CompareRound
         for ($k = 0; $k < $limit; $k++) {
             if ($value[$vi + $k] !== $otherValue[$aj + $k]) {
                 $this->ask($path, $vi + $k);
+                if (isset($this->asks[$path][$vi + $k])) {
+                    $this->differs[$path][$vi + $k] = true;
+                }
 
                 return false;
             }
@@ -421,10 +462,10 @@ final class CompareRound
     {
         $node = $this->textAt($path);
         $mark = self::closer($type);
-        if ($node === null || $mark === '') {
+        if ($node === null) {
             return;
         }
-        if ($this->askMark($node, $path, $mark) || ($mark === ']' && $this->askMark($node, $path, '['))) {
+        if ($mark !== '' && ($this->askMark($node, $path, $mark) || ($mark === ']' && $this->askMark($node, $path, '[')))) {
             return;
         }
         $last = self::lastText($node, $path);
@@ -434,11 +475,13 @@ final class CompareRound
         [$textPath, $value] = $last;
         $length = strlen($value);
         if ($length > 0 && str_contains('\\!^$`', $value[$length - 1]) && $this->tryAsk($textPath, $length - 1)) {
+            $this->differs[$textPath][$length - 1] = true;
+
             return;
         }
         $brace = strrpos($value, '{');
-        if ($brace !== false) {
-            $this->tryAsk($textPath, $brace);
+        if ($brace !== false && $this->tryAsk($textPath, $brace)) {
+            $this->differs[$textPath][$brace] = true;
         }
     }
 
