@@ -2343,9 +2343,15 @@ final class Blocks
                 $c->inLineBlock = true;
                 $outer = $this->w->takeSmartRun();
                 $text = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
+                // C2-B-123: bare, a line of three or more colons closes the line block. C2-W-088 escapes the line kind,
+                // its first character; where that is a space, which C2-B-130 keeps as content, the line has no spelling.
                 if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $text) === 1) {
-                    $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
-                    $this->w->lose('', 'document', null);
+                    if ($text[0] === ':') {
+                        $text = '\\' . $text;
+                    } else {
+                        $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
+                        $this->w->lose('', 'document', null);
+                    }
                 }
                 $text = self::endContent($text, $inlines, $c);
                 if ($this->w->takeSmartRun()) {

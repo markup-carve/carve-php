@@ -3348,13 +3348,92 @@ final class Text
         if ($first !== '' && strspn($first, self::NAME_STARTS) === 0) {
             return false;
         }
+        $own = strlen($value);
         $len = strspn($value, Tables::SIGIL_SYMBOL_REST, $i + 1);
-        if ($i + 1 + $len === strlen($value)) {
+        if ($i + 1 + $len === $own) {
             [$tail, $next] = self::nameOn($value, $c, $next);
             $value .= $tail;
         }
+        if (self::symbolFollows($value, $i)) {
+            return true;
+        }
+        if (!self::extensionFollows($value, $i, $next)) {
+            return false;
+        }
+        // C2-I-094: only a closed extension forms, so its colon takes the backslash where its bracket pairs.
+        $bracket = $i + 1 + strspn($value, Tables::SIGIL_INLINE_EXTENSION_REST, $i + 2) + 1;
 
-        return self::symbolFollows($value, $i) || self::extensionFollows($value, $i, $next);
+        return $bracket >= $own || $c->here < 0 || (self::extensionCloses($c)[$c->here + $bracket] ?? true);
+    }
+
+    /**
+     * For each `[` of the flat leaf, whether a `]` may pair it: one of the text, or one a later node may spell. One
+     * pass per leaf, so a run of unclosed extensions stays linear.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<int, bool>
+     */
+    private static function extensionCloses(Context $c): array
+    {
+        $flat = (string)$c->flat;
+        if ($c->extensionCloses !== null && $c->extensionCloses[0] === $flat) {
+            return $c->extensionCloses[1];
+        }
+        $closes = [];
+        $open = [];
+        $lastNode = -1;
+        $n = strlen($flat);
+        for ($k = 0; $k < $n; $k++) {
+            $ch = $flat[$k];
+            if ($ch === '[') {
+                $open[] = $k;
+            } elseif ($ch === ']') {
+                $at = array_pop($open);
+                if ($at !== null) {
+                    $closes[$at] = true;
+                }
+            } elseif ($ch === "\0" && !isset($c->flatAtoms[$k]) && self::holdsCloser($c->flatNodes[$k] ?? null)) {
+                $lastNode = $k;
+            }
+        }
+        foreach ($open as $at) {
+            $closes[$at] = $at < $lastNode;
+        }
+        $c->extensionCloses = [$flat, $closes];
+
+        return $closes;
+    }
+
+    /**
+     * Whether the written form of a node may hold a `]` that pairs an outer bracket, as `SEALED` reads it: attributes
+     * add none. A list of nodes holds one where one of its nodes does.
+     *
+     * @param mixed $node
+     *
+     * @return bool
+     */
+    private static function holdsCloser(mixed $node): bool
+    {
+        if (!is_array($node)) {
+            return true;
+        }
+
+        $type = $node['type'] ?? null;
+        if (is_string($type) && isset(self::SEALED[$type])) {
+            return false;
+        }
+        foreach ($node as $key => $value) {
+            // An attribute value stands inside its braces, where no `]` closes an outer bracket.
+            if ($key === 'attrs' || $key === 'type') {
+                continue;
+            }
+            if (is_string($value) ? str_contains($value, ']') : is_array($value) && self::holdsCloser($value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

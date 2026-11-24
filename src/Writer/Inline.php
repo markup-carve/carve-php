@@ -2190,7 +2190,7 @@ final class Inline
         return match ($type) {
             'soft_break' => "\n",
             'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : "\\\n",
-            'footnote_ref' => '[^' . self::labelText(self::str($node, 'key'), $c) . ']',
+            'footnote_ref' => $this->footnoteRef(self::str($node, 'key'), $path, $c),
             'symbol' => $this->sigil($type, $path, $next, ':' . self::str($node, 'name') . ':'),
             'tag' => $this->sigil($type, $path, $next, '#' . self::str($node, 'name')),
             'non_breaking_space' => $this->noBreakSpace($path, $c, $next),
@@ -3243,16 +3243,36 @@ final class Inline
     }
 
     /**
-     * C2-I-076, C2-I-079: a backslash at the end of a label would take its closing bracket; a space behind it folds away.
+     * C2-B-224 leaves a footnote label out: its `\|` stays two characters, so the key is written as it is. A pipe
+     * without a backslash before it ends the cell (C2-B-169), so in a cell such a key has no spelling.
      *
      * @param string $key
+     * @param string $path
      * @param \MarkupCarve\Carve\Writer\Context $c
      *
      * @return string
      */
-    private static function labelText(string $key, Context $c): string
+    private function footnoteRef(string $key, string $path, Context $c): string
     {
-        if ($c->inCell) {
+        if ($c->inCell && preg_match('/(?<!\\\\)\\|/', $key) === 1) {
+            $this->w->lose($path, 'footnote_ref', 'key');
+        }
+
+        return '[^' . self::labelText($key, $c, false) . ']';
+    }
+
+    /**
+     * C2-I-076, C2-I-079: a backslash at the end of a label would take its closing bracket; a space behind it folds away.
+     *
+     * @param string $key
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param bool $pipes Whether a pipe in a cell takes its backslash (C2-W-098, C2-B-224).
+     *
+     * @return string
+     */
+    private static function labelText(string $key, Context $c, bool $pipes = true): string
+    {
+        if ($pipes && $c->inCell) {
             $key = str_replace('|', '\\|', $key);
         }
 
