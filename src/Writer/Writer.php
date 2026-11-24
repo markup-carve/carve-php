@@ -555,6 +555,7 @@ final class Writer
             return $bareNestedLink;
         }
         $bareSource = null;
+        $bareRanges = null;
         $read = null;
         $readPrint = null;
         $readParts = null;
@@ -568,7 +569,7 @@ final class Writer
             if ($removed === [] && $firstBare !== null) {
                 [$bareSource, $read, $readPrint, $readParts] = $firstBare;
             } else {
-                $bareSource = self::bareSource($tree, $layout, $options, []);
+                $bareSource = self::recordedBare($tree, $layout, $options, [], $bareRanges);
                 $read = ReadbackRound::read($bareSource, $options);
                 [$readPrint, $readParts] = RepairPlanner::readPrints($read);
             }
@@ -598,12 +599,13 @@ final class Writer
         }
         $glued = RepairPlanner::gluedTicks($tree);
         if ($read === null || $glued !== []) {
-            $bareSource = self::bareSource($tree, $layout, $options, $glued);
+            $bareSource = self::recordedBare($tree, $layout, $options, $glued, $bareRanges);
             $read = ReadbackRound::read($bareSource, $options);
             [$readPrint, $readParts] = RepairPlanner::readPrints($read);
         }
         $seed = $glued;
         $planner = null;
+        $scoped = null;
         if ($readPrint === $treePrint) {
             unset($read);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
@@ -616,14 +618,22 @@ final class Writer
                 $seed[$path] = ($seed[$path] ?? []) + $offsets;
             }
         } else {
-            // The first round would write and read this same candidate again.
-            $bare = self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
-            $planner = new RepairPlanner($tree, $layout, $options, $glued, $treePrint);
-            $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false), $readParts);
-            unset($bare, $read);
+            $scoped = self::scopedRepair($tree, $layout, $options, $glued, $treePrint, $bareSource, $bareRanges, $read, $readParts);
+            if ($scoped === null) {
+                // The first round would write and read this same candidate again.
+                $bare = self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
+                $planner = new RepairPlanner($tree, $layout, $options, $glued, $treePrint);
+                $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false), $readParts);
+                unset($bare);
+            }
+            unset($read);
         }
-        $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
-        $repaired = $planner->repair();
+        if ($scoped !== null) {
+            $repaired = $scoped;
+        } else {
+            $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
+            $repaired = $planner->repair();
+        }
 
         if ($repaired === null) {
             // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
@@ -644,6 +654,182 @@ final class Writer
         $repaired = self::prunedEmptyLabelBrackets($repaired, $treePrint, $options);
 
         return new WriteResult($repaired, []);
+    }
+
+    /**
+     * `bareSource()` with the byte range of each top-level block group, null where the write records none.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $escapes
+     * @param array<int, array{int, int, int, int, bool}>|null $ranges
+     */
+    private static function recordedBare(array $tree, ?array $layout, array $options, array $escapes, ?array &$ranges): string
+    {
+        [$source, $records] = self::recording(
+            static fn (): string => self::bareSource($tree, $layout, $options, $escapes),
+            self::$inGroups,
+        );
+        $ranges = null;
+        foreach ($records as [$written, $groups]) {
+            if ($written === $source) {
+                $ranges = $groups;
+            }
+        }
+
+        return $source;
+    }
+
+    /**
+     * C2-W-089, C2-W-133: the rounds of the top-level groups that need them, as carve-js repairs group by group. A
+     * group is kept where a block of it does not read back bare, is not `plain()` (it can feed the parse or resolve
+     * stage of another block) or takes a pair escape (C2-W-146). The kept groups are repaired as a document of their
+     * own from their bare form, and each takes its range in the bare form of the whole. Null where that does not hold:
+     * a group writes otherwise alone, the kept groups read back bare alone, the rounds stop, or the join does not read
+     * back; the rounds of the whole document decide there.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $seed
+     * @param string $treePrint
+     * @param string $bare The bare form of the whole, written with `$seed`.
+     * @param array<int, array{int, int, int, int, bool}>|null $ranges Its group ranges.
+     * @param array<string, mixed> $read Its read-back.
+     * @param array<string, string>|null $readParts `RepairPlanner::readPrints()` of that read-back.
+     */
+    private static function scopedRepair(
+        array $tree,
+        ?array $layout,
+        array $options,
+        array $seed,
+        string $treePrint,
+        string $bare,
+        ?array $ranges,
+        array $read,
+        ?array $readParts,
+    ): ?string {
+        $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        $readChildren = is_array($read['children'] ?? null) ? $read['children'] : [];
+        if (
+            $ranges === null || $readParts === null || count($ranges) < 2 || !array_is_list($children)
+            || count($readChildren) !== count($children)
+        ) {
+            return null;
+        }
+        [, $treeParts] = RepairPlanner::readPrints($tree);
+        $keep = [];
+        foreach ($children as $i => $child) {
+            $path = '/children/' . $i;
+            if (!is_array($child) || !self::plain($child) || ($treeParts[$path] ?? null) !== ($readParts[$path] ?? '')) {
+                $keep[$i] = true;
+            }
+        }
+        foreach (array_keys(Text::treePairOpeners($tree, $seed)) as $path) {
+            if (preg_match('~^/children/(\d+)(?:/|$)~', $path, $m) !== 1) {
+                return null;
+            }
+            $keep[(int)$m[1]] = true;
+        }
+        $kept = [];
+        $grouped = [];
+        foreach ($ranges as $g => [$first, $last]) {
+            for ($i = $first; $i <= $last; $i++) {
+                $grouped[$i] = true;
+                if (isset($keep[$i])) {
+                    $kept[$g] = true;
+                }
+            }
+        }
+        if ($kept === [] || count($kept) === count($ranges) || array_diff_key($keep, $grouped) !== []) {
+            return null;
+        }
+        $seeds = [];
+        foreach ($seed as $path => $offsets) {
+            if (preg_match('~^/children/(\\d+)(/.*)?$~', $path, $m) !== 1) {
+                return null;
+            }
+            $seeds[(int)$m[1]][$m[2] ?? ''] = $offsets;
+        }
+        $index = self::rootIndex($layout);
+        $forms = [];
+        $joined = '';
+        $at = 0;
+        foreach ($ranges as $g => [$first, $last, $start, $end]) {
+            if (!isset($kept[$g])) {
+                continue;
+            }
+            $text = substr($bare, $start, $end - $start);
+            $sub = $tree;
+            $sub['children'] = array_slice($children, $first, $last - $first + 1);
+            $subLayout = self::remapRange($layout, $index, $first, $last);
+            $subSeed = [];
+            for ($i = $first; $i <= $last; $i++) {
+                foreach ($seeds[$i] ?? [] as $rest => $offsets) {
+                    $subSeed['/children/' . ($i - $first) . $rest] = $offsets;
+                }
+            }
+            // A control comment reads the lines of the whole source around it (`ControlLines::keepAbove()`).
+            $key = str_contains($text, 'carve-lint-')
+                ? null
+                : md5(serialize([$sub['children'], self::facts($subLayout), $subSeed, $text]));
+            $form = $key !== null && array_key_exists($key, $forms)
+                ? $forms[$key]
+                : self::groupRepair($sub, $subLayout, $options, $subSeed, $text);
+            if ($form === null) {
+                return null;
+            }
+            if ($key !== null) {
+                $forms[$key] = $form;
+            }
+            $joined .= substr($bare, $at, $start - $at) . $form;
+            $at = $end;
+        }
+        $joined .= substr($bare, $at);
+
+        return self::readsBack($joined, $treePrint, $options) ? $joined : null;
+    }
+
+    /**
+     * The rounds of one kept group written as a document of its own, from its bare form: its text, or null where it
+     * writes otherwise alone or the rounds stop.
+     *
+     * @param array<string, mixed> $sub
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $seed
+     * @param string $text The group in the bare form of the whole.
+     */
+    private static function groupRepair(array $sub, ?array $layout, array $options, array $seed, string $text): ?string
+    {
+        $bare = self::recordedBare($sub, $layout, $options, $seed, $ranges);
+        if ($ranges === null || count($ranges) !== 1 || substr($bare, $ranges[0][2], $ranges[0][3] - $ranges[0][2]) !== $text) {
+            return null;
+        }
+        $print = self::trimmedPrint($sub, $layout, $options);
+        $read = ReadbackRound::read($bare, $options);
+        [$readPrint, $parts] = RepairPlanner::readPrints($read);
+        if ($readPrint === $print) {
+            // The group misread in the whole only through another group, whose rounds the join reads back with it.
+            return Text::treePairOpeners($sub, $seed) === [] ? $text : null;
+        }
+        $marked = self::markedCandidate($sub, $layout, $options, $seed, $bare);
+        $planner = new RepairPlanner($sub, $layout, $options, $seed, $print);
+        $planner->startFrom($marked, ReadbackRound::compare($marked, $read, $sub, $print, false), $parts);
+        unset($marked, $read);
+        $repaired = $planner->repair();
+        $escapes = $planner->resultEscapes();
+        unset($planner);
+        if ($repaired === null || $escapes === null) {
+            return null;
+        }
+        $again = self::recordedBare($sub, $layout, $options, $escapes, $final);
+        if ($again !== $repaired || $final === null || count($final) !== 1) {
+            return null;
+        }
+
+        return substr($repaired, $final[0][2], $final[0][3] - $final[0][2]);
     }
 
     /**
