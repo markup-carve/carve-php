@@ -41,27 +41,33 @@ final class NavTree
      * @param \Closure(\MarkupCarve\Carve\Node, array<\MarkupCarve\Carve\Node>): (array<\MarkupCarve\Carve\Node>|null) $rewrite
      * @param bool $fallbacks
      * @param array<\MarkupCarve\Carve\Node> $ancestors
+     * @param bool $visitReplacements
      *
      * @return void
      */
-    public static function rewrite(Node $root, Closure $rewrite, bool $fallbacks, array $ancestors = []): void
-    {
+    public static function rewrite(
+        Node $root,
+        Closure $rewrite,
+        bool $fallbacks,
+        array $ancestors = [],
+        bool $visitReplacements = true,
+    ): void {
         $ancestors[] = $root;
         if ($root->children !== null) {
-            $root->children = self::rewriteList($root->children, $rewrite, $fallbacks, $ancestors);
+            $root->children = self::rewriteList($root->children, $rewrite, $fallbacks, $ancestors, $visitReplacements);
         }
         foreach ($root->f as $key => $value) {
             if (isset(self::NOT_CHILDREN[$key]) || ($key === 'fallback' && !$fallbacks)) {
                 continue;
             }
             if ($value instanceof Node) {
-                self::rewrite($value, $rewrite, $fallbacks, $ancestors);
+                self::rewrite($value, $rewrite, $fallbacks, $ancestors, $visitReplacements);
             } elseif (is_array($value) && self::isList($value)) {
-                $root->f[$key] = self::rewriteList(PlainText::nodes($value), $rewrite, $fallbacks, $ancestors);
+                $root->f[$key] = self::rewriteList(PlainText::nodes($value), $rewrite, $fallbacks, $ancestors, $visitReplacements);
             } elseif (is_array($value)) {
                 foreach ($value as $slot => $list) {
                     if (is_array($list) && self::isList($list)) {
-                        $value[$slot] = self::rewriteList(PlainText::nodes($list), $rewrite, $fallbacks, $ancestors);
+                        $value[$slot] = self::rewriteList(PlainText::nodes($list), $rewrite, $fallbacks, $ancestors, $visitReplacements);
                     }
                 }
                 $root->f[$key] = $value;
@@ -74,22 +80,25 @@ final class NavTree
      * @param \Closure(\MarkupCarve\Carve\Node, array<\MarkupCarve\Carve\Node>): (array<\MarkupCarve\Carve\Node>|null) $rewrite
      * @param bool $fallbacks
      * @param array<\MarkupCarve\Carve\Node> $ancestors
+     * @param bool $visitReplacements
      *
      * @return array<\MarkupCarve\Carve\Node>
      */
-    private static function rewriteList(array $list, Closure $rewrite, bool $fallbacks, array $ancestors): array
+    private static function rewriteList(array $list, Closure $rewrite, bool $fallbacks, array $ancestors, bool $visitReplacements): array
     {
         $out = [];
         foreach ($list as $item) {
             $replaced = $rewrite($item, $ancestors);
             if ($replaced === null) {
-                self::rewrite($item, $rewrite, $fallbacks, $ancestors);
+                self::rewrite($item, $rewrite, $fallbacks, $ancestors, $visitReplacements);
                 $out[] = $item;
 
                 continue;
             }
             foreach ($replaced as $node) {
-                self::rewrite($node, $rewrite, $fallbacks, $ancestors);
+                if ($visitReplacements) {
+                    self::rewrite($node, $rewrite, $fallbacks, $ancestors, true);
+                }
                 $out[] = $node;
             }
         }
@@ -405,7 +414,7 @@ final class NavTree
             }
 
             return [self::link('#' . $key, array_map(Extensions::copy(...), $texts[$key]), self::attrs($node))];
-        }, true);
+        }, true, visitReplacements: false);
     }
 
     /**
