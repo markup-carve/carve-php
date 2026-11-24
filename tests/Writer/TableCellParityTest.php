@@ -56,8 +56,10 @@ final class TableCellParityTest extends TestCase
     public static function written(): array
     {
         return [
-            // C2-B-169: a row with backticks in two cells keeps every backtick escaped, so no run pairs across a pipe.
-            'backtick pairing across a pipe' => ["| a `b |\n+ c | `d |\n", "| a \\`b c | \\`d |\n"],
+            // C2-B-169: a cell whose bare run would pair across a pipe keeps a backslash on its backticks.
+            'backtick pairing across a pipe' => ["| a `b |\n+ c | `d |\n", "| a \\`b c | `d |\n"],
+            'runs pairing along the row' => ["| \\`a | \\`b | \\`c |\n", "| \\`a | \\`b | `c |\n"],
+            'code spans in two cells' => ["| `x` | `y` |\n", "| `x` | `y` |\n"],
             'lone backtick' => ["| `a | b |\n", "| `a | b |\n"],
         ];
     }
