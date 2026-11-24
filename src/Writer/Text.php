@@ -428,7 +428,9 @@ final class Text
      * C2-W-146: whether a mark between `$from` and `$to` takes a backslash for a pair rule of lint, which an attribute
      * block copied whole would leave bare.
      *
-     * @param array<int, true> $pairEscapes
+     * @param array<int, bool> $pairEscapes
+     * @param int $from
+     * @param int $to
      */
     private static function pairEscapeIn(array $pairEscapes, int $from, int $to): bool
     {
