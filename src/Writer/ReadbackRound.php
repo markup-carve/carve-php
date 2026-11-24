@@ -166,6 +166,7 @@ final class ReadbackRound
         $shift = match ($type) {
             'inline_footnote', 'image', 'literal_inline' => 1,
             'math' => ($node['display'] ?? false) === true ? 2 : 1,
+            'smart_punctuation' => (int)in_array($node['kind'] ?? '', ['en_dash', 'em_dash'], true),
             default => 0,
         };
         $owner = RepairTrace::owner($text, $start + $shift);
