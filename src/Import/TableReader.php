@@ -315,11 +315,11 @@ final class TableReader
             if ($col->name !== 'col') {
                 continue;
             }
-            $style = $col->attr('style') ?? '';
-            $value = preg_match('/\Awidth: ([0-9]+(?:\.[0-9]+)?)%;\z/', $style, $m) === 1 ? (float)$m[1] : 0.0;
-            $widths[] = $value > 0 && $value <= 100 ? $value / 100 : null;
-            if ($style !== '' && ($value <= 0 || $value > 100)) {
-                $this->context->report($col, 'import-attribute-dropped', 'Column style dropped: invalid width');
+            $style = $col->attr('style');
+            [$value, $other] = $style === null ? [null, false] : self::styleWidth($style);
+            $widths[] = $value;
+            if ($style !== null && ($value === null || $other)) {
+                $this->context->report($col, 'import-attribute-dropped', 'Column style dropped: no width or another declaration');
             }
         }
         $out = [];
@@ -328,5 +328,39 @@ final class TableReader
         }
 
         return $out;
+    }
+
+    /**
+     * C2-M-041, C2-B-212: the fraction of the last `width: N%` declaration, and whether any other declaration stands.
+     *
+     * @param string $style
+     *
+     * @return array{0: float|null, 1: bool}
+     */
+    private static function styleWidth(string $style): array
+    {
+        $ws = " \t\n\f\r";
+        $width = null;
+        $count = 0;
+        foreach (explode(';', $style) as $piece) {
+            if (trim($piece, $ws) === '') {
+                continue;
+            }
+            $count++;
+            $colon = strpos($piece, ':');
+            if ($colon === false || strcasecmp(trim(substr($piece, 0, $colon), $ws), 'width') !== 0) {
+                continue;
+            }
+            $value = trim(substr($piece, $colon + 1), $ws);
+            if (preg_match('/\A([0-9]+(?:\.[0-9]+)?)%\z/', $value, $m) !== 1) {
+                continue;
+            }
+            $n = (float)$m[1];
+            if ($n > 0 && $n <= 100) {
+                $width = $n / 100;
+            }
+        }
+
+        return [$width, $count > ($width === null ? 0 : 1)];
     }
 }
