@@ -939,11 +939,15 @@ final class DataRules
                 }
             }
         }
-        $needBlocks = [];
-        $needInline = [];
         $lookupRules = [];
+        $lookupDemand = [];
         foreach (array_merge($byKind['line'], $byKind['block'], $byKind['inline']) as $rule) {
-            self::lookupTypes($rule, $needBlocks, $needInline);
+            $blocks = [];
+            $inline = [];
+            self::lookupTypes($rule, $blocks, $inline);
+            if ($blocks !== [] || $inline !== []) {
+                $lookupDemand[] = [$rule['id'], $rule['over'] === 'line' ? null : $rule['types'], $blocks, $inline];
+            }
             $lookupRules[$rule['id']] = self::readsLookup($rule);
         }
         $typedRules = ['inline' => [], 'block' => []];
@@ -990,7 +994,7 @@ final class DataRules
         }
 
         return [
-            $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
+            $byKind, $lineFilters, $lookupDemand, $lookupRules,
             $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves, $typedBlockParents,
         ];
     }
@@ -1124,8 +1128,7 @@ final class DataRules
          * @var array<string, array{
          *     leafs: array<string, true>|null, shapes: array<string, true>|null, texts: list<array{0: string, 1: string, 2: string}>,
          * }> $lineFilters
-         * @var array<string, true> $needBlocks
-         * @var array<string, true> $needInline
+         * @var list<array{0: string, 1: list<mixed>|null, 2: array<string, true>, 3: array<string, true>}> $lookupDemand
          * @var array<string, bool> $lookupRules
          * @var array{inline: array<string, list<Rule>>, block: array<string, list<Rule>>} $typedRules
          * @var array{inline: list<Rule>, block: list<Rule>} $untypedRules
@@ -1135,26 +1138,9 @@ final class DataRules
          * @var array<string, array<string, true>|null> $typedBlockParents
          */
         [
-            $byKind, $lineFilters, $needBlocks, $needInline, $lookupRules,
+            $byKind, $lineFilters, $lookupDemand, $lookupRules,
             $typedRules, $untypedRules, $typedBlocks, $genericBlocks, $verbatimLeaves, $typedBlockParents,
         ] = self::$plans[self::activeKey($context)] ??= self::plan($context);
-        $plainTableCellGate = !isset($needBlocks['*']) && !isset($needBlocks['table_cell']);
-        foreach ($genericBlocks as $filter) {
-            if ($filter['parents'] === null || isset($filter['parents']['table_row'])) {
-                $plainTableCellGate = false;
-            }
-        }
-        $knownCellRules = [
-            'deprecated-cell-alignment' => true,
-            'table-marker-run-padding' => true,
-            'table-span-marker-attribute' => true,
-            'table-span-marker-blocked' => true,
-        ];
-        foreach ($typedRules['block']['table_cell'] ?? [] as $rule) {
-            if (!isset($knownCellRules[$rule['id']])) {
-                $plainTableCellGate = false;
-            }
-        }
         $footnoteKeys = [];
         $duplicateFootnoteKey = false;
         foreach ($context->footnoteDefinitions as [$definition]) {
@@ -1188,6 +1174,38 @@ final class DataRules
             'block-marker-as-text' => !str_contains($context->source, '~~~')
                 && !str_contains($context->source, ':::') && !str_contains($context->source, '{'),
         ];
+        // A rule looks records up only when it runs: not when a fact it needs is absent, and for a typed rule only on a record of
+        // its own types. A document where it cannot run needs no candidates for it.
+        $present = array_flip($context->nodeTypes) + ['comment_block' => true, 'text_run' => true];
+        $needBlocks = [];
+        $needInline = [];
+        foreach ($lookupDemand as [$id, $types, $blocks, $inline]) {
+            if (
+                ($absentRule[$id] ?? false)
+                || $types !== null && array_intersect_key($present, array_flip(array_filter($types, 'is_string'))) === []
+            ) {
+                continue;
+            }
+            $needBlocks += $blocks;
+            $needInline += $inline;
+        }
+        $plainTableCellGate = !isset($needBlocks['*']) && !isset($needBlocks['table_cell']);
+        foreach ($genericBlocks as $filter) {
+            if ($filter['parents'] === null || isset($filter['parents']['table_row'])) {
+                $plainTableCellGate = false;
+            }
+        }
+        $knownCellRules = [
+            'deprecated-cell-alignment' => true,
+            'table-marker-run-padding' => true,
+            'table-span-marker-attribute' => true,
+            'table-span-marker-blocked' => true,
+        ];
+        foreach ($typedRules['block']['table_cell'] ?? [] as $rule) {
+            if (!isset($knownCellRules[$rule['id']])) {
+                $plainTableCellGate = false;
+            }
+        }
         if (isset($needInline['*'])) {
             $wildcardNeeded = false;
             foreach (array_merge($byKind['line'], $byKind['block'], $byKind['inline']) as $rule) {
