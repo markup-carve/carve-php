@@ -9,15 +9,12 @@ use PHPUnit\Framework\TestCase;
 
 final class ParsedBareParagraphTest extends TestCase
 {
-    public function testLongBracedParagraphKeepsTheLocalEscapeChoices(): void
+    public function testLongBracedParagraphTakesTheBareFormThatReadsBack(): void
     {
+        // C2-W-088: the bare form reads back, so no round places a backslash.
         $source = rtrim(str_repeat('{^a \\\\{^ b^} ', 400)) . "\n";
-        $slash = '\\';
-        $early = $slash . '{^a ' . $slash . $slash . '{^ b^}';
-        $late = '{^a ' . str_repeat($slash, 3) . '{^ b^}';
-        $expected = implode(' ', [...array_fill(0, 199, $early), ...array_fill(0, 201, $late)]) . "\n";
 
-        $this->assertSame($expected, Carve::format($source));
+        $this->assertSame($source, Carve::format($source));
     }
 
     public function testAnAuthoredEscapeStillTakesTheNormalCanonicalWrite(): void

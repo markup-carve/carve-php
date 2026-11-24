@@ -157,7 +157,7 @@ final class ReadbackRound
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         [$start, $end] = $pos;
         $actual[$type . "\0" . $start] = $end;
-        if (in_array($type, ['text', 'paragraph', 'cell_paragraph'], true)) {
+        if (in_array($type, ['text', 'paragraph', 'cell_paragraph', 'line'], true)) {
             return false;
         }
         // C2-W-125 case five: an inline footnote is kept from forming by its bracket, not its caret. C2-W-090: so is
@@ -165,6 +165,8 @@ final class ReadbackRound
         // C2-W-090, C2-W-099: a literal or a math span takes the backslash on its backtick, behind its sigils.
         $shift = match ($type) {
             'inline_footnote', 'image', 'literal_inline' => 1,
+            // C2-W-090: a hyphen run takes its backslash before the second hyphen.
+            'smart_punctuation' => str_starts_with(is_string($node['source'] ?? null) ? $node['source'] : '', '--') ? 1 : 0,
             'math' => ($node['display'] ?? false) === true ? 2 : 1,
             'smart_punctuation' => (int)in_array($node['kind'] ?? '', ['en_dash', 'em_dash'], true),
             default => 0,

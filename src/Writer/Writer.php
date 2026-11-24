@@ -73,6 +73,13 @@ final class Writer
     private static ?string $parsedSource = null;
 
     /**
+     * `Text::$recordedOwn` of the last local write.
+     *
+     * @var array<string, array<int, true>>
+     */
+    private static array $localOwn = [];
+
+    /**
      * The writes of the current check, each as its source and its top-level group ranges.
      *
      * @var array<int, array{string, array<int, array{int, int, int, int, bool}>|null}>|null
@@ -421,6 +428,7 @@ final class Writer
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $localDecided, $pairEscapes, $groups]
             = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
+        $localOwn = self::$localOwn;
         $cellTicks = self::$cellTicks;
         // C2-W-088: the backslashes a row's pairing across a pipe gives were placed as the first round places them;
         // where that form reads back, the procedure ends there.
@@ -436,8 +444,11 @@ final class Writer
             $result->diagnostics === [] && !self::$inGroups && !isset($options['linkKeys'])
             && str_contains($result->source, '\\[') && !self::hasExtensionNode($tree)
         ) {
-            $bare = self::bareSource($tree, $layout, $options, []);
-            if ($bare !== $result->source && self::readsBack($bare, self::trimmedPrint($tree, $layout, $options), $options)) {
+            $bare = self::bareSource($tree, $layout, $options, $localOwn);
+            if (
+                $bare !== $result->source && Text::treePairOpeners($tree, $localOwn) === []
+                && self::readsBack($bare, self::trimmedPrint($tree, $layout, $options), $options)
+            ) {
                 return new WriteResult(self::prunedNoteCarets($bare, self::trimmedPrint($tree, $layout, $options), $options, $parsed), []);
             }
         }
@@ -472,6 +483,10 @@ final class Writer
             $bareHolds = $firstBare[2] === $wanted;
             if ($bareHolds && self::mayTakeBare($tree, $localEscapes, $parsed) && Text::treePairOpeners($tree, []) === []) {
                 return new WriteResult($bare, []);
+            }
+            $procedure = self::procedureForm($tree, $layout, $options, $localOwn, $wanted, [$bare, $readBare, $bareHolds]);
+            if ($procedure !== null) {
+                return $procedure;
             }
             if (!$bareHolds) {
                 $marked = self::markedCandidate($tree, $layout, $options, [], $bare);
@@ -618,6 +633,39 @@ final class Writer
         $repaired = self::prunedNoteCarets($repaired, $treePrint, $options, $parsed);
 
         return new WriteResult(self::prunedNoteSigils($repaired, $parsed), []);
+    }
+
+    /**
+     * C2-W-088: the form of the procedure where its first parse settles it. The bare form holds the escapes every form
+     * carries (`Text::$recordedOwn`); where it reads back, no round reports a kind, and where it does not, the first
+     * round escapes every potential opener of each reported kind. Where that form reads back, the planner adds the pair
+     * escapes of C2-W-146 and the form is final: a backslash of the input or of the local heuristics has no part in it
+     * (C2-W-091). Null where the first round does not settle the tree, which the rounds below take on.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $own
+     * @param string $wanted
+     * @param array{string, array<string, mixed>, bool} $plain The source, read-back and fit of the form without escapes.
+     */
+    private static function procedureForm(array $tree, ?array $layout, array $options, array $own, string $wanted, array $plain): ?WriteResult
+    {
+        if (self::hasExtensionNode($tree)) {
+            return null;
+        }
+        [$bare, $read, $holds] = $plain;
+        if ($own !== []) {
+            $bare = self::bareSource($tree, $layout, $options, $own);
+            $read = ReadbackRound::read($bare, $options);
+            $holds = TreeEquality::fingerprint($read) === $wanted;
+        }
+        if (!$holds) {
+            return null;
+        }
+        $procedure = (new RepairPlanner($tree, $layout, $options, $own, $wanted))->repair();
+
+        return $procedure === null ? null : new WriteResult($procedure, []);
     }
 
     /**
@@ -1673,6 +1721,7 @@ final class Writer
         Text::$recorded = [];
         Text::$recordedDecided = [];
         Text::$recordedPairs = [];
+        Text::$recordedOwn = [];
         Text::$undecided = false;
         Text::$cellTicks = false;
         Text::$cellKinds = false;
@@ -1682,12 +1731,14 @@ final class Writer
             $result = self::writeInternal($tree, $layout, $options, null);
             self::$cellTicks = Text::$cellTicks;
             self::$cellKinds = Text::$cellKinds;
+            self::$localOwn = Text::$recordedOwn;
 
             return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided, Text::$recordedPairs];
         } finally {
             Text::$recorded = null;
             Text::$recordedDecided = [];
             Text::$recordedPairs = [];
+            Text::$recordedOwn = [];
             Text::$undecided = false;
             Text::$conservative = false;
             Text::$bareSigils = false;
