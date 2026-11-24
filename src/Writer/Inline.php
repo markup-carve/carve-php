@@ -2616,14 +2616,27 @@ final class Inline
             $inner = '\\' . $inner;
         }
 
-        if (
-            in_array($node['refForm'] ?? '', ['collapsed', 'shortcut'], true)
-            && is_string($node['key'] ?? null) && Chars::fold($inner) !== $node['key']
-        ) {
-            $inner = self::escapedLike($inner, $node['key']) ?? $inner;
+        if (in_array($node['refForm'] ?? '', ['collapsed', 'shortcut'], true) && is_string($node['key'] ?? null)) {
+            $inner = $this->keySpelled($inner, $node['key']);
         }
 
         return '[' . $inner . ']' . $this->target($node, self::str($node, 'href'), $c, $path);
+    }
+
+    /**
+     * The content of a collapsed or shortcut reference as its key spells it. A marked write respells its decoded content,
+     * so it spells the key as the bare write does (C2-W-088).
+     */
+    private function keySpelled(string $inner, string $key): string
+    {
+        $trace = $this->w->repairTrace;
+        $plain = $trace?->decode($inner)['source'] ?? $inner;
+        $like = Chars::fold($plain) === $key ? null : self::escapedLike($plain, $key);
+        if ($like === null) {
+            return $inner;
+        }
+
+        return $trace === null ? $like : $trace->respelled($inner, $plain, $like) ?? $inner;
     }
 
     /**

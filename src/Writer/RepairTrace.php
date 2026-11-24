@@ -107,6 +107,89 @@ final class RepairTrace
     }
 
     /**
+     * The marked text with the backslashes `$respelled` adds to or drops from its decoded `$source`, its markers kept;
+     * null where the two differ in more than backslashes. An added backslash stands before the marker of the character
+     * it escapes, as `bareText()` writes one.
+     */
+    public function respelled(string $marked, string $source, string $respelled): ?string
+    {
+        if ($this->marker === '') {
+            return $respelled;
+        }
+        $out = '';
+        $pending = '';
+        $length = strlen($marked);
+        $j = 0;
+        $k = 0;
+        for ($at = 0; $at < $length;) {
+            if (substr_compare($marked, $this->marker, $at, strlen($this->marker)) === 0) {
+                $token = $this->markerAt($marked, $at);
+                if ($token === null) {
+                    return null;
+                }
+                if ($token[strlen($this->marker)] === 't') {
+                    $pending .= $token;
+                } else {
+                    $out .= $token;
+                }
+                $at += strlen($token);
+
+                continue;
+            }
+            $step = ($marked[$at] ?? '') === ($source[$j] ?? '')
+                ? self::step($marked[$at], $respelled[$k] ?? '', $pending)
+                : null;
+            if ($step === null) {
+                return null;
+            }
+            [$append, $taken, $written, $pending] = $step;
+            $out .= $append;
+            $at += $taken;
+            $j += $taken;
+            $k += $written;
+        }
+        $rest = substr($respelled, $k);
+
+        return self::settled($source, $j, $pending, $rest) ? $out . $rest : null;
+    }
+
+    /**
+     * One step of `respelled()` on the source character `$char` against the respelled byte `$next`: keep it behind the
+     * pending text markers, add a backslash before it, or drop it (a backslash, only where no text marker waits).
+     *
+     * @return array{string, int, int, string}|null What to append, source and respelled bytes used, the pending markers.
+     */
+    private static function step(string $char, string $next, string $pending): ?array
+    {
+        if ($char === $next) {
+            return [$pending . $char, 1, 1, ''];
+        }
+        if ($next === '\\') {
+            return ['\\', 0, 1, $pending];
+        }
+
+        return $char === '\\' && $pending === '' ? ['', 1, 0, ''] : null;
+    }
+
+    /**
+     * Whether the walk of `respelled()` used up its source and left only added backslashes behind.
+     */
+    private static function settled(string $source, int $j, string $pending, string $rest): bool
+    {
+        return $j === strlen($source) && $pending === '' && trim($rest, '\\') === '';
+    }
+
+    /**
+     * The whole marker that starts at `$at`, its closing byte included; null where it does not close.
+     */
+    private function markerAt(string $marked, int $at): ?string
+    {
+        $close = strpos($marked, "\x02", $at + strlen($this->marker));
+
+        return $close === false || $close === $at + strlen($this->marker) ? null : substr($marked, $at, $close + 1 - $at);
+    }
+
+    /**
      * @return array{
      *     source: string,
      *     text: array<int, int>,
