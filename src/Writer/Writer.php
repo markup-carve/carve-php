@@ -160,11 +160,250 @@ final class Writer
         self::$captured = null;
         self::$inGroups = false;
         try {
-            return Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options));
+            [$losses, $fallbackNodes] = self::normalizedAttributeValueLosses($tree);
+            $written = Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options));
+
+            return self::withAttributeValueLosses($written, $losses, $fallbackNodes);
         } finally {
             self::$captured = $captured;
             self::$inGroups = $inGroups;
         }
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     *
+     * @return array{array<\MarkupCarve\Carve\Diagnostics\Diagnostic>, array<string, true>}
+     */
+    private static function normalizedAttributeValueLosses(array &$tree): array
+    {
+        $losses = [];
+        $fallbackNodes = [];
+        if (is_array($tree['children'] ?? null)) {
+            foreach ($tree['children'] as $at => $child) {
+                if (is_array($child)) {
+                    self::findAttributeLineFeeds($child, '/children/' . $at, $losses, $fallbackNodes);
+                }
+            }
+        }
+        if ($losses !== []) {
+            foreach ($tree['children'] as &$child) {
+                if (is_array($child)) {
+                    self::spellAttributeValues($child);
+                }
+            }
+            unset($child);
+        }
+
+        return [$losses, $fallbackNodes];
+    }
+
+    /**
+     * A lost attribute field or node already has its report; do not add a value report under it.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $written
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $losses
+     * @param array<string, true> $fallbackNodes
+     *
+     * @return \MarkupCarve\Carve\Writer\WriteResult
+     */
+    private static function withAttributeValueLosses(WriteResult $written, array $losses, array $fallbackNodes): WriteResult
+    {
+        if ($losses === []) {
+            return $written;
+        }
+        $lostNodes = [];
+        $lostFields = [];
+        foreach ($written->diagnostics as $entry) {
+            if ($entry->code === 'writer-refused') {
+                return $written;
+            }
+            if (is_string($entry->path) && $entry->path !== '') {
+                if ($entry->code === 'structure-unspellable') {
+                    $lostNodes[$entry->path] = true;
+                } elseif ($entry->code === 'field-unspellable') {
+                    $lostFields[$entry->path] = true;
+                }
+            }
+        }
+        $uncovered = [];
+        foreach ($losses as $loss) {
+            $path = $loss->path ?? '';
+            $attrsAt = strpos($path, '/attrs/keyValues/');
+            if ($attrsAt === false) {
+                $uncovered[] = $loss;
+
+                continue;
+            }
+            $node = substr($path, 0, $attrsAt);
+            if (isset($lostNodes[$node])) {
+                continue;
+            }
+            if (self::omittedByFallback($node, $path, $lostNodes, $fallbackNodes)) {
+                continue;
+            }
+            if (!self::attributeFieldLost($node, $path, $lostFields)) {
+                $uncovered[] = $loss;
+            }
+        }
+
+        return $uncovered === [] ? $written : new WriteResult($written->source, [...$written->diagnostics, ...$uncovered]);
+    }
+
+    /**
+     * @param string $node
+     * @param string $path
+     * @param array<string, true> $lostFields
+     */
+    private static function attributeFieldLost(string $node, string $path, array $lostFields): bool
+    {
+        $attrsPath = $node . '/attrs';
+        while ($path !== $attrsPath && !isset($lostFields[$path])) {
+            $slash = strrpos($path, '/');
+            $path = $slash === false || $slash === 0 ? '' : substr($path, 0, $slash);
+        }
+
+        return isset($lostFields[$path]);
+    }
+
+    /**
+     * @param string $node
+     * @param string $path
+     * @param array<string, true> $lostNodes
+     * @param array<string, true> $fallbackNodes
+     */
+    private static function omittedByFallback(string $node, string $path, array $lostNodes, array $fallbackNodes): bool
+    {
+        $ancestor = $node;
+        while ($ancestor !== '') {
+            if (
+                isset($lostNodes[$ancestor], $fallbackNodes[$ancestor])
+                && !str_starts_with($path, $ancestor . '/fallback/')
+            ) {
+                return true;
+            }
+            $slash = strrpos($ancestor, '/');
+            $ancestor = $slash === false || $slash === 0 ? '' : substr($ancestor, 0, $slash);
+        }
+
+        return false;
+    }
+
+    /**
+     * C2-W-050: a value in a one-line attribute block takes one space per line feed.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $losses
+     * @param array<string, true> $fallbackNodes
+     */
+    private static function findAttributeLineFeeds(
+        array $node,
+        string $path,
+        array &$losses,
+        array &$fallbackNodes,
+    ): void {
+        if (is_array($node['fallback'] ?? null)) {
+            $fallbackNodes[$path] = true;
+        }
+        $attrs = $node['attrs'] ?? null;
+        if (is_array($attrs) && is_array($attrs['keyValues'] ?? null)) {
+            foreach ($attrs['keyValues'] as $at => $pair) {
+                if (
+                    is_array($pair) && is_string($pair[0] ?? null) && BraceBlock::isKey($pair[0])
+                    && is_string($pair[1] ?? null) && str_contains($pair[1], "\n")
+                ) {
+                    $losses[] = new Diagnostic(
+                        'field-unspellable',
+                        'warning',
+                        'render-loss',
+                        'Carve source cannot spell an attribute value with a line feed',
+                        $path . '/attrs/keyValues/' . $at . '/1',
+                    );
+                }
+            }
+        }
+        foreach ($node as $slot => $value) {
+            if (
+                in_array($slot, ['attrs', 'metadata', 'data', 'pos', 'segments'], true)
+                || (($node['type'] ?? null) === 'include' && $slot === 'children') || !is_array($value)
+            ) {
+                continue;
+            }
+            $step = str_replace(['~', '/'], ['~0', '~1'], (string)$slot);
+            self::findAttributeSlotLineFeeds($value, $path . '/' . $step, $losses, $fallbackNodes);
+        }
+    }
+
+    /**
+     * @param array<mixed> $value
+     * @param string $path
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $losses
+     * @param array<string, true> $fallbackNodes
+     */
+    private static function findAttributeSlotLineFeeds(array $value, string $path, array &$losses, array &$fallbackNodes): void
+    {
+        if (is_string($value['type'] ?? null)) {
+            self::findAttributeLineFeeds($value, $path, $losses, $fallbackNodes);
+
+            return;
+        }
+        foreach ($value as $at => $part) {
+            if (is_array($part)) {
+                $step = str_replace(['~', '/'], ['~0', '~1'], (string)$at);
+                self::findAttributeSlotLineFeeds($part, $path . '/' . $step, $losses, $fallbackNodes);
+            }
+        }
+    }
+
+    /**
+     * Change only a tree with a reported value. The writer's other attribute paths then share the same spelling.
+     *
+     * @param array<mixed> $node
+     */
+    private static function spellAttributeValues(array &$node): void
+    {
+        $attrs = $node['attrs'] ?? null;
+        if (is_array($attrs) && is_array($attrs['keyValues'] ?? null)) {
+            foreach ($attrs['keyValues'] as &$pair) {
+                if (
+                    is_array($pair) && is_string($pair[0] ?? null) && BraceBlock::isKey($pair[0])
+                    && is_string($pair[1] ?? null) && str_contains($pair[1], "\n")
+                ) {
+                    $pair[1] = str_replace("\n", ' ', $pair[1]);
+                }
+            }
+            unset($pair);
+            $node['attrs'] = $attrs;
+        }
+        foreach ($node as $slot => &$value) {
+            if (
+                in_array($slot, ['attrs', 'metadata', 'data', 'pos', 'segments'], true)
+                || (($node['type'] ?? null) === 'include' && $slot === 'children') || !is_array($value)
+            ) {
+                continue;
+            }
+            self::spellAttributeSlotValues($value);
+        }
+        unset($value);
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private static function spellAttributeSlotValues(array &$value): void
+    {
+        if (is_string($value['type'] ?? null)) {
+            self::spellAttributeValues($value);
+
+            return;
+        }
+        foreach ($value as &$part) {
+            if (is_array($part)) {
+                self::spellAttributeSlotValues($part);
+            }
+        }
+        unset($part);
     }
 
     // The first bare read-back adds one necessary branch to the writer's round procedure.
