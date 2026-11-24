@@ -1348,6 +1348,53 @@ final class Inline
     }
 
     /**
+     * The open texts (`openText()`) of `$nodes`, or null where one of them is a pair of `$mark`, whose bare spelling may
+     * hold a closer of that mark (C2-I-057).
+     *
+     * @param array<mixed> $nodes
+     * @param string $mark
+     */
+    public static function laterOpenText(array $nodes, string $mark): ?string
+    {
+        $out = '';
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            if (self::spellsBareMark($node, $mark)) {
+                return null;
+            }
+            $out .= self::openText($node, $mark);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Whether `$node` is or holds, outside brackets, an emphasis or strong of `$mark`.
+     *
+     * @param array<mixed> $node
+     * @param string $mark
+     */
+    private static function spellsBareMark(array $node, string $mark): bool
+    {
+        $type = self::str($node, 'type');
+        if ((self::PAIRED[$type] ?? '') === $mark) {
+            return true;
+        }
+        if (in_array($type, self::BARRIERS, true)) {
+            return false;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (is_array($child) && self::spellsBareMark($child, $mark)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The mark a bare form of the type ends with, or null.
      *
      * @param string $type
@@ -2199,7 +2246,7 @@ final class Inline
         $last = count($children) - 1;
         foreach ($children as $k => $child) {
             if (is_array($child) && ($child['type'] ?? '') === 'text') {
-                $c->spanTexts[$path . '/' . $k] = [$mark, $k < $last, $k > 0, $braced, $next];
+                $c->spanTexts[$path . '/' . $k] = [$mark, $k < $last, $k > 0, $braced, $next, array_slice($children, $k + 1)];
             }
         }
     }
@@ -2313,6 +2360,32 @@ final class Inline
     }
 
     /**
+     * Whether the run of `$run` marks at `$at` of the text `$nodes[$k]` is a brace's: the second mark of an empty pair
+     * `{//}`, which takes its own closer and forms nothing beside any node (C2-I-043), or a bare brace's that no closer
+     * takes. With a node beside the brace, the brace may take a backslash, which frees its mark; a node behind the text
+     * that spells no bare `$mark` keeps it, and its texts may hold the closer.
+     *
+     * @param array<mixed> $nodes
+     * @param string|int $k
+     * @param string $value
+     * @param int $at
+     * @param int $run
+     * @param string $mark
+     */
+    private static function braceKeepsMark(array $nodes, string|int $k, string $value, int $at, int $run, string $mark): bool
+    {
+        if ($run === 2 && $at > 0 && $value[$at - 1] === '{' && ($value[$at + 2] ?? '') === '}') {
+            return true;
+        }
+        $later = $k === array_key_last($nodes) ? '' : self::laterOpenText(array_slice($nodes, (int)$k + 1), $mark);
+        if ($later === null || ($at <= 1 && $k !== array_key_first($nodes))) {
+            return false;
+        }
+
+        return self::bareBraceTakes($value . ($later === '' ? '' : "\0" . $later), $at, $run, $mark);
+    }
+
+    /**
      * Whether the run of `$run` marks at `$at` belongs to a bare brace before it that no later closer gives a backslash:
      * one mark is that opener's (C2-I-060), and in `{**}` the second closes it holding nothing (C2-I-043).
      */
@@ -2322,7 +2395,7 @@ final class Inline
             return false;
         }
 
-        return !str_contains(substr($value, $at + $run + ($run === 1 ? 1 : 0)), $mark . '}');
+        return !Text::bracedCloserPairs(substr($value, $at + $run + ($run === 1 ? 1 : 0)), $mark);
     }
 
     /**
@@ -2387,9 +2460,7 @@ final class Inline
 
                         continue;
                     }
-                    // With a node beside the brace, the brace may take a backslash, which frees its mark.
-                    $alone = $k === array_key_last($nodes) && ($at > 1 || $k === array_key_first($nodes));
-                    if ($alone && self::bareBraceTakes($value, $at, $run, $mark)) {
+                    if (self::braceKeepsMark($nodes, $k, $value, $at, $run, $mark)) {
                         $at += $run - 1;
 
                         continue;
