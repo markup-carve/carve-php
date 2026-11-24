@@ -35,6 +35,18 @@ final class TableWriter
      */
     private ?SpanMarks $spans = null;
 
+    /**
+     * @var int
+     */
+    private const PERCENT_CACHE = 256;
+
+    /**
+     * Width entries already written, by the bytes of the width.
+     *
+     * @var array<string, string>
+     */
+    private static array $percents = [];
+
     public function __construct(private State $w, private Inline $inline)
     {
     }
@@ -207,16 +219,89 @@ final class TableWriter
             $valigns[] = $valign;
             $width = is_array($column) ? ($column['width'] ?? null) : null;
             $widths[] = is_int($width) || is_float($width) ? self::percent((float)$width) : '';
+            // C2-W-117: a width that no decimal percentage reads back as keeps its nearest entry and is reported.
+            if ((is_int($width) || is_float($width)) && (float)end($widths) / 100 !== (float)$width) {
+                $this->w->lose($path, 'table', 'columns');
+            }
         }
 
         return [$this->listKey($aligns, $path), $this->listKey($valigns, $path), $this->listKey($widths, $path)];
     }
 
+    /**
+     * C2-W-117, C2-B-212: the shortest plain decimal percentage that reads back as the width, as carve-js writes it.
+     *
+     * @param float $width
+     *
+     * @return string
+     */
     private static function percent(float $width): string
     {
-        $text = rtrim(rtrim(sprintf('%.10F', $width * 100), '0'), '.');
+        $key = pack('E', $width);
+        if (isset(self::$percents[$key])) {
+            return self::$percents[$key];
+        }
+        $percent = $width * 100;
+        $text = null;
+        for ($digits = 1; $digits < 17 && $text === null; $digits++) {
+            $candidate = self::plainDecimal((float)sprintf('%.' . ($digits - 1) . 'e', $percent));
+            if ((float)$candidate / 100 === $width) {
+                $text = $candidate;
+            }
+        }
+        if (count(self::$percents) >= self::PERCENT_CACHE) {
+            self::$percents = [];
+        }
 
-        return $text === '' ? '0' : $text;
+        return self::$percents[$key] = $text ?? self::plainDecimal($percent);
+    }
+
+    /**
+     * The shortest digits that read back as `$value`, in plain decimal notation (JavaScript `String(number)` with its
+     * exponent expanded).
+     *
+     * @param float $value
+     *
+     * @return string
+     */
+    private static function plainDecimal(float $value): string
+    {
+        if ($value === 0.0) {
+            return '0';
+        }
+        // `serialize_precision` -1 gives the shortest digits that read back; another setting takes the search.
+        $text = ini_get('serialize_precision') === '-1' ? var_export($value, true) : self::shortestDigits($value);
+        $exponentAt = strcspn($text, 'eE');
+        $mantissa = substr($text, 0, $exponentAt);
+        $sign = $mantissa[0] === '-' ? '-' : '';
+        $mantissa = ltrim($mantissa, '-');
+        $point = strpos($mantissa, '.');
+        $whole = $point === false ? $mantissa : substr($mantissa, 0, $point);
+        $digits = $whole . ($point === false ? '' : substr($mantissa, $point + 1));
+        $shifted = strlen($whole) + (int)substr($text, $exponentAt + 1);
+        $trimmed = ltrim($digits, '0');
+        $shifted -= strlen($digits) - strlen($trimmed);
+        $digits = rtrim($trimmed, '0');
+        if ($shifted <= 0) {
+            return $sign . '0.' . str_repeat('0', -$shifted) . $digits;
+        }
+        if ($shifted >= strlen($digits)) {
+            return $sign . $digits . str_repeat('0', $shifted - strlen($digits));
+        }
+
+        return $sign . substr($digits, 0, $shifted) . '.' . substr($digits, $shifted);
+    }
+
+    private static function shortestDigits(float $value): string
+    {
+        for ($precision = 1; $precision < 17; $precision++) {
+            $text = sprintf('%.' . ($precision - 1) . 'e', $value);
+            if ((float)$text === $value) {
+                return $text;
+            }
+        }
+
+        return sprintf('%.16e', $value);
     }
 
     /**
