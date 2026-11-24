@@ -1573,15 +1573,15 @@
    ]
   },
   "fence-closer-indented": {
-   "trigger": "- ```\n x\n ```\n",
+   "trigger": "- ```\n  x\n   ```\n",
    "near": "- ```\n x\n \n",
    "options": {},
    "findings": [
     [
      "fence-closer-indented",
      "/children/0/children/0/children/0",
-     10,
      13,
+     16,
      "This line closes the block opened on line 1 although it is indented differently. If it is content, make the outer fence longer."
     ]
    ]

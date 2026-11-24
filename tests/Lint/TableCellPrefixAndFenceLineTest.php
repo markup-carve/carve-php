@@ -49,7 +49,8 @@ final class TableCellPrefixAndFenceLineTest extends TestCase
     public function testFenceCloserNamesTheOpenerLine(): void
     {
         $messages = [];
-        foreach (Carve::lint("x[^1]\n\n[^1]: ```\n  code\n\n  ```\n\nafter\n") as $finding) {
+        // CC-2041: past the footnote's content column the closer is still reported (carve#6585 A2).
+        foreach (Carve::lint("x[^1]\n\n[^1]: ```\n  code\n        ```\n\nafter\n") as $finding) {
             if ($finding->code === 'fence-closer-indented') {
                 $messages[] = $finding->message;
             }
