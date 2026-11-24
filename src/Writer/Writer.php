@@ -547,7 +547,11 @@ final class Writer
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
         // `trimmedPrint()` of the supplied tree, which the first bare read-back compared with.
-        $treePrint = $firstBare[4] ?? $pairPrint ?? TreeEquality::fingerprint($tree);
+        $treeParts = null;
+        $treePrint = $firstBare[4] ?? $pairPrint;
+        if ($treePrint === null) {
+            [$treePrint, $treeParts] = RepairPlanner::readPrints($tree);
+        }
         // A nested link does not split the bracket pairs of the text around it. At the inline depth cap, the local
         // plan can still propose escapes for those pairs; C2-W-088 ends after round one if its bare form reads back.
         $bareNestedLink = self::bareNestedLink($tree, $layout, $options, $treePrint, $result->source);
@@ -618,7 +622,7 @@ final class Writer
                 $seed[$path] = ($seed[$path] ?? []) + $offsets;
             }
         } else {
-            $scoped = self::scopedRepair($tree, $layout, $options, $glued, $treePrint, $bareSource, $bareRanges, $read, $readParts);
+            $scoped = self::scopedRepair($tree, $layout, $options, $glued, [$treePrint, $treeParts], $bareSource, $bareRanges, $read, $readParts);
             if ($scoped === null) {
                 // The first round would write and read this same candidate again.
                 $bare = self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
@@ -693,7 +697,7 @@ final class Writer
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      * @param array<string, array<int, true>> $seed
-     * @param string $treePrint
+     * @param array{string, array<string, string>|null} $prints The fingerprint of the tree, and its parts where known.
      * @param string $bare The bare form of the whole, written with `$seed`.
      * @param array<int, array{int, int, int, int, bool}>|null $ranges Its group ranges.
      * @param array<string, mixed> $read Its read-back.
@@ -704,7 +708,7 @@ final class Writer
         ?array $layout,
         array $options,
         array $seed,
-        string $treePrint,
+        array $prints,
         string $bare,
         ?array $ranges,
         array $read,
@@ -718,7 +722,8 @@ final class Writer
         ) {
             return null;
         }
-        [, $treeParts] = RepairPlanner::readPrints($tree);
+        [$treePrint, $treeParts] = $prints;
+        $treeParts ??= RepairPlanner::readPrints($tree)[1];
         $keep = [];
         foreach ($children as $i => $child) {
             $path = '/children/' . $i;

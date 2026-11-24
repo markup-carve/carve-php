@@ -14,12 +14,11 @@ use MarkupCarve\Carve\Json\TreeEquality;
  */
 final class ReadbackRound
 {
-    private const MEMO_SIZE = 4;
-
     private const MEMO_BYTES = 262144;
 
     /**
-     * The last read-backs of the outer write, each with its source; null outside `memoized()`.
+     * The last read-backs of the outer write, each with its source, oldest first and at most `MEMO_BYTES` of source;
+     * null outside `memoized()`.
      *
      * @var array<int, array{string, array<string, mixed>}>|null
      */
@@ -60,8 +59,11 @@ final class ReadbackRound
     {
         $memo = self::$memo !== null && !isset($options['extensions']) && strlen($source) <= self::MEMO_BYTES;
         if ($memo) {
-            foreach (self::$memo as [$read, $tree]) {
+            foreach (self::$memo as $at => [$read, $tree]) {
                 if ($read === $source) {
+                    unset(self::$memo[$at]);
+                    self::$memo[] = [$read, $tree];
+
                     return $tree;
                 }
             }
@@ -73,8 +75,12 @@ final class ReadbackRound
         $tree = TreeEncoder::decodedWithOffsets($parsed, $source);
         if ($memo) {
             self::$memo[] = [$source, $tree];
-            if (count(self::$memo) > self::MEMO_SIZE) {
-                array_shift(self::$memo);
+            $bytes = 0;
+            foreach (array_reverse(self::$memo, true) as $at => [$read]) {
+                $bytes += strlen($read);
+                if ($bytes > self::MEMO_BYTES) {
+                    unset(self::$memo[$at]);
+                }
             }
         }
 
@@ -82,7 +88,7 @@ final class ReadbackRound
     }
 
     /**
-     * Runs one outer write with the last read-backs kept: its steps read the same source more than once.
+     * Runs one outer write with its last read-backs kept: its steps read the same source more than once.
      *
      * @template T
      *
@@ -93,6 +99,9 @@ final class ReadbackRound
     public static function memoized(Closure $write): mixed
     {
         $outer = self::$memo;
+        if ($outer === null) {
+            Text::forgetBlockReads();
+        }
         self::$memo ??= [];
         try {
             return $write();
