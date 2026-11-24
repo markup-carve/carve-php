@@ -637,10 +637,9 @@ final class Writer
 
     /**
      * C2-W-088: the form of the procedure where its first parse settles it. The bare form holds the escapes every form
-     * carries (`Text::$recordedOwn`); where it reads back, no round reports a kind, and where it does not, the first
-     * round escapes every potential opener of each reported kind. Where that form reads back, the planner adds the pair
-     * escapes of C2-W-146 and the form is final: a backslash of the input or of the local heuristics has no part in it
-     * (C2-W-091). Null where the first round does not settle the tree, which the rounds below take on.
+     * carries (`Text::$recordedOwn`); where it reads back, no round reports a kind, and the planner adds only the pair
+     * escapes of C2-W-146. A backslash of the input or of the local heuristics has no part in that form (C2-W-091).
+     * Null where the bare form does not read back, which the rounds below take on.
      *
      * @param array<string, mixed> $tree
      * @param array<mixed>|null $layout
@@ -649,7 +648,14 @@ final class Writer
      * @param string $wanted
      * @param array{string, array<string, mixed>, bool} $plain The source, read-back and fit of the form without escapes.
      */
-    private static function procedureForm(array $tree, ?array $layout, array $options, array $own, string $wanted, array $plain): ?WriteResult
+    private static function procedureForm(
+        array $tree,
+        ?array $layout,
+        array $options,
+        array $own,
+        string $wanted,
+        array $plain,
+    ): ?WriteResult
     {
         if (self::hasExtensionNode($tree)) {
             return null;
@@ -663,7 +669,14 @@ final class Writer
         if (!$holds) {
             return null;
         }
-        $procedure = (new RepairPlanner($tree, $layout, $options, $own, $wanted))->repair();
+        $planner = new RepairPlanner($tree, $layout, $options, $own, $wanted);
+        // The bare form was read already; the planner goes on from it to the pair rounds.
+        $planner->startFrom(
+            ['source' => $bare, 'text' => [], 'paths' => [], 'nodes' => [], 'ranges' => []],
+            ['equal' => true, 'openers' => [], 'moved' => [], 'read' => []],
+        );
+        unset($read);
+        $procedure = $planner->repair();
 
         return $procedure === null ? null : new WriteResult($procedure, []);
     }

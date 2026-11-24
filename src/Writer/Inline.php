@@ -2076,7 +2076,8 @@ final class Inline
         }
 
         return match ($before['type'] ?? '') {
-            'footnote_ref' => false,
+            // C2-I-066: the bracket of an inline extension is no link text, so no tail follows it.
+            'footnote_ref', 'inline_extension' => false,
             // Bare, a bracket inside the note pairs with its closer, and the tail makes a link of that pair.
             'inline_footnote' => str_contains(self::strings($before), '['),
             'link', 'image' => !is_string($before['key'] ?? null) || ($before['refForm'] ?? 'full') === 'shortcut',

@@ -433,6 +433,13 @@ final class RepairPlanner
                 if ($kind !== '#' && $kind !== '{#') {
                     continue;
                 }
+                // C2-W-088: a reported `#` before a space or the line end opens no tag, so it is the line kind of a
+                // heading, whose potential openers are the starts of the leaf's lines.
+                if ($kind === '#' && preg_match('/\G#+(?:[ \t]|$)/m', $value, $m, 0, $at) === 1) {
+                    self::expandHeadingLines($tree, $leaves[$leaf] ?? [], $expanded);
+
+                    continue;
+                }
                 $hashRound = $kind === '{#'
                     && ($escapedHash[$leaf] ??= self::hasEscapedHash($tree, $leaves[$leaf] ?? [], $localEscapes));
                 foreach ($hashRound ? ['{#', '#'] : [$kind] as $roundKind) {
@@ -467,6 +474,33 @@ final class RepairPlanner
             }
             foreach (self::kindOffsets($kind, $value) as $at) {
                 $expanded[$path][$at] = true;
+            }
+        }
+    }
+
+    /**
+     * C2-W-088: the line kind `#`: each line of the leaf that starts with `#`, in a text that starts the leaf or follows
+     * a break, or behind a line feed of a text.
+     *
+     * @param array<mixed> $tree
+     * @param array<string> $texts
+     * @param array<string, array<int, true>> $expanded
+     */
+    private static function expandHeadingLines(array $tree, array $texts, array &$expanded): void
+    {
+        foreach ($texts as $path) {
+            $value = self::nodeAt($tree, $path)['value'] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $cut = (int)strrpos($path, '/');
+            $index = (int)substr($path, $cut + 1);
+            $before = $index === 0 ? null : self::nodeAt($tree, substr($path, 0, $cut + 1) . ($index - 1));
+            if (($value[0] ?? '') === '#' && ($before === null || in_array($before['type'] ?? '', ['soft_break', 'hard_break'], true))) {
+                $expanded[$path][0] = true;
+            }
+            for ($at = strpos($value, "\n#"); $at !== false; $at = strpos($value, "\n#", $at + 1)) {
+                $expanded[$path][$at + 1] = true;
             }
         }
     }
