@@ -39,4 +39,12 @@ final class NestedLinkBracketPairTest extends TestCase
     {
         self::assertSame("[a \\[ [x](u) b](v)\n", Carve::format("[a \\[ [x](u) b](v)\n"));
     }
+
+    public function testBareReadBackAtInlineDepthCapPlacesNoEscapes(): void
+    {
+        foreach ([49, 50, 51, 60, 70] as $depth) {
+            $input = str_repeat('^*[*[[*', $depth) . '^*[*x](u)' . str_repeat('^]]](u)', $depth) . "\n";
+            self::assertSame($input, Carve::format($input), 'depth ' . $depth);
+        }
+    }
 }
