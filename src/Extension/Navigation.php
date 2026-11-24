@@ -100,8 +100,9 @@ final class Navigation
 
     /**
      * Numbers the sections, `1`, `1.1` and so on, in a `<span class="section-number">` before the heading text, and
-     * writes a cross-reference `</#id>` to a numbered heading as "Section 1.2 - Title". Headings in a quote or a note,
-     * with the class `unnumbered` or above `$minLevel` take no number.
+     * writes a cross-reference `</#id>` to a numbered heading as "Section 1.2 - Title". A number follows nesting depth,
+     * not the level, so a skipped level repeats no number. Only the headings a section wraps are numbered: headings in a
+     * quote, note, footnote or list item, with the class `unnumbered` or above `$minLevel` take no number.
      *
      * @param int $minLevel Top numbered heading level.
      * @param string $label Word before the number in a cross-reference.
@@ -154,29 +155,26 @@ final class Navigation
         $levels = [];
         $numbers = [];
         $byId = [];
-        NavTree::visit($view, static function (Node $node, array $ancestors) use ($minLevel, &$levels, &$numbers, &$byId): void {
+        // carve#6531: only the headings a section wraps (C2-H-026), numbered by depth, not level.
+        foreach ($view->children ?? [] as $node) {
             if ($node->type !== 'heading') {
-                return;
-            }
-            foreach ($ancestors as $above) {
-                if ($above->type === 'block_quote' || $above->type === 'footnote') {
-                    return;
-                }
+                continue;
             }
             $level = $node->f['level'] ?? 1;
             $level = is_int($level) ? $level : 1;
             if (in_array('unnumbered', NavTree::attrs($node)->classes ?? [], true) || $level < $minLevel) {
-                return;
+                continue;
             }
+            $closed = null;
             while ($levels !== [] && (int)end($levels) > $level) {
                 array_pop($levels);
-                array_pop($numbers);
+                $closed = array_pop($numbers);
             }
             if ($levels !== [] && $levels[count($levels) - 1] === $level) {
                 $numbers[count($numbers) - 1]++;
             } else {
                 $levels[] = $level;
-                $numbers[] = 1;
+                $numbers[] = $closed === null ? 1 : $closed + 1;
             }
             $number = implode('.', $numbers);
             $id = NavTree::headingId($node);
@@ -188,7 +186,7 @@ final class Navigation
             $span->f['attrs'] = Apparatus::attrs(classes: ['section-number']);
             $space = NavTree::chrome(NavTree::text(' '), self::NUMBERS);
             $node->children = [NavTree::chrome($span, self::NUMBERS), $space, ...($node->children ?? [])];
-        }, false);
+        }
 
         return $byId;
     }
@@ -369,7 +367,8 @@ final class Navigation
 
     /**
      * Writes a table of contents at each `toc` directive, claimed as `carve.tocPlacement`; its headings window comes from
-     * `{depth=N}` or `{from=X to=Y}`. Without this extension the directive stays the core `<div class="toc">`.
+     * `{depth=N}` or `{from=X to=Y}`, and like `tableOfContents()` it lists only the headings a section wraps. Without
+     * this extension the directive stays the core `<div class="toc">`.
      */
     public static function tocPlacement(): ExtensionDefinition
     {

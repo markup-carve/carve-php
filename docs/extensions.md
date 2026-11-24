@@ -216,12 +216,15 @@ Carve::render($source, ['extensions' => [
   `tocNav` label, or in a `<details>` when `collapsible`. A table placed at the bottom lands inside the last section,
   since a 0.2 section holds every block after its heading.
 - `tocPlacement()`: claims each `::: toc` directive (`carve.tocPlacement`), with the headings window from
-  `{depth=N}` or `{from=X to=Y}`; a quoted title names the nav.
+  `{depth=N}` or `{from=X to=Y}`; a quoted title names the nav. Like `tableOfContents()`, it lists only the
+  top-level headings, the ones a section wraps.
 - `headingPermalinks(symbol, cssClass, ariaLabel, levels, prepend, showOnHover, copyToClipboard)`: an anchor to its
   own id in each heading.
 - `headingNumbers(minLevel, label, crossref)`: section numbers in `<span class="section-number">`, and cross-references
-  `</#id>` written as `Section 1.2 - Title` (`crossref`: `number`, `number-title` or `title`). Headings in a quote or a
-  note, with the class `unnumbered`, or above `minLevel` take no number.
+  `</#id>` written as `Section 1.2 - Title` (`crossref`: `number`, `number-title` or `title`). A number follows
+  nesting depth, not the level, so a skipped level repeats no number (`= A`, `=== C`, `== B` is 1, 1.1, 1.2). Only
+  the top-level headings, the ones a section wraps, are numbered: headings in a quote, note, footnote or list item,
+  with the class `unnumbered`, or above `minLevel` take no number.
 - `headingReference(cssClass)`: a class on each reference link a heading resolves (`[Heading][]`). The 0.1
   `[[Heading]]` spelling is gone (C2-X-013).
 - `externalLinks(target, rel, nofollow)`: `target` and `rel` on links and autolinks to `http` and `https` URLs.
