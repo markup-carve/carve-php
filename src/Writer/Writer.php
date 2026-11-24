@@ -179,23 +179,22 @@ final class Writer
     {
         $parsed = self::$parsedSource;
         self::$parsedSource = null;
-        $children = $tree['children'] ?? null;
-        if (
-            $parsed !== null && !self::hasSourceEscapes($parsed) && is_array($children) && count($children) === 1
-            && is_array($children[0]) && ($children[0]['type'] ?? null) === 'paragraph'
-        ) {
-            // The bare form needs no repair when it is the source this tree was parsed from.
-            // Its block layout has already been written, and that source reads back as this tree.
-            $bare = self::writeInternal($tree, $layout, $options, new RepairTrace([], false));
-            if ($bare->diagnostics === [] && $bare->source === $parsed) {
-                return $bare;
-            }
-        }
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
         $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
             return $settled;
+        }
+        $children = $tree['children'] ?? null;
+        if (
+            $parsed !== null && self::simpleBracedSource($parsed) && $result->diagnostics === []
+            && is_array($children) && count($children) === 1
+            && is_array($children[0]) && ($children[0]['type'] ?? null) === 'paragraph'
+            && self::onlyAddedBraceEscapes($parsed, $result->source)
+        ) {
+            // The local planner added only backslashes to text braces before braced-only marks. Bare ^ and ,
+            // are text, so escaping those literal braces cannot change the parsed tree.
+            return $result;
         }
         // C2-W-124: a local write the heuristics call safe is still read back where the tree is a parse's; one that
         // reads as another tree goes to the rounds.
@@ -293,21 +292,50 @@ final class Writer
     }
 
     /**
-     * A source escape may have a canonical spelling different from its bare write.
-     * Double backslashes spell a literal backslash and do not hide the next mark.
+     * Braced sup/sub marks and plain text have no pair or sigil escape decisions.
+     * Other punctuation keeps the local planner's canonical escape choices.
      */
-    private static function hasSourceEscapes(string $source): bool
+    private static function simpleBracedSource(string $source): bool
     {
+        if (strspn($source, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 {},^\\\n") !== strlen($source)) {
+            return false;
+        }
         $at = 0;
         while (($at = strpos($source, '\\', $at)) !== false) {
             $run = strspn($source, '\\', $at);
             if (($run & 1) !== 0) {
-                return true;
+                return false;
             }
             $at += $run;
         }
 
-        return false;
+        return true;
+    }
+
+    /**
+     * The local form may add a backslash before a literal brace followed by a braced-only mark.
+     * Every other byte, including the spelling of all nodes, must be unchanged.
+     */
+    private static function onlyAddedBraceEscapes(string $source, string $written): bool
+    {
+        $i = 0;
+        $j = 0;
+        $sourceLength = strlen($source);
+        $writtenLength = strlen($written);
+        while ($i < $sourceLength && $j < $writtenLength) {
+            if ($source[$i] === $written[$j]) {
+                $i++;
+                $j++;
+
+                continue;
+            }
+            if ($written[$j] !== '\\' || ($source[$i] ?? '') !== '{' || !str_contains('^,', $source[$i + 1] ?? '')) {
+                return false;
+            }
+            $j++;
+        }
+
+        return $i === $sourceLength && $j === $writtenLength;
     }
 
     /**
