@@ -173,10 +173,16 @@ final class Writer
         self::$captured = null;
         self::$inGroups = false;
         try {
+            $parsedSource = self::$parsedSource;
             [$losses, $fallbackNodes] = self::normalizedAttributeValueLosses($tree);
             $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
                 static fn (): WriteResult => self::writeChecked($tree, $layout, $options),
             ));
+
+            if ($written->diagnostics === [] && self::notePrunable($written->source)) {
+                $print = self::trimmedPrint($tree, $layout, $options);
+                $written = self::withPrunedNoteCarets($written, $print, $options, $parsedSource);
+            }
 
             return self::withAttributeValueLosses($written, $losses, $fallbackNodes);
         } finally {
@@ -1586,12 +1592,15 @@ final class Writer
      *
      * @return array{string, array<int>}
      */
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     private static function noteCaretStarts(string $source): array
     {
         $pruned = '';
         $from = 0;
         $open = [];
         $notes = 0;
+        $crossedLine = false;
         $starts = [];
         $n = strlen($source);
         // The next caret pair with an escaped bracket and the next line end, found once per position so the scan stays
@@ -1613,16 +1622,17 @@ final class Writer
             $ch = $source[$at];
             $before = $at > 0 ? $source[$at - 1] : '';
             if ($ch === "\n") {
-                $open = [];
-                $notes = 0;
+                // An escaped note closer can leave the would-be note open across a soft break.
+                $crossedLine = true;
             } elseif ($ch === '[') {
                 $note = $before === '^' || ($before === '\\' && $at > 1 && $source[$at - 2] === '^');
-                if (!$note && $notes > 0 && substr($source, $at + 1, 2) === '\\^') {
+                $pruneAcrossLine = !$crossedLine || substr($source, $at + 3, 2) === '](';
+                if (!$note && $notes > 0 && $pruneAcrossLine && substr($source, $at + 1, 2) === '\\^') {
                     $pruned .= substr($source, $from, $at + 1 - $from);
                     $from = $at + 2;
                     $starts[] = $at;
                 } elseif (
-                    !$note && $before !== '\\' && $notes > 0 && $caret !== false
+                    !$note && $before !== '\\' && $notes > 0 && $pruneAcrossLine && $caret !== false
                     && ($lineEnd === false || $caret < $lineEnd)
                 ) {
                     // An escaped bracket opens no text, so nothing up to the line end is its content.
@@ -1630,6 +1640,9 @@ final class Writer
                 }
                 $open[] = $note;
                 $notes += $note ? 1 : 0;
+                if ($note) {
+                    $crossedLine = false;
+                }
             } elseif ($before !== '\\' && array_pop($open) === true) {
                 $notes--;
             }
@@ -1640,6 +1653,8 @@ final class Writer
 
         return [$pruned . substr($source, $from), $starts];
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * Whether the source holds a caret pair with an escape that `prunedNoteCarets()` may take out.
