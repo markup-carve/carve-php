@@ -14,7 +14,7 @@ final class RunEntry
      * @param string $path
      * @param string $out The node as written.
      * @param int $prefix The bytes of `$out` written before the text's value.
-     * @param array<int, bool> $escaped Whether each byte offset of `$value` took a backslash.
+     * @param array<int, bool|int> $escaped Whether each byte offset of `$value` took a backslash, or how many.
      * @param string $value
      * @param array<int, string> $kinds The kinds of the repair escapes of the write.
      */

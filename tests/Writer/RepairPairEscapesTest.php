@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Writer\Text;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -32,6 +33,13 @@ final class RepairPairEscapesTest extends TestCase
             ],
             'text across a soft break' => ["\\\\ *b* {=d=}=g=\\_\n``z\n", "\\\\ *b* {=d=}\\=g=_\n``z\n"],
         ];
+    }
+
+    public function testAnEscapedLiteralBackslashKeepsBothBackslashes(): void
+    {
+        $tree = ['type' => 'doc', 'children' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => '\\_a_']]]]];
+
+        $this->assertSame([], Text::treePairOpeners($tree, ['/children/0/children/0' => [0 => true]]));
     }
 
     #[DataProvider('sources')]

@@ -520,7 +520,7 @@ final class Inline
      * The ASCII punctuation marks of a text that stand bare: the text holds more of the mark than it escapes.
      *
      * @param string $value
-     * @param array<int, bool> $escaped
+     * @param array<int, bool|int> $escaped
      *
      * @return array<string, true>
      */

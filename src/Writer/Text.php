@@ -1474,9 +1474,11 @@ final class Text
         $escaped = [];
         $n = strlen(rtrim($value, "\r\n"));
         for ($i = 0; $i < $n; $i++) {
-            if (isset($offsets[$i]) || ($value[$i] === '\\' && $i + 1 < $n && self::isPunct($value[$i + 1]))) {
-                $out .= '\\';
-                $escaped[$i] = true;
+            // An escape and the doubled literal backslash are placed apart, as bareText() places them.
+            $count = (int)isset($offsets[$i]) + (int)($value[$i] === '\\' && $i + 1 < $n && self::isPunct($value[$i + 1]));
+            if ($count > 0) {
+                $out .= str_repeat('\\', $count);
+                $escaped[$i] = $count;
             }
             $out .= $value[$i];
         }
@@ -1598,7 +1600,7 @@ final class Text
 
     /**
      * @param string $out The text as written.
-     * @param array<int, bool> $escaped Whether each byte offset of `$value` took a backslash.
+     * @param array<int, bool|int> $escaped Whether each byte offset of `$value` took a backslash, or how many.
      * @param string $value
      * @param int $only A byte of `$out` whose offset in `$value` is asked for alone, or -1 for the pairs of `$out`.
      *
@@ -1614,9 +1616,7 @@ final class Text
         $at = 0;
         $n = strlen($value);
         for ($i = 0; $i < $n; $i++) {
-            if ($escaped[$i] ?? false) {
-                $at++;
-            }
+            $at += (int)($escaped[$i] ?? 0);
             $place[$at] = $i;
             $at++;
         }
