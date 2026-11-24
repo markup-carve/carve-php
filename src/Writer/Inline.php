@@ -2190,7 +2190,8 @@ final class Inline
         return match ($type) {
             'soft_break' => "\n",
             'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : "\\\n",
-            'footnote_ref' => '[^' . self::labelText(self::str($node, 'key'), $c) . ']',
+            // C2-B-224 leaves a footnote label out: its `\|` stays two characters, so the key is written as it is.
+            'footnote_ref' => '[^' . self::labelText(self::str($node, 'key'), $c, false) . ']',
             'symbol' => $this->sigil($type, $path, $next, ':' . self::str($node, 'name') . ':'),
             'tag' => $this->sigil($type, $path, $next, '#' . self::str($node, 'name')),
             'non_breaking_space' => $this->noBreakSpace($path, $c, $next),
@@ -3247,12 +3248,13 @@ final class Inline
      *
      * @param string $key
      * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param bool $pipes Whether a pipe in a cell takes its backslash (C2-W-098, C2-B-224).
      *
      * @return string
      */
-    private static function labelText(string $key, Context $c): string
+    private static function labelText(string $key, Context $c, bool $pipes = true): string
     {
-        if ($c->inCell) {
+        if ($pipes && $c->inCell) {
             $key = str_replace('|', '\\|', $key);
         }
 
