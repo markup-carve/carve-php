@@ -97,8 +97,8 @@ final class Context
     public Layout $layout;
 
     /**
-     * @var array<string, array{'*': int|null, '/': int|null}> The start of the last braced closer of each mark, by the path of
-     *   the inline content that holds it.
+     * @var array<string, array<string, array<int, int>>> The braced openers a closer pairs with, by leaf block and text node;
+     *   see `NodeRulesB::bracedSpanAsText`.
      */
     public array $closerStarts = [];
 

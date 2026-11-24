@@ -38,6 +38,14 @@ final class BracedSpanOpenerAsTextTest extends TestCase
             'two openers with closers' => ['*a {*b {/c* d /} *} e', ['3-5', '7-9']],
             'escaped opener' => ['*a \\{/b* c /}', []],
             'closer inside the link' => ["[*a {/b* c\nd /} e](url)", ['4-6']],
+            'strike opener' => ['*a {~b* c~}', ['3-5']],
+            'highlight opener' => ['*a {=b* c=}', ['3-5']],
+            'insert opener' => ['/a {+b/ c+}', ['3-5']],
+            'subscript opener' => ['*a {,b* c,}', ['3-5']],
+            'underline opener' => ['*a {_b* c_}', ['3-5']],
+            'closer mark read as a bare closer' => ['*x *a {*b* c*}', ['6-8']],
+            'closer behind an emphasis mark' => ['*a {/b* /c /}/', ['3-5']],
+            'formed span takes the closer' => ['*a {/b* {/c/}', []],
         ];
     }
 
