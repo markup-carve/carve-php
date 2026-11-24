@@ -2285,8 +2285,13 @@ final class Inline
             return false;
         }
 
-        // A backslash at the end of the content would escape the closer.
-        return !str_ends_with($inner, '\\') || str_ends_with($inner, "\\\n");
+        // An even run spells escaped backslashes and leaves the closer active.
+        $slashes = 0;
+        for ($i = strlen($inner) - 1; $i >= 0 && $inner[$i] === '\\'; $i--) {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 0;
     }
 
     /**
@@ -2326,8 +2331,7 @@ final class Inline
         }
         $end = strlen($tail) - 1;
         $markEnd = $end >= 0 && $tail[$end] === $mark && ($end === 0 || $tail[$end - 1] !== '{');
-        // A backslash at the end of the content is written as two, which would escape a bare closer.
-        if ($markEnd || ($end >= 0 && ($tail[$end] === '\\' || Chars::isSpace(Chars::before($tail, $end + 1))))) {
+        if ($markEnd || ($end >= 0 && Chars::isSpace(Chars::before($tail, $end + 1)))) {
             return true;
         }
         // Without the paths of the spans written braced, only a mark that can pair counts (C2-I-053).
