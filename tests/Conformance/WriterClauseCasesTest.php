@@ -24,16 +24,7 @@ final class WriterClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [
-        'CC-2029' => 'carve#6585 (C2-W-146, escaped caret line)',
-        'CC-2030' => 'carve#6585 (C2-W-146, escaped caret line)',
-        'CC-2031' => 'carve#6585 (C2-W-146, escaped caret line)',
-        'CC-2032' => 'carve#6585 (C2-W-146, escaped caret line)',
-        'CC-2033' => 'carve#6585 (C2-W-146, escaped caret line)',
-        'CC-2034' => 'carve#6585 (C2-W-146, escaped caret line)',
-        'CC-2035' => 'carve#6585 (C2-W-146, escaped caret line)',
-        'CC-2037' => 'carve#6585 (C2-W-146, escaped caret line)',
-    ];
+    private const KNOWN_FAIL = [];
 
     /**
      * @var array<string>

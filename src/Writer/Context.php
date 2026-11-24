@@ -305,6 +305,11 @@ final class Context
     public array $ownAt = [];
 
     /**
+     * C2-W-146: whether the text being written starts a caret line that `unattached-caption` would report.
+     */
+    public bool $caretLine = false;
+
+    /**
      * C2-W-146: the offsets of the text being written that take a backslash because a pair rule of lint reports them.
      *
      * @var array<int, bool>

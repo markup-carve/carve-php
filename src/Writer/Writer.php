@@ -471,6 +471,8 @@ final class Writer
             && (str_contains($parsed, '^[') || str_contains($parsed, '[^'))
             && !str_contains($parsed, '\\[') && !str_contains($parsed, '\\]')
             && self::onlyAddedEscapes($parsed, $result->source, '[](!^')
+            // C2-W-146: an added caret line escape is no note escape, and the parsed form would drop it.
+            && substr_count($result->source, '\\^ ') === substr_count($parsed, '\\^ ')
         ) {
             return new WriteResult(str_ends_with($parsed, "\n") ? $parsed : $parsed . "\n", []);
         }

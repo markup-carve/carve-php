@@ -27,8 +27,6 @@ final class LineStartAndBracedMarkTest extends TestCase
             'list marker in a div' => ["::: div\n---tom\n- li\n:::"],
             'list marker in a quote fence' => ["::: >\na\n* li\n:::"],
             'list marker in a div in an item' => ["- x\n\n  ::: div\n  a\n  - li\n  :::"],
-            'caption mark below text' => ["a\n^ cap"],
-            'caption mark below text in a div' => ["::: div\na\n^ cap\n:::"],
             'brace shape on a first line' => ["{{x}}\n\nx"],
         ];
     }
@@ -38,6 +36,26 @@ final class LineStartAndBracedMarkTest extends TestCase
     {
         $result = Carve::formatWithDiagnostics($source);
         self::assertSame($source . "\n", $result->source);
+    }
+
+    /**
+     * C2-W-146 (carve#6585 A1): a caption mark below text stays text that `unattached-caption` reports, so its caret
+     * takes the backslash.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function provideCaretBelowText(): array
+    {
+        return [
+            'caption mark below text' => ["a\n^ cap", "a\n\\^ cap\n"],
+            'caption mark below text in a div' => ["::: div\na\n^ cap\n:::", "::: div\na\n\\^ cap\n:::\n"],
+        ];
+    }
+
+    #[DataProvider('provideCaretBelowText')]
+    public function testCaretBelowTextTakesBackslash(string $source, string $expected): void
+    {
+        self::assertSame($expected, Carve::formatWithDiagnostics($source)->source);
     }
 
     /**
