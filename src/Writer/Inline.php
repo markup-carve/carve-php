@@ -2712,11 +2712,6 @@ final class Inline
             if ($type === 'text') {
                 $value = is_string($node['value'] ?? null) ? $node['value'] : '';
                 self::pairText($value, $key, $open, $nested, $paired, $labels, $notes, $deepest);
-            } elseif ($type === 'link') {
-                // A nested link's own bracketed spelling ends any pair that was
-                // still open in the containing label.
-                $open = [];
-                $nested = [];
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                 self::pairWalk($node['children'], $key . '/children', $open, $nested, $paired, $labels, $notes, $deepest);
             }
