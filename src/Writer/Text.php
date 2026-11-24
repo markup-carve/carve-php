@@ -259,6 +259,11 @@ final class Text
     public static bool $conservative = false;
 
     /**
+     * Whether the first write is of a supplied tree, which C2-W-124 reads back only where an escape is left undecided.
+     */
+    public static bool $suppliedTree = false;
+
+    /**
      * Whether a conservative write leaves a sigil glued to a node bare, the first retry of an undecided write.
      */
     public static bool $bareSigils = false;
@@ -396,7 +401,7 @@ final class Text
             // A brace that starts a line is left to the line rules, where a block attribute line may form.
             if (!$escape && $byte === 0x7B) {
                 $end = self::literalBlockEnd($value, $i);
-                if ($end > $i) {
+                if ($end > $i && !self::pairEscapeIn($c->pairEscapes, $i, $end)) {
                     $c->escapedAt += array_fill($i, $end - $i, false);
                     $out .= substr($value, $i, $end - $i);
                     $prev = 0x7D;
@@ -417,6 +422,29 @@ final class Text
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-146: whether a mark between `$from` and `$to` takes a backslash for a pair rule of lint, which an attribute
+     * block copied whole would leave bare.
+     *
+     * @param array<int, bool> $pairEscapes
+     * @param int $from
+     * @param int $to
+     */
+    private static function pairEscapeIn(array $pairEscapes, int $from, int $to): bool
+    {
+        if ($pairEscapes === []) {
+            return false;
+        }
+        // The range is the block `literalBlockEnd()` has just read, so the scan stays within its cost.
+        for ($at = $from + 1; $at < $to; $at++) {
+            if (isset($pairEscapes[$at])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1921,6 +1949,12 @@ final class Text
         if ($next === '{') {
             return false;
         }
+        // C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind it takes the mark from the bare
+        // pairs, which its backslash would set free. A parsed tree goes to the rounds anyway; a supplied one leaves the
+        // brace to the read-back.
+        if (self::$suppliedTree && ($next === '*' || $next === '/') && !str_contains(substr($probe, 2), $next . '}')) {
+            return self::undecided();
+        }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
             return true;
         }
@@ -2455,7 +2489,7 @@ final class Text
         for ($at = 0; $at < $n; $at++) {
             $ch = $text[$at];
             if ($ch === "\0") {
-                $before = $at > 0 ? min(ord($text[$at - 1]), 0x80) : -1;
+                $before = Chars::before($text, $at);
                 self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired, $bracket, $before);
 
                 continue;
@@ -2468,8 +2502,9 @@ final class Text
             if ($ch !== '*' && $ch !== '/') {
                 continue;
             }
-            $before = $at > 0 ? ord($text[$at - 1]) : -1;
-            $after = $at + 1 < $n ? ord($text[$at + 1]) : -1;
+            // C2-I-047, C2-I-048: the flanking tests read code points, not the bytes of a UTF-8 sequence.
+            $before = Chars::before($text, $at);
+            $after = Chars::at($text, $at + 1);
             // C2-I-049: the mark a bare brace takes as a braced opener does not count for the run behind it.
             $behindBraced = $braced !== null && $at > 1 && $text[$at - 1] === $ch && $text[$at - 2] === '{' && $braced($at - 1);
             if (
@@ -2597,7 +2632,7 @@ final class Text
         $first = is_array($node['children'] ?? null) ? $node['children'][0] ?? null : null;
         $value = is_array($first) && ($first['type'] ?? null) === 'text' && is_string($first['value'] ?? null) ? $first['value'] : '';
 
-        return $value !== '' && Chars::isWord(ord($value[0]));
+        return $value !== '' && Chars::isWord(Chars::at($value, 0));
     }
 
     /**
@@ -3029,6 +3064,10 @@ final class Text
             return -1;
         }
         $tail = $c->lineTail ?? (in_array($next, [-1, 10], true) ? null : self::restOfLine($value, $c));
+        // A hard break ends the line with its backslash (C2-B-166, C2-B-167: such a line is no row).
+        if ($tail === null && $next === 92 && ($c->flat[$c->here + strlen($value)] ?? '') === "\n") {
+            $tail = '\\';
+        }
         $eol = $tail !== null || in_array($next, [-1, 10], true);
         $line = $tail !== null ? $value . $tail : ($eol ? $value : $value . 'x');
         $value = $tail !== null ? $line : $value;
@@ -3540,7 +3579,12 @@ final class Text
 
             return $gap || substr($line, 1, 1) === ':' ? 0 : -1;
         }
-        if (Markers::quickReject($line, 0, strlen($line)) || Markers::read($line, 0, strlen($line)) === null) {
+        if (Markers::quickReject($line, 0, strlen($line))) {
+            return -1;
+        }
+        $marker = Markers::read($line, 0, strlen($line));
+        // C2-B-015, C2-B-056: below a paragraph only a bullet or the value 1 opens a list.
+        if ($marker === null || ($marker->ordered && $marker->value !== 1 && $marker->value !== -1)) {
             return -1;
         }
 

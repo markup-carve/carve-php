@@ -155,7 +155,7 @@ final class Writer
         $parsed = self::$parsedSource;
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
-        [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk);
+        [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
         $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
             return $settled;
@@ -166,7 +166,7 @@ final class Writer
         // A form equal to the source the tree was parsed from reads back as that tree, and a tree without ASCII
         // punctuation in its strings takes no escape decision that could misread.
         if ($unchecked && ($parsed === null || $parsed === $result->source || !self::hasPunctuation($tree))) {
-            return $result;
+            return self::uncheckedPruned($result, $parsed, $tree, $layout, $options);
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
         // and repairs the tree without them. The local write keeps the supplied tree, and with it the loss paths.
@@ -180,14 +180,14 @@ final class Writer
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             unset($localEscapes);
             if (self::readsBack($result->source, $treePrint, $options)) {
-                return $result;
+                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
         }
         if ($undecided) {
             // C2-W-088: a bracket the plan left bare stays bare where the form reads back; otherwise the plan takes
             // its backslash there, and the rounds below go on from that form.
             if (self::readsBack($result->source, $treePrint, $options)) {
-                return $result;
+                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
             // span of a text `^[` keeps ordinary open; the rounds place the backslash on its early closer instead.
@@ -206,7 +206,7 @@ final class Writer
         if ($readPrint === $treePrint) {
             unset($read);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
-                return $result;
+                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-091: the escapes of the local write can change how the text reads, as an escaped bracket that no
             // longer counts toward the depth limit of C2-I-118. The rounds go on from the local form.
@@ -223,7 +223,7 @@ final class Writer
 
         return $repaired === null
             ? self::unrepaired($tree, $result, $options)
-            : new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options), []);
+            : new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options, $parsed), []);
     }
 
     /**
@@ -267,26 +267,108 @@ final class Writer
     }
 
     /**
-     * C2-I-089, C2-W-125 case five: behind a text `^[` of the line that is still open, the `[^` of link or span text is
-     * an ordinary bracket, so the backslash the rounds wrote before its caret is taken out where the form still reads
-     * back (carve-js `prunableOpener`). In the span a backslash before the `[` of `^[` still counts it, and an escaped
-     * `]` closes nothing (carve-js `noteSpans`).
+     * `withPrunedNoteCarets()` on a local write the heuristics call safe, read back only where it holds a caret pair.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param string|null $parsed
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     */
+    private static function uncheckedPruned(WriteResult $result, ?string $parsed, array $tree, ?array $layout, array $options): WriteResult
+    {
+        if ($parsed === $result->source || !self::notePrunable($result->source)) {
+            return $result;
+        }
+
+        return self::withPrunedNoteCarets($result, self::trimmedPrint($tree, $layout, $options), $options, $parsed);
+    }
+
+    /**
+     * `prunedNoteCarets()` on a local write that reads back: its case-five escapes do not see the text `^[` before.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param string $treePrint
+     * @param array<string, mixed> $options
+     * @param string|null $parsed The source the tree was parsed from.
+     */
+    private static function withPrunedNoteCarets(WriteResult $result, string $treePrint, array $options, ?string $parsed): WriteResult
+    {
+        $pruned = self::prunedNoteCarets($result->source, $treePrint, $options, $parsed);
+
+        return $pruned === $result->source ? $result : new WriteResult($pruned, $result->diagnostics);
+    }
+
+    /**
+     * C2-I-089, C2-W-125 case five: behind a text `^[` of the line that is still open, and inside an inline footnote,
+     * the `[^` and `^[` of link or span text are ordinary brackets, so the backslash the rounds wrote before the caret,
+     * and those of the brackets of that text, are taken out where the form still reads back (carve-js
+     * `prunableOpener`). In the span a backslash before the `[` of `^[` still counts it, and an escaped `]` closes
+     * nothing (carve-js `noteSpans`).
      *
      * @param string $source
      * @param string $treePrint
      * @param array<string, mixed> $options
+     * @param string|null $parsed The source the tree was parsed from.
      */
-    private static function prunedNoteCarets(string $source, string $treePrint, array $options): string
+    private static function prunedNoteCarets(string $source, string $treePrint, array $options, ?string $parsed = null): string
     {
-        if (!str_contains($source, '[\\^')) {
+        // A form equal to the source the tree was parsed from, up to its final line feed, reads back as that tree.
+        $readsBack = static fn (string $form): bool => $form === $parsed || $form === $parsed . "\n"
+            || self::readsBack($form, $treePrint, $options);
+        if (!self::notePrunable($source)) {
             return $source;
         }
+        [$pruned, $starts] = self::noteCaretStarts($source);
+        if ($starts === []) {
+            return $source;
+        }
+        // C2-W-088: the brackets of that text took their backslashes only as the partners of the caret pair.
+        $bare = self::bareNoteBrackets($source, $starts, ['[', ']', '^']);
+        if ($bare !== $pruned && $readsBack($bare)) {
+            return $bare;
+        }
+        if ($pruned !== $source && $readsBack($pruned)) {
+            return $pruned;
+        }
+        // C2-W-125 case five keeps the caret's backslash where the link would not form without it.
+        $brackets = self::bareNoteBrackets($source, $starts, ['[', ']']);
+
+        return $brackets !== $source && $brackets !== $bare && $readsBack($brackets) ? $brackets : $source;
+    }
+
+    /**
+     * The source without the backslash before the caret of each `[\\^` inside a note, and the offsets of the brackets
+     * whose text `bareNoteBrackets()` may write bare.
+     *
+     * @param string $source
+     *
+     * @return array{string, array<int>}
+     */
+    private static function noteCaretStarts(string $source): array
+    {
         $pruned = '';
         $from = 0;
         $open = [];
         $notes = 0;
+        $starts = [];
         $n = strlen($source);
+        // The next caret pair with an escaped bracket and the next line end, found once per position so the scan stays
+        // linear.
+        $noteCaret = -1;
+        $refCaret = -1;
+        $lineEnd = -1;
         for ($at = strcspn($source, "[]\n"); $at < $n; $at += 1 + strcspn($source, "[]\n", $at + 1)) {
+            if ($noteCaret !== false && $noteCaret < $at) {
+                $noteCaret = strpos($source, '^\\[', $at);
+            }
+            if ($refCaret !== false && $refCaret < $at) {
+                $refCaret = strpos($source, '\\[^', $at);
+            }
+            $caret = $noteCaret === false ? $refCaret : ($refCaret === false ? $noteCaret : min($noteCaret, $refCaret));
+            if ($lineEnd !== false && $lineEnd < $at) {
+                $lineEnd = strpos($source, "\n", $at);
+            }
             $ch = $source[$at];
             $before = $at > 0 ? $source[$at - 1] : '';
             if ($ch === "\n") {
@@ -297,6 +379,9 @@ final class Writer
                 if (!$note && $notes > 0 && substr($source, $at + 1, 2) === '\\^') {
                     $pruned .= substr($source, $from, $at + 1 - $from);
                     $from = $at + 2;
+                    $starts[] = $at;
+                } elseif (!$note && $notes > 0 && $caret !== false && ($lineEnd === false || $caret < $lineEnd)) {
+                    $starts[] = $at;
                 }
                 $open[] = $note;
                 $notes += $note ? 1 : 0;
@@ -304,12 +389,58 @@ final class Writer
                 $notes--;
             }
         }
-        if ($from === 0) {
-            return $source;
+        if ($starts === []) {
+            return [$source, []];
         }
-        $pruned .= substr($source, $from);
 
-        return self::readsBack($pruned, $treePrint, $options) ? $pruned : $source;
+        return [$pruned . substr($source, $from), $starts];
+    }
+
+    /**
+     * Whether the source holds a caret pair with an escape that `prunedNoteCarets()` may take out.
+     */
+    private static function notePrunable(string $source): bool
+    {
+        return str_contains($source, '[\\^') || str_contains($source, '^\\[') || str_contains($source, '\\[^');
+    }
+
+    /**
+     * The source with the backslash taken out before each of `$chars` in the text that starts at each offset of
+     * `$starts`, up to the bare `]` that closes it.
+     *
+     * @param string $source
+     * @param array<int> $starts The offsets of the `[` before an escaped caret.
+     * @param array<string> $chars The escaped characters whose backslash is taken out.
+     */
+    private static function bareNoteBrackets(string $source, array $starts, array $chars): string
+    {
+        $bare = '';
+        $from = 0;
+        $n = strlen($source);
+        $done = 0;
+        foreach ($starts as $start) {
+            if ($start < $done) {
+                continue;
+            }
+            $depth = 0;
+            for ($at = $start; $at < $n && $source[$at] !== "\n"; $at++) {
+                $ch = $source[$at];
+                if ($ch === '\\' && in_array($source[$at + 1] ?? '', $chars, true)) {
+                    $bare .= substr($source, $from, $at - $from);
+                    $from = $at + 1;
+                    $at++;
+                } elseif ($ch === '\\') {
+                    $at++;
+                } elseif ($ch === '[') {
+                    $depth++;
+                } elseif ($ch === ']' && --$depth === 0) {
+                    break;
+                }
+            }
+            $done = $at;
+        }
+
+        return $bare . substr($source, $from);
     }
 
     /**
@@ -319,6 +450,7 @@ final class Writer
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      * @param bool $risk
+     * @param bool $supplied Whether the tree is no parse of a source, so no round reads the local write back.
      *
      * @return array{
      *     \MarkupCarve\Carve\Writer\WriteResult,
@@ -328,12 +460,19 @@ final class Writer
      *     array<int, array{int, int, int, int, bool}>|null
      * }
      */
-    private static function firstWrite(array $tree, ?array $layout, array $options, bool $risk): array
+    private static function firstWrite(array $tree, ?array $layout, array $options, bool $risk, bool $supplied = false): array
     {
-        if (self::$inGroups || !$risk) {
-            return [...self::localWrite($tree, $layout, $options, false), null];
+        // A nested write (an extension's read-back) must not reset the flag of the outer write.
+        $outer = Text::$suppliedTree;
+        Text::$suppliedTree = $supplied;
+        try {
+            if (self::$inGroups || !$risk) {
+                return [...self::localWrite($tree, $layout, $options, false), null];
+            }
+            [$local, $records] = self::recording(static fn (): array => self::localWrite($tree, $layout, $options, false), false);
+        } finally {
+            Text::$suppliedTree = $outer;
         }
-        [$local, $records] = self::recording(static fn (): array => self::localWrite($tree, $layout, $options, false), false);
 
         return [...$local, $records[0][1] ?? null];
     }

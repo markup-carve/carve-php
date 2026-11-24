@@ -95,7 +95,7 @@ final class CompareRound
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $more = $type === 'text'
                 ? $this->matchText($node, $have, $nodePath, $owner, $i, $j, $vi, $aj, $i + 1 === $count ? $path : null)
-                : $this->matchNode($node, $have, $nodePath, $type, $i, $j, $aj);
+                : $this->matchNode($node, $have, $nodePath, $type, $i, $j, $aj, $want, $path);
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
                 return;
             }
@@ -147,6 +147,57 @@ final class CompareRound
         return false;
     }
 
+    /**
+     * Whether a parsed node starting at `$start` starts where an expected sibling behind `$i` was written.
+     *
+     * @param array<mixed> $want
+     * @param string $parent
+     * @param int $i
+     * @param int|null $start
+     */
+    private function laterSibling(array $want, string $parent, int $i, ?int $start): bool
+    {
+        if ($start === null) {
+            return false;
+        }
+        $children = RepairTrace::packPath($parent . '/children/');
+        $own = $this->nodeStarts[$children . $i] ?? $this->starts[$parent . '/children/' . $i] ?? null;
+        if ($own === null || $own === $start) {
+            return false;
+        }
+        for ($k = $i + 1, $count = count($want); $k < $count; $k++) {
+            if (($this->nodeStarts[$children . $k] ?? $this->starts[$parent . '/children/' . $k] ?? null) === $start) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Asks for the first character of the first text in a node's content.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     */
+    private function askFirst(array $node, string $path): void
+    {
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $index => $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            $at = $path . '/children/' . $index;
+            if (($child['type'] ?? '') === 'text') {
+                $this->ask($at, 0);
+
+                return;
+            }
+            $this->askFirst($child, $at);
+
+            return;
+        }
+    }
+
     private static function offset(mixed $node, int $key): ?int
     {
         $pos = is_array($node) ? TreeEncoder::offsets($node['pos'] ?? null) : null;
@@ -162,9 +213,20 @@ final class CompareRound
      * @param int $i
      * @param string $type
      * @param string $path
+     * @param array<mixed> $want The expected siblings.
+     * @param string $parent The path of their parent.
      */
-    private function matchNode(array $node, array $have, string $path, string $type, int &$i, int &$j, int &$aj): bool
-    {
+    private function matchNode(
+        array $node,
+        array $have,
+        string $path,
+        string $type,
+        int &$i,
+        int &$j,
+        int &$aj,
+        array $want = [],
+        string $parent = '',
+    ): bool {
         $other = $have[$j] ?? null;
         if (!is_array($other) || ($other['type'] ?? '') !== $type || $aj !== 0) {
             $found = null;
@@ -175,6 +237,12 @@ final class CompareRound
 
                     break;
                 }
+            }
+            if ($found !== null && $this->laterSibling($want, $parent, $i, self::offset($have[$found], 0))) {
+                // The parsed node is a later sibling's: this node did not form, and its own content is compared with
+                // nothing, so only its first character is asked (C2-W-088).
+                $this->askFirst($node, $path);
+                $found = null;
             }
             if ($found === null) {
                 return false;

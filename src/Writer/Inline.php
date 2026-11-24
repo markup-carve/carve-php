@@ -154,6 +154,13 @@ final class Inline
 
     private string $textValue = '';
 
+    /**
+     * The paths of the emphasis and strong nodes the last write of their leaf spelled braced; see `paired()`.
+     *
+     * @var array<string, true>
+     */
+    private array $bracedPaired = [];
+
     public function __construct(private State $w)
     {
     }
@@ -2147,9 +2154,18 @@ final class Inline
         $c->open = $open;
         $c->marks = $marks;
         $visibleInner = $this->w->repairTrace?->decode($inner)['source'] ?? $inner;
-        $bare = !isset($open[$type]) && !self::holds($children, $type, $mark) && self::bareFits($visibleInner, $mark, $prev, $next);
+        $bare = !isset($open[$type])
+            && !self::holdsKind($children, $type)
+            && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired)
+            && self::bareFits($visibleInner, $mark, $prev, $next);
+        if ($bare) {
+            unset($this->bracedPaired[$path]);
 
-        return $bare ? $mark . $inner . $mark : '{' . $mark . $inner . $mark . '}';
+            return $mark . $inner . $mark;
+        }
+        $this->bracedPaired[$path] = true;
+
+        return '{' . $mark . $inner . $mark . '}';
     }
 
     /**
@@ -2201,21 +2217,8 @@ final class Inline
     }
 
     /**
-     * C2-W-070, C2-I-053: the content holds its own kind, or its own delimiter where it can open, close or stand
-     * between two word characters.
+     * C2-W-070: the content holds its own kind.
      *
-     * @param array<mixed> $nodes
-     * @param string $type
-     * @param string $mark
-     *
-     * @return bool
-     */
-    private static function holds(array $nodes, string $type, string $mark): bool
-    {
-        return self::holdsKind($nodes, $type) || self::holdsMark($nodes, $mark);
-    }
-
-    /**
      * @param array<mixed> $nodes
      * @param string $type
      *
@@ -2236,6 +2239,7 @@ final class Inline
     }
 
     /**
+     * C2-W-070: the content holds its own delimiter where it can open, close or stand between two word characters.
      * A bracket bounds the delimiter stack, so the text inside one does not count, and a mark between two word
      * characters inside a braced span is text for the pair around it (C2-I-053). A mark between two spaces and a run of
      * two (C2-I-049) are text, unless a brace beside the run takes an escape that leaves one mark alone.
@@ -2243,12 +2247,15 @@ final class Inline
      * @param array<mixed> $nodes
      * @param string $mark
      * @param bool $words Whether a mark between two word characters counts.
+     * @param string $path The path of `$nodes`, to look up `$braced`.
+     * @param array<string, true> $braced The emphasis and strong nodes written braced: a braced closer drops the marks
+     *   between word characters its span held (C2-I-053).
      *
      * @return bool
      */
-    public static function holdsMark(array $nodes, string $mark, bool $words = true): bool
+    public static function holdsMark(array $nodes, string $mark, bool $words = true, string $path = '', array $braced = []): bool
     {
-        foreach ($nodes as $node) {
+        foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
                 continue;
             }
@@ -2273,7 +2280,9 @@ final class Inline
                     }
                 }
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
-                if (self::holdsMark($node['children'], $mark, $words && !isset(self::BRACED[$type]))) {
+                $at = $path . '/' . $k . '/children';
+                $wordsInside = $words && !isset(self::BRACED[$type]) && !isset($braced[$path . '/' . $k]);
+                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced)) {
                     return true;
                 }
             }
@@ -2410,7 +2419,8 @@ final class Inline
         $marks = $c->marks;
         $pairs = $c->bracketPairs;
         $c->inBracket = true;
-        $c->bracketPairs = self::pairedBrackets($children, $path, $c->labels, $notes);
+        // C2-I-089: inside an inline footnote, at any depth, `[^` and `^[` are ordinary brackets.
+        $c->bracketPairs = self::pairedBrackets($children, $path, $c->labels, $notes && $this->noteDepth === 0);
         // A bracket is a barrier of the delimiter stack: no closer inside it reaches a node outside.
         $c->marks = '';
         $c->last = 0x5B;
