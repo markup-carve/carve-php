@@ -136,7 +136,7 @@ final class DataModel
     public array $ids = [];
 
     /**
-     * @var list<\MarkupCarve\Carve\Lint\WalkedNode>
+     * @var array<string, int> The child index of each block the walk passes on, by path, in walk order.
      */
     private array $blockWalked = [];
 
@@ -314,7 +314,12 @@ final class DataModel
         $pipeTables = [];
         $rows = [];
         $holderOf = [];
-        foreach ($c->walked as $item) {
+        // The lint visit registered every node in walk order; the index counts the earlier children of the same parent.
+        $childCounts = [];
+        foreach ($c->layout->nodes() as $path => $node) {
+            $path = (string)$path;
+            $parent = $c->layout->parent($path);
+            $item = $this->walked($path, $node, $parent, $path === '' ? 0 : ($childCounts[$parent] = ($childCounts[$parent] ?? -1) + 1));
             $parentHolder = $this->holderByPath[$item->parent] ?? null;
             $type = $item->type;
             if ($type === 'table_row') {
@@ -449,7 +454,7 @@ final class DataModel
                     ($this->onInline)($inline);
                 }
             } elseif ($parentHolder === null) {
-                $this->blockWalked[] = $item;
+                $this->blockWalked[$item->path] = $item->index;
             }
             if (!empty($item->node['children'])) {
                 if (isset(self::INLINE_HOLDERS[$type])) {
@@ -467,8 +472,7 @@ final class DataModel
                 ($this->onInline)($run);
             }
         }
-        unset($runs, $openRuns);
-        $c->walked = [];
+        unset($runs, $openRuns, $childCounts, $item, $node);
         $this->holderByPath = [];
         // The line records reuse memory freed by the walk. Large allocator caches can otherwise force a new 2 MB page.
         if (memory_get_usage(true) - memory_get_usage(false) > 16 * 1024 * 1024) {
@@ -479,7 +483,14 @@ final class DataModel
             $count--;
         }
         $holders = array_fill(0, $count, null);
-        foreach ($this->blockWalked as $item) {
+        foreach ($this->blockWalked as $path => $index) {
+            $path = (string)$path;
+            $nodeType = $c->nodeTypes[$path] ?? '';
+            // A block comment is the leaf comment_block.
+            if (!isset(self::LEAVES[$nodeType]) && $nodeType !== 'comment') {
+                continue;
+            }
+            $item = $this->walkedAt($path, $index);
             $type = $item->type;
             if ($item->startLine === 0 || !isset(self::LEAVES[$type])) {
                 continue;
@@ -897,19 +908,76 @@ final class DataModel
     // Node records retain the shape-specific fields required by the shared data grammar.
     // phpcs:ignore Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
+    /**
+     * @param string $path
+     * @param array<string, mixed> $node
+     * @param string $parent
+     * @param int $index
+     *
+     * @return \MarkupCarve\Carve\Lint\WalkedNode
+     */
+    private function walked(string $path, array $node, string $parent, int $index): WalkedNode
+    {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        if ($type === 'comment' && ($node['form'] ?? null) === 'block') {
+            $type = 'comment_block';
+        }
+        $pos = $node['pos'] ?? null;
+        if (is_int($pos)) {
+            $start = $pos >> 32;
+            $end = $pos & 0xFFFFFFFF;
+
+            return new WalkedNode(
+                $node,
+                $path,
+                $parent,
+                $index,
+                $type,
+                $start,
+                $end,
+                $this->context->lineOf($start),
+                $this->context->lineOf($end),
+            );
+        }
+        $pos = Support::pos($node, $this->context);
+
+        return $pos === null
+            ? new WalkedNode($node, $path, $parent, $index, $type)
+            : new WalkedNode(
+                $node,
+                $path,
+                $parent,
+                $index,
+                $type,
+                $pos['startOffset'],
+                $pos['endOffset'],
+                $pos['startLine'],
+                $pos['endLine'],
+            );
+    }
+
+    private function walkedAt(string $path, int $index): WalkedNode
+    {
+        $layout = $this->context->layout;
+
+        return $this->walked($path, $layout->node($path) ?? [], $layout->parent($path), $index);
+    }
+
     private function buildNodes(bool $needBounds): void
     {
         $c = $this->context;
         // Without colon containers only fillPathsOnly() reads the spans, and a block there only names a line
         // without a path that starts at or before the block's end, with its text at or after the block's start.
         $pathless = $needBounds && !str_contains($c->source, ':::') ? $this->pathlessLines() : null;
-        foreach ($this->blockWalked as $item) {
+        foreach ($this->blockWalked as $path => $index) {
+            $path = (string)$path;
+            if ($path === '') {
+                continue;
+            }
+            $item = $this->walkedAt($path, $index);
             $lastLine = null;
             $openerText = null;
             $node = $item->node;
-            if ($item->path === '') {
-                continue;
-            }
             $hasPos = $item->startLine > 0;
             if (
                 $this->plainTableCellGate && !$needBounds && ($node['type'] ?? null) === 'table_cell' && !isset($node['span'])

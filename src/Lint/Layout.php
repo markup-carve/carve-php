@@ -89,6 +89,14 @@ final class Layout
         $this->parents[$path] = $parent;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function node(string $path): ?array
+    {
+        return $this->nodes[$path] ?? null;
+    }
+
     public function parent(string $path): string
     {
         return $this->parents[$path] ?? '';
