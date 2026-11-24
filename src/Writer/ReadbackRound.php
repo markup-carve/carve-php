@@ -160,17 +160,7 @@ final class ReadbackRound
         if (in_array($type, ['text', 'paragraph', 'cell_paragraph', 'line'], true)) {
             return false;
         }
-        // C2-W-125 case five: an inline footnote is kept from forming by its bracket, not its caret. C2-W-090: so is
-        // an image whose bracket is text; one whose bracket opens a node takes the backslash on its `!`.
-        // C2-W-090, C2-W-099: a literal or a math span takes the backslash on its backtick, behind its sigils.
-        $shift = match ($type) {
-            'inline_footnote', 'image', 'literal_inline' => 1,
-            // C2-W-090: a hyphen run takes its backslash before the second hyphen.
-            'smart_punctuation' => str_starts_with(is_string($node['source'] ?? null) ? $node['source'] : '', '--') ? 1 : 0,
-            'math' => ($node['display'] ?? false) === true ? 2 : 1,
-            'smart_punctuation' => (int)in_array($node['kind'] ?? '', ['en_dash', 'em_dash'], true),
-            default => 0,
-        };
+        $shift = self::openerShift($node, $type);
         $owner = RepairTrace::owner($text, $start + $shift);
         if ($owner === null && $shift > 0) {
             $owner = RepairTrace::owner($text, $start);
@@ -183,5 +173,25 @@ final class ReadbackRound
         }
 
         return false;
+    }
+
+    /**
+     * Where in a reported node its opener takes the backslash, counted from its first character.
+     *
+     * @param array<mixed> $node
+     * @param string $type
+     */
+    private static function openerShift(array $node, string $type): int
+    {
+        // C2-W-125 case five: an inline footnote is kept from forming by its bracket, not its caret. C2-W-090: so is
+        // an image whose bracket is text; one whose bracket opens a node takes the backslash on its `!`.
+        // C2-W-090, C2-W-099: a literal or a math span takes the backslash on its backtick, behind its sigils, and a
+        // hyphen run before its second hyphen.
+        return match ($type) {
+            'inline_footnote', 'image', 'literal_inline' => 1,
+            'smart_punctuation' => (int)in_array($node['kind'] ?? '', ['en_dash', 'em_dash'], true),
+            'math' => ($node['display'] ?? false) === true ? 2 : 1,
+            default => 0,
+        };
     }
 }

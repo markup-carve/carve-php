@@ -80,6 +80,11 @@ final class Writer
     private static array $localOwn = [];
 
     /**
+     * Whether the last `bareSource()` placed a backslash of C2-W-125 itself.
+     */
+    private static bool $bareRepaired = false;
+
+    /**
      * The writes of the current check, each as its source and its top-level group ranges.
      *
      * @var array<int, array{string, array<int, array{int, int, int, int, bool}>|null}>|null
@@ -446,7 +451,7 @@ final class Writer
         ) {
             $bare = self::bareSource($tree, $layout, $options, $localOwn);
             if (
-                $bare !== $result->source && Text::treePairOpeners($tree, $localOwn) === []
+                $bare !== $result->source && !self::$bareRepaired && Text::treePairOpeners($tree, $localOwn) === []
                 && self::readsBack($bare, self::trimmedPrint($tree, $layout, $options), $options)
             ) {
                 return new WriteResult(self::prunedNoteCarets($bare, self::trimmedPrint($tree, $layout, $options), $options, $parsed), []);
@@ -477,6 +482,7 @@ final class Writer
             && !$pairsOnly && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
         ) {
             $bare = self::bareSource($tree, $layout, $options, []);
+            $bareRepaired = self::$bareRepaired;
             $readBare = ReadbackRound::read($bare, $options);
             $wanted = self::trimmedPrint($tree, $layout, $options);
             $firstBare = [$bare, $readBare, ...RepairPlanner::readPrints($readBare), $wanted];
@@ -484,7 +490,8 @@ final class Writer
             if ($bareHolds && self::mayTakeBare($tree, $localEscapes, $parsed) && Text::treePairOpeners($tree, []) === []) {
                 return new WriteResult($bare, []);
             }
-            $procedure = self::procedureForm($tree, $layout, $options, $localOwn, $wanted, [$bare, $readBare, $bareHolds]);
+            $procedure = $bareRepaired ? null
+                : self::procedureForm($tree, $layout, $options, $localOwn, $wanted, [$bare, $readBare, $bareHolds]);
             if ($procedure !== null) {
                 return $procedure;
             }
@@ -655,8 +662,7 @@ final class Writer
         array $own,
         string $wanted,
         array $plain,
-    ): ?WriteResult
-    {
+    ): ?WriteResult {
         if (self::hasExtensionNode($tree)) {
             return null;
         }
@@ -666,7 +672,9 @@ final class Writer
             $read = ReadbackRound::read($bare, $options);
             $holds = TreeEquality::fingerprint($read) === $wanted;
         }
-        if (!$holds) {
+        // A backslash of C2-W-125 in the bare write can stand for a kind the bare parse reports; the rounds below
+        // decide that form.
+        if (!$holds || self::$bareRepaired) {
             return null;
         }
         $planner = new RepairPlanner($tree, $layout, $options, $own, $wanted);
@@ -2043,7 +2051,11 @@ final class Writer
      */
     public static function bareSource(array $tree, ?array $layout, array $options, array $escapes): string
     {
-        return self::writeInternal($tree, $layout, $options, new RepairTrace($escapes, false))->source;
+        $trace = new RepairTrace($escapes, false);
+        $source = self::writeInternal($tree, $layout, $options, $trace)->source;
+        self::$bareRepaired = $trace->repaired;
+
+        return $source;
     }
 
     /**

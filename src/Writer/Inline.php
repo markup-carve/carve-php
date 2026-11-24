@@ -1996,7 +1996,7 @@ final class Inline
 
     /**
      * C2-W-125 case six: the glued backtick takes its backslash in every write of the rounds, their trials too
-     * (carve-js `escapeGluedBacktick`).
+     * (carve-js `escapeGluedBacktick`). The trace records that its write placed this or a text prefix.
      *
      * @param string $prefix
      * @param string $value
@@ -2005,6 +2005,9 @@ final class Inline
      */
     private static function traceGluedTick(string $prefix, string $value, mixed $before, Context $c): void
     {
+        if ($prefix !== '' && $c->writerState?->repairTrace !== null) {
+            $c->writerState->repairTrace->repaired = true;
+        }
         if ($prefix === '' && self::gluesTick($value, $before)) {
             $c->writerState?->repairTrace?->escapeAt($c->textPath, 0);
         }

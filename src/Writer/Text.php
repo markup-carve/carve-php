@@ -535,12 +535,9 @@ final class Text
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next)));
             $escape = $own || $repair;
-            // C2-W-098: a pipe in a table cell takes its backslash in every form, the bare one included. C2-W-095: so
-            // does a text quote, which bare always reads as smart punctuation, so the first round escapes every one.
-            if (
-                ($own && !isset($c->pairEscapes[$i]))
-                || ($escape && (($ch === '|' && $c->inCell) || $ch === '"' || $ch === "'"))
-            ) {
+            // C2-W-095: a text quote takes its backslash in every form: bare, it always reads as smart punctuation, so
+            // the first round escapes every one.
+            if (($own && !isset($c->pairEscapes[$i])) || ($escape && ($ch === '"' || $ch === "'"))) {
                 $c->ownAt[$i] = true;
             }
             // C2-W-094: a bracket in the text of a bracketed node pairs with nothing outside it, so its escape is no

@@ -298,7 +298,7 @@ final class Context
 
     /**
      * C2-W-088: the offsets of the text being written whose escape no round of a bare parse reports but the
-     * procedure still places (a block opener behind a marker, a cell pipe, a backtick a brace makes live).
+     * procedure still places (a block opener behind a marker, a text quote, a backtick a brace makes live).
      *
      * @var array<int, true>
      */
