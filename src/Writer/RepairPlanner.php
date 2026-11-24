@@ -424,10 +424,11 @@ final class RepairPlanner
         }
         $this->addAsked($comparison['openers']);
         if ($this->kindRounds && $comparison['openers'] !== []) {
-            // The kind escapes go first; a closer escape CompareRound asks for (C2-W-125) gives no kind and waits for a
-            // later round, which asks for it again only if the kinds did not make it needless.
+            // A C2-W-125 trial behind a node can stand beside a reported kind in the same round (ruling B).
+            // It gives no kind of its own, so the kind pass must run before these asked escapes are added.
             $this->escapeKinds($comparison['openers']);
             $this->escapePartnerClosers();
+            $this->addAsked($this->lengtheningAsks($asked));
         } else {
             // C2-W-088: a braced opener that starts a node that did not form is an opener of its kind, so the round
             // escapes every potential opener of that kind in the leaf block, not one node per round.
@@ -745,6 +746,43 @@ final class RepairPlanner
                 }
             }
         }
+    }
+
+    /**
+     * C2-W-125 case six: only an ask for the first closer mark of text behind its node stays in a kind round.
+     *
+     * @param array<string, array<int, true>> $asked
+     *
+     * @return array<string, array<int, true>>
+     */
+    private function lengtheningAsks(array $asked): array
+    {
+        $behind = [];
+        foreach ($asked as $path => $offsets) {
+            if (!isset($offsets[0])) {
+                continue;
+            }
+            $cut = strrpos($path, '/children/');
+            if ($cut === false) {
+                continue;
+            }
+            $index = (int)substr($path, $cut + 10);
+            if ($index === 0) {
+                continue;
+            }
+            $prior = self::nodeAt($this->tree, substr($path, 0, $cut) . '/children/' . ($index - 1));
+            $text = self::nodeAt($this->tree, $path);
+            $closer = is_array($prior) ? self::closer($prior) : '';
+            $value = is_array($text) && is_string($text['value'] ?? null) ? $text['value'] : '';
+            if (
+                $closer !== '' && is_array($text) && ($text['type'] ?? '') === 'text'
+                && str_starts_with($value, $closer)
+            ) {
+                $behind[$path][0] = true;
+            }
+        }
+
+        return $behind;
     }
 
     /**

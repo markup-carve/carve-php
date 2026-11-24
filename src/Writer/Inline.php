@@ -603,6 +603,15 @@ final class Inline
                 $this->spanAfterBang = $type === 'span' && $this->followsBareBang($node, $out);
                 $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
             }
+            // C2-W-125 case six: a reported braced opener in a paired node can take a trial beside it in the same
+            // round. Force that trial at the closer mark which starts the following text, without giving it a kind.
+            $closer = self::PAIRED[$type] ?? null;
+            if (
+                !$traced && $closer !== null && is_array($following) && ($following['type'] ?? '') === 'text'
+                && str_starts_with(self::str($following, 'value'), $closer) && str_contains($part, '\\{' . $closer)
+            ) {
+                $c->runPairEscapes[$path . '/' . ($at + 1)][0] = true;
+            }
             $parts[0][] = strlen($out);
             $parts[1][] = $first;
             $parts[2][] = $at;

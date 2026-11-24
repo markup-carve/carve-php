@@ -420,6 +420,17 @@ final class Writer
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
+        // A local bracket decision is no reported kind when the write without it already reads back as the tree.
+        // Check only leaves whose local spelling actually contains an escaped bracket.
+        if (
+            $result->diagnostics === [] && !self::$inGroups && !isset($options['linkKeys'])
+            && str_contains($result->source, '\\[') && !self::hasExtensionNode($tree)
+        ) {
+            $bare = self::bareSource($tree, $layout, $options, []);
+            if ($bare !== $result->source && self::readsBack($bare, self::trimmedPrint($tree, $layout, $options), $options)) {
+                return new WriteResult(self::prunedNoteCarets($bare, self::trimmedPrint($tree, $layout, $options), $options, $parsed), []);
+            }
+        }
         $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
             return $settled;
@@ -1489,6 +1500,25 @@ final class Writer
     private static function hasRoundRisk(array $tree): bool
     {
         return self::nodeHasRoundRisk($tree, false, false);
+    }
+
+    /**
+     * An extension may spell its source from its layout, which a bare core write does not preserve.
+     *
+     * @param array<mixed> $node
+     */
+    private static function hasExtensionNode(array $node): bool
+    {
+        if (in_array($node['type'] ?? null, ['block_extension', 'inline_extension'], true)) {
+            return true;
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            if (is_array($child) && self::hasExtensionNode($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
