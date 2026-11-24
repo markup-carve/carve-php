@@ -259,6 +259,11 @@ final class Text
     public static bool $conservative = false;
 
     /**
+     * Whether the first write is of a supplied tree, which C2-W-124 reads back only where an escape is left undecided.
+     */
+    public static bool $suppliedTree = false;
+
+    /**
      * Whether a conservative write leaves a sigil glued to a node bare, the first retry of an undecided write.
      */
     public static bool $bareSigils = false;
@@ -1920,6 +1925,12 @@ final class Text
         // A brace before another brace opens nothing itself; the later brace decides.
         if ($next === '{') {
             return false;
+        }
+        // C2-I-060: a bare brace before `/` or `*` with no closer of that mark behind it takes the mark from the bare
+        // pairs, which its backslash would set free. A parsed tree goes to the rounds anyway; a supplied one leaves the
+        // brace to the read-back.
+        if (self::$suppliedTree && ($next === '*' || $next === '/') && !str_contains(substr($probe, 2), $next . '}')) {
+            return self::undecided();
         }
         if ($next === '' || str_contains(self::MARKS . '%{}"\'\\[`<$@:&!', $next) || str_contains($rest, '}')) {
             return true;

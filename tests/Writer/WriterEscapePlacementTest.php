@@ -56,6 +56,11 @@ final class WriterEscapePlacementTest extends TestCase
             'note pair in link text inside a note' => ['^[a [x ^[b]](/u)]', '^[a [x ^[b]](/u)]'],
             'reference pair in link text inside a note' => ['^[a [a [^b]](/u)]', '^[a [a [^b]](/u)]'],
             'caret pair behind an escaped bracket keeps the caret' => ['^[a \\[ [^[b]](/u)', '^[a [ [\\^[b]](/u)'],
+            // #5764: C2-I-060, a bare brace before `*` with no closer takes the mark, which its backslash would free.
+            'brace before a star in a highlight' => ['{=*}a}{\\*\\*{a\\*=}', '{=\\*}a}{*\\*{a*=}'],
+            'brace before hyphens in a delete' => ['{-{--}-}', '{-{--}-}'],
+            'brace before a hyphen run in a delete' => ['{-{--}--}', '{-{--}--}'],
+            'attribute-shaped text behind a fence' => ['\\- ]```{#i}*x{k="`"}=}*{k="`"}', '\\- ]```{#i}*x{k="`"}=}*{k=`}'],
         ];
     }
 
