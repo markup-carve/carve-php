@@ -31,6 +31,16 @@ final class RepairTrace
     private array $nodeTypes = [];
 
     /**
+     * @var array<string, string> `packPath()` of the paths an inline node still to be traced may extend, by path.
+     */
+    private array $packed = [];
+
+    /**
+     * @var array<string, array<string>> The paths in `$packed` made from each path's form, by that path.
+     */
+    private array $packedFrom = [];
+
+    /**
      * @param array<string, array<int, true>> $escapes Text paths and byte offsets escaped by prior rounds.
      * @param bool $mark
      * @param string $marker A byte sequence absent from the unmarked candidate.
@@ -85,7 +95,12 @@ final class RepairTrace
             return $source;
         }
         $id = count($this->nodePaths);
-        $this->nodePaths[] = self::packPath($path);
+        $this->nodePaths[] = $this->packedPath($path);
+        // Nodes are traced inside out, so no later node extends the paths below this one.
+        foreach ($this->packedFrom[$path] ?? [] as $below) {
+            unset($this->packed[$below], $this->packedFrom[$below]);
+        }
+        unset($this->packedFrom[$path]);
         $this->nodeTypes[] = $type;
 
         return $this->marker . 'n' . $id . "\x02" . $source . $this->marker . 'e' . $id . "\x02";
@@ -172,6 +187,30 @@ final class RepairTrace
         }
 
         return str_replace('/children/', "\x01", $path);
+    }
+
+    /**
+     * `packPath()` from the form of the parent, so a deep nest does not rewrite the whole path at every node.
+     */
+    private function packedPath(string $path): string
+    {
+        if (isset($this->packed[$path])) {
+            return $this->packed[$path];
+        }
+        $cut = strrpos($path, '/children/');
+        // A parent that ends in `/children` shares the slash with the last `/children/`, which `str_replace()` would
+        // not match there.
+        if (
+            $cut === false || str_contains($path, "\x01") || str_starts_with($path, "\x02")
+            || str_ends_with(substr($path, 0, $cut), '/children')
+        ) {
+            return $this->packed[$path] = self::packPath($path);
+        }
+
+        $parent = substr($path, 0, $cut);
+        $this->packedFrom[$parent][] = $path;
+
+        return $this->packed[$path] = $this->packedPath($parent) . "\x01" . substr($path, $cut + 10);
     }
 
     public static function unpackPath(string $packed): string

@@ -22,6 +22,11 @@ final class Finisher
      */
     private const NODE_END = 0x61;
 
+    /**
+     * The abbreviation nodes made so far; a parse that made none has no expansion to limit.
+     */
+    public static int $abbreviations = 0;
+
     private string $t;
 
     /**
@@ -370,6 +375,7 @@ final class Finisher
                 if (isset($this->ctx->abbreviations[$word]) && $this->wordEdges($j, $len, $te, $first, $next)) {
                     $this->plain($plain, $j, $pieces);
                     $node = $this->sc->node('abbreviation', $j, $j + $len);
+                    self::$abbreviations++;
                     $node->f['key'] = $word;
                     $node->f['namespace'] = 'abbr';
                     $node->f['expansion'] = $this->ctx->abbreviations[$word];

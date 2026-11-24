@@ -202,7 +202,8 @@ final class Writer
         $read = ReadbackRound::read($bareSource, $options);
         $seed = [];
         $planner = null;
-        if (ReadbackRound::equal($read, $tree, $treePrint)) {
+        [$readPrint, $readParts] = RepairPlanner::readPrints($read);
+        if ($readPrint === $treePrint) {
             unset($read);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
                 return $result;
@@ -214,7 +215,7 @@ final class Writer
             // The first round would write and read this same candidate again.
             $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
             $planner = new RepairPlanner($tree, $layout, $options, [], $treePrint);
-            $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false));
+            $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false), $readParts);
             unset($bare, $read);
         }
         $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
@@ -1089,8 +1090,7 @@ final class Writer
         self::rootLosses($tree, $children, $w);
         $w->beginRepairDocument($children);
         (new Blocks($w))->blocks($children, '/children', '');
-        BlankLines::lose($children, '/children', $w);
-        $w->loseLineEndCarriageReturns();
+        self::lineLosses($children, $w);
         while ($w->lines !== [] && end($w->lines) === '') {
             array_pop($w->lines);
         }
@@ -1114,6 +1114,22 @@ final class Writer
         self::record($w, $joined, $source);
 
         return new WriteResult($source, $w->losses);
+    }
+
+    /**
+     * C2-W-016, C2-W-117: the losses of blank lines and line-end carriage returns. A traced write reports none: only
+     * its source is read.
+     *
+     * @param array<mixed> $children
+     * @param \MarkupCarve\Carve\Writer\State $w
+     */
+    private static function lineLosses(array $children, State $w): void
+    {
+        if ($w->repairTrace !== null) {
+            return;
+        }
+        BlankLines::lose($children, '/children', $w);
+        $w->loseLineEndCarriageReturns();
     }
 
     /**

@@ -30,6 +30,7 @@ use MarkupCarve\Carve\Import\ImportResult;
 use MarkupCarve\Carve\Include\Expander;
 use MarkupCarve\Carve\Include\IncludeResolver;
 use MarkupCarve\Carve\Inline\Chars;
+use MarkupCarve\Carve\Inline\Finisher;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Json\TreeEncoder;
@@ -407,6 +408,7 @@ final class Carve
     private static function parsed(string $source, Options $opts, bool $keep = false): array
     {
         $gc = self::collectorOff();
+        $abbreviations = Finisher::$abbreviations;
         try {
             [$doc, $findings, $hasInclude] = self::stages($source);
             self::expand($doc, $findings, $opts, $hasInclude);
@@ -419,7 +421,8 @@ final class Carve
                 );
             }
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
-            if (!$keep) {
+            // Only an abbreviation of the parse or a node of an extension can carry an expansion.
+            if (!$keep && ($opts->extensions !== [] || Finisher::$abbreviations !== $abbreviations)) {
                 TreeEncoder::limitParsedExpansions($doc, strlen($source));
             }
 

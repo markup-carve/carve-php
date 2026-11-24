@@ -147,6 +147,11 @@ final class Inline
      */
     private array $emptyContent = [];
 
+    /**
+     * Whether a kind or pair round writes the leaf again; its first write reported the losses of the content.
+     */
+    private bool $rewrite = false;
+
     private string $textValue = '';
 
     public function __construct(private State $w)
@@ -274,7 +279,7 @@ final class Inline
             $again->kinds = $applied;
             // The first write charged the reparse of its first line; the same line again is no new repair state.
             $again->writerState = null;
-            $out = $this->contentPairs($nodes, $path, $again, $next, clone $again, $kinds);
+            $out = $this->rewrittenPairs($nodes, $path, $again, $next, $kinds);
             foreach (get_object_vars($again) as $name => $field) {
                 $c->{$name} = $field;
             }
@@ -296,7 +301,7 @@ final class Inline
             $again->kinds = $c->kinds;
             $again->tickReportedOnly = true;
             $again->writerState = null;
-            $out = $this->contentPairs($nodes, $path, $again, $next, clone $again, $kinds);
+            $out = $this->rewrittenPairs($nodes, $path, $again, $next, $kinds);
             foreach (get_object_vars($again) as $name => $field) {
                 $c->{$name} = $field;
             }
@@ -340,7 +345,13 @@ final class Inline
             $again->runPairEscapes = $forced;
             // The first write charged the reparse of its first line; the same line again is no new repair state.
             $again->writerState = null;
-            $out = $this->contentOnce($nodes, $path, $again, $next);
+            $rewrite = $this->rewrite;
+            $this->rewrite = true;
+            try {
+                $out = $this->contentOnce($nodes, $path, $again, $next);
+            } finally {
+                $this->rewrite = $rewrite;
+            }
             foreach (get_object_vars($again) as $name => $field) {
                 $c->{$name} = $field;
             }
@@ -350,6 +361,26 @@ final class Inline
         $c->runLog = [];
 
         return $out;
+    }
+
+    /**
+     * `contentPairs()` of content the leaf wrote before.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param int $next
+     * @param array<string, true> $kinds
+     */
+    private function rewrittenPairs(array $nodes, string $path, Context $c, int $next, array &$kinds): string
+    {
+        $rewrite = $this->rewrite;
+        $this->rewrite = true;
+        try {
+            return $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
+        } finally {
+            $this->rewrite = $rewrite;
+        }
     }
 
     /**
@@ -503,6 +534,9 @@ final class Inline
         return $bare;
     }
 
+    // Runs for every inline list of every write; the trace checks stay inline rather than one call per node.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     /**
      * @param array<mixed> $nodes
      * @param string $path
@@ -529,7 +563,9 @@ final class Inline
         $parts = [[], [], []];
         $hyphens = 0;
         $dots = 0;
-        $dotsAhead = self::dotsAhead($nodes);
+        // The hyphen and dot runs feed only the escape decisions, and a traced write spells its texts bare.
+        $traced = $c->writerState?->repairTrace !== null;
+        $dotsAhead = $traced ? [] : self::dotsAhead($nodes);
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -537,10 +573,12 @@ final class Inline
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $following = $nodes[$at + 1] ?? null;
-            self::hyphenNeighbors($c, $type, $following, $hyphens);
-            self::dotNeighbors($c, $type, $dots, $dotsAhead, $at);
+            if (!$traced) {
+                self::hyphenNeighbors($c, $type, $following, $hyphens);
+                self::dotNeighbors($c, $type, $dots, $dotsAhead, $at);
+                $this->loseLoneEmptyText($nodes, $at, $path);
+            }
             self::resetFollowingPipe($c, $type);
-            $this->loseLoneEmptyText($nodes, $at, $path);
             $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
             $c->afterText = self::isText($visibleNode);
             $this->before = $visibleNode;
@@ -562,8 +600,10 @@ final class Inline
             $parts[1][] = $first;
             $parts[2][] = $at;
             $out .= $part;
-            $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
-            $dots = self::dotsAfter($node, $dots);
+            if (!$traced) {
+                $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
+                $dots = self::dotsAfter($node, $dots);
+            }
             self::advanceFollowingPipe($c, $node, $type);
             if (!self::isBracedComment($node)) {
                 $visible = $c->lineStart ? -1 : $c->last;
@@ -576,6 +616,8 @@ final class Inline
 
         return $out;
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * @var array<string, true>
@@ -1548,6 +1590,9 @@ final class Inline
         }
     }
 
+    // Runs for every inline node of every write; see contentOnce().
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     /**
      * @param array<mixed> $node
      * @param string $path
@@ -1579,7 +1624,10 @@ final class Inline
             return $out;
         }
         $out = $this->own($node, $type, $path, $c, $next);
-        $this->loseEmptyContent($node, $path, $type);
+        // A traced write reports no losses, and a kind or pair round reported these in the first write of the leaf.
+        if (!$this->rewrite && $this->w->repairTrace === null) {
+            $this->loseEmptyContent($node, $path, $type);
+        }
         if ($type === 'soft_break') {
             $c->runLog[] = new RunEntry($path, "\n", 1, [], '');
         }
@@ -1595,6 +1643,8 @@ final class Inline
 
         return $this->tracedNode($out, $path, $type);
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * C2-W-117: no parse gives an empty text, so content of only empty texts, or ending in a lone one, loses it.
@@ -2088,7 +2138,10 @@ final class Inline
         $c->open[$type] = ($c->open[$type] ?? 0) + 1;
         $c->marks .= $mark;
         $spanTexts = $c->spanTexts;
-        self::noteSpanTexts($children, $path . '/children', $mark, $c);
+        // Only the escape decisions read the facts, and a traced write spells its texts bare.
+        if ($c->writerState?->repairTrace === null) {
+            self::noteSpanTexts($children, $path . '/children', $mark, $c);
+        }
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
         $c->spanTexts = $spanTexts;
         $c->open = $open;
@@ -2250,7 +2303,10 @@ final class Inline
         $marks = $c->marks;
         $c->marks .= $mark;
         $spanTexts = $c->spanTexts;
-        self::noteSpanTexts($children, $path . '/children', $mark, $c);
+        // Only the escape decisions read the facts, and a traced write spells its texts bare.
+        if ($c->writerState?->repairTrace === null) {
+            self::noteSpanTexts($children, $path . '/children', $mark, $c);
+        }
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
         $c->spanTexts = $spanTexts;
         $c->marks = $marks;
