@@ -26,7 +26,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-bare-underline' => [
                 'a _x_ b',
                 'a {_x_} b',
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-bare-underline',
                     '/children/0',
@@ -38,13 +38,13 @@ final class NodeRulesATest extends TestCase
             'deprecated-bare-strike' => [
                 'a ~x~ b',
                 'a {~x~} b',
-                [],
+                ['upgrade' => true],
                 ['deprecated-bare-strike', '/children/0', 2, 5, 'A bare tilde pair is text in 0.2. Write the braced strike.'],
             ],
             'deprecated-bare-highlight' => [
                 'a =x= b',
                 'a {=x=} b',
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-bare-highlight',
                     '/children/0',
@@ -128,7 +128,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-loose-attribute' => [
                 "{loose}\n- a\n- b",
                 "- a\n- b",
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-loose-attribute',
                     '/children/0',
@@ -141,7 +141,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-table-attribute' => [
                 "{header-rows=1}\n| a |",
                 "{header-cols=1}\n| a |",
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-table-attribute',
                     '/children/0',
@@ -209,7 +209,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-separator-row' => [
                 "| a |\n|---|",
                 '|= a |',
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-separator-row',
                     '/children/0/children/0/children/1',
@@ -260,7 +260,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-substitution-arrow' => [
                 'a {~old~>new~} b',
                 'a {~old~} b',
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-substitution-arrow',
                     '/children/0/children/1',
@@ -311,7 +311,7 @@ final class NodeRulesATest extends TestCase
             'description-term-multi-line' => [
                 ":: term\nmore\n: desc",
                 ":: term\n: desc",
-                [],
+                ['upgrade' => true],
                 [
                     'description-term-multi-line',
                     '/children/0/children/0',
@@ -584,7 +584,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-cell-alignment' => [
                 '|< a |',
                 '|={<} a |',
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-cell-alignment',
                     '/children/0/children/0/children/0/children/0',
@@ -598,7 +598,7 @@ final class NodeRulesATest extends TestCase
             'deprecated-cell-alignment/right' => [
                 '|> a |',
                 '|{>} a |',
-                [],
+                ['upgrade' => true],
                 [
                     'deprecated-cell-alignment',
                     '/children/0/children/0/children/0/children/0',

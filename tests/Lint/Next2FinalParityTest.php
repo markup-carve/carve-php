@@ -21,7 +21,8 @@ final class Next2FinalParityTest extends TestCase
             'indented heading' => ["  ## H\n   x", ['block-opener-overindented', 'deprecated-indented-line-under-heading']],
             'line at heading marker column' => ["  ## H\n  x", ['block-opener-overindented']],
             'lazy quoted item and underline' => [
-                "> - item\n  # H\n> ---", ['block-opener-without-blank-line', 'setext-heading-underline'],
+                "> - item\n  # H\n> ---",
+                ['djot-heading-continuation', 'block-opener-without-blank-line', 'setext-heading-underline'],
             ],
             'new quote still opens' => [
                 "base\n> ---", ['block-opener-without-blank-line', 'setext-heading-underline'],

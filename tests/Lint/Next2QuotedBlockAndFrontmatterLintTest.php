@@ -47,7 +47,8 @@ final class Next2QuotedBlockAndFrontmatterLintTest extends TestCase
     {
         self::assertSame($expected, array_map(
             static fn ($diagnostic): array => [$diagnostic->code, $diagnostic->startOffset, $diagnostic->endOffset],
-            Carve::lint($source),
+            // C2-W-156: the break spelling is a migration notice, on here by id.
+            Carve::lint($source, ['rules' => ['thematic-break-spelling' => 'on']]),
         ));
     }
 }

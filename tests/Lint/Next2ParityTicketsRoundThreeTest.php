@@ -45,7 +45,7 @@ final class Next2ParityTicketsRoundThreeTest extends TestCase
     public function testTicket(string $source, string $rule, array $expected): void
     {
         $actual = [];
-        foreach (Carve::lint($source) as $diagnostic) {
+        foreach (Carve::lint($source, ['upgrade' => true]) as $diagnostic) {
             if ($diagnostic->code === $rule) {
                 $actual[] = [$diagnostic->startOffset, $diagnostic->endOffset];
             }

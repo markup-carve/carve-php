@@ -86,6 +86,9 @@ final class Next2ParityTest extends TestCase
      */
     private static function findings(string $source): array
     {
-        return array_map(static fn ($d): array => [$d->code, $d->startOffset, $d->endOffset], Carve::lint($source));
+        // C2-W-156: the legacy cell prefix is a migration notice, on here by id.
+        $options = ['rules' => ['deprecated-cell-alignment' => 'on']];
+
+        return array_map(static fn ($d): array => [$d->code, $d->startOffset, $d->endOffset], Carve::lint($source, $options));
     }
 }

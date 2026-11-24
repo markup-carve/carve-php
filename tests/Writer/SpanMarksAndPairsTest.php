@@ -247,7 +247,7 @@ final class SpanMarksAndPairsTest extends TestCase
     private function pairFindings(string $source): array
     {
         $codes = [];
-        foreach (Carve::lint($source) as $entry) {
+        foreach (Carve::lint($source, ['upgrade' => true]) as $entry) {
             if (in_array($entry->code, self::PAIR_RULES, true)) {
                 $codes[] = $entry->code;
             }
