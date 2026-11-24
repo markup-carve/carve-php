@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Writer\RepairTrace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -28,5 +29,16 @@ final class CollapsedKeyMarkedWriteTest extends TestCase
         $paragraph = "^[ \\]} [^[b]\\]][]\n";
         $source = rtrim(str_repeat($paragraph . "\n", $count)) . "\n";
         $this->assertSame($source, Carve::write(Carve::parse($source)));
+    }
+
+    public function testAnAddedEscapeKeepsTheTraceOnItsCharacter(): void
+    {
+        $trace = new RepairTrace([], true, "\x03");
+        $marked = $trace->bareText('a*', '/p');
+        $respelled = $trace->respelled($marked, 'a*', 'a\\*');
+        $this->assertIsString($respelled);
+        $decoded = $trace->decode($respelled);
+        $this->assertSame('a\\*', $decoded['source']);
+        $this->assertSame([2 => 1], $decoded['text']);
     }
 }
