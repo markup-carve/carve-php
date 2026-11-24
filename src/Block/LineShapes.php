@@ -510,21 +510,45 @@ final class LineShapes
         if ($s[$k] !== ' ' || $k + 1 >= $end) {
             return null;
         }
-        $k++;
+        $tail = self::linkDefTail($s, $k + 1, $end, true);
+        if ($tail === null) {
+            return null;
+        }
+
+        return $def + $tail;
+    }
+
+    /**
+     * C2-B-083: the tail of a link definition from `$k` to `$end`, a title and then an attribute block, each
+     * optional but not both absent; with `$title` false only the attribute block.
+     *
+     * @param string $s
+     * @param int $k
+     * @param int $end The offset after the last character that is not a space or a tab.
+     * @param bool $title
+     *
+     * @return array{tooltip?: string, attrs?: \MarkupCarve\Carve\Attrs}|null
+     */
+    public static function linkDefTail(string $s, int $k, int $end, bool $title): ?array
+    {
+        if ($k >= $end) {
+            return null;
+        }
+        $tail = [];
         $q = $s[$k];
-        if ($q === '"' || $q === "'") {
+        if ($title && ($q === '"' || $q === "'")) {
             $close = self::titleEnd($s, $k + 1, $end, $q);
             if ($close <= $k + 1) {
                 return null;
             }
-            $title = self::quotedTitle($s, $k + 1, $close, $q);
-            if ($title === null) {
+            $tooltip = self::quotedTitle($s, $k + 1, $close, $q);
+            if ($tooltip === null) {
                 return null;
             }
-            $def['tooltip'] = $title;
+            $tail['tooltip'] = $tooltip;
             $k = $close + 1;
             if ($k === $end) {
-                return $def;
+                return $tail;
             }
             if ($s[$k] !== ' ' || $k + 1 >= $end) {
                 return null;
@@ -539,9 +563,9 @@ final class LineShapes
         if ($after !== $end || AttributeParser::$lastEmpty) {
             return null;
         }
-        $def['attrs'] = $attrs;
+        $tail['attrs'] = $attrs;
 
-        return $def;
+        return $tail;
     }
 
     private static function titleEnd(string $s, int $from, int $end, string $quote): int
