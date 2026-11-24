@@ -839,7 +839,7 @@ final class DataModel
             $path = self::pathParent($path);
             $content = $context->layout->contentColumn($path);
             if ($content !== null) {
-                return $line->body_start - $line->start < $content;
+                return $context->layout->columnOf($line->body_start, $line->quote_marks) < $content;
             }
         }
 

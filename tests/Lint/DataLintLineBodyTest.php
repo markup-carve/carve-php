@@ -9,8 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve-php#5839: a line's body starts after its container prefixes, not at the leaf that starts on it, as carve-js
- * and carve-rs read the lint line model.
+ * carve-php#5839, #5838: a line's body starts after its container prefixes, not at the leaf that starts on it, and a
+ * lazy line is measured in columns inside its quote marks, as carve-js and carve-rs read the lint line model.
  */
 final class DataLintLineBodyTest extends TestCase
 {
@@ -25,6 +25,11 @@ final class DataLintLineBodyTest extends TestCase
                 "[a]: <>\n    - [ ] %%%\n      :::\n",
                 'link-definition-indented-line',
                 ['12-21 /children/0'],
+            ],
+            'lazy footnote definition line in a quoted description' => [
+                "> :: t\n > : [\n> > [^n]: x y [link](u)\n",
+                'definition-in-container',
+                ['18-23 /children/0/children/0/children/1/children/0'],
             ],
         ];
         foreach (['hand', 'data'] as $mode) {
