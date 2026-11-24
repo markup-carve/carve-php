@@ -236,7 +236,7 @@ final class BlockParser
             if ($leaf->kind === Frame::LINE_BLOCK && $owner < $top && $this->lazyLineBlockComment($leaf)) {
                 return;
             }
-            if ($owner === $top || $leaf->kind === Frame::LINE_BLOCK && $this->lazyLineBlock($leaf)) {
+            if ($owner === $top || $leaf->kind === Frame::LINE_BLOCK && $this->lazyLineBlock($leaf, $owner)) {
                 $this->opaqueLine($leaf);
 
                 return;
@@ -383,14 +383,28 @@ final class BlockParser
         return preg_match($shape, $line) === 1;
     }
 
-    private function lazyLineBlock(Frame $leaf): bool
+    /**
+     * C2-B-024: an open stanza takes an unowned line as a lazy line unless the line interrupts a paragraph or is a
+     * shape that takes no lazy place (a quote, a heading, an attribute line, a definition).
+     *
+     * @param \MarkupCarve\Carve\Block\Frame $leaf
+     * @param int $owner
+     *
+     * @return bool
+     */
+    private function lazyLineBlock(Frame $leaf, int $owner): bool
     {
-        $n = count($leaf->spans);
-        if ($n === 0 || $n >= 2 && $leaf->spans[$n - 2] === $leaf->spans[$n - 1]) {
-            // C2-B-024: only an open stanza takes a lazy line.
+        if (!$this->stanzaOpen($leaf)) {
             return false;
         }
-        $j = $this->i + strspn($this->s, " \t", $this->i, $this->le - $this->i);
+        $j = $this->i;
+        $c = $this->col;
+        $w = strspn($this->s, ' ', $j, $this->le - $j);
+        $j += $w;
+        $c += $w;
+        if ($j < $this->le && $this->s[$j] === "\t") {
+            $this->skipWs($j, $c);
+        }
         if ($j >= $this->le || $this->regionMarker($j)) {
             return false;
         }
@@ -408,7 +422,21 @@ final class BlockParser
             return false;
         }
 
-        return !LineShapes::isFenceLine($this->s, $j, $this->le);
+        return !LineShapes::isFenceLine($this->s, $j, $this->le) && !$this->interrupts($leaf, $owner, $j, $c);
+    }
+
+    /**
+     * C2-B-024: only an open stanza takes a lazy line; a blank last line has closed it.
+     *
+     * @param \MarkupCarve\Carve\Block\Frame $leaf
+     *
+     * @return bool
+     */
+    private function stanzaOpen(Frame $leaf): bool
+    {
+        $n = count($leaf->spans);
+
+        return $n > 0 && $leaf->spans[$n - 2] !== $leaf->spans[$n - 1];
     }
 
     private function lazyLineBlockComment(Frame $leaf): bool
@@ -416,7 +444,7 @@ final class BlockParser
         $j = $this->i + strspn($this->s, " \t", $this->i, $this->le - $this->i);
         if (
             $j + 1 >= $this->le || substr($this->s, $j, 2) !== '%%' || ($this->s[$j + 2] ?? '') === '%'
-            || $this->regionMarker($j) || $leaf->spans === []
+            || $this->regionMarker($j) || !$this->stanzaOpen($leaf)
         ) {
             return false;
         }
@@ -2076,6 +2104,10 @@ final class BlockParser
         $f->spans[] = $this->le;
         if ($j < $end) {
             $f->end = $this->le;
+            $this->blank = 0;
+        } else {
+            // C2-B-113: held back blank lines count as blank lines above the next line.
+            $this->blank++;
         }
     }
 
