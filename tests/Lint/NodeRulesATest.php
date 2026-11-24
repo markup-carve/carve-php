@@ -309,15 +309,16 @@ final class NodeRulesATest extends TestCase
                 ],
             ],
             'description-term-multi-line' => [
-                ":: term\nmore\n: desc",
+                ":: term\n   : desc",
                 ":: term\n: desc",
                 ['upgrade' => true],
                 [
                     'description-term-multi-line',
                     '/children/0/children/0',
-                    8,
-                    12,
-                    'This line continues the term above. Add a blank line after the term if it is a paragraph.',
+                    11,
+                    17,
+                    'This line continues the term above, so its `:` is term text and opens no description.'
+                    . ' Put the description mark at the column of the term mark.',
                 ],
             ],
             'deprecated-indented-line-under-heading' => [

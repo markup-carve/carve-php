@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '134bcfe56f6066a30226bcbe1bf0736d3807c816',
+        'commit' => '991f6170709e4d0573a3dbabe09d98eaab15102a',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6827,7 +6827,7 @@ final class Tables
             'This ${name} starts at column ${column}, below the column ${host.column} of the definition list above, so it adds no entry to that list. Indent it to column ${host.column} to continue the list.',
         ],
         'description-term-multi-line' => [
-            'This line continues the term above. Add a blank line after the term if it is a paragraph.',
+            'This line continues the term above, so its `:` is term text and opens no description. Put the description mark at the column of the term mark.',
         ],
         'destination-denied' => [
             [

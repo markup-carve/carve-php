@@ -16,7 +16,7 @@ final class Next2ParityRoundTwoTest extends TestCase
     public static function cases(): array
     {
         return [
-            'term before hyphens' => [":: term\n---", ['description-term-multi-line', 'thematic-break-spelling']],
+            'term before hyphens' => [":: term\n---", ['thematic-break-spelling']],
             'quoted spaced hyphens after heading' => ["> # H\n> - - -", ['deprecated-spaced-thematic-break']],
             'first definition-shaped paragraph line' => [": definition\n---", ['setext-heading-underline']],
             'later definition-shaped paragraph line' => [

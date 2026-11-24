@@ -23,7 +23,7 @@ final class LintRulingsTest extends TestCase
             '6174 bullet' => ['* ----', 'thematic-break-spelling', [[2, 6]]],
             '6174 footnote' => ['[^f]: ---', 'thematic-break-spelling', [[6, 9]]],
             '6174 description' => [":: term\n: ----", 'thematic-break-spelling', [[10, 14]]],
-            '6174 lazy quote mark is text' => [":: t\n> ---", 'thematic-break-spelling', []],
+            '6174 lazy quote mark is text' => [":: t\n   > ---", 'thematic-break-spelling', []],
             '6174 ordered spaced' => ['a. - - -', 'deprecated-spaced-thematic-break', [[3, 8]]],
             '6174 spaced run keeps its markers' => ['- - -', 'deprecated-spaced-thematic-break', [[0, 5]]],
             '6174 spaced run in a quote' => ['>       - - -', 'deprecated-spaced-thematic-break', [[8, 13]]],
