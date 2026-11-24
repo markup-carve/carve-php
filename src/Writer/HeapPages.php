@@ -18,30 +18,35 @@ final class HeapPages
      *
      * @var int
      */
-    private const UNUSED = 16 * 1024 * 1024;
+    public const UNUSED = 16 * 1024 * 1024;
 
     /**
-     * The allocated heap after the last release, or the least seen since. A long-lived host keeps the chunks of its
-     * largest call; until the heap takes a new chunk those hold the call, and a release would cost every call a walk
-     * over the allocator's free lists.
+     * The allocated and the unused heap after the last release, or the least of each seen since. A long-lived host keeps
+     * the chunks of its largest call; while the heap takes no new chunk and frees no more than the threshold, a release
+     * would cost every call a walk over the allocator's free lists.
      *
-     * @var int
+     * @var array{int, int}
      */
-    private static int $allocated = 0;
+    private static array $after = [0, 0];
 
     /**
      * Whether the free lists were handed back.
+     *
+     * @param int $threshold Unused heap, or heap freed since the last release, worth the walk.
      */
-    public static function release(): bool
+    public static function release(int $threshold = self::UNUSED): bool
     {
         $allocated = memory_get_usage(true);
-        if ($allocated <= self::$allocated || $allocated - memory_get_usage() <= self::UNUSED) {
-            self::$allocated = min(self::$allocated, $allocated);
+        $unused = $allocated - memory_get_usage();
+        [$allocatedAfter, $unusedAfter] = self::$after;
+        if ($unused <= $threshold || ($allocated <= $allocatedAfter && $unused - $unusedAfter <= $threshold)) {
+            self::$after = [min($allocatedAfter, $allocated), min($unusedAfter, $unused)];
 
             return false;
         }
         gc_mem_caches();
-        self::$allocated = memory_get_usage(true);
+        $allocated = memory_get_usage(true);
+        self::$after = [$allocated, $allocated - memory_get_usage()];
 
         return true;
     }

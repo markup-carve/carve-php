@@ -23,6 +23,13 @@ use MarkupCarve\Carve\Writer\Writer;
 final class HtmlImporter
 {
     /**
+     * Heap the DOM or the document arrays leave free that is worth handing back before the next tree is built.
+     *
+     * @var int
+     */
+    private const FREED = 4 * 1024 * 1024;
+
+    /**
      * Plain opening tags that always add one imported block level in a flow.
      *
      * @var array<string, true>
@@ -118,7 +125,7 @@ final class HtmlImporter
         // The DOM is done with. Its parent links are cycles, so it is collected before the tree is decoded.
         unset($root, $reader, $child);
         gc_collect_cycles();
-        HeapPages::release();
+        HeapPages::release(self::FREED);
         $document = ['type' => 'document', 'astVersion' => '2.0', 'children' => $children];
         if ($context->rootLang !== null) {
             $document['lang'] = $context->rootLang;
@@ -139,7 +146,7 @@ final class HtmlImporter
         $json = self::encode($document);
         unset($document, $children);
         // Return the pages the arrays held, so the tree's nodes can take them.
-        HeapPages::release();
+        HeapPages::release(self::FREED);
         $tree = self::readJson($json);
         [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
