@@ -1876,6 +1876,10 @@ final class Blocks
         $behind = $this->leadIndent($prefix);
         $this->w->lead = ($this->w->lead ?? $prefix) . $mark;
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        // C2-B-067: a description list opened on the marker line takes its descriptions at its own column.
+        if (is_array($children[0] ?? null) && ($children[0]['type'] ?? null) === 'definition_list') {
+            $width = mb_strlen($mark, 'UTF-8');
+        }
         $priorOwner = $this->bodyOwner;
         $this->bodyOwner = ($node['type'] ?? '') === 'definition_description' ? 'description' : 'body';
         try {
@@ -1902,11 +1906,7 @@ final class Blocks
     {
         $this->attributeLine($node, $path, $prefix);
         $this->blankKey($node, $path);
-        $mark = '[^' . Inline::str($node, 'key') . ']: ';
-        $first = is_array($node['children'] ?? null) ? ($node['children'][0] ?? null) : null;
-        // C2-B-067: a description list opened on the marker line takes its descriptions at its own column.
-        $width = is_array($first) && ($first['type'] ?? null) === 'definition_list' ? mb_strlen($mark, 'UTF-8') : 2;
-        $this->body($node, $path, $prefix, $mark, $width, false);
+        $this->body($node, $path, $prefix, '[^' . Inline::str($node, 'key') . ']: ', 2, false);
     }
 
     /**
