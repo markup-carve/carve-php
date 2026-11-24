@@ -1606,6 +1606,9 @@ final class Scanner
         $close = $this->notePlan[1][$i + 1] ?? -1;
         // A preceding unclosed note can swallow this pair in the first scan. If it closes on its own without
         // another caret bracket inside it, that missing first-scan entry does not demote this note.
+        if ($close === $i + 2) {
+            return $this->pushFrameOrText(self::F_FOOTNOTE, $i, $i + 2, '');
+        }
         if ($close >= 0) {
             $nestedNote = $this->nextPos('^[', $i + 2);
             $nestedRef = $this->nextPos('[^', $i + 2);
