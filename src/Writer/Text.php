@@ -211,6 +211,14 @@ final class Text
     public static ?array $recorded = null;
 
     /**
+     * While `$recorded` is set, the escapes of each text path that are not the glued brace of C2-W-125 case one, by
+     * path.
+     *
+     * @var array<string, array<int, true>>
+     */
+    public static array $recordedDecided = [];
+
+    /**
      * How many backtick rounds escaped every potential opener of the kind; a leaf reads it to know its form took them.
      */
     public static int $tickKindRounds = 0;
@@ -309,10 +317,15 @@ final class Text
             // A path without escapes is left out: its seed is empty, and a long paragraph has one per text node
             // (carve-php#5722).
             $escaped = array_filter($c->escapedAt);
+            unset(self::$recordedDecided[$c->textPath]);
             if ($escaped === []) {
                 unset(self::$recorded[$c->textPath]);
             } else {
                 self::$recorded[$c->textPath] = $escaped;
+                $decided = array_diff_key($escaped, $c->gluedBraces);
+                if ($decided !== []) {
+                    self::$recordedDecided[$c->textPath] = $decided;
+                }
             }
         }
 
@@ -334,6 +347,7 @@ final class Text
         }
         $marks = self::lineStartMark($value, $c, $next);
         $c->escapedAt = [];
+        $c->gluedBraces = [];
         $out = '';
         $prev = $c->last;
         [$balanced, $ticks, $lineOpener] = self::loopFacts($value, $marks, $c, $next);
@@ -362,6 +376,7 @@ final class Text
             }
             $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i])
                 || isset($liveTicks[$i]);
+            $c->gluedBrace = false;
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
                 || (str_contains(self::PUNCT, $ch)
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
@@ -372,7 +387,7 @@ final class Text
             // C2-W-088: nor is the escape of a mark that would close its node early (C2-W-125, case five).
             if (
                 $repair && !str_contains(self::ALWAYS, $ch) && !($ch === '[' && $c->inBracket && $i !== $marks)
-                && !self::closesOpenMark($ch, $after, $c)
+                && !self::closesOpenMark($ch, $after, $c) && !self::gluedBrace($c)
             ) {
                 $c->escapeKinds[$i] = self::kindOf($value, $i, $i === $marks, $after);
             } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
@@ -393,12 +408,23 @@ final class Text
             if ($escape && $byte === 0x7B) {
                 $liveTicks += self::liveTicks($value, $i, $c);
             }
+            if ($escape && self::gluedBrace($c)) {
+                $c->gluedBraces[$i] = true;
+            }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
             $prev = $byte;
         }
 
         return $out;
+    }
+
+    /**
+     * Whether `needs()` escaped the last character for C2-W-125 case one, a brace glued before a node.
+     */
+    private static function gluedBrace(Context $c): bool
+    {
+        return $c->gluedBrace;
     }
 
     /**
@@ -1803,6 +1829,8 @@ final class Text
             $mark = $after >= 0 && $after < 0x80 ? chr($after) : '';
             // C2-I-060: a braced opener with no closer still takes the mark of the node, which then cannot open.
             if (!isset($c->flatAtoms[$at + 1]) && $mark !== '' && str_contains(self::MARKS . '%', $mark)) {
+                $c->gluedBrace = true;
+
                 return true;
             }
         } elseif ($markEscaped) {

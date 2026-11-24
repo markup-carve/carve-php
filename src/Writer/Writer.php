@@ -155,7 +155,7 @@ final class Writer
         $parsed = self::$parsedSource;
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
-        [$result, $localEscapes, $undecided, $groups] = self::firstWrite($tree, $layout, $options, $risk);
+        [$result, $localEscapes, $undecided, $localDecided, $groups] = self::firstWrite($tree, $layout, $options, $risk);
         $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
             return $settled;
@@ -176,7 +176,7 @@ final class Writer
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
         $treePrint = TreeEquality::fingerprint($tree);
-        if ($unchecked) {
+        if (self::takesLocalForm($unchecked, $undecided, $localDecided)) {
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             unset($localEscapes);
             if (self::readsBack($result->source, $treePrint, $options)) {
@@ -226,6 +226,20 @@ final class Writer
     }
 
     /**
+     * Whether the local write is taken where it reads back, without the rounds: the heuristics call it safe, or it
+     * decided all its brackets and its only escapes are the glued braces of C2-W-125 case one, which give no kind
+     * (C2-W-010, C2-W-088; carve-js `leavesKind`).
+     *
+     * @param bool $unchecked
+     * @param bool $undecided
+     * @param array<string, array<int, true>> $decided The other escapes of the local write, by text path.
+     */
+    private static function takesLocalForm(bool $unchecked, bool $undecided, array $decided): bool
+    {
+        return $unchecked || (!$undecided && $decided === []);
+    }
+
+    /**
      * The local write with every undecided bracket escaped: the brackets alone first, since a sigil glued to a node
      * mostly forms nothing with it, and every opener where that does not read back.
      *
@@ -234,7 +248,12 @@ final class Writer
      * @param array<string, mixed> $options
      * @param string $treePrint
      *
-     * @return array{\MarkupCarve\Carve\Writer\WriteResult, array<string, array<int, true>>, bool}
+     * @return array{
+     *     \MarkupCarve\Carve\Writer\WriteResult,
+     *     array<string, array<int, true>>,
+     *     bool,
+     *     array<string, array<int, true>>
+     * }
      */
     private static function conservativeWrite(array $tree, ?array $layout, array $options, string $treePrint): array
     {
@@ -304,6 +323,7 @@ final class Writer
      *     \MarkupCarve\Carve\Writer\WriteResult,
      *     array<string, array<int, true>>,
      *     bool,
+     *     array<string, array<int, true>>,
      *     array<int, array{int, int, int, int, bool}>|null
      * }
      */
@@ -847,20 +867,28 @@ final class Writer
      * @param bool $conservative
      * @param bool $bareSigils With `$conservative`, a sigil glued to a node stays bare.
      *
-     * @return array{\MarkupCarve\Carve\Writer\WriteResult, array<string, array<int, true>>, bool}
+     * @return array{
+     *     \MarkupCarve\Carve\Writer\WriteResult,
+     *     array<string, array<int, true>>,
+     *     bool,
+     *     array<string, array<int, true>>
+     * } The result, its escapes, whether a bracket was left undecided, and the escapes other than the glued braces of
+     *     C2-W-125 case one.
      */
     private static function localWrite(array $tree, ?array $layout, array $options, bool $conservative, bool $bareSigils = false): array
     {
         Text::$recorded = [];
+        Text::$recordedDecided = [];
         Text::$undecided = false;
         Text::$conservative = $conservative;
         Text::$bareSigils = $bareSigils;
         try {
             $result = self::writeInternal($tree, $layout, $options, null);
 
-            return [$result, Text::$recorded, Text::$undecided];
+            return [$result, Text::$recorded, Text::$undecided, Text::$recordedDecided];
         } finally {
             Text::$recorded = null;
+            Text::$recordedDecided = [];
             Text::$undecided = false;
             Text::$conservative = false;
             Text::$bareSigils = false;

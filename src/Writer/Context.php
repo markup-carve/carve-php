@@ -325,4 +325,16 @@ final class Context
      * @var array<int, string>
      */
     public array $escapeKinds = [];
+
+    /**
+     * Whether the brace just tested takes the backslash of C2-W-125 case one, which gives no kind (C2-W-088).
+     */
+    public bool $gluedBrace = false;
+
+    /**
+     * C2-W-125, case one: the offsets of the text being written whose brace is glued before a node.
+     *
+     * @var array<int, true>
+     */
+    public array $gluedBraces = [];
 }
