@@ -431,9 +431,47 @@ final class Writer
                 return new WriteResult(self::prunedNoteCarets($bare, self::trimmedPrint($tree, $layout, $options), $options, $parsed), []);
             }
         }
-        $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
+        if (
+            $parsed !== null && $result->diagnostics === []
+            && (str_contains($parsed, '^[') || str_contains($parsed, '[^'))
+            && !str_contains($parsed, '\\[') && !str_contains($parsed, '\\]')
+            && self::onlyAddedEscapes($parsed, $result->source, '[](!^')
+        ) {
+            return new WriteResult(str_ends_with($parsed, "\n") ? $parsed : $parsed . "\n", []);
+        }
+        $unsettledByKind = false;
+        if (
+            $parsed !== null && strlen($parsed) < 65536 && $result->diagnostics === [] && $localEscapes !== []
+            && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
+        ) {
+            $bare = self::bareSource($tree, $layout, $options, []);
+            $readBare = ReadbackRound::read($bare, $options);
+            $wanted = self::trimmedPrint($tree, $layout, $options);
+            $bareHolds = TreeEquality::fingerprint($readBare) === $wanted;
+            $unneededBrace = RepairPlanner::escapesOnly($tree, $localEscapes, '{');
+            $unneededInline = !str_contains($parsed, '\\')
+                && RepairPlanner::escapesOnly($tree, $localEscapes, '{:!+#</*|[');
+            if ($bareHolds && ($unneededBrace || $unneededInline) && Text::treePairOpeners($tree, []) === []) {
+                return new WriteResult($bare, []);
+            }
+            if (!$bareHolds) {
+                $marked = self::markedCandidate($tree, $layout, $options, [], $bare);
+                $reported = ReadbackRound::compare($marked, $readBare, $tree, $wanted, false)['openers'];
+                $expanded = RepairPlanner::expandedKindEscapes($tree, $reported, $localEscapes);
+                $unsettledByKind = $expanded !== $localEscapes;
+                if ($unsettledByKind) {
+                    $byKind = self::bareSource($tree, $layout, $options, $expanded);
+                    if (Text::treePairOpeners($tree, $expanded) === [] && self::readsBack($byKind, $wanted, $options)) {
+                        return new WriteResult($byKind, []);
+                    }
+                }
+            }
+        }
+        $settled = $unsettledByKind ? null : self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
-            return $settled;
+            $source = self::prunedNoteSigils($settled->source, $parsed);
+
+            return $source === $settled->source ? $settled : new WriteResult($source, $settled->diagnostics);
         }
         $children = $tree['children'] ?? null;
         if (
@@ -470,14 +508,32 @@ final class Writer
         if ($bareNestedLink !== null) {
             return $bareNestedLink;
         }
-        if (self::takesLocalForm($unchecked, $undecided, $localDecided)) {
+        $bareSource = null;
+        $read = null;
+        $readPrint = null;
+        $readParts = null;
+        $needsKindRound = false;
+        if (
+            $localEscapes !== []
+            && (self::takesLocalForm($unchecked, $undecided, $localDecided) || $undecided)
+        ) {
+            $bareSource = self::bareSource($tree, $layout, $options, []);
+            $read = ReadbackRound::read($bareSource, $options);
+            [$readPrint, $readParts] = RepairPlanner::readPrints($read);
+        }
+        if ($read !== null && $readPrint !== $treePrint) {
+            $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
+            $reported = ReadbackRound::compare($bare, $read, $tree, $treePrint, false)['openers'];
+            $needsKindRound = RepairPlanner::expandedKindEscapes($tree, $reported, $localEscapes) !== $localEscapes;
+        }
+        if (!$needsKindRound && self::takesLocalForm($unchecked, $undecided, $localDecided)) {
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             unset($localEscapes);
             if (self::readsBack($result->source, $treePrint, $options)) {
                 return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
         }
-        if ($undecided) {
+        if ($undecided && !$needsKindRound) {
             // C2-W-088: a bracket the plan left bare stays bare where the form reads back; otherwise the plan takes
             // its backslash there, and the rounds below go on from that form.
             if (self::readsBack($result->source, $treePrint, $options)) {
@@ -493,11 +549,13 @@ final class Writer
                 }
             }
         }
-        $bareSource = self::bareSource($tree, $layout, $options, []);
-        $read = ReadbackRound::read($bareSource, $options);
+        if ($read === null) {
+            $bareSource = self::bareSource($tree, $layout, $options, []);
+            $read = ReadbackRound::read($bareSource, $options);
+            [$readPrint, $readParts] = RepairPlanner::readPrints($read);
+        }
         $seed = [];
         $planner = null;
-        [$readPrint, $readParts] = RepairPlanner::readPrints($read);
         if ($readPrint === $treePrint) {
             unset($read);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
@@ -520,7 +578,9 @@ final class Writer
             return self::unrepairedOr($fallback, $tree, $result, $options);
         }
 
-        return new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options, $parsed), []);
+        $repaired = self::prunedNoteCarets($repaired, $treePrint, $options, $parsed);
+
+        return new WriteResult(self::prunedNoteSigils($repaired, $parsed), []);
     }
 
     /**
@@ -586,6 +646,98 @@ final class Writer
         }
 
         return $i === $sourceLength && $j === $writtenLength;
+    }
+
+    /**
+     * Whether the local write differs from the parsed source only by added
+     * backslashes before the given punctuation.
+     */
+    private static function onlyAddedEscapes(string $source, string $written, string $characters): bool
+    {
+        if (!str_ends_with($source, "\n")) {
+            $source .= "\n";
+        }
+        $i = 0;
+        $j = 0;
+        $added = false;
+        $sourceLength = strlen($source);
+        $writtenLength = strlen($written);
+        while ($i < $sourceLength && $j < $writtenLength) {
+            if ($source[$i] === $written[$j]) {
+                $i++;
+                $j++;
+
+                continue;
+            }
+            if ($written[$j] !== '\\' || !str_contains($characters, $source[$i])) {
+                return false;
+            }
+            $added = true;
+            $j++;
+        }
+
+        return $added && $i === $sourceLength && $j === $writtenLength;
+    }
+
+    private static function prunedNoteSigils(string $written, ?string $parsed): string
+    {
+        if (
+            $parsed === null || (!str_contains($parsed, '^[') && !str_contains($parsed, '[^'))
+            || str_contains($parsed, '\\[') || str_contains($parsed, '\\]')
+            || !self::onlyAddedEscapes($parsed, $written, '!^')
+        ) {
+            return $written;
+        }
+
+        return str_ends_with($parsed, "\n") ? $parsed : $parsed . "\n";
+    }
+
+    /**
+     * Remove newly introduced punctuation escapes when the parsed tree still reads back.
+     * A batch trial keeps repeated text linear; a final single trial handles mixed required escapes.
+     *
+     * @param string $written
+     * @param string $source
+     * @param array<mixed> $tree
+     * @param array<string, mixed> $options
+     */
+    private static function prunedAddedEscapes(string $written, string $source, array $tree, array $options): string
+    {
+        if (!str_contains($source, '^[') && !str_contains($source, '[^')) {
+            return $written;
+        }
+        $wanted = TreeEquality::fingerprint($tree);
+        foreach (str_split('()!^') as $character) {
+            $needle = '\\' . $character;
+            $surplus = substr_count($written, $needle) - substr_count($source, $needle);
+            if ($surplus <= 0) {
+                continue;
+            }
+            $positions = [];
+            for ($at = strpos($written, $needle); $at !== false; $at = strpos($written, $needle, $at + 2)) {
+                $positions[] = $at;
+            }
+            $positions = array_slice($positions, -$surplus);
+            $batch = $written;
+            foreach (array_reverse($positions) as $at) {
+                $batch = substr_replace($batch, '', $at, 1);
+            }
+            if (self::readsBack($batch, $wanted, $options)) {
+                $written = $batch;
+
+                continue;
+            }
+            foreach (array_reverse($positions) as $at) {
+                $single = substr_replace($written, '', $at, 1);
+                if (self::readsBack($single, $wanted, $options)) {
+                    $written = $single;
+
+                    break;
+                }
+            }
+        }
+
+        return $written;
     }
 
     /**
@@ -695,6 +847,7 @@ final class Writer
     private static function withPrunedNoteCarets(WriteResult $result, string $treePrint, array $options, ?string $parsed): WriteResult
     {
         $pruned = self::prunedNoteCarets($result->source, $treePrint, $options, $parsed);
+        $pruned = self::prunedNoteSigils($pruned, $parsed);
 
         return $pruned === $result->source ? $result : new WriteResult($pruned, $result->diagnostics);
     }
@@ -1425,7 +1578,7 @@ final class Writer
         try {
             $result = self::writeInternal($tree, $layout, $options, null);
 
-            return [$result, Text::$recorded, Text::$undecided, Text::$recordedDecided];
+            return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided];
         } finally {
             Text::$recorded = null;
             Text::$recordedDecided = [];
@@ -1967,7 +2120,14 @@ final class Writer
         unset($parsed);
         self::$parsedSource = $source;
         try {
-            return self::writeWithDiagnostics($tree, $writeLayout, $options);
+            $written = self::writeWithDiagnostics($tree, $writeLayout, $options);
+
+            $pruned = self::prunedNoteSigils($written->source, $source);
+            if ($written->diagnostics === []) {
+                $pruned = self::prunedAddedEscapes($pruned, $source, $tree, $options);
+            }
+
+            return new WriteResult($pruned, $written->diagnostics);
         } finally {
             self::$parsedSource = null;
         }

@@ -3572,7 +3572,10 @@ final class Text
             } elseif (substr($line, $at, 2) === '--') {
                 $at++;
             }
-            if ($at < strlen($line) && self::isPunct($line[$at])) {
+            if (
+                $at < strlen($line) && self::isPunct($line[$at])
+                && ($at === 0 || $line[$at] !== $line[$at - 1] || $line[$at] === '-')
+            ) {
                 $own[$at] = true;
             }
         }

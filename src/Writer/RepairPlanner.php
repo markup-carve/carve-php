@@ -204,6 +204,105 @@ final class RepairPlanner
     }
 
     /**
+     * The local escapes with every potential opener of a reported kind in its leaf.
+     *
+     * @param array<mixed> $tree
+     * @param array<string, array<int, true>> $reported
+     * @param array<string, array<int, true>> $localEscapes
+     *
+     * @return array<string, array<int, true>>
+     */
+    public static function expandedKindEscapes(array $tree, array $reported, array $localEscapes): array
+    {
+        if ($reported === []) {
+            return $localEscapes;
+        }
+        $expanded = $localEscapes;
+        $planner = new self($tree, null);
+        $leaves = $planner->leafTexts();
+        $done = [];
+        foreach ($reported as $path => $positions) {
+            $value = self::nodeAt($tree, $path)['value'] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $leaf = $planner->leafOf($path);
+            foreach ($positions as $at => $_) {
+                $kind = self::kindAt($value, $at);
+                if ($kind === null) {
+                    continue;
+                }
+                if ($kind === '--') {
+                    self::addSingleDash($expanded, $path, $at, $value);
+
+                    continue;
+                }
+                $expanded[$path][$at] = true;
+                // A line kind has its own column rule. The inline `#` kind is
+                // the one whose further runs can stand inside another mark.
+                if ($kind !== '#' && $kind !== '{#') {
+                    continue;
+                }
+                if (isset($done[$leaf][$kind])) {
+                    continue;
+                }
+                $done[$leaf][$kind] = true;
+                foreach ($leaves[$leaf] ?? [] as $otherPath) {
+                    $other = self::nodeAt($tree, $otherPath)['value'] ?? null;
+                    if (!is_string($other)) {
+                        continue;
+                    }
+                    foreach (self::kindOffsets($kind, $other) as $otherAt) {
+                        $expanded[$otherPath][$otherAt] = true;
+                    }
+                }
+            }
+        }
+
+        return $expanded;
+    }
+
+    /**
+     * @param array<string, array<int, true>> $expanded
+     * @param string $path
+     * @param int $at
+     * @param string $value
+     */
+    private static function addSingleDash(array &$expanded, string $path, int $at, string $value): void
+    {
+        if ($at === 0 && ($value[1] ?? '') !== '-') {
+            $expanded[$path][$at] = true;
+        }
+    }
+
+    /**
+     * Whether every local text escape is on one of the characters being checked.
+     *
+     * @param array<mixed> $tree
+     * @param array<string, array<int, true>> $escapes
+     * @param string $characters
+     */
+    public static function escapesOnly(array $tree, array $escapes, string $characters): bool
+    {
+        if ($escapes === []) {
+            return false;
+        }
+        foreach ($escapes as $path => $positions) {
+            $value = self::nodeAt($tree, $path)['value'] ?? null;
+            if (!is_string($value)) {
+                return false;
+            }
+            foreach ($positions as $at => $_) {
+                if (!str_contains($characters, $value[$at] ?? '')) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * `TreeEquality::fingerprint()` of a read-back, with the fingerprint of each block in it by path, so the trials of
      * a round compare their leaves without hashing the read-back again.
      *

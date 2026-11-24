@@ -128,9 +128,9 @@ final class ReadbackRound
                 continue;
             }
             $unexpected = self::noteNode($node, $text, $actual, $openers);
-            if ($unexpected) {
-                // The outer construct consumes this stretch. Its children are not independently visible
-                // to this repair round; they can surface only after its opener is escaped.
+            if ($unexpected && !in_array($node['type'] ?? '', ['div', 'admonition', 'block_quote', 'list', 'list_item'], true)) {
+                // An inline construct consumes its source. A block container still exposes its nested
+                // openers to the same kind round.
                 continue;
             }
             foreach (array_reverse(is_array($node['children'] ?? null) ? $node['children'] : []) as $child) {
