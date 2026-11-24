@@ -87,6 +87,9 @@ final class TreeSink implements Sink
             $code = self::UNCLOSED[$frame->kind];
             $this->findings->add($code, $node, message: ParseMessages::of($code, $this->s, $node, -1));
         }
+        if ($frame->kind === Frame::LINE_BLOCK) {
+            $this->unclosedLineBlockComments($frame, $node);
+        }
         $at = count($parentNode->children ?? []);
         // C2-B-091: a block placed by its own start, not by the attribute lines it took across a comment line.
         $key = $frame->own >= 0 ? $frame->own : $node->start;
@@ -101,6 +104,33 @@ final class TreeSink implements Sink
         }
         array_splice($children, $at, 0, [$node]);
         $parentNode->children = $children;
+    }
+
+    /**
+     * C2-B-111, C2-B-123: a comment block in a line block body that is still open when the line block ends.
+     *
+     * @param \MarkupCarve\Carve\Block\Frame $frame
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return void
+     */
+    private function unclosedLineBlockComments(Frame $frame, Node $node): void
+    {
+        $open = [];
+        foreach ([...$frame->hiddenComments, $frame->lineComment] as $comment) {
+            if ($comment !== null && !$comment->closed) {
+                $open[$comment->start] = true;
+            }
+        }
+        if ($open === []) {
+            return;
+        }
+        $code = 'unclosed-comment-fence';
+        foreach ($node->children ?? [] as $child) {
+            if ($child->type === 'comment' && isset($open[$child->start])) {
+                $this->findings->add($code, $child, message: ParseMessages::of($code, $this->s, $child, -1));
+            }
+        }
     }
 
     /**
