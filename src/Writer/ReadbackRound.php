@@ -14,7 +14,13 @@ use MarkupCarve\Carve\Json\TreeEquality;
  */
 final class ReadbackRound
 {
-    private const MEMO_BYTES = 262144;
+    /**
+     * The source bytes the read-back memo keeps. A longer source is kept only where the caller reads it again, and
+     * only the last one, so a long document holds at most one tree beside the writer's (carve#6413).
+     *
+     * @var int
+     */
+    private const MEMO_BYTES = 65536;
 
     /**
      * The last read-backs of the outer write, each with its source, oldest first and at most `MEMO_BYTES` of source;
@@ -52,17 +58,19 @@ final class ReadbackRound
      *
      * @param string $source
      * @param array<string, mixed> $options
+     * @param bool $keep Keep the read-back of a long source too, which the caller reads again.
      *
      * @return array<string, mixed>
      */
-    public static function read(string $source, array $options = []): array
+    public static function read(string $source, array $options = [], bool $keep = false): array
     {
-        $memo = self::$memo !== null && !isset($options['extensions']) && strlen($source) <= self::MEMO_BYTES;
-        if ($memo) {
-            foreach (self::$memo as $at => [$read, $tree]) {
+        $memo = isset($options['extensions']) ? null : self::$memo;
+        if ($memo !== null) {
+            foreach ($memo as $at => [$read, $tree]) {
                 if ($read === $source) {
-                    unset(self::$memo[$at]);
-                    self::$memo[] = [$read, $tree];
+                    unset($memo[$at]);
+                    $memo[] = [$read, $tree];
+                    self::$memo = $memo;
 
                     return $tree;
                 }
@@ -73,15 +81,19 @@ final class ReadbackRound
         $parsed = Carve::parse($source, $parseOptions);
         HeapPages::release();
         $tree = TreeEncoder::decodedWithOffsets($parsed, $source);
-        if ($memo) {
-            self::$memo[] = [$source, $tree];
+        if ($memo !== null && ($keep || strlen($source) <= self::MEMO_BYTES)) {
+            $memo[] = [$source, $tree];
             $bytes = 0;
-            foreach (array_reverse(self::$memo, true) as $at => [$read]) {
-                $bytes += strlen($read);
-                if ($bytes > self::MEMO_BYTES) {
-                    unset(self::$memo[$at]);
+            $long = false;
+            foreach (array_reverse($memo, true) as $at => [$read]) {
+                $length = strlen($read);
+                $bytes += $length > self::MEMO_BYTES ? 0 : $length;
+                if ($bytes > self::MEMO_BYTES || ($length > self::MEMO_BYTES && $long)) {
+                    unset($memo[$at]);
                 }
+                $long = $long || $length > self::MEMO_BYTES;
             }
+            self::$memo = $memo;
         }
 
         return $tree;

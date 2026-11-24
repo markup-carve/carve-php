@@ -174,9 +174,9 @@ final class Writer
         self::$inGroups = false;
         try {
             [$losses, $fallbackNodes] = self::normalizedAttributeValueLosses($tree);
-            $written = ReadbackRound::memoized(
-                static fn (): WriteResult => Blocks::withLeadMemo(static fn (): WriteResult => self::writeChecked($tree, $layout, $options)),
-            );
+            $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
+                static fn (): WriteResult => self::writeChecked($tree, $layout, $options),
+            ));
 
             return self::withAttributeValueLosses($written, $losses, $fallbackNodes);
         } finally {
@@ -594,7 +594,8 @@ final class Writer
         if ($undecided && !$needsKindRound) {
             // C2-W-088: a bracket the plan left bare stays bare where the form reads back; otherwise the plan takes
             // its backslash there, and the rounds below go on from that form.
-            if ($pairsOnly || self::readsBack($result->source, $treePrint, $options)) {
+            // The rounds read the bare form, which is this local form where the plan placed no escape.
+            if ($pairsOnly || self::readsBack($result->source, $treePrint, $options, ($localEscapes ?? []) === [])) {
                 return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-088: the rounds decide the brackets the plan left open, as in carve-js; the conservative form, which
@@ -622,7 +623,8 @@ final class Writer
                 $seed[$path] = ($seed[$path] ?? []) + $offsets;
             }
         } else {
-            $scoped = self::scopedRepair($tree, $layout, $options, $glued, [$treePrint, $treeParts], $bareSource, $bareRanges, $read, $readParts);
+            $prints = [$treePrint, $treeParts];
+            $scoped = self::scopedRepair($tree, $layout, $options, $glued, $prints, $bareSource, $bareRanges, $read, $readParts);
             if ($scoped === null) {
                 // The first round would write and read this same candidate again.
                 $bare = self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
@@ -800,7 +802,7 @@ final class Writer
         }
         $joined .= substr($bare, $at);
 
-        return self::readsBack($joined, $treePrint, $options) ? [$joined, $spans] : null;
+        return self::readsBack($joined, $treePrint, $options, true) ? [$joined, $spans] : null;
     }
 
     /**
@@ -2286,11 +2288,12 @@ final class Writer
      * @param string $source
      * @param string $treePrint
      * @param array<string, mixed> $options
+     * @param bool $keep Keep a long source's read-back, which the next step reads again.
      */
-    private static function readsBack(string $source, string $treePrint, array $options): bool
+    private static function readsBack(string $source, string $treePrint, array $options, bool $keep = false): bool
     {
         if (ReadbackRound::memoActive() && !isset($options['extensions'])) {
-            return TreeEquality::fingerprint(ReadbackRound::read($source, $options)) === $treePrint;
+            return TreeEquality::fingerprint(ReadbackRound::read($source, $options, $keep)) === $treePrint;
         }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 

@@ -26,6 +26,11 @@ use MarkupCarve\Carve\Node;
  */
 final class Text
 {
+    /**
+     * The lines `blockRead()` keeps for one outer write.
+     *
+     * @var int
+     */
     private const BLOCK_READS = 512;
 
     /**
