@@ -3348,13 +3348,55 @@ final class Text
         if ($first !== '' && strspn($first, self::NAME_STARTS) === 0) {
             return false;
         }
+        $own = strlen($value);
         $len = strspn($value, Tables::SIGIL_SYMBOL_REST, $i + 1);
-        if ($i + 1 + $len === strlen($value)) {
+        if ($i + 1 + $len === $own) {
             [$tail, $next] = self::nameOn($value, $c, $next);
             $value .= $tail;
         }
+        if (self::symbolFollows($value, $i)) {
+            return true;
+        }
+        if (!self::extensionFollows($value, $i, $next)) {
+            return false;
+        }
+        // C2-I-094: only a closed extension forms, so its colon takes the backslash where its bracket pairs.
+        $bracket = $i + 1 + strspn($value, Tables::SIGIL_INLINE_EXTENSION_REST, $i + 2) + 1;
 
-        return self::symbolFollows($value, $i) || self::extensionFollows($value, $i, $next);
+        return $bracket >= $own || $c->here < 0 || self::bracketCloses((string)$c->flat, $c->here + $bracket, self::sealed($c));
+    }
+
+    /**
+     * Whether a `]` of the flat leaf pairs the `[` at `$at`; a node on the way that no bracket pairs into is skipped,
+     * any other may hold the pair.
+     *
+     * @param string $flat
+     * @param int $at
+     * @param array<int, true> $sealed
+     *
+     * @return bool
+     */
+    private static function bracketCloses(string $flat, int $at, array $sealed): bool
+    {
+        $depth = 0;
+        $n = strlen($flat);
+        for ($k = $at + 1; $k < $n; $k++) {
+            $ch = $flat[$k];
+            if ($ch === "\0") {
+                if (isset($sealed[$k])) {
+                    continue;
+                }
+
+                return true;
+            }
+            if ($ch === '[') {
+                $depth++;
+            } elseif ($ch === ']' && $depth-- === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
