@@ -634,7 +634,7 @@ final class NodeRulesATest extends TestCase
                     '/children/0',
                     8,
                     11,
-                    'This line closes the block opened on line (n) although it is indented differently. If it is '
+                    'This line closes the block opened on line 1 although it is indented differently. If it is '
                     . 'content, make the outer fence longer.',
                 ],
             ],
