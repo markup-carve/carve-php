@@ -486,16 +486,27 @@ final class Writer
             $parsed !== null && strlen($parsed) < 65536 && $result->diagnostics === [] && $localEscapes !== []
             && !$pairsOnly && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
         ) {
+            // C2-W-088: with escapes every form carries, the form without escapes is taken only through `mayTakeBare()`.
+            // Elsewhere the procedure form is tried first, and the form without escapes is written only where it fails.
+            $wanted = null;
+            $ownFirst = $localOwn !== [] && !self::mayTakeBare($tree, $localEscapes, $parsed);
+            if ($ownFirst) {
+                $wanted = self::trimmedPrint($tree, $layout, $options);
+                $procedure = self::procedureForm($tree, $layout, $options, $localOwn, $wanted, null);
+                if ($procedure !== null) {
+                    return $procedure;
+                }
+            }
             $bare = self::bareSource($tree, $layout, $options, []);
             $bareRepaired = self::$bareRepaired;
             $readBare = ReadbackRound::read($bare, $options);
-            $wanted = self::trimmedPrint($tree, $layout, $options);
+            $wanted ??= self::trimmedPrint($tree, $layout, $options);
             $firstBare = [$bare, $readBare, ...RepairPlanner::readPrints($readBare), $wanted];
             $bareHolds = $firstBare[2] === $wanted;
             if ($bareHolds && self::mayTakeBare($tree, $localEscapes, $parsed) && Text::treePairOpeners($tree, []) === []) {
                 return new WriteResult($bare, []);
             }
-            $procedure = $bareRepaired ? null
+            $procedure = $bareRepaired || $ownFirst ? null
                 : self::procedureForm($tree, $layout, $options, $localOwn, $wanted, [$bare, $readBare, $bareHolds]);
             if ($procedure !== null) {
                 return $procedure;
@@ -863,7 +874,8 @@ final class Writer
      * @param array<string, mixed> $options
      * @param array<string, array<int, true>> $own
      * @param string $wanted
-     * @param array{string, array<string, mixed>, bool} $plain The source, read-back and fit of the form without escapes.
+     * @param array{string, array<string, mixed>, bool}|null $plain The source, read-back and fit of the form without
+     *   escapes; null where `$own` is not empty.
      */
     private static function procedureForm(
         array $tree,
@@ -871,12 +883,12 @@ final class Writer
         array $options,
         array $own,
         string $wanted,
-        array $plain,
+        ?array $plain,
     ): ?WriteResult {
         if (self::hasExtensionNode($tree)) {
             return null;
         }
-        [$bare, $read, $holds] = $plain;
+        [$bare, $read, $holds] = $plain ?? ['', [], false];
         if ($own !== []) {
             $bare = self::bareSource($tree, $layout, $options, $own);
             $read = ReadbackRound::read($bare, $options);
