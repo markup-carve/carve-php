@@ -158,7 +158,7 @@ final class LintRulesTest extends TestCase
             ],
             'C2-N-086 section' => [
                 '{{ child.crv #s }}', ['child.crv' => "[x]()\n\n{#s}\n[y]()\n\n[z]()\n"], 'empty-link-destination',
-                [['child.crv', 12, 17, '/children/0']],
+                [['child.crv', 12, 17, '/children/0/children/0/children/0']],
             ],
             'C2-N-086 code payload' => [
                 "x\n\n{{ a.js @code @lines:2-3 }}", ['a.js' => "let \u{202E}a = 1\nlet \u{202E}b = 2\nlet c = 3\n"],
