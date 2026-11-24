@@ -1049,18 +1049,24 @@ final class HtmlRenderer
             $attrs = $own;
         }
         $lang = $image->f['lang'] ?? $node->f['lang'] ?? null;
-        if (!isset($image->f['dir']) && isset($node->f['dir'])) {
-            $image = clone $image;
+        $fields = $image->f;
+        unset($image->f['attrs'], $image->f['lang']);
+        if ($attrs instanceof Attrs) {
+            $image->f['attrs'] = $attrs;
+        }
+        if (is_string($lang)) {
+            $image->f['lang'] = $lang;
+        }
+        if (!isset($fields['dir']) && isset($node->f['dir'])) {
             $image->f['dir'] = $node->f['dir'];
         }
-
-        return self::pad($depth) . $this->inline->image(
-            $image,
-            $attrs instanceof Attrs ? $attrs : null,
-            is_string($lang) ? $lang : null,
-            $depth,
-            null,
-        );
+        // The breaks and comments beside the image are written too (C2-H-069). The image itself stays the tree's node,
+        // so a loss on it keeps its path.
+        try {
+            return self::pad($depth) . $this->inline->inlines($node->children ?? [], $depth + 1);
+        } finally {
+            $image->f = $fields;
+        }
     }
 
     /**
