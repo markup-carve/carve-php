@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
+use MarkupCarve\Carve\Utf8;
 use Normalizer;
 use stdClass;
 
@@ -1712,7 +1713,7 @@ final class DataRules
             $entryValues = is_array($entry['values'] ?? null) ? $entry['values'] : [];
             foreach (array_merge($ruleValues, $entryValues) as $name => $expr) {
                 $value = $this->value($expr, $record);
-                $values[$name] = is_int($value) || is_string($value) ? $value : '';
+                $values[$name] = is_string($value) ? Utf8::repair($value) : (is_int($value) ? $value : '');
             }
             $message = is_int($entry['message'] ?? null) ? $entry['message'] : 0;
             $path = $record->path ?? '';
@@ -2567,8 +2568,9 @@ final class DataRules
             return $at === false ? -1 : $at;
         }
         if ($op === 'json_escape' && isset($expr['json_escape'])) {
+            // C2-B-218: source text reads with U+FFFD for malformed UTF-8.
             $encoded = json_encode(
-                self::string($this->value($expr['json_escape'], $record)),
+                Utf8::repair(self::string($this->value($expr['json_escape'], $record))),
                 JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
             );
 
