@@ -32,6 +32,15 @@ final class ImportClauseCasesTest extends TestCase
     ];
 
     /**
+     * Cases the libxml fallback (PHP below 8.4) imports differently, as `ImportCorpusTest::LEGACY_DIFFERS`.
+     *
+     * @var array<string, string>
+     */
+    private const LEGACY_DIFFERS = [
+        'CC-1446' => 'libxml adds no implied `<head>`, so nothing is reported as dropped',
+    ];
+
+    /**
      * @var array<string>
      */
     private const DIAGNOSTIC_FIELDS = ['code', 'severity', 'channel', 'path', 'line', 'column'];
@@ -59,6 +68,9 @@ final class ImportClauseCasesTest extends TestCase
     #[DataProvider('cases')]
     public function testClauseCase(array $case): void
     {
+        if (!HtmlParser::html5() && isset(self::LEGACY_DIFFERS[$case['id']])) {
+            $this->markTestSkipped(self::LEGACY_DIFFERS[$case['id']]);
+        }
         $mismatches = self::mismatches($case, false);
         $owner = self::KNOWN_FAIL[$case['id']] ?? null;
         if ($owner === null) {
@@ -70,21 +82,30 @@ final class ImportClauseCasesTest extends TestCase
     }
 
     /**
-     * The libxml fallback writes the same source for the table cases (C2-M-037 to C2-M-041).
+     * The libxml fallback gives the same result, except the entries of `LEGACY_DIFFERS`.
      *
      * @param array<string, mixed> $case
      *
      * @return void
      */
     #[DataProvider('cases')]
-    public function testLegacyParserWritesTheSameTableSource(array $case): void
+    public function testLegacyParserGivesTheSameResult(array $case): void
     {
-        if (!HtmlParser::html5() || !str_contains($case['html'], '<table') || isset(self::KNOWN_FAIL[$case['id']])) {
+        if (!HtmlParser::html5()) {
+            $this->markTestSkipped('only the libxml parser exists on this PHP');
+        }
+        if (isset(self::KNOWN_FAIL[$case['id']])) {
             $this->assertTrue(true);
 
             return;
         }
-        $this->assertSame([], self::mismatches($case, true), $case['id'] . ': ' . $case['summary']);
+        $mismatches = self::mismatches($case, true);
+        if (isset(self::LEGACY_DIFFERS[$case['id']])) {
+            $this->assertNotSame([], $mismatches, $case['id'] . ' agrees now: remove it from LEGACY_DIFFERS');
+
+            return;
+        }
+        $this->assertSame([], $mismatches, $case['id'] . ': ' . $case['summary']);
     }
 
     public function testKnownFailListNamesImportCasesOfThePin(): void
