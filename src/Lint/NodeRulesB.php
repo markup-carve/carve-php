@@ -11,6 +11,26 @@ namespace MarkupCarve\Carve\Lint;
 final class NodeRulesB
 {
     /**
+     * @var array<string, true> The inline spans a braced closer search climbs through to the leaf block.
+     */
+    private const INLINE_SPANS = [
+        'emphasis' => true,
+        'strong' => true,
+        'underline' => true,
+        'strike' => true,
+        'highlight' => true,
+        'superscript' => true,
+        'subscript' => true,
+        'insert' => true,
+        'delete' => true,
+        'span' => true,
+        'link' => true,
+        'inline_footnote' => true,
+        'inline_extension' => true,
+        'small_caps' => true,
+    ];
+
+    /**
      * @param array<string, mixed> $node
      * @param string $path
      * @param \MarkupCarve\Carve\Lint\Context $c
@@ -54,7 +74,7 @@ final class NodeRulesB
         }
         $split = Support::parent($path);
         $parent = $split === null ? null : ($c->nodeTypes[$split] ?? null);
-        if ($parent !== 'strong' && $parent !== 'emphasis') {
+        if ($split === null || ($parent !== 'strong' && $parent !== 'emphasis')) {
             return;
         }
         $raw = Support::raw($node, $c);
@@ -62,14 +82,54 @@ final class NodeRulesB
         $slash = strpos($raw, '{/');
         $at = $star === false ? $slash : ($slash === false ? $star : min($star, $slash));
         $range = Support::bounds($node);
-        $lineEnd = $range === null ? false : strpos($c->source, "\n", $range[1]);
-        $until = $lineEnd === false ? strlen($c->source) : $lineEnd;
-        if (
-            $at !== false && $range !== null && strpos($c->source, '}', $range[1]) !== false
-            && (int)strpos($c->source, '}', $range[1]) < $until
-        ) {
-            $c->report('braced-span-opener-as-text', $range[0] + $at, $range[0] + $at + 2, $path);
+        if ($at === false || $range === null) {
+            return;
         }
+        $opener = $range[0] + $at;
+        $closer = $raw[$at + 1] . '}';
+        $last = self::lastCloser(self::leafBlock($split, $c), $closer, $c);
+        if ($last !== null && $last >= $opener + 2) {
+            $c->report('braced-span-opener-as-text', $opener, $opener + 2, $path);
+        }
+    }
+
+    /**
+     * The leaf block that holds an inline span: the first ancestor that is not an inline span.
+     *
+     * @param string $path
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return string
+     */
+    private static function leafBlock(string $path, Context $c): string
+    {
+        while ($path !== '' && isset(self::INLINE_SPANS[$c->nodeTypes[$path] ?? ''])) {
+            $path = $c->layout->parent($path);
+        }
+
+        return $path;
+    }
+
+    /**
+     * Where the last braced closer of a mark starts in a block, computed once per block so each opener costs one lookup.
+     *
+     * @param string $block
+     * @param string $closer
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return int|null
+     */
+    private static function lastCloser(string $block, string $closer, Context $c): ?int
+    {
+        $key = $block . "\0" . $closer;
+        if (!array_key_exists($key, $c->closerStarts)) {
+            $start = $c->layout->startOffset($block);
+            $end = $c->layout->endOffset($block);
+            $found = $start === null || $end === null ? false : strrpos(substr($c->source, $start, $end - $start), $closer);
+            $c->closerStarts[$key] = $found === false ? null : (int)$start + $found;
+        }
+
+        return $c->closerStarts[$key];
     }
 
     /**

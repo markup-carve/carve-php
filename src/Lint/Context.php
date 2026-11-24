@@ -97,6 +97,11 @@ final class Context
     public Layout $layout;
 
     /**
+     * @var array<string, int|null> The start of the last braced closer of a mark in a leaf block, by block path and closer.
+     */
+    public array $closerStarts = [];
+
+    /**
      * @var array<string, bool> The answer of `active()` by rule id; the options do not change during a run.
      */
     private array $activeRules = [];
