@@ -1381,6 +1381,25 @@ final class RepairPlanner
         if (count($trial) > 4) {
             return true;
         }
+        if (count($trial) > 1) {
+            $rank = $this->textOrder[$trial[0][0]] ?? -1;
+            $left = [];
+            foreach ($this->escapes as $owner => $offsets) {
+                $order = $this->textOrder[$owner] ?? -1;
+                foreach ($offsets as $at => $_) {
+                    if ($order < $rank || ($owner === $trial[0][0] && $at < $trial[0][1])) {
+                        $left[$owner][$at] = true;
+                    }
+                }
+            }
+            $without = $this->sourceTree($left);
+            foreach ($trial as [$path, $offset]) {
+                $left[$path][$offset] = true;
+            }
+            $with = $this->sourceTree($left);
+
+            return $without !== null && $with !== null && $without !== $with;
+        }
         foreach ($trial as [$path, $offset]) {
             if ($this->trialChangesTree($path, $offset)) {
                 return true;
@@ -1551,6 +1570,12 @@ final class RepairPlanner
         $parent = implode('/', $parts);
         while ($step < 14) {
             $case = $step++;
+            if ($case === 1 && ($node['type'] ?? '') === 'inline_footnote') {
+                $openers = self::priorNoteOpeners(self::lastText(self::nodeAt($this->tree, $prior), $prior), $this->escapes);
+                if ($openers !== []) {
+                    return [...$openers, ...self::loneNoteBrackets($node, $path, $this->escapes)];
+                }
+            }
             if ($case === 3 || $case === 4) {
                 $probed = $case === 3
                     ? $this->contentConstruct($path, $node)
@@ -1574,6 +1599,79 @@ final class RepairPlanner
         }
 
         return null;
+    }
+
+    /**
+     * A missing inline footnote can be swallowed by text `^[` openers before it. Escaping those brackets leaves the
+     * footnote's own opener in place; the trial is retained only when its read-back changes the tree.
+     *
+     * @param array{string, string}|null $last
+     * @param array<string, array<int, true>> $escapes
+     *
+     * @return array<array{string, int}>
+     */
+    private static function priorNoteOpeners(?array $last, array $escapes): array
+    {
+        if ($last === null) {
+            return [];
+        }
+        [$path, $value] = $last;
+        $openers = [];
+        for ($at = strpos($value, '^['); $at !== false; $at = strpos($value, '^[', $at + 2)) {
+            if (!isset($escapes[$path][$at + 1])) {
+                $openers[] = [$path, $at + 1];
+            }
+        }
+
+        return $openers;
+    }
+
+    /**
+     * Brackets left open by the text of a note need the case-five escape before a trial can show whether an earlier
+     * text note opener was swallowing this note. Bracketed child nodes have their own independent pair stack.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param array<string, array<int, true>> $escapes
+     *
+     * @return array<array{string, int}>
+     */
+    private static function loneNoteBrackets(array $node, string $path, array $escapes): array
+    {
+        $open = [];
+        self::noteBracketWalk(self::childrenOf($node), $path . '/children', $open);
+
+        return array_values(array_filter($open, static fn (array $entry): bool => !isset($escapes[$entry[0]][$entry[1]])));
+    }
+
+    /**
+     * @param array<mixed> $children
+     * @param string $path
+     * @param array<array{string, int}> $open
+     */
+    private static function noteBracketWalk(array $children, string $path, array &$open): void
+    {
+        foreach ($children as $index => $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            $atPath = $path . '/' . $index;
+            if (($child['type'] ?? '') === 'text' && is_string($child['value'] ?? null)) {
+                for ($at = 0, $length = strlen($child['value']); $at < $length; $at++) {
+                    if ($child['value'][$at] === '[') {
+                        $open[] = [$atPath, $at];
+                    } elseif ($child['value'][$at] === ']' && $open !== []) {
+                        array_pop($open);
+                    }
+                }
+            } elseif (
+                ($child['type'] ?? '') !== 'image'
+                && !in_array($child['type'] ?? '', self::BRACKETED, true)
+                && is_array($child['children'] ?? null)
+            ) {
+                self::noteBracketWalk($child['children'], $atPath . '/children', $open);
+            }
+        }
     }
 
     /**

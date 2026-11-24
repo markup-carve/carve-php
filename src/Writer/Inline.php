@@ -2214,6 +2214,10 @@ final class Inline
     private function paired(array $node, string $type, string $path, Context $c, int $next): string
     {
         $mark = self::PAIRED[$type];
+        // The attached attribute block immediately follows this closer; the next sibling follows the block.
+        if (isset($node['attrs']) && BraceBlock::of($node) !== '') {
+            $next = 0x7B;
+        }
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
         if ($children === []) {
             $this->w->lose($path, $type, null);
@@ -2392,6 +2396,9 @@ final class Inline
      */
     private static function braceKeepsMark(array $nodes, string|int $k, string $value, int $at, int $run, string $mark): bool
     {
+        if ($nodes === []) {
+            return false;
+        }
         if ($run === 2 && $at > 0 && $value[$at - 1] === '{' && ($value[$at + 2] ?? '') === '}') {
             return true;
         }
@@ -2473,7 +2480,7 @@ final class Inline
                 $n = strlen($value);
                 for ($at = strpos($value, $mark); $at !== false; $at = strpos($value, $mark, $at + 1)) {
                     $run = strspn($value, $mark, $at);
-                    if ($run > 1 && ($at === 0 || $value[$at - 1] !== '{') && ($value[$at + $run] ?? '') !== '}') {
+                    if ($run > 1 && ($at === 0 || $value[$at - 1] !== '{')) {
                         $at += $run - 1;
 
                         continue;
@@ -2483,8 +2490,8 @@ final class Inline
 
                         continue;
                     }
-                    $before = $at > 0 ? Chars::before($value, $at) : 0;
-                    $after = $at + 1 < $n ? Chars::at($value, $at + 1) : 0;
+                    $before = $at > 0 ? Chars::before($value, $at) : 0x20;
+                    $after = $at + 1 < $n ? Chars::at($value, $at + 1) : 0x20;
                     $counts = Chars::isWord($before) && Chars::isWord($after)
                         ? $words
                         : !(Chars::isSpace($before) && Chars::isSpace($after))
