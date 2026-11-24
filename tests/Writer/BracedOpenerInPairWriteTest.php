@@ -58,6 +58,7 @@ final class BracedOpenerInPairWriteTest extends TestCase
             'braced emphasis opener in a strong in an emphasis' => ['> x {/{*}[*{/{*{/}*}/}/'],
             'braced strong openers in the text before an emphasis' => ['- .*{*{*/{*}//*}/ *|'],
             'text star before a strong in an emphasis' => ['} /*}{/{^^}{,,}.{*^^^^*}/}*z'],
+            'braced opener before nodes in content that ends in a node' => ['- .*/***{/{*\\\\{^\\\\*}{,^],}/{^} ^}`c`*/'],
         ];
     }
 

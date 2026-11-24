@@ -2363,7 +2363,7 @@ final class Inline
      * Whether the run of `$run` marks at `$at` of the text `$nodes[$k]` is a brace's: the second mark of an empty pair
      * `{//}`, which takes its own closer and forms nothing beside any node (C2-I-043), or a bare brace's that no closer
      * takes. With a node beside the brace, the brace may take a backslash, which frees its mark; a node behind the text
-     * that spells no bare `$mark` keeps it, and its texts may hold the closer.
+     * that spells no bare `$mark` keeps it, and its texts may hold the closer, where the content ends in text.
      *
      * @param array<mixed> $nodes
      * @param string|int $k
@@ -2377,8 +2377,11 @@ final class Inline
         if ($run === 2 && $at > 0 && $value[$at - 1] === '{' && ($value[$at + 2] ?? '') === '}') {
             return true;
         }
+        $last = $nodes[array_key_last($nodes)];
         $later = $k === array_key_last($nodes) ? '' : self::laterOpenText(array_slice($nodes, (int)$k + 1), $mark);
-        if ($later === null || ($at <= 1 && $k !== array_key_first($nodes))) {
+        // Content that ends in a node may be written braced, and its text escapes read the closer as `/}` (noteSpanTexts).
+        $endsInText = is_array($last) && self::str($last, 'type') === 'text';
+        if ($later === null || ($later !== '' && !$endsInText) || ($at <= 1 && $k !== array_key_first($nodes))) {
             return false;
         }
 

@@ -2082,8 +2082,11 @@ final class Text
     private static function gluedBeforeOwnCloser(string $value, int $i, array $span, string $later): bool
     {
         $next = $value[$i + 1] ?? '';
+        if ($later !== '') {
+            return false;
+        }
         if ($next === '') {
-            return $later === '';
+            return true;
         }
         if ($next !== $span[0] || $i + 2 !== strlen($value)) {
             return false;
