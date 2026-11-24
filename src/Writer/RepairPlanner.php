@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
 
@@ -1362,8 +1363,9 @@ final class RepairPlanner
         if ($ch === '' || !ctype_punct($ch)) {
             return null;
         }
-        if ($ch === '{' && ctype_punct($value[$offset + 1] ?? 'a')) {
-            return '{' . $value[$offset + 1];
+        $next = $value[$offset + 1] ?? '';
+        if ($ch === '{' && ($next === '#' || isset(Tables::BRACED_MARKS[$next]))) {
+            return '{' . $next;
         }
 
         return $ch === '-' ? '--' : $ch;
@@ -1388,8 +1390,9 @@ final class RepairPlanner
             // A negative string offset reads from the end, so the first character has no character before it.
             $prev = $i > 0 ? $value[$i - 1] : '';
             $open = match (true) {
-                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1] && $prev !== '{'
-                    && ($kind !== '{#' || ($commentClose !== false && $commentClose > $i + 2)),
+                // Every `{` before the mark is a potential opener, a `{` before it included (carve-js#5550).
+                strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1]
+                    && ($kind !== '{#' || ($prev !== '{' && $commentClose !== false && $commentClose > $i + 2)),
                 $kind === '--' => $prev === '-' && ($i < 2 || $value[$i - 2] !== '-') && ($value[$i + 1] ?? '') !== '',
                 $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
                     && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),

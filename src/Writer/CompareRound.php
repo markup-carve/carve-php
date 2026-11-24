@@ -43,6 +43,12 @@ final class CompareRound
     private array $differs = [];
 
     /**
+     * C2-W-125: a content in this list closed early and its closer was asked; behind it the parse is read again in
+     * the next round, so no difference there asks (carve-js `Check.cut`).
+     */
+    private bool $cut = false;
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -287,7 +293,10 @@ final class CompareRound
         if (!is_array($other)) {
             return false;
         }
+        $outer = $this->cut;
+        $this->cut = false;
         $this->children($node, $other, $path, $this->probed !== null && $path === '/children/0' ? $this->probed : $type);
+        $this->cut = self::closer($type) !== '' ? $this->cut || $outer : $outer;
         $i++;
         $j++;
 
@@ -321,14 +330,18 @@ final class CompareRound
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
         $other = $have[$j] ?? null;
         if (!is_array($other)) {
-            $mark = self::closer($owner);
+            $mark = $this->cut ? '' : self::closer($owner);
             if ($mark !== '') {
                 $at = strpos($value, $mark, $vi);
                 if ($at !== false) {
                     $this->ask($path, $at);
+                    $this->cut = isset($this->asks[$path][$at]);
                 }
             }
 
+            return false;
+        }
+        if ($this->cut) {
             return false;
         }
         if (($other['type'] ?? '') !== 'text') {
