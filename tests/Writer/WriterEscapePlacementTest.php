@@ -30,6 +30,11 @@ final class WriterEscapePlacementTest extends TestCase
             'later item line starting 1. keeps it' => ["- a\n  1\\. li", "- a\n  1\\. li"],
             'later item line with a roman 1 keeps it' => ["- a\n  i\\) li", "- a\n  i\\) li"],
             'later item line with a bullet keeps it' => ["- a\n  \\- li", "- a\n  \\- li"],
+            // #5772: C2-B-166, C2-B-167, a line that ends in a hard break is no row.
+            'pipe line ending in a hard break' => ['\\|a\\', '|a\\'],
+            'pipe pair ending in a hard break' => ["\\|a|\\\nb", "|a|\\\nb"],
+            'quoted pipe line ending in a hard break' => ['> \\|a\\', '> |a\\'],
+            'pipe line with a row below keeps it' => ["\\|a|\n\\|b|\\\nc", "\\|a|\n\\|b|\\\nc"],
         ];
     }
 

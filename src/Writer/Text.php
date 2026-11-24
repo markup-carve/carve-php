@@ -3029,6 +3029,10 @@ final class Text
             return -1;
         }
         $tail = $c->lineTail ?? (in_array($next, [-1, 10], true) ? null : self::restOfLine($value, $c));
+        // A hard break ends the line with its backslash (C2-B-166, C2-B-167: such a line is no row).
+        if ($tail === null && $next === 92 && ($c->flat[$c->here + strlen($value)] ?? '') === "\n") {
+            $tail = '\\';
+        }
         $eol = $tail !== null || in_array($next, [-1, 10], true);
         $line = $tail !== null ? $value . $tail : ($eol ? $value : $value . 'x');
         $value = $tail !== null ? $line : $value;
