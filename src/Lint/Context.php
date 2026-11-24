@@ -97,6 +97,12 @@ final class Context
     public Layout $layout;
 
     /**
+     * @var array<string, array{'*': int|null, '/': int|null}> The start of the last braced closer of each mark, by the path of
+     *   the inline content that holds it.
+     */
+    public array $closerStarts = [];
+
+    /**
      * @var array<string, bool> The answer of `active()` by rule id; the options do not change during a run.
      */
     private array $activeRules = [];

@@ -333,7 +333,7 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'braced-span-opener-as-text/emphasis' => [
-                '/a {*b/} c/',
+                '/a {*b/*} c/',
                 [
                     'braced-span-opener-as-text',
                     '/children/0/children/0/children/0',

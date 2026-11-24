@@ -11,6 +11,23 @@ namespace MarkupCarve\Carve\Lint;
 final class NodeRulesB
 {
     /**
+     * @var array<string, true> The delimiter spans a closer search climbs through; a bracketed span (link, span, note)
+     * is its own content, since a pair never crosses its brackets.
+     */
+    private const DELIMITER_SPANS = [
+        'emphasis' => true,
+        'strong' => true,
+        'underline' => true,
+        'strike' => true,
+        'highlight' => true,
+        'superscript' => true,
+        'subscript' => true,
+        'insert' => true,
+        'delete' => true,
+        'small_caps' => true,
+    ];
+
+    /**
      * @param array<string, mixed> $node
      * @param string $path
      * @param \MarkupCarve\Carve\Lint\Context $c
@@ -54,22 +71,108 @@ final class NodeRulesB
         }
         $split = Support::parent($path);
         $parent = $split === null ? null : ($c->nodeTypes[$split] ?? null);
-        if ($parent !== 'strong' && $parent !== 'emphasis') {
+        if ($split === null || ($parent !== 'strong' && $parent !== 'emphasis')) {
             return;
         }
-        $raw = Support::raw($node, $c);
-        $star = strpos($raw, '{*');
-        $slash = strpos($raw, '{/');
-        $at = $star === false ? $slash : ($slash === false ? $star : min($star, $slash));
         $range = Support::bounds($node);
-        $lineEnd = $range === null ? false : strpos($c->source, "\n", $range[1]);
-        $until = $lineEnd === false ? strlen($c->source) : $lineEnd;
-        if (
-            $at !== false && $range !== null && strpos($c->source, '}', $range[1]) !== false
-            && (int)strpos($c->source, '}', $range[1]) < $until
-        ) {
-            $c->report('braced-span-opener-as-text', $range[0] + $at, $range[0] + $at + 2, $path);
+        if ($range === null) {
+            return;
         }
+        $raw = substr($c->source, $range[0], $range[1] - $range[0]);
+        $last = null;
+        $from = 0;
+        while (($at = strpos($raw, '{', $from)) !== false) {
+            $from = $at + 1;
+            $mark = $raw[$at + 1] ?? '';
+            if (($mark !== '*' && $mark !== '/') || self::escaped($raw, $at)) {
+                continue;
+            }
+            $last ??= self::lastClosers(self::contentOf($split, $c), $c);
+            $closer = $last[$mark];
+            if ($closer !== null && $closer >= $range[0] + $at + 2) {
+                $c->report('braced-span-opener-as-text', $range[0] + $at, $range[0] + $at + 2, $path);
+            }
+        }
+    }
+
+    /**
+     * Whether an odd run of backslashes stands right before a byte.
+     *
+     * @param string $text
+     * @param int $at
+     *
+     * @return bool
+     */
+    private static function escaped(string $text, int $at): bool
+    {
+        $escapes = 0;
+        while ($at - 1 - $escapes >= 0 && $text[$at - 1 - $escapes] === '\\') {
+            $escapes++;
+        }
+
+        return $escapes % 2 === 1;
+    }
+
+    /**
+     * The inline content an opener can pair in: climb through the delimiter spans to the leaf block or bracketed span.
+     *
+     * @param string $path
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return string
+     */
+    private static function contentOf(string $path, Context $c): string
+    {
+        while ($path !== '' && isset(self::DELIMITER_SPANS[$c->nodeTypes[$path] ?? ''])) {
+            $path = $c->layout->parent($path);
+        }
+
+        return $path;
+    }
+
+    /**
+     * Where the last unescaped braced closer of each mark starts in the text of a content, once per content so each
+     * opener costs one lookup. Code, math and other opaque leaves hold no text nodes and so no closers.
+     *
+     * @param string $content
+     * @param \MarkupCarve\Carve\Lint\Context $c
+     *
+     * @return array{'*': int|null, '/': int|null}
+     */
+    private static function lastClosers(string $content, Context $c): array
+    {
+        if (isset($c->closerStarts[$content])) {
+            return $c->closerStarts[$content];
+        }
+        $last = ['*' => null, '/' => null];
+        $stack = array_reverse(Support::kids($c->layout->node($content) ?? []));
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $type = $node['type'] ?? null;
+            if (is_string($type) && isset(self::DELIMITER_SPANS[$type])) {
+                array_push($stack, ...array_reverse(Support::kids($node)));
+
+                continue;
+            }
+            $range = $type === 'text' ? Support::bounds($node) : null;
+            if ($range === null) {
+                continue;
+            }
+            $text = substr($c->source, $range[0], $range[1] - $range[0]);
+            $from = 0;
+            while (($at = strpos($text, '}', $from)) !== false) {
+                $from = $at + 1;
+                $mark = $at > 0 ? $text[$at - 1] : '';
+                if ($mark !== '*' && $mark !== '/') {
+                    continue;
+                }
+                if (!self::escaped($text, $at - 1)) {
+                    $last[$mark] = $range[0] + $at - 1;
+                }
+            }
+        }
+
+        return $c->closerStarts[$content] = $last;
     }
 
     /**
