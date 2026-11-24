@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use MarkupCarve\Carve\AttributeParser;
+use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Json\TreeEncoder;
 
 /**
@@ -12,6 +15,13 @@ use MarkupCarve\Carve\Json\TreeEncoder;
  */
 final class CompareRound
 {
+    /**
+     * The marks of braced openers (C2-I-055), as carve-js `BRACED_MARKS`.
+     *
+     * @var string
+     */
+    private const BRACED_MARKS = '*+,-/=^_~';
+
     /**
      * @var array<string, array<int, true>>
      */
@@ -49,6 +59,11 @@ final class CompareRound
     private bool $cut = false;
 
     /**
+     * @var array<int, array{string, int}> The `=` of each node whose braced spelling read as an attribute block.
+     */
+    private array $attributeKeys = [];
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -69,6 +84,8 @@ final class CompareRound
      *   not form.
      * @param array<string, array<int, true>> $differs Set to the escapes of characters the read-back spelled
      *   otherwise, which the round adds as reported kinds.
+     * @param array<string, array<int, true>> $keys Set to the `=` of each node whose braced spelling read as an
+     *   attribute block (C2-W-125, case nine), which the round asks only where no other repair applies.
      *
      * @return array<string, array<int, true>>
      */
@@ -80,6 +97,7 @@ final class CompareRound
         ?string $probed = null,
         ?array &$firsts = null,
         array &$differs = [],
+        array &$keys = [],
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
@@ -90,6 +108,12 @@ final class CompareRound
             $comparison->nodeStarts[$path] = $start;
         }
         $comparison->children($expected, $actual, '', '');
+        $keys = [];
+        foreach ($comparison->attributeKeys as [$path, $at]) {
+            if (!isset($escapes[$path][$at])) {
+                $keys[$path][$at] = true;
+            }
+        }
         $firsts = $comparison->firsts;
         $differs = $comparison->differs;
 
@@ -123,6 +147,9 @@ final class CompareRound
             $more = $type === 'text'
                 ? $this->matchText($node, $have, $nodePath, $owner, $i, $j, $vi, $aj, $i + 1 === $count ? $path : null, $want)
                 : $this->matchNode($node, $have, $nodePath, $type, $i, $j, $aj, $want, $path);
+            if (!$more && $type === 'text') {
+                $this->keyBehindText($want, $have, $path, $nodePath, $i, $j, $aj);
+            }
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
                 return;
             }
@@ -233,6 +260,53 @@ final class CompareRound
         }
     }
 
+    /**
+     * The parse holds more text where the node behind a text was written: case nine of C2-W-125 may apply to that node.
+     *
+     * @param array<mixed> $want
+     * @param array<mixed> $have
+     * @param string $path
+     * @param string $textPath
+     * @param int $i
+     * @param int $j
+     * @param int $aj
+     */
+    private function keyBehindText(array $want, array $have, string $path, string $textPath, int $i, int $j, int $aj): void
+    {
+        if ($aj > 0 && is_array($want[$i] ?? null) && $textPath !== $path . '/children/' . $i) {
+            $this->askAttributeKey($want[$i], $path . '/children/' . $i, $have[$j] ?? null, $aj);
+        }
+    }
+
+    /**
+     * C2-W-125, case nine: the parse holds the node's braced spelling as a valid attribute block (C2-I-043). A key that
+     * starts with `_` is valid only with a value (C2-I-031), so the `=` behind the key characters of the content takes
+     * the backslash: an underline of `=.` is `{_\=._}`.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param mixed $other The parsed node where the node was written.
+     * @param int $aj Where the node's spelling starts in `$other`.
+     */
+    private function askAttributeKey(array $node, string $path, mixed $other, int $aj): bool
+    {
+        $first = is_array($node['children'] ?? null) ? $node['children'][0] ?? null : null;
+        $read = is_array($other) && ($other['type'] ?? '') === 'text' && is_string($other['value'] ?? null) ? $other['value'] : '';
+        if (!is_array($first) || ($first['type'] ?? '') !== 'text' || !is_string($first['value'] ?? null) || ($read[$aj] ?? '') !== '{') {
+            return false;
+        }
+        if (AttributeParser::read($read, $aj, strlen($read), new Attrs()) < 0) {
+            return false;
+        }
+        $equals = strspn($first['value'], Tables::ATTR_KEY_REST);
+        if (($first['value'][$equals] ?? '') !== '=') {
+            return false;
+        }
+        $this->attributeKeys[] = [$path . '/children/0', $equals];
+
+        return true;
+    }
+
     private static function offset(mixed $node, int $key): ?int
     {
         $pos = is_array($node) ? TreeEncoder::offsets($node['pos'] ?? null) : null;
@@ -278,7 +352,7 @@ final class CompareRound
                 // nothing, so only its first character is asked (C2-W-088).
                 $this->askFirst($node, $path);
                 $found = null;
-            } elseif ($found === null && $limit === count($have)) {
+            } elseif ($found === null && $limit === count($have) && !$this->askAttributeKey($node, $path, $other, $aj)) {
                 // The parse holds no node of the type behind: where the content starts with a braced opener, that
                 // opener is the one that kept the node from forming.
                 $this->askFirst($node, $path, true);
@@ -345,7 +419,7 @@ final class CompareRound
             return false;
         }
         if (($other['type'] ?? '') !== 'text') {
-            return $this->matchConstruct($value, $other, $path, $i, $j, $vi);
+            return $this->matchConstruct($value, $other, $path, $i, $j, $vi, $last !== null ? $owner : '');
         }
 
         $after = $want[$i + 1] ?? null;
@@ -361,15 +435,23 @@ final class CompareRound
      * @param int $j
      * @param int $i
      * @param string $path
+     * @param string $owner The type of the node whose content ends with this text, or ''.
      */
-    private function matchConstruct(string $value, array $other, string $path, int &$i, int &$j, int &$vi): bool
+    private function matchConstruct(string $value, array $other, string $path, int &$i, int &$j, int &$vi, string $owner = ''): bool
     {
         $at = $vi;
         if (($value[$at] ?? '') === '{' && ($other['type'] ?? '') === 'smart_punctuation') {
             $at += 2;
         }
         $this->ask($path, $at);
-        $this->constructOpener($value, $other, $path, $at);
+        // C2-W-125, case one: the content's last brace reads with the owner's closing mark as a braced opener, so the
+        // owner reads on; that repairs the tree's own node and gives no kind (C2-W-088).
+        $mark = self::closer($owner);
+        if ($mark === '' || $mark === ']' || $at !== strlen($value) - 1 || $value[$at] !== '{') {
+            $this->constructOpener($value, $other, $path, $at);
+        } elseif (isset($this->asks[$path][$at])) {
+            $this->cut = true;
+        }
         $pos = TreeEncoder::offsets($other['pos'] ?? null);
         if ($pos === null) {
             return false;
@@ -490,6 +572,13 @@ final class CompareRound
         if ($node === null) {
             return;
         }
+        // C2-W-125, case one: a brace of the content that reads as a braced opener with the mark behind it reads on.
+        // The span is the tree's own node (C2-W-088), so the backslash gives no kind, and the parse behind it asks nothing.
+        if ($mark !== '' && $mark !== ']' && $this->askOpeningBrace($node, $path, $mark)) {
+            $this->cut = true;
+
+            return;
+        }
         if ($mark !== '' && ($this->askMark($node, $path, $mark) || ($mark === ']' && $this->askMark($node, $path, '[')))) {
             return;
         }
@@ -508,6 +597,36 @@ final class CompareRound
         if ($brace !== false && $this->tryAsk($textPath, $brace)) {
             $this->differs[$textPath][$brace] = true;
         }
+    }
+
+    /**
+     * The last brace of the content's last text that reads as a braced opener, with its mark behind it (carve-js
+     * `escapeOpeningBrace`).
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $mark
+     */
+    private function askOpeningBrace(array $node, string $path, string $mark): bool
+    {
+        $last = self::lastText($node, $path);
+        if ($last === null) {
+            return false;
+        }
+        [$textPath, $value] = $last;
+        $at = strrpos($value, '{');
+        while ($at !== false) {
+            $next = $value[$at + 1] ?? $mark;
+            if (str_contains(self::BRACED_MARKS, $next) && !isset($this->escapes[$textPath][$at])) {
+                return $this->tryAsk($textPath, $at);
+            }
+            if ($at === 0) {
+                break;
+            }
+            $at = strrpos($value, '{', $at - strlen($value) - 1);
+        }
+
+        return false;
     }
 
     /**
