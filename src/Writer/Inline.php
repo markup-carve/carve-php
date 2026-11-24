@@ -2419,7 +2419,8 @@ final class Inline
         $marks = $c->marks;
         $pairs = $c->bracketPairs;
         $c->inBracket = true;
-        $c->bracketPairs = self::pairedBrackets($children, $path, $c->labels, $notes);
+        // C2-I-089: inside an inline footnote, at any depth, `[^` and `^[` are ordinary brackets.
+        $c->bracketPairs = self::pairedBrackets($children, $path, $c->labels, $notes && $this->noteDepth === 0);
         // A bracket is a barrier of the delimiter stack: no closer inside it reaches a node outside.
         $c->marks = '';
         $c->last = 0x5B;

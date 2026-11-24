@@ -180,14 +180,14 @@ final class Writer
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             unset($localEscapes);
             if (self::readsBack($result->source, $treePrint, $options)) {
-                return self::withPrunedNoteCarets($result, $treePrint, $options);
+                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
         }
         if ($undecided) {
             // C2-W-088: a bracket the plan left bare stays bare where the form reads back; otherwise the plan takes
             // its backslash there, and the rounds below go on from that form.
             if (self::readsBack($result->source, $treePrint, $options)) {
-                return self::withPrunedNoteCarets($result, $treePrint, $options);
+                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
             // span of a text `^[` keeps ordinary open; the rounds place the backslash on its early closer instead.
@@ -206,7 +206,7 @@ final class Writer
         if ($readPrint === $treePrint) {
             unset($read);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
-                return self::withPrunedNoteCarets($result, $treePrint, $options);
+                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-091: the escapes of the local write can change how the text reads, as an escaped bracket that no
             // longer counts toward the depth limit of C2-I-118. The rounds go on from the local form.
@@ -223,7 +223,7 @@ final class Writer
 
         return $repaired === null
             ? self::unrepaired($tree, $result, $options)
-            : new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options), []);
+            : new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options, $parsed), []);
     }
 
     /**
@@ -281,7 +281,7 @@ final class Writer
             return $result;
         }
 
-        return self::withPrunedNoteCarets($result, self::trimmedPrint($tree, $layout, $options), $options);
+        return self::withPrunedNoteCarets($result, self::trimmedPrint($tree, $layout, $options), $options, $parsed);
     }
 
     /**
@@ -290,10 +290,11 @@ final class Writer
      * @param \MarkupCarve\Carve\Writer\WriteResult $result
      * @param string $treePrint
      * @param array<string, mixed> $options
+     * @param string|null $parsed The source the tree was parsed from.
      */
-    private static function withPrunedNoteCarets(WriteResult $result, string $treePrint, array $options): WriteResult
+    private static function withPrunedNoteCarets(WriteResult $result, string $treePrint, array $options, ?string $parsed): WriteResult
     {
-        $pruned = self::prunedNoteCarets($result->source, $treePrint, $options);
+        $pruned = self::prunedNoteCarets($result->source, $treePrint, $options, $parsed);
 
         return $pruned === $result->source ? $result : new WriteResult($pruned, $result->diagnostics);
     }
@@ -308,9 +309,13 @@ final class Writer
      * @param string $source
      * @param string $treePrint
      * @param array<string, mixed> $options
+     * @param string|null $parsed The source the tree was parsed from.
      */
-    private static function prunedNoteCarets(string $source, string $treePrint, array $options): string
+    private static function prunedNoteCarets(string $source, string $treePrint, array $options, ?string $parsed = null): string
     {
+        // A form equal to the source the tree was parsed from, up to its final line feed, reads back as that tree.
+        $readsBack = static fn (string $form): bool => $form === $parsed || $form === $parsed . "\n"
+            || self::readsBack($form, $treePrint, $options);
         if (!self::notePrunable($source)) {
             return $source;
         }
@@ -320,16 +325,16 @@ final class Writer
         }
         // C2-W-088: the brackets of that text took their backslashes only as the partners of the caret pair.
         $bare = self::bareNoteBrackets($source, $starts, ['[', ']', '^']);
-        if ($bare !== $pruned && self::readsBack($bare, $treePrint, $options)) {
+        if ($bare !== $pruned && $readsBack($bare)) {
             return $bare;
         }
-        if ($pruned !== $source && self::readsBack($pruned, $treePrint, $options)) {
+        if ($pruned !== $source && $readsBack($pruned)) {
             return $pruned;
         }
         // C2-W-125 case five keeps the caret's backslash where the link would not form without it.
         $brackets = self::bareNoteBrackets($source, $starts, ['[', ']']);
 
-        return $brackets !== $source && $brackets !== $bare && self::readsBack($brackets, $treePrint, $options) ? $brackets : $source;
+        return $brackets !== $source && $brackets !== $bare && $readsBack($brackets) ? $brackets : $source;
     }
 
     /**
