@@ -47,13 +47,13 @@ final class DefinitionContinuationTest extends TestCase
                 "*[X]: a\n  - b\n  > c\n\nX\n",
                 '<p><abbr title="a - b &gt; c">X</abbr></p>',
             ],
-            'a comment-only line closes no definition (C2-B-137)' => [
+            'a comment-only line ends an expansion (carve#6514)' => [
                 "*[X]: a\n  %% note\n  b\n\nX\n",
-                '<p><abbr title="a b">X</abbr></p>',
+                "<p>b</p>\n<p><abbr title=\"a\">X</abbr></p>",
             ],
-            'a tail line reads across a comment-only line (C2-B-137)' => [
+            'a comment-only line ends a link definition (carve#6514)' => [
                 "[a]: /u\n%% c\n  \"T\"\n\n[a]\n",
-                '<p><a href="/u" title="T">a</a></p>',
+                "<p>\u{201C}T\u{201D}</p>\n<p><a href=\"/u\">a</a></p>",
             ],
             'an indented fence line ends an expansion' => [
                 "*[X]: a\n  b\n  ```\n  c\n  ```\n\nX\n",
