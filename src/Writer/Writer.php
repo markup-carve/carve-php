@@ -156,6 +156,7 @@ final class Writer
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $groups] = self::firstWrite($tree, $layout, $options, $risk);
+        $localDecided = Text::$recordedDecided;
         $settled = self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
             return $settled;
@@ -176,7 +177,7 @@ final class Writer
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
         $treePrint = TreeEquality::fingerprint($tree);
-        if ($unchecked) {
+        if (self::takesLocalForm($unchecked, $undecided, $localDecided)) {
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             unset($localEscapes);
             if (self::readsBack($result->source, $treePrint, $options)) {
@@ -223,6 +224,20 @@ final class Writer
         return $repaired === null
             ? self::unrepaired($tree, $result, $options)
             : new WriteResult(self::prunedNoteCarets($repaired, $treePrint, $options), []);
+    }
+
+    /**
+     * Whether the local write is taken where it reads back, without the rounds: the heuristics call it safe, or it
+     * decided all its brackets and its only escapes are the glued braces of C2-W-125 case one, which give no kind
+     * (C2-W-010, C2-W-088; carve-js `leavesKind`).
+     *
+     * @param bool $unchecked
+     * @param bool $undecided
+     * @param array<string, array<int, true>> $decided The other escapes of the local write, by text path.
+     */
+    private static function takesLocalForm(bool $unchecked, bool $undecided, array $decided): bool
+    {
+        return $unchecked || (!$undecided && $decided === []);
     }
 
     /**
@@ -852,6 +867,7 @@ final class Writer
     private static function localWrite(array $tree, ?array $layout, array $options, bool $conservative, bool $bareSigils = false): array
     {
         Text::$recorded = [];
+        Text::$recordedDecided = [];
         Text::$undecided = false;
         Text::$conservative = $conservative;
         Text::$bareSigils = $bareSigils;
