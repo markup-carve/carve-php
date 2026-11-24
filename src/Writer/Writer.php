@@ -440,6 +440,7 @@ final class Writer
             return new WriteResult(str_ends_with($parsed, "\n") ? $parsed : $parsed . "\n", []);
         }
         $unsettledByKind = false;
+        $firstBare = null;
         if (
             $parsed !== null && strlen($parsed) < 65536 && $result->diagnostics === [] && $localEscapes !== []
             && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
@@ -447,7 +448,8 @@ final class Writer
             $bare = self::bareSource($tree, $layout, $options, []);
             $readBare = ReadbackRound::read($bare, $options);
             $wanted = self::trimmedPrint($tree, $layout, $options);
-            $bareHolds = TreeEquality::fingerprint($readBare) === $wanted;
+            $firstBare = [$bare, $readBare, ...RepairPlanner::readPrints($readBare), $wanted];
+            $bareHolds = $firstBare[2] === $wanted;
             $unneededBrace = RepairPlanner::escapesOnly($tree, $localEscapes, '{');
             $unneededInline = !str_contains($parsed, '\\')
                 && RepairPlanner::escapesOnly($tree, $localEscapes, '{:!+#</*|[');
@@ -501,7 +503,8 @@ final class Writer
         $originalLayout = $layout;
         $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $layout = LineEndBlanks::remapLayout($layout, $removed);
-        $treePrint = TreeEquality::fingerprint($tree);
+        // `trimmedPrint()` of the supplied tree, which the first bare read-back compared with.
+        $treePrint = $firstBare[4] ?? TreeEquality::fingerprint($tree);
         // A nested link does not split the bracket pairs of the text around it. At the inline depth cap, the local
         // plan can still propose escapes for those pairs; C2-W-088 ends after round one if its bare form reads back.
         $bareNestedLink = self::bareNestedLink($tree, $layout, $options, $treePrint, $result->source);
@@ -517,10 +520,16 @@ final class Writer
             $localEscapes !== []
             && (self::takesLocalForm($unchecked, $undecided, $localDecided) || $undecided)
         ) {
-            $bareSource = self::bareSource($tree, $layout, $options, []);
-            $read = ReadbackRound::read($bareSource, $options);
-            [$readPrint, $readParts] = RepairPlanner::readPrints($read);
+            // Without trimmed line-end blanks the tree is the one the first bare read-back was taken of.
+            if ($removed === [] && $firstBare !== null) {
+                [$bareSource, $read, $readPrint, $readParts] = $firstBare;
+            } else {
+                $bareSource = self::bareSource($tree, $layout, $options, []);
+                $read = ReadbackRound::read($bareSource, $options);
+                [$readPrint, $readParts] = RepairPlanner::readPrints($read);
+            }
         }
+        unset($firstBare);
         if ($read !== null && $readPrint !== $treePrint) {
             $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
             $reported = ReadbackRound::compare($bare, $read, $tree, $treePrint, false)['openers'];
