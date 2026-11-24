@@ -481,6 +481,7 @@ final class Text
             return $value;
         }
         $marks = self::lineStartMark($value, $c, $next);
+        $caretLine = $c->caretLine;
         $c->escapedAt = [];
         $c->gluedBraces = [];
         $out = '';
@@ -537,7 +538,7 @@ final class Text
                 }
             }
             $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i])
-                || isset($liveTicks[$i]);
+                || isset($liveTicks[$i]) || ($i === 0 && $caretLine);
             $c->gluedBrace = false;
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
                 || ($punctuation
@@ -3734,6 +3735,7 @@ final class Text
     private static function lineStartMark(string $value, Context $c, int $next): int
     {
         $c->behindMarker = [];
+        $c->caretLine = false;
         if (!self::canOpenBlockAtLineStart($value, $c)) {
             return -1;
         }
@@ -3782,11 +3784,34 @@ final class Text
         return $mark;
     }
 
+    /**
+     * C2-W-146, C2-W-092: a caret, a space and content stay text that `unattached-caption` reports, so the caret takes
+     * the backslash as an own escape whether or not the line would attach. Null where the other line rules decide.
+     *
+     * @param string $line
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return int|null
+     */
+    private static function caretLineMark(string $line, Context $c): ?int
+    {
+        if ($line[0] !== '^') {
+            return null;
+        }
+        if (($line[1] ?? '') === ' ' && trim(substr($line, 2), " \t") !== '') {
+            $c->caretLine = true;
+
+            return 0;
+        }
+
+        return $c->inLineBlock ? -1 : null;
+    }
+
     private static function canOpenBlockAtLineStart(string $value, Context $c): bool
     {
         // A line block has no paragraph block openers. Only a comment fence can
-        // still claim its following lines inside the block.
-        return $c->lineStart && (!$c->inLineBlock || str_starts_with($value, '%%%'));
+        // still claim its following lines inside the block, and a caret line takes its backslash (C2-W-146).
+        return $c->lineStart && (!$c->inLineBlock || str_starts_with($value, '%%%') || $value[0] === '^');
     }
 
     /**
@@ -4180,7 +4205,8 @@ final class Text
      */
     private static function lineMark(string $line, bool $eol, Context $c): int
     {
-        $mark = $c->last === -1 ? self::firstLine($line, $c) : self::laterLine($line, $eol, $c);
+        $mark = self::caretLineMark($line, $c)
+            ?? ($c->last === -1 ? self::firstLine($line, $c) : self::laterLine($line, $eol, $c));
         if ($mark < 0 && $c->last !== -1 && self::opensBehind($c->prevOpenedLine, $line)) {
             $mark = self::firstLine($line, $c);
         }
