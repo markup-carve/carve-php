@@ -374,7 +374,8 @@ final class RepairPlanner
      */
     private function applyRound(array &$candidate, array &$comparison): bool
     {
-        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed);
+        $firsts = [];
+        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed, $firsts);
         $missing = self::missingSiblings($candidate, $comparison['read']);
         $trials = $this->nextTrials($candidate, $comparison['read'], $missing);
         $differences = [];
@@ -417,6 +418,11 @@ final class RepairPlanner
             $this->escapeKinds($comparison['openers']);
             $this->escapePartnerClosers();
         } else {
+            // C2-W-088: a braced opener that starts a node that did not form is an opener of its kind, so the round
+            // escapes every potential opener of that kind in the leaf block, not one node per round.
+            if ($this->kindRounds && !$early) {
+                $this->escapeKinds($this->bracedFirsts($firsts));
+            }
             $this->addAsked($asked);
         }
         $moved = false;
@@ -728,6 +734,28 @@ final class RepairPlanner
                 }
             }
         }
+    }
+
+    /**
+     * The asks of `$firsts` at a brace that starts a braced opener.
+     *
+     * @param array<string, array<int, true>> $firsts
+     *
+     * @return array<string, array<int, true>>
+     */
+    private function bracedFirsts(array $firsts): array
+    {
+        $braced = [];
+        foreach ($firsts as $path => $offsets) {
+            $value = self::nodeAt($this->tree, $path)['value'] ?? null;
+            foreach ($offsets as $offset => $_) {
+                if (is_string($value) && strlen((string)self::kindAt($value, $offset)) === 2 && $value[$offset] === '{') {
+                    $braced[$path][$offset] = true;
+                }
+            }
+        }
+
+        return $braced;
     }
 
     /**
