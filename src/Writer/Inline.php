@@ -750,10 +750,11 @@ final class Inline
      */
     private static function emptyTextRun(array $nodes, int $at): ?array
     {
-        $empty = static fn (mixed $node): bool => is_array($node) && self::isText($node) && ($node['value'] ?? null) === '';
-        if (!$empty($nodes[$at] ?? null)) {
+        $node = $nodes[$at] ?? null;
+        if (!is_array($node) || !self::isText($node) || ($node['value'] ?? null) !== '') {
             return null;
         }
+        $empty = static fn (mixed $node): bool => is_array($node) && self::isText($node) && ($node['value'] ?? null) === '';
         $first = $at;
         $last = $at;
         while (is_array($nodes[$first - 1] ?? null) && self::isText($nodes[$first - 1])) {
@@ -1160,6 +1161,18 @@ final class Inline
      */
     private static function siblingFlat(array $nodes, string $path): ?array
     {
+        // Most lists hold no mark, and the keys below are as long as the path.
+        $marks = false;
+        foreach ($nodes as $node) {
+            if (is_array($node) && self::str($node, 'type') === 'text' && strpbrk(self::str($node, 'value'), '/*') !== false) {
+                $marks = true;
+
+                break;
+            }
+        }
+        if (!$marks) {
+            return null;
+        }
         $flat = '';
         $at = [];
         $types = [];
@@ -1599,38 +1612,82 @@ final class Inline
             return;
         }
         $children = array_values($children);
-        if ($this->onlyEmptyAt($children, $path . '/children') || self::emptyTextRun($children, count($children) - 1) !== null) {
+        $slash = strrpos($path, '/');
+        $key = strlen($path) . '/' . substr($path, $slash === false ? 0 : $slash + 1);
+        if ($this->onlyEmptyAt($children, strlen($path), $key) || self::emptyTextRun($children, count($children) - 1) !== null) {
             $this->w->lose($path, $type, null);
         }
     }
 
     /**
-     * `onlyEmptyText()` with the answer kept by path: the content of a deep nest is written inside out, so each level
-     * reads the answer of the level below instead of walking the nest again.
+     * `onlyEmptyText()` with the answer kept by node: the content of a deep nest is written inside out, so each level
+     * reads the answer of the level below instead of walking the nest again. A node is keyed by the length of its
+     * path and its index, not by the path, which grows with the depth.
      *
      * @param array<mixed> $children
-     * @param string $path
+     * @param int $length The length of the node's path.
+     * @param string $key
      *
      * @return bool
      */
-    private function onlyEmptyAt(array $children, string $path): bool
+    private function onlyEmptyAt(array $children, int $length, string $key): bool
     {
-        $kept = $this->emptyContent[$path] ?? null;
-        // The same array compares in constant time; another one is compared in full, so a stale answer is never read.
+        $kept = $this->emptyContent[$key] ?? null;
+        // The answer depends on the content alone, and a kept one is read only for an equal content.
         if ($kept !== null && $kept[0] === $children) {
             return $kept[1];
         }
-        $only = self::onlyEmptyText(
-            $children,
-            fn (mixed $inner, int|string $k): bool => is_array($inner) && $this->onlyEmptyAt($inner, $path . '/' . $k . '/children'),
-        );
-        $this->emptyContent[$path] = [$children, $only];
+        $nested = self::emptyNested($children);
+        $only = $nested !== null;
+        if ($only) {
+            foreach ($nested as $k => $inner) {
+                // The path of a child is the node's path, `/children/` and its index.
+                $childLength = $length + 10 + strlen((string)$k);
+                if (!is_array($inner) || !$this->onlyEmptyAt($inner, $childLength, $childLength . '/' . $k)) {
+                    $only = false;
+
+                    break;
+                }
+            }
+        }
+        $this->emptyContent[$key] = [$children, $only];
         // Each answer is read once, by the level above; a kept one would hold its replaced content alive.
         foreach ($children as $k => $child) {
-            unset($this->emptyContent[$path . '/' . $k . '/children']);
+            $childLength = $length + 10 + strlen((string)$k);
+            unset($this->emptyContent[$childLength . '/' . $k]);
         }
 
         return $only;
+    }
+
+    /**
+     * The flat test of `onlyEmptyText()`: null where a child writes something of its own, else the content of each
+     * child that holds some, by key.
+     *
+     * @param array<mixed> $children
+     *
+     * @return array<mixed>|null
+     */
+    private static function emptyNested(array $children): ?array
+    {
+        if ($children === []) {
+            return null;
+        }
+        $nested = [];
+        foreach ($children as $k => $child) {
+            if (!is_array($child)) {
+                return null;
+            }
+            $type = is_string($child['type'] ?? null) ? $child['type'] : '';
+            if ($type === 'text' ? ($child['value'] ?? '') !== '' : !isset(self::PAIRED[$type]) && !isset(self::BRACED[$type])) {
+                return null;
+            }
+            if (($child['children'] ?? null) !== []) {
+                $nested[$k] = $child['children'] ?? null;
+            }
+        }
+
+        return $nested;
     }
 
     /**
