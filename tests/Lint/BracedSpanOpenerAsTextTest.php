@@ -34,6 +34,9 @@ final class BracedSpanOpenerAsTextTest extends TestCase
             'escaped closer' => ["*a {/b* c\nd \\/} e", []],
             'escaped backslash before the closer' => ["*a {/b* c\nd \\\\/} e", ['3-5']],
             'closer after the link' => ["[*a {/b* c](url)\nd /} e", []],
+            'second opener of another mark' => ['*a {*b {/c* d /} e*', ['7-9']],
+            'two openers with closers' => ['*a {*b {/c* d /} *} e', ['3-5', '7-9']],
+            'escaped opener' => ['*a \\{/b* c /}', []],
             'closer inside the link' => ["[*a {/b* c\nd /} e](url)", ['4-6']],
         ];
     }

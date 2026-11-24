@@ -74,19 +74,43 @@ final class NodeRulesB
         if ($split === null || ($parent !== 'strong' && $parent !== 'emphasis')) {
             return;
         }
-        $raw = Support::raw($node, $c);
-        $star = strpos($raw, '{*');
-        $slash = strpos($raw, '{/');
-        $at = $star === false ? $slash : ($slash === false ? $star : min($star, $slash));
         $range = Support::bounds($node);
-        if ($at === false || $range === null) {
+        if ($range === null) {
             return;
         }
-        $opener = $range[0] + $at;
-        $last = self::lastClosers(self::contentOf($split, $c), $c)[$raw[$at + 1]];
-        if ($last !== null && $last >= $opener + 2) {
-            $c->report('braced-span-opener-as-text', $opener, $opener + 2, $path);
+        $raw = substr($c->source, $range[0], $range[1] - $range[0]);
+        $last = null;
+        $from = 0;
+        while (($at = strpos($raw, '{', $from)) !== false) {
+            $from = $at + 1;
+            $mark = $raw[$at + 1] ?? '';
+            if (($mark !== '*' && $mark !== '/') || self::escaped($raw, $at)) {
+                continue;
+            }
+            $last ??= self::lastClosers(self::contentOf($split, $c), $c);
+            $closer = $last[$mark];
+            if ($closer !== null && $closer >= $range[0] + $at + 2) {
+                $c->report('braced-span-opener-as-text', $range[0] + $at, $range[0] + $at + 2, $path);
+            }
         }
+    }
+
+    /**
+     * Whether an odd run of backslashes stands right before a byte.
+     *
+     * @param string $text
+     * @param int $at
+     *
+     * @return bool
+     */
+    private static function escaped(string $text, int $at): bool
+    {
+        $escapes = 0;
+        while ($at - 1 - $escapes >= 0 && $text[$at - 1 - $escapes] === '\\') {
+            $escapes++;
+        }
+
+        return $escapes % 2 === 1;
     }
 
     /**
@@ -142,11 +166,7 @@ final class NodeRulesB
                 if ($mark !== '*' && $mark !== '/') {
                     continue;
                 }
-                $escapes = 0;
-                while ($at - 2 - $escapes >= 0 && $text[$at - 2 - $escapes] === '\\') {
-                    $escapes++;
-                }
-                if ($escapes % 2 === 0) {
+                if (!self::escaped($text, $at - 1)) {
                     $last[$mark] = $range[0] + $at - 1;
                 }
             }
