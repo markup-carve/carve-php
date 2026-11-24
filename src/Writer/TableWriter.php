@@ -8,7 +8,6 @@ use Generator;
 use MarkupCarve\Carve\Json\TreeDecoder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\TableGrid;
-use stdClass;
 
 /**
  * Tables as Carve source (C2-W-061 to C2-W-068, C2-W-118, C2-W-135, C2-W-136): a pipe table, or a delimited table where
@@ -877,32 +876,37 @@ final class TableWriter
      */
     private function blockedMarks(array $items, string $path): array
     {
+        $rows = [];
+        foreach ($items as $at => $item) {
+            if (is_array($item) && ($item['type'] ?? '') === 'table_row') {
+                $rows[$path . '/children/' . $at] = $item;
+            }
+        }
+        if (!$this->hasMarks($rows)) {
+            return [];
+        }
+        // The covering cells by number: their first row and column and their spans, so a wide table stays small.
+        $cover = ['row' => [], 'col' => [], 'colspan' => [], 'rowspan' => []];
         $blocked = [];
         $previous = [];
         $r = 0;
-        foreach ($items as $at => $item) {
-            if (!is_array($item) || ($item['type'] ?? '') !== 'table_row') {
-                continue;
-            }
-            $rowPath = $path . '/children/' . $at;
+        foreach ($rows as $rowPath => $row) {
             $current = [];
             $c = 0;
-            foreach ($this->spans->rows[$rowPath] ?? self::rowCells($item, $rowPath) as [$cell, $cellPath]) {
+            foreach ($this->spans->rows[$rowPath] ?? self::rowCells($row, (string)$rowPath) as [$cell, $cellPath]) {
                 $span = $cell['span'] ?? null;
-                $target = self::markTarget($span, [$previous, $current], $r, $c);
+                $target = self::markTarget($span, $cover, [$previous, $current], [$r, $c]);
                 if ($target === null) {
                     if ($span !== null) {
                         $blocked[$cellPath] = true;
                     }
-                    $target = new stdClass();
-                    $target->row = $r;
-                    $target->col = $c;
-                    $target->colspan = 1;
-                    $target->rowspan = 1;
-                } elseif ($span === 'colspan') {
-                    $target->colspan++;
+                    $target = count($cover['row']);
+                    $cover['row'][] = $r;
+                    $cover['col'][] = $c;
+                    $cover['colspan'][] = 1;
+                    $cover['rowspan'][] = 1;
                 } else {
-                    $target->rowspan++;
+                    $cover[$span === 'colspan' ? 'colspan' : 'rowspan'][$target]++;
                 }
                 $current[$c] = $target;
                 $c++;
@@ -915,29 +919,50 @@ final class TableWriter
     }
 
     /**
-     * The cell a mark at row `$r` and column `$c` joins, as TableBuilder::spanTarget() reads it, or null.
+     * @param array<array<mixed>> $rows By row path.
+     *
+     * @return bool
+     */
+    private function hasMarks(array $rows): bool
+    {
+        foreach ($rows as $rowPath => $row) {
+            foreach ($this->spans->rows[$rowPath] ?? self::rowCells($row, (string)$rowPath) as [$cell]) {
+                if (isset($cell['span'])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The covering cell a mark at row `$r` and column `$c` joins, as TableBuilder::spanTarget() reads it, or null.
      *
      * @param mixed $span
-     * @param array{0: array<int, \stdClass>, 1: array<int, \stdClass>} $cover The cells covering each column of the
-     *   row above and of this row so far.
-     * @param int $r
-     * @param int $c
+     * @param array{row: array<int>, col: array<int>, colspan: array<int>, rowspan: array<int>} $cover
+     * @param array{0: array<int, int>, 1: array<int, int>} $lines The covering cell of each column of the row above
+     *   and of this row so far.
+     * @param array{0: int, 1: int} $at
      *
-     * @return \stdClass|null
+     * @return int|null
      */
-    private static function markTarget(mixed $span, array $cover, int $r, int $c): ?stdClass
+    private static function markTarget(mixed $span, array $cover, array $lines, array $at): ?int
     {
+        [$r, $c] = $at;
         if ($span === 'colspan') {
-            $left = $cover[1][$c - 1] ?? null;
+            $left = $lines[1][$c - 1] ?? null;
 
-            return $left !== null && $left->rowspan === 1 && $left->col + $left->colspan === $c ? $left : null;
+            return $left !== null && $cover['rowspan'][$left] === 1 && $cover['col'][$left] + $cover['colspan'][$left] === $c
+                ? $left : null;
         }
         if ($span !== 'rowspan') {
             return null;
         }
-        $above = $cover[0][$c] ?? null;
+        $above = $lines[0][$c] ?? null;
 
-        return $above !== null && $above->colspan === 1 && $above->row + $above->rowspan === $r ? $above : null;
+        return $above !== null && $cover['colspan'][$above] === 1 && $cover['row'][$above] + $cover['rowspan'][$above] === $r
+            ? $above : null;
     }
 
     /**
