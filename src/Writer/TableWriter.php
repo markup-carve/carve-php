@@ -697,6 +697,7 @@ final class TableWriter
             }
             $lines[] = ['lead' => '+', 'segments' => $segments, 'tail' => ''];
         }
+
         return $lines;
     }
 
@@ -1080,6 +1081,7 @@ final class TableWriter
      *
      * @param array<mixed> $blocks
      * @param string $path
+     * @param bool $wrapped
      *
      * @return string
      */
