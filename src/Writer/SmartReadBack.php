@@ -228,6 +228,11 @@ final class SmartReadBack
             $a = $read[$j] ?? null;
             if ($type === 'text') {
                 if (!self::compareText($e, $read, $j, $offset)) {
+                    // A text cut short by a node of another type is that node's deviation, which the repair rounds
+                    // judge (C2-W-088), as when the node stands first.
+                    if (self::cutByOtherNode($e, $read, $j, $offset)) {
+                        return false;
+                    }
                     if ($a === null || $a->type === 'text' || $a->type === 'smart_punctuation') {
                         $w->lose($path . '/' . $i, 'text', 'value');
                     }
@@ -318,6 +323,31 @@ final class SmartReadBack
         }
 
         return true;
+    }
+
+    /**
+     * Whether the read text at `j` holds only the start of the rest of `e` and a node of another type than text and
+     * smart punctuation follows it.
+     *
+     * @param array<mixed> $e
+     * @param array<\MarkupCarve\Carve\Node> $read
+     * @param int $j
+     * @param int $offset
+     *
+     * @return bool
+     */
+    private static function cutByOtherNode(array $e, array $read, int $j, int $offset): bool
+    {
+        $a = $read[$j] ?? null;
+        $after = $read[$j + 1] ?? null;
+        $value = is_string($e['value'] ?? null) ? $e['value'] : '';
+        $readValue = $a !== null && $a->type === 'text' && is_string($a->f['value'] ?? null) ? $a->f['value'] : null;
+        if ($readValue === null || $after === null || $after->type === 'text' || $after->type === 'smart_punctuation') {
+            return false;
+        }
+        $rest = substr($readValue, $offset);
+
+        return strlen($rest) < strlen($value) && str_starts_with($value, $rest);
     }
 
     /**
