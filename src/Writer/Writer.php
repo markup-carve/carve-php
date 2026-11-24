@@ -471,7 +471,9 @@ final class Writer
         // write whose escapes are all of these and that reads back reads so bare too: no kind round, no bare read-back.
         $pairsOnly = $localEscapes !== [] && $result->diagnostics === []
             && self::onlyPairEscapes($tree, $localEscapes, $pairEscapes, $result->source)
-            && ($parsed === null || !self::mayTakeBare($tree, $localEscapes, $parsed));
+            && ($parsed === null || !self::mayTakeBare($tree, $localEscapes, $parsed))
+            // C2-W-146 reads the pairs of a whole run of text and soft breaks, as lint does on the written source.
+            && Text::treePairOpeners($tree, []) == $localEscapes;
         $pairPrint = null;
         if ($pairsOnly) {
             $pairPrint = self::trimmedPrint($tree, $layout, $options);
