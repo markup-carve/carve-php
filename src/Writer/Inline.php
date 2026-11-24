@@ -47,6 +47,24 @@ final class Inline
     private const BARRIERS = ['link', 'image', 'span', 'inline_footnote', 'inline_extension', 'citation_group'];
 
     /**
+     * How a text bracket pair reads (`pairForms()`): as text, as a construct, or as a construct only by the `[` or `{`
+     * glued behind it.
+     *
+     * @var int
+     */
+    private const LITERAL_PAIR = 0;
+
+    /**
+     * @var int
+     */
+    private const FORMED_PAIR = 1;
+
+    /**
+     * @var int
+     */
+    private const FOLLOWED_PAIR = 2;
+
+    /**
      * The characters a run of smart punctuation can continue with (data/smart-punctuation.json): `!+-.<=>()`.
      *
      * @var array<int, true>
@@ -1274,6 +1292,9 @@ final class Inline
         }
         $c->leafNodes = $nodes;
         $c->leafPath = $path;
+        if (!$c->inBracket) {
+            $c->leafBraces = null;
+        }
         $c->tickPlan = null;
         $c->tickForced = [];
     }
@@ -2613,7 +2634,10 @@ final class Inline
         $pairs = $c->bracketPairs;
         $c->inBracket = true;
         // C2-I-089: inside an inline footnote, at any depth, `[^` and `^[` are ordinary brackets.
-        $c->bracketPairs = self::pairedBrackets($children, $path, $c->labels, $notes && $this->noteDepth === 0);
+        // C2-I-064: a brace behind a pair opens no attribute block where no `}` stands anywhere in the leaf. A nested
+        // bracket reads the answer of its top-level leaf, which is found once per leaf.
+        $braces = $bracket ? $c->leafBraces ?? true : $c->leafBraces ??= $c->leafNodes === null || self::mayWriteBrace($c->leafNodes);
+        $c->bracketPairs = self::pairedBrackets($children, $path, $c->labels, $notes && $this->noteDepth === 0, $braces);
         // A bracket is a barrier of the delimiter stack: no closer inside it reaches a node outside.
         $c->marks = '';
         $c->last = 0x5B;
@@ -2660,18 +2684,69 @@ final class Inline
      * @param string $path
      * @param array<string, true> $labels
      * @param bool $notes
+     * @param bool $braces Whether a `}` may stand in the written leaf (`mayWriteBrace()`).
      *
      * @return array<string, array<int, true>>
      */
-    private static function pairedBrackets(array $nodes, string $path, array $labels, bool $notes): array
+    private static function pairedBrackets(array $nodes, string $path, array $labels, bool $notes, bool $braces = true): array
     {
         $open = [];
         $nested = [];
         $paired = [];
         $deepest = 0;
-        self::pairWalk($nodes, $path, $open, $nested, $paired, $labels, $notes, $deepest);
+        $walk = ['followed' => [], 'last' => null];
+        self::pairWalk($nodes, $path, $open, $nested, $paired, $labels, $notes, $deepest, $walk);
+        foreach ($walk['followed'] as [$key, $offset, $close, $value]) {
+            $literal = $value[$close + 1] === '['
+                ? self::blankLabel($value, $close + 2, $key === $walk['last'])
+                : !$braces;
+            if ($literal) {
+                $paired[$key][$offset] = true;
+                $paired[$key][$close] = true;
+            }
+        }
 
         return $deepest + 1 >= Tables::INLINE_DEPTH ? [] : $paired;
+    }
+
+    /**
+     * Whether a `}` may stand in the written leaf: in its strings, in an attribute block, or in the braced form or the
+     * syntax of a node other than text, a break, a link or an inline footnote.
+     *
+     * @param array<mixed> $nodes
+     */
+    private static function mayWriteBrace(array $nodes): bool
+    {
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? '';
+            if (
+                !in_array($type, ['text', 'soft_break', 'hard_break', 'link', 'inline_footnote'], true)
+                || isset($node['attrs']) || str_contains(self::strings(array_diff_key($node, ['children' => true])), '}')
+                || (is_array($node['children'] ?? null) && self::mayWriteBrace($node['children']))
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * C2-I-072, C2-I-079: whether the label a `[` glued behind a pair opens at `$at` is blank, so the pair forms no full
+     * or collapsed reference and stays text (carve-js `referenceReading`). The bare label ends at the first `]`, or at
+     * the closer of the bracket where the text is the last of its content; a comment or a later node leaves it open.
+     */
+    private static function blankLabel(string $value, int $at, bool $last): bool
+    {
+        $end = strcspn($value, ']%', $at) + $at;
+        if (($value[$end] ?? '') === '%' || ($end === strlen($value) && !$last)) {
+            return false;
+        }
+
+        return $end > $at && strspn($value, " \t\n", $at, $end - $at) === $end - $at;
     }
 
     /**
@@ -2686,6 +2761,8 @@ final class Inline
      * @param array<string, true> $labels
      * @param bool $notes
      * @param int $deepest The most brackets open at once so far.
+     * @param array{followed: array<array{string, int, int, string}>, last: string|null} $walk The pairs that form only
+     *   by the bracket or brace behind them, and the last node walked.
      */
     private static function pairWalk(
         array $list,
@@ -2696,6 +2773,7 @@ final class Inline
         array $labels,
         bool $notes,
         int &$deepest,
+        array &$walk,
     ): void {
         foreach ($list as $at => $node) {
             if (!is_array($node)) {
@@ -2703,11 +2781,12 @@ final class Inline
             }
             $type = $node['type'] ?? '';
             $key = $base . '/' . $at;
+            $walk['last'] = $key;
             if ($type === 'text') {
                 $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-                self::pairText($value, $key, $open, $nested, $paired, $labels, $notes, $deepest);
+                self::pairText($value, $key, $open, $nested, $paired, $labels, $notes, $deepest, $walk);
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
-                self::pairWalk($node['children'], $key . '/children', $open, $nested, $paired, $labels, $notes, $deepest);
+                self::pairWalk($node['children'], $key . '/children', $open, $nested, $paired, $labels, $notes, $deepest, $walk);
             }
         }
     }
@@ -2724,6 +2803,7 @@ final class Inline
      * @param array<string, true> $labels
      * @param bool $notes
      * @param int $deepest The most brackets open at once so far.
+     * @param array{followed: array<array{string, int, int, string}>, last: string|null} $walk
      */
     private static function pairText(
         string $value,
@@ -2734,6 +2814,7 @@ final class Inline
         array $labels,
         bool $notes,
         int &$deepest,
+        array &$walk,
     ): void {
         for ($i = 0, $n = strlen($value); $i < $n; $i++) {
             if ($value[$i] === '[') {
@@ -2746,7 +2827,11 @@ final class Inline
                 if ($nested !== []) {
                     $nested[count($nested) - 1] = true;
                 }
-                if ($other === $key && self::pairForms($value, $offset, $i, $inner ? [] : $labels, $notes)) {
+                $forms = $other === $key ? self::pairForms($value, $offset, $i, $inner ? [] : $labels, $notes) : self::LITERAL_PAIR;
+                if ($forms === self::FOLLOWED_PAIR) {
+                    $walk['followed'][] = [$key, $offset, $i, $value];
+                }
+                if ($forms !== self::LITERAL_PAIR) {
                     continue;
                 }
                 $paired[$other][$offset] = true;
@@ -2761,23 +2846,29 @@ final class Inline
      * @param int $close
      * @param array<string, true> $labels None for a pair around another pair: a key holds no bare bracket.
      * @param bool $notes
+     *
+     * @return int `FORMED_PAIR`, `LITERAL_PAIR`, or `FOLLOWED_PAIR` where only the `[` or `{` behind it may form one.
      */
-    private static function pairForms(string $value, int $open, int $close, array $labels, bool $notes): bool
+    private static function pairForms(string $value, int $open, int $close, array $labels, bool $notes): int
     {
         if ($notes && (($value[$open + 1] ?? '') === '^' || ($open > 0 && $value[$open - 1] === '^'))) {
-            return true;
+            return self::FORMED_PAIR;
         }
-        if (str_contains('({', $value[$close + 1] ?? 'x')) {
-            return true;
+        if ($labels !== [] && isset($labels[Chars::fold(substr($value, $open + 1, $close - $open - 1))])) {
+            return self::FORMED_PAIR;
+        }
+        $next = $value[$close + 1] ?? '';
+        if ($next === '(') {
+            return self::FORMED_PAIR;
         }
         // C2-I-072, C2-I-075: a label glued to the pair forms a reference, resolved or not; the `]` that closes it may
         // be written after this text. C2-I-078: a label that starts with a caret or an at-sign is none, and the pair is
-        // tested as a shortcut.
-        if (($value[$close + 1] ?? '') === '[' && !in_array($value[$close + 2] ?? '', ['^', '@'], true)) {
-            return true;
+        // tested as a shortcut. C2-I-064: a brace glued to the pair may open its attribute block.
+        if ($next === '{' || ($next === '[' && !in_array($value[$close + 2] ?? '', ['^', '@'], true))) {
+            return self::FOLLOWED_PAIR;
         }
 
-        return $labels !== [] && isset($labels[Chars::fold(substr($value, $open + 1, $close - $open - 1))]);
+        return self::LITERAL_PAIR;
     }
 
     /**

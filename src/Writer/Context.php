@@ -256,6 +256,11 @@ final class Context
      */
     public ?array $bracketPairs = null;
 
+    /**
+     * Whether a `}` may stand in the written top-level leaf, found once per leaf (C2-I-064).
+     */
+    public ?bool $leafBraces = null;
+
     public string $textPath = '';
 
     /**
