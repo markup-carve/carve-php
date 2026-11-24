@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => 'bbdf093ac88eae2d6dd4c9a800fb25771c6bf0ea',
+        'commit' => 'b723b166ff2e2cd2793ce92008b2061f9e51cb84',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6853,8 +6853,14 @@ final class Tables
                 'text' => 'Blanked a denied image source',
             ],
         ],
+        'djot-definition-list' => [
+            'Djot reads a line that starts with `: ` as the term of a definition list; Carve reads it as paragraph text. Write the term as `:: term` and the definition as `: definition` on the line below it.',
+        ],
         'djot-emphasis-underscore' => [
             'Djot emphasis `_x_` is literal text in Carve. Carve emphasis is `/x/`.',
+        ],
+        'djot-emphasis-underscore-braced' => [
+            'Djot emphasis `{_x_}` is underline in Carve. Carve emphasis is `/x/` or the braced `{/x/}`.',
         ],
         'djot-heading-continuation' => [
             'Djot folds the line(s) below a heading INTO it (a plain line, or one with the same number of `#`); Carve takes only lines indented past the heading marker into the heading (C2-B-154), so a line at the marker column starts a separate block. A generated heading id is computed from the shorter Carve heading, so it can differ from Djot\'s id.',
@@ -6864,6 +6870,9 @@ final class Tables
         ],
         'djot-intraword-underscore' => [
             'Djot emphasizes this intraword `_x_`; the migration leaves it literal, so the emphasis is lost. Brace it as `{/x/}` if it was meant.',
+        ],
+        'djot-ordered-marker' => [
+            'Djot reads this line as an ordered list item; Carve reads it as paragraph text. Carve has no marker in parentheses such as `(1)`, and an uppercase marker with a dot needs two spaces before its text.',
         ],
         'djot-plus-bullet' => [
             'Djot/Markdown `+` bullet is not a Carve bullet, so this line is a paragraph. Write `-` or `*`.',
@@ -6876,6 +6885,12 @@ final class Tables
         ],
         'djot-superscript-caret' => [
             'Djot superscript `^x^` is literal text in Carve — Carve superscript is the braced `{^x^}` only.',
+        ],
+        'djot-tag-mention' => [
+            'Djot reads `#word` and `@word` as text; Carve reads them as a tag or a mention. Escape the sigil as `\\#` or `\\@` to keep it as text.',
+        ],
+        'djot-typography-sign' => [
+            'Djot keeps this run as typed; Carve smart typography writes it as a sign. Escape its punctuation characters to keep it as typed.',
         ],
         'duplicate-abbreviation-definition' => [
             'Duplicate abbreviation definition (label) is ignored; the first definition for a label wins.',
