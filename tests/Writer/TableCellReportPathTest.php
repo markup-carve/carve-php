@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve-php#5830: a pipe cell loss is reported at the node that has no spelling, as carve-js reports it.
+ * carve-php#5830, #5829: a pipe cell loss is reported at the node that has no spelling, as carve-js reports it.
  */
 final class TableCellReportPathTest extends TestCase
 {
@@ -92,5 +92,63 @@ final class TableCellReportPathTest extends TestCase
         $written = Writer::writeWithDiagnostics(self::cellTree($inlines));
         $this->assertSame($source, $written->source);
         $this->assertSame($losses, array_map(static fn ($d): string => $d->code . ' ' . $d->path, $written->diagnostics));
+    }
+
+    /**
+     * @return array<string, array{bool, string}>
+     */
+    public static function blockedMarks(): array
+    {
+        return [
+            'data mark' => [false, 'span'],
+            'header mark in a body' => [true, 'header'],
+        ];
+    }
+
+    /**
+     * C2-B-172, C2-B-173: a `^` below a `<` joins nothing and reads back as a text cell.
+     *
+     * @param bool $header
+     * @param string $field
+     *
+     * @return void
+     */
+    #[DataProvider('blockedMarks')]
+    public function testMarkThatJoinsNothingIsReported(bool $header, string $field): void
+    {
+        $text = static fn (string $value): array => [
+            'type' => 'table_cell',
+            'header' => false,
+            'children' => [['type' => 'cell_paragraph', 'children' => [['type' => 'text', 'value' => $value]]]],
+        ];
+        $mark = static fn (string $span, bool $header): array => [
+            'type' => 'table_cell',
+            'header' => $header,
+            'span' => $span,
+            'children' => [],
+        ];
+        $a = $text('A');
+        $a['colspan'] = 2;
+        $rows = [
+            ['type' => 'table_row', 'children' => [$a, $mark('colspan', false)]],
+            ['type' => 'table_row', 'children' => [$text('B'), $mark('rowspan', $header)]],
+        ];
+        $tree = [
+            'astVersion' => '2.0',
+            'type' => 'document',
+            'children' => [
+                [
+                    'type' => 'table',
+                    'columns' => [['type' => 'table_column'], ['type' => 'table_column']],
+                    'children' => [['type' => 'table_body', 'children' => $rows]],
+                ],
+            ],
+        ];
+        $written = Writer::writeWithDiagnostics($tree);
+        $this->assertSame("| A | < |\n| B | ^ |\n", $written->source);
+        $this->assertSame(
+            ['field-unspellable /children/0/children/0/children/1/children/1/' . $field],
+            array_map(static fn ($d): string => $d->code . ' ' . $d->path, $written->diagnostics),
+        );
     }
 }

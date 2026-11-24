@@ -8,6 +8,7 @@ use Generator;
 use MarkupCarve\Carve\Json\TreeDecoder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\TableGrid;
+use stdClass;
 
 /**
  * Tables as Carve source (C2-W-061 to C2-W-068, C2-W-118, C2-W-135, C2-W-136): a pipe table, or a delimited table where
@@ -34,6 +35,13 @@ final class TableWriter
      * C2-W-145: the marks of the span counts of the table being written, or null where it needs none.
      */
     private ?SpanMarks $spans = null;
+
+    /**
+     * The paths of the mark cells of the group being written that join nothing (C2-B-173).
+     *
+     * @var array<string, true>
+     */
+    private array $blocked = [];
 
     /**
      * @var int
@@ -578,6 +586,7 @@ final class TableWriter
             $this->w->lose($path, self::typeOf($group), 'attrs');
         }
         $bodyHeaders = ($group['type'] ?? '') === 'table_body' ? self::leadingHeaderRows($items) : 0;
+        $this->blocked = $this->blockedMarks($items, $path);
         $rowIndex = 0;
         $lastAt = count($items) - 1;
         foreach ($items as $at => $item) {
@@ -701,7 +710,7 @@ final class TableWriter
     private function cell(array $cell, string $path, bool $head, bool $bodyHeader): array
     {
         if (isset($cell['span'])) {
-            return $this->mark($cell, $path, $head);
+            return $this->mark($cell, $path, $head, $bodyHeader);
         }
         $header = !$bodyHeader && ($cell['header'] ?? false) === true ? '=' : '';
         $this->unspellable($cell, $path);
@@ -809,12 +818,13 @@ final class TableWriter
      * @param array<mixed> $cell
      * @param string $path
      * @param bool $head
+     * @param bool $bodyHeader
      *
      * @return array{0: string, 1: array<string>}
      */
-    private function mark(array $cell, string $path, bool $head): array
+    private function mark(array $cell, string $path, bool $head, bool $bodyHeader): array
     {
-        $this->markLoss($cell, $path);
+        $this->markLoss($cell, $path, isset($this->blocked[$path]) ? $head || $bodyHeader : null);
 
         return [$head ? '=' : '', [$cell['span'] === 'colspan' ? '<' : '^']];
     }
@@ -823,13 +833,22 @@ final class TableWriter
      * C2-W-063, C2-A-092: a mark cell reads back with `header` false, no children and no other field, so the first
      * field that differs from that is lost. One entry per cell, as the carve-js read-back comparison reports it.
      *
+     * A mark that joins nothing reads back as a text cell (C2-B-173), a header cell where its row reads as one, so its
+     * `header` or else its `span` differs, the first in node order.
+     *
      * @param array<mixed> $cell
      * @param string $path
+     * @param bool|null $blockedHeader The header of the read-back cell of a mark that joins nothing, else null.
      *
      * @return void
      */
-    private function markLoss(array $cell, string $path): void
+    private function markLoss(array $cell, string $path, ?bool $blockedHeader): void
     {
+        if ($blockedHeader !== null) {
+            $field = ($cell['header'] ?? false) !== $blockedHeader ? 'header' : 'span';
+            $this->w->lose($path, 'table_cell', $field);
+            $cell = ['children' => $cell['children'] ?? null];
+        }
         foreach ($cell as $field => $value) {
             $kept = match ($field) {
                 'type', 'pos', 'span', 'children' => true,
@@ -845,6 +864,80 @@ final class TableWriter
         foreach (is_array($cell['children'] ?? null) ? $cell['children'] : [] as $at => $block) {
             $this->w->lose($path . '/children/' . $at, self::typeOf($block), null);
         }
+    }
+
+    /**
+     * The mark cells of one group that join nothing, by the rule the reader applies to the written marks (C2-B-172): a
+     * `<` needs a cell of one row that ends at its left, a `^` a cell of one column that ends above it, in the group.
+     *
+     * @param array<mixed> $items
+     * @param string $path
+     *
+     * @return array<string, true>
+     */
+    private function blockedMarks(array $items, string $path): array
+    {
+        $blocked = [];
+        $previous = [];
+        $r = 0;
+        foreach ($items as $at => $item) {
+            if (!is_array($item) || ($item['type'] ?? '') !== 'table_row') {
+                continue;
+            }
+            $rowPath = $path . '/children/' . $at;
+            $current = [];
+            $c = 0;
+            foreach ($this->spans->rows[$rowPath] ?? self::rowCells($item, $rowPath) as [$cell, $cellPath]) {
+                $span = $cell['span'] ?? null;
+                $target = self::markTarget($span, [$previous, $current], $r, $c);
+                if ($target === null) {
+                    if ($span !== null) {
+                        $blocked[$cellPath] = true;
+                    }
+                    $target = new stdClass();
+                    $target->row = $r;
+                    $target->col = $c;
+                    $target->colspan = 1;
+                    $target->rowspan = 1;
+                } elseif ($span === 'colspan') {
+                    $target->colspan++;
+                } else {
+                    $target->rowspan++;
+                }
+                $current[$c] = $target;
+                $c++;
+            }
+            $previous = $current;
+            $r++;
+        }
+
+        return $blocked;
+    }
+
+    /**
+     * The cell a mark at row `$r` and column `$c` joins, as TableBuilder::spanTarget() reads it, or null.
+     *
+     * @param mixed $span
+     * @param array{0: array<int, \stdClass>, 1: array<int, \stdClass>} $cover The cells covering each column of the
+     *   row above and of this row so far.
+     * @param int $r
+     * @param int $c
+     *
+     * @return \stdClass|null
+     */
+    private static function markTarget(mixed $span, array $cover, int $r, int $c): ?stdClass
+    {
+        if ($span === 'colspan') {
+            $left = $cover[1][$c - 1] ?? null;
+
+            return $left !== null && $left->rowspan === 1 && $left->col + $left->colspan === $c ? $left : null;
+        }
+        if ($span !== 'rowspan') {
+            return null;
+        }
+        $above = $cover[0][$c] ?? null;
+
+        return $above !== null && $above->colspan === 1 && $above->row + $above->rowspan === $r ? $above : null;
     }
 
     /**
