@@ -101,13 +101,9 @@ final class Toc
                 if ($node->type === 'directive' && ($node->f['kind'] ?? null) === 'toc') {
                     $directives++;
                 }
-                if ($node->type !== 'heading') {
+                // carve#6531: the placed table lists the headings a section wraps, as tableOfContents does.
+                if ($node->type !== 'heading' || count($ancestors) > 1) {
                     return;
-                }
-                foreach ($ancestors as $above) {
-                    if ($above->type === 'footnote') {
-                        return;
-                    }
                 }
                 $found = self::entry($node);
                 if ($found !== null) {

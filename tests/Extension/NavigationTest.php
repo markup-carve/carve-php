@@ -158,10 +158,10 @@ final class NavigationTest extends TestCase
             $html,
         );
         $this->assertStringNotContainsString('#Intro', $html);
-        $this->assertStringContainsString(
-            '<li><a href="#Inside">Inside</a></li>',
-            self::html("::: note\n= Inside\n:::\n\n::: toc\n:::\n", Navigation::tocPlacement()),
-        );
+        $html = self::html("= Top\n\n::: note\n= Inside\n:::\n\n> = Quoted\n\n::: toc\n:::\n", Navigation::tocPlacement());
+        $this->assertStringContainsString('<li><a href="#Top">Top</a></li>', $html);
+        $this->assertStringNotContainsString('<a href="#Inside">', $html);
+        $this->assertStringNotContainsString('<a href="#Quoted">', $html);
         $this->assertStringContainsString(
             "  <p>Intro text.</p>\n  <nav class=\"toc\"",
             self::html("= A\n\n::: toc\nIntro text.\n:::\n", Navigation::tocPlacement()),
@@ -230,6 +230,26 @@ final class NavigationTest extends TestCase
             '<li><a href="#A">A</a></li>',
             self::html("= A\n", Navigation::headingNumbers(), Navigation::tableOfContents()),
         );
+    }
+
+    public function testHeadingNumbersCountDepthNotLevel(): void
+    {
+        $skipped = self::html("= A\n\n=== C\n\n== B\n\n==== D\n", Navigation::headingNumbers());
+        $this->assertStringContainsString('<h3><span class="section-number">1.1</span> C</h3>', $skipped);
+        $this->assertStringContainsString('<h2><span class="section-number">1.2</span> B</h2>', $skipped);
+        $this->assertStringContainsString('<h4><span class="section-number">1.2.1</span> D</h4>', $skipped);
+        $leading = self::html("== B\n\n= A\n\n== C\n", Navigation::headingNumbers());
+        $this->assertStringContainsString('<h2><span class="section-number">1</span> B</h2>', $leading);
+        $this->assertStringContainsString('<h1><span class="section-number">2</span> A</h1>', $leading);
+        $this->assertStringContainsString('<h2><span class="section-number">2.1</span> C</h2>', $leading);
+    }
+
+    public function testHeadingNumbersSkipNoteAndListItemHeadings(): void
+    {
+        $html = self::html("= A\n\n::: note\n== N\n:::\n\n- item\n\n  == L\n\n== B\n", Navigation::headingNumbers());
+        $this->assertStringContainsString('<h2 id="N">N</h2>', $html);
+        $this->assertStringContainsString('<h2 id="L">L</h2>', $html);
+        $this->assertStringContainsString('<h2><span class="section-number">1.1</span> B</h2>', $html);
     }
 
     public function testAnExplicitDisplayModeStaysWithTheCore(): void

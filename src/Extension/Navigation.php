@@ -154,29 +154,26 @@ final class Navigation
         $levels = [];
         $numbers = [];
         $byId = [];
-        NavTree::visit($view, static function (Node $node, array $ancestors) use ($minLevel, &$levels, &$numbers, &$byId): void {
+        // carve#6531: only the headings a section wraps (C2-H-026), numbered by depth, not level.
+        foreach ($view->children ?? [] as $node) {
             if ($node->type !== 'heading') {
-                return;
-            }
-            foreach ($ancestors as $above) {
-                if ($above->type === 'block_quote' || $above->type === 'footnote') {
-                    return;
-                }
+                continue;
             }
             $level = $node->f['level'] ?? 1;
             $level = is_int($level) ? $level : 1;
             if (in_array('unnumbered', NavTree::attrs($node)->classes ?? [], true) || $level < $minLevel) {
-                return;
+                continue;
             }
+            $closed = null;
             while ($levels !== [] && (int)end($levels) > $level) {
                 array_pop($levels);
-                array_pop($numbers);
+                $closed = array_pop($numbers);
             }
             if ($levels !== [] && $levels[count($levels) - 1] === $level) {
                 $numbers[count($numbers) - 1]++;
             } else {
                 $levels[] = $level;
-                $numbers[] = 1;
+                $numbers[] = $closed === null ? 1 : $closed + 1;
             }
             $number = implode('.', $numbers);
             $id = NavTree::headingId($node);
@@ -188,7 +185,7 @@ final class Navigation
             $span->f['attrs'] = Apparatus::attrs(classes: ['section-number']);
             $space = NavTree::chrome(NavTree::text(' '), self::NUMBERS);
             $node->children = [NavTree::chrome($span, self::NUMBERS), $space, ...($node->children ?? [])];
-        }, false);
+        }
 
         return $byId;
     }
