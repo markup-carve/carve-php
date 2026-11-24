@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Writer\HeapPages;
 use stdClass;
 use Throwable;
 
@@ -475,9 +476,7 @@ final class DataModel
         unset($runs, $openRuns, $childCounts, $item, $node);
         $this->holderByPath = [];
         // The line records reuse memory freed by the walk. Large allocator caches can otherwise force a new 2 MB page.
-        if (memory_get_usage(true) - memory_get_usage(false) > 16 * 1024 * 1024) {
-            gc_mem_caches();
-        }
+        HeapPages::release();
         $count = count($c->lines);
         if ($count > 1 && $c->lines[$count - 1]->text === '' && str_ends_with($c->source, "\n")) {
             $count--;

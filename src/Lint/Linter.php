@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
+use MarkupCarve\Carve\Writer\HeapPages;
 
 /**
  * Lint of a 0.2 source (C2-W-103 to C2-W-113): the rules of `data/lint-rules.json` over the tree and the source lines, with
@@ -192,8 +193,8 @@ final class Linter
         $findings = self::ordered(self::filter($c, $controls), $c->nodeTypes);
         $dataRules = $c->dataRules;
         unset($c);
-        if ($dataRules && memory_get_usage(true) - memory_get_usage(false) > 16 * 1024 * 1024) {
-            gc_mem_caches();
+        if ($dataRules) {
+            HeapPages::release();
         }
 
         return $findings;

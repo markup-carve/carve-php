@@ -14,16 +14,40 @@ namespace MarkupCarve\Carve\Writer;
 final class HeapPages
 {
     /**
-     * Unused heap worth the walk over the allocator's free lists, as `Linter` and `DataModel` use it.
+     * Unused heap worth the walk over the allocator's free lists.
      *
      * @var int
      */
-    private const UNUSED = 16 * 1024 * 1024;
+    public const UNUSED = 16 * 1024 * 1024;
 
-    public static function release(): void
+    /**
+     * The allocated and the unused heap after the last release, or the least of each seen since. A long-lived host keeps
+     * the chunks of its largest call; while the heap takes no new chunk and frees no more than the threshold, a release
+     * would cost every call a walk over the allocator's free lists.
+     *
+     * @var array{int, int}
+     */
+    private static array $after = [0, 0];
+
+    /**
+     * Whether the free lists were handed back.
+     *
+     * @param int $threshold Unused heap, or heap freed since the last release, worth the walk.
+     */
+    public static function release(int $threshold = self::UNUSED): bool
     {
-        if (memory_get_usage(true) - memory_get_usage() > self::UNUSED) {
-            gc_mem_caches();
+        $allocated = memory_get_usage(true);
+        $unused = $allocated - memory_get_usage();
+        [$allocatedAfter, $unusedAfter] = self::$after;
+        if ($unused <= $threshold || ($allocated <= $allocatedAfter && $unused - $unusedAfter <= $threshold)) {
+            self::$after = [min($allocatedAfter, $allocated), min($unusedAfter, $unused)];
+
+            return false;
         }
+        gc_mem_caches();
+        $allocated = memory_get_usage(true);
+        self::$after = [$allocated, $allocated - memory_get_usage()];
+
+        return true;
     }
 }
