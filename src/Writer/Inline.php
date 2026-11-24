@@ -1996,7 +1996,7 @@ final class Inline
 
     /**
      * C2-W-125 case six: the glued backtick takes its backslash in every write of the rounds, their trials too
-     * (carve-js `escapeGluedBacktick`).
+     * (carve-js `escapeGluedBacktick`). The trace records that its write placed this or a text prefix.
      *
      * @param string $prefix
      * @param string $value
@@ -2005,6 +2005,9 @@ final class Inline
      */
     private static function traceGluedTick(string $prefix, string $value, mixed $before, Context $c): void
     {
+        if ($prefix !== '' && $c->writerState?->repairTrace !== null) {
+            $c->writerState->repairTrace->repaired = true;
+        }
         if ($prefix === '' && self::gluesTick($value, $before)) {
             $c->writerState?->repairTrace?->escapeAt($c->textPath, 0);
         }
@@ -2076,7 +2079,8 @@ final class Inline
         }
 
         return match ($before['type'] ?? '') {
-            'footnote_ref' => false,
+            // C2-I-066: the bracket of an inline extension is no link text, so no tail follows it.
+            'footnote_ref', 'inline_extension' => false,
             // Bare, a bracket inside the note pairs with its closer, and the tail makes a link of that pair.
             'inline_footnote' => str_contains(self::strings($before), '['),
             'link', 'image' => !is_string($before['key'] ?? null) || ($before['refForm'] ?? 'full') === 'shortcut',

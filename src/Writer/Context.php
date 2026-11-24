@@ -297,6 +297,14 @@ final class Context
     public array $behindMarker = [];
 
     /**
+     * C2-W-088: the offsets of the text being written whose escape no round of a bare parse reports but the
+     * procedure still places (a block opener behind a marker, a text quote, a backtick a brace makes live).
+     *
+     * @var array<int, true>
+     */
+    public array $ownAt = [];
+
+    /**
      * C2-W-146: the offsets of the text being written that take a backslash because a pair rule of lint reports them.
      *
      * @var array<int, bool>

@@ -55,7 +55,13 @@ final class RepairTrace
     public function escapeAt(string $path, int $at): void
     {
         $this->escapes[$path][$at] = true;
+        $this->repaired = true;
     }
+
+    /**
+     * Whether the write placed a backslash of C2-W-125 itself, as a glued backtick or a text prefix.
+     */
+    public bool $repaired = false;
 
     /**
      * @param string $value

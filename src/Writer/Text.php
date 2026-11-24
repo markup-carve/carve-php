@@ -226,6 +226,13 @@ final class Text
     public static array $recordedPairs = [];
 
     /**
+     * While `$recorded` is set, the escapes of each text path that `Context::$ownAt` holds, by path.
+     *
+     * @var array<string, array<int, true>>
+     */
+    public static array $recordedOwn = [];
+
+    /**
      * How many backtick rounds escaped every potential opener of the kind; a leaf reads it to know its form took them.
      */
     public static int $tickKindRounds = 0;
@@ -341,12 +348,17 @@ final class Text
             // (carve-php#5722).
             $escaped = array_filter($c->escapedAt);
             $decided = array_diff_key($escaped, $c->gluedBraces);
+            $own = $c->ownAt;
             if ($c->fragmentFrom > 0) {
                 // A later fragment of a continued cell adds its escapes, at their offsets in the text node.
                 $escaped = (self::$recorded[$c->textPath] ?? []) + self::shifted($escaped, $c->fragmentFrom);
                 $decided = (self::$recordedDecided[$c->textPath] ?? []) + self::shifted($decided, $c->fragmentFrom);
+                $own = (self::$recordedOwn[$c->textPath] ?? []) + self::shifted($own, $c->fragmentFrom);
             }
-            unset(self::$recordedDecided[$c->textPath]);
+            unset(self::$recordedDecided[$c->textPath], self::$recordedOwn[$c->textPath]);
+            if ($own !== []) {
+                self::$recordedOwn[$c->textPath] = $own;
+            }
             if ($escaped === []) {
                 unset(self::$recorded[$c->textPath]);
             } else {
@@ -447,6 +459,7 @@ final class Text
     {
         $n = strlen($value);
         $c->escapeKinds = [];
+        $c->ownAt = [];
         if ($n === 0) {
             $c->escapedAt = [];
 
@@ -522,6 +535,11 @@ final class Text
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next)));
             $escape = $own || $repair;
+            // C2-W-095: a text quote takes its backslash in every form: bare, it always reads as smart punctuation, so
+            // the first round escapes every one.
+            if (($own && !isset($c->pairEscapes[$i])) || ($escape && ($ch === '"' || $ch === "'"))) {
+                $c->ownAt[$i] = true;
+            }
             // C2-W-094: a bracket in the text of a bracketed node pairs with nothing outside it, so its escape is no
             // kind for the leaf.
             // C2-W-088: nor is the escape of a mark that would close its node early (C2-W-125, case five).
