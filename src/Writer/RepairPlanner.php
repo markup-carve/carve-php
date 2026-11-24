@@ -773,9 +773,15 @@ final class RepairPlanner
     {
         $firsts = [];
         $differs = [];
-        $asked = CompareRound::inspect($this->tree, $comparison['read'], $this->escapes, $candidate, $this->probed, $firsts, $differs);
-        $missing = self::missingSiblings($candidate, $comparison['read']);
-        $trials = $this->nextTrials($candidate, $comparison['read'], $missing);
+        $keys = [];
+        $read = $comparison['read'];
+        $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys);
+        $missing = self::missingSiblings($candidate, $read);
+        $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
+        unset($read);
+        if ($asked === [] && $trials === [] && $comparison['openers'] === []) {
+            $asked = $keys;
+        }
 
         $differences = [];
         if ($comparison['openers'] === [] && $missing === [] && $asked === []) {
@@ -2233,6 +2239,48 @@ final class RepairPlanner
 
         return ($node['type'] ?? '') === 'text' && is_string($value) && $value !== ''
             && Text::isPunct($value[0]) && !isset($escapes[$path][0]) ? [$path, 0] : null;
+    }
+
+    /**
+     * C2-W-125, case nine: where the braced spelling reads as an attribute block, its key takes the backslash rather
+     * than a trial in the same text, unless that trial escapes the node's closing mark in its content (carve-js
+     * `escapeInContent`, an earlier step). A round with another repair asks the key only after it.
+     *
+     * @param array<array<array{string, int}>> $trials
+     * @param array<string, array<int, true>> $keys
+     *
+     * @return array<array<array{string, int}>>
+     */
+    private function keyTrials(array $trials, array $keys): array
+    {
+        if ($keys === []) {
+            return $trials;
+        }
+
+        return array_values(array_filter($trials, fn (array $trial): bool => !$this->yieldsToKey($trial, $keys)));
+    }
+
+    /**
+     * Whether a trial gives way to the case-nine key of its text: it escapes a character of that text other than the
+     * closing mark of the node the text opens.
+     *
+     * @param array<int, array{string, int}> $trial
+     * @param array<string, array<int, true>> $keys
+     */
+    private function yieldsToKey(array $trial, array $keys): bool
+    {
+        foreach ($trial as [$path, $offset]) {
+            if (!isset($keys[$path])) {
+                continue;
+            }
+            $owner = self::nodeAt($this->tree, substr($path, 0, (int)strrpos($path, '/children/')));
+            $value = self::leafValue($this->tree, $path) ?? '';
+            if ($owner !== null && ($value[$offset] ?? '') !== self::closer($owner)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
