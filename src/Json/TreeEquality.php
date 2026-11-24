@@ -59,8 +59,9 @@ final class TreeEquality
     }
 
     /**
-     * `fingerprint()` of a tree, with the fingerprint each node with content would have alone, by its path through
-     * `children`. The walk keeps paths down to the nodes of a type in `$stop`; below them it is `fingerprint()`'s.
+     * `fingerprint()` of a tree, with the fingerprint each node with content of its own would have alone, by its path
+     * through `children`. The walk keeps paths down to the nodes of a type in `$stop`; below them it is `fingerprint()`'s.
+     * A node whose children are all followed has no part.
      *
      * @param array<mixed> $tree A node with a type and content.
      * @param array<string, true> $stop
@@ -168,6 +169,8 @@ final class TreeEquality
         $start = strlen($stream);
         // In a table with span marks the node is spelled otherwise than alone.
         $alone = !$spanMarks;
+        // Only a node with content of its own gets a part, so nested blocks do not hash the same bytes again.
+        $own = false;
         if ($type === 'table') {
             $spanMarks = self::hasSpanMarks($value);
         }
@@ -177,6 +180,7 @@ final class TreeEquality
             $stream .= $spelled;
             $item = $value[$name];
             if ($name !== 'children' || !is_array($item) || !array_is_list($item) || self::hasTextPair($item)) {
+                $own = $own || $name === 'children';
                 if (is_string($item)) {
                     $stream .= 's:' . strlen($item) . ':"' . $item . '";';
                 } else {
@@ -191,13 +195,15 @@ final class TreeEquality
                 if (is_array($child) && is_string($childType) && !isset($stop[$childType]) && is_array($child['children'] ?? null)) {
                     self::feedParts($context, $stream, $child, $childType, $spanMarks, $path . '/children/' . $k, $stop, $ranges);
                 } elseif (is_string($child)) {
+                    $own = true;
                     $stream .= 's:' . strlen($child) . ':"' . $child . '";';
                 } else {
+                    $own = true;
                     self::feed($context, $stream, $child, $spanMarks);
                 }
             }
         }
-        if ($alone) {
+        if ($alone && $own) {
             $ranges[$path] = [$start, strlen($stream)];
         }
     }
