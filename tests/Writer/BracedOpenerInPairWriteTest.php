@@ -28,6 +28,8 @@ final class BracedOpenerInPairWriteTest extends TestCase
             'glued brace of a superscript gives no kind' => ['{{^{,\\{\\{^^}{\\^^', '{{^{,{\\{^^}{^^'],
             'empty braced strong behind a node in an emphasis' => ['x /a{^b^}{**} c/', 'x /a{^b^}{**} c/'],
             'braced opener mark before a brace in a strong' => ['*a{*}b*', '*a{*}b*'],
+            'brace ending a superscript gives no kind' => ['- {^\\{^}\\^^^\\^{^', '- {^\\{^}^^^^{^'],
+            'brace ending a subscript gives no kind' => ['}{,\\^{,{^\\{,}', '}{,^{,{^\\{,}'],
         ];
     }
 

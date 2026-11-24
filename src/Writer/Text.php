@@ -2039,7 +2039,7 @@ final class Text
         $marks = '_~=+-^,#%';
         // C2-I-057, C2-W-125 case one: glued before the span's own closer, the opener takes that closer and holds
         // nothing, so the span does not form.
-        if (self::gluedBeforeOwnCloser($value, $i, $span)) {
+        if (self::gluedBeforeOwnCloser($value, $i, $span, $later)) {
             // C2-W-088: a backslash of C2-W-125 gives no kind.
             $c->gluedBrace = true;
 
@@ -2070,16 +2070,21 @@ final class Text
     }
 
     /**
-     * C2-I-057, C2-W-125 case one: whether the brace at `$i`, the last but one character of the text, stands glued
-     * before the closer of its own span, which its opener takes holding nothing.
+     * C2-I-057, C2-W-125 case one: whether the brace at `$i` stands glued before the closer of its own span: it ends
+     * the text with no node behind, and reads on into that closer, or it stands before the last character, the span's
+     * mark, and its opener takes the closer holding nothing.
      *
      * @param string $value
      * @param int $i
      * @param array{0: string, 1: bool, 2: bool, 3: bool, 4: int, 5: array<mixed>} $span
+     * @param string $later The texts behind the text, '' where no node stands behind it.
      */
-    private static function gluedBeforeOwnCloser(string $value, int $i, array $span): bool
+    private static function gluedBeforeOwnCloser(string $value, int $i, array $span, string $later): bool
     {
         $next = $value[$i + 1] ?? '';
+        if ($next === '') {
+            return $later === '';
+        }
         if ($next !== $span[0] || $i + 2 !== strlen($value)) {
             return false;
         }
