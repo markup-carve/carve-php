@@ -20,6 +20,7 @@ use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
 use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Html\CoreLayout;
 use MarkupCarve\Carve\Html\HeadingShift;
 use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Html\Profile;
@@ -536,6 +537,12 @@ final class Carve
             return self::transformedHtml($source, $options, $opts);
         }
         self::checkRenderInput($source, $opts);
+        if ($options === [] && $opts->extensions === []) {
+            $html = CoreLayout::render($source);
+            if ($html !== null) {
+                return $html;
+            }
+        }
         $gc = self::collectorOff();
         try {
             [$doc, , $hasInclude] = self::stages($source);
