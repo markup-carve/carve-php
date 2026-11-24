@@ -337,6 +337,71 @@ final class Text
         return $out;
     }
 
+    /**
+     * Expand a reported hash kind in a single text leaf from its first write. The existing spelling is checked
+     * against the escape map before reuse, so a text with another spelling still takes the ordinary round.
+     *
+     * @return array{string, array<int, true>}|null
+     */
+    // Both loops retain the ordered escape choices of the writer.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    public static function expandedHashKind(string $value, string $written, Context $c): ?array
+    {
+        $expanded = '';
+        $added = [];
+        $escapes = array_keys(array_filter($c->escapedAt));
+        if (strlen($written) !== strlen($value) + count($escapes)) {
+            return null;
+        }
+        $escapeIndex = 0;
+        $from = 0;
+        for ($i = strpos($value, '#'); $i !== false; $i = strpos($value, '#', $i + 1)) {
+            while (isset($escapes[$escapeIndex]) && $escapes[$escapeIndex] < $i) {
+                $escapeIndex++;
+            }
+            if (isset($c->escapedAt[$i]) && $c->escapedAt[$i] === true) {
+                continue;
+            }
+            if ($i > 0 && $value[$i - 1] === '#') {
+                continue;
+            }
+            $writtenAt = $i + $escapeIndex;
+            if (($written[$writtenAt] ?? '') !== '#') {
+                return null;
+            }
+            $expanded .= substr($written, $from, $writtenAt - $from) . '\\';
+            $from = $writtenAt;
+            $added[$i] = true;
+        }
+        if ($added === []) {
+            return null;
+        }
+        $expanded .= substr($written, $from);
+        foreach ($added as $i => $_) {
+            $c->escapedAt[$i] = true;
+        }
+
+        return [$expanded, $added];
+    }
+
+    /**
+     * Record the new hash escapes only after the expanded spelling survives the leaf read-back.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     * @param array<int, true> $added
+     */
+    public static function recordExpandedHash(Context $c, array $added): void
+    {
+        if (self::$recorded === null) {
+            return;
+        }
+        foreach ($added as $i => $_) {
+            self::$recorded[$c->textPath][$i] = true;
+            self::$recordedDecided[$c->textPath][$i] = true;
+        }
+    }
+
     private static function escapedText(string $value, Context $c, int $next): string
     {
         $n = strlen($value);
@@ -357,7 +422,13 @@ final class Text
         $prev = $c->last;
         [$balanced, $ticks, $lineOpener] = self::loopFacts($value, $marks, $c, $next);
         $liveTicks = [];
+        $lineEnd = strpos($value, "\n");
+        $lineEnd = $lineEnd === false ? $n : $lineEnd;
         for ($i = 0; $i < $n; $i++) {
+            if ($i > $lineEnd) {
+                $nextLine = strpos($value, "\n", $i);
+                $lineEnd = $nextLine === false ? $n : $nextLine;
+            }
             $ch = $value[$i];
             $byte = ord($ch);
             if ($byte >= 0x80) {
@@ -368,11 +439,32 @@ final class Text
 
                 continue;
             }
-            $after = $i + 1 < $n ? Chars::at($value, $i + 1) : $next;
+            $punctuation = str_contains(self::PUNCT, $ch);
+            if (
+                $i > 0 && $i !== $marks && !$punctuation
+                && !isset($c->pairEscapes[$i]) && !isset($c->behindMarker[$i])
+            ) {
+                $c->gluedBrace = false;
+                $c->escapedAt[$i] = false;
+                $out .= $ch;
+                $prev = $byte;
+
+                continue;
+            }
+            if ($i + 1 < $n) {
+                $after = ord($value[$i + 1]);
+                if ($after >= 0x80) {
+                    $after = Chars::at($value, $i + 1);
+                }
+            } else {
+                $after = $next;
+            }
             if ($byte === 0x3A) {
                 $last = self::innerColons($value, $i, $prev, [$marks, $lineOpener], $c->pairEscapes);
                 if ($last >= $i) {
-                    $c->escapedAt += array_fill($i, $last - $i + 1, false);
+                    for ($at = $i; $at <= $last; $at++) {
+                        $c->escapedAt[$at] = false;
+                    }
                     $out .= str_repeat(':', $last - $i + 1);
                     $i = $last;
 
@@ -383,7 +475,7 @@ final class Text
                 || isset($liveTicks[$i]);
             $c->gluedBrace = false;
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
-                || (str_contains(self::PUNCT, $ch)
+                || ($punctuation
                 && !($ch === '`' && $ticks !== null && !isset($ticks[$i]))
                 && !($c->inBracket && isset($balanced[$i])) && self::needs($value, $i, $prev, $after, $c, $next)));
             $escape = $own || $repair;
@@ -395,14 +487,16 @@ final class Text
                 && !self::closesOpenMark($ch, $after, $c) && !self::gluedBrace($c)
             ) {
                 $c->escapeKinds[$i] = self::kindOf($value, $i, $i === $marks, $after);
-            } elseif (!$escape && $c->kinds !== [] && str_contains(self::PUNCT, $ch)) {
+            } elseif (!$escape && $c->kinds !== [] && $punctuation) {
                 $escape = self::potential($value, $i, $prev, $after, $c, $lineOpener);
             }
             // A brace that starts a line is left to the line rules, where a block attribute line may form.
             if (!$escape && $byte === 0x7B) {
-                $end = self::literalBlockEnd($value, $i);
+                $end = self::literalBlockEnd($value, $i, false, $lineEnd);
                 if ($end > $i && !self::pairEscapeIn($c->pairEscapes, $i, $end)) {
-                    $c->escapedAt += array_fill($i, $end - $i, false);
+                    for ($at = $i; $at < $end; $at++) {
+                        $c->escapedAt[$at] = false;
+                    }
                     $out .= substr($value, $i, $end - $i);
                     $prev = 0x7D;
                     $i = $end - 1;
@@ -423,6 +517,8 @@ final class Text
 
         return $out;
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * C2-W-146: whether a mark between `$from` and `$to` takes a backslash for a pair rule of lint, which an attribute
@@ -462,16 +558,17 @@ final class Text
      * @param string $value
      * @param int $i
      * @param bool $empty Whether an empty block counts.
+     * @param int|null $lineEnd The known end of the current line.
      *
      * @return int
      */
-    private static function literalBlockEnd(string $value, int $i, bool $empty = false): int
+    private static function literalBlockEnd(string $value, int $i, bool $empty = false, ?int $lineEnd = null): int
     {
         $close = strpos($value, '}', $i + 1);
         if ($close === false) {
             return -1;
         }
-        $line = strpos($value, "\n", $i);
+        $line = $lineEnd ?? strpos($value, "\n", $i);
         $end = AttributeParser::read($value, $i, $line === false ? strlen($value) : $line, new Attrs());
 
         return $end > 0 && ($empty || !AttributeParser::$lastEmpty) ? $end : -1;
@@ -2346,7 +2443,7 @@ final class Text
      */
     private static function braceTakesNode(string $flat, int $at, Context $c): bool
     {
-        $node = self::nextOf($flat, "\0", $at);
+        $node = self::nextNodeOf($flat, $at, $c);
         if ($node === false) {
             return false;
         }
@@ -2405,6 +2502,11 @@ final class Text
         $last[$needle] = [$flat, $at, $found];
 
         return $found;
+    }
+
+    private static function nextNodeOf(string $flat, int $at, Context $c): int|false
+    {
+        return $c->flatTypes === [] ? false : self::nextOf($flat, "\0", $at);
     }
 
     /**
@@ -3854,6 +3956,10 @@ final class Text
             return 0;
         }
         if (!str_contains(self::LINE_OPENERS, $ch) && (!ctype_alnum($ch) || Markers::quickReject($line, 0, strlen($line)))) {
+            return -1;
+        }
+        // Include and attribute lines are handled by anyLine(). No other block starts with a brace.
+        if ($ch === '{') {
             return -1;
         }
         // C2-W-121

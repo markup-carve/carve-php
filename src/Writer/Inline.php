@@ -297,6 +297,24 @@ final class Inline
         $reported = $out;
         $afterReported = $kinds === [] ? null : clone $c;
         $applied = [];
+        $fastAdded = [];
+        $hashOnlyText = false;
+        if (
+            count($nodes) === 1 && is_array($nodes[0] ?? null) && ($nodes[0]['type'] ?? null) === 'text'
+            && $kinds === ['#' => true]
+            && $c->runPairEscapes === [] && !$c->inCell && $this->leftBare($kinds)
+            && is_string($nodes[0]['value'] ?? null)
+            && !str_contains($nodes[0]['value'], "\n") && rtrim($nodes[0]['value'], " \t") === $nodes[0]['value']
+        ) {
+            $fast = Text::expandedHashKind($nodes[0]['value'], $out, $c);
+            if ($fast !== null) {
+                [$out, $fastAdded] = $fast;
+                $applied['#'] = true;
+                // A leaf with only text and no other mark cannot acquire another inline kind when hashes are escaped.
+                $hashOnlyText = strspn($nodes[0]['value'], 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 #{}')
+                === strlen($nodes[0]['value']);
+            }
+        }
         while (array_diff_key($kinds, $applied) !== [] && $this->leftBare($kinds)) {
             $this->bareLeads = [];
             $applied += $kinds;
@@ -311,13 +329,14 @@ final class Inline
             $c->writerState = $first->writerState;
         }
         // C2-W-088: a leaf whose kind rounds would read back as other inline content keeps the reported escapes only.
-        if ($afterReported !== null && $out !== $reported) {
+        if ($afterReported !== null && $out !== $reported && !$hashOnlyText) {
             $outShape = $this->inlineShape($out, $c);
             if ($outShape !== self::treeShape($nodes) && $outShape !== $this->inlineShape($reported, $c)) {
                 foreach (get_object_vars($afterReported) as $name => $field) {
                     $c->{$name} = $field;
                 }
                 $out = $reported;
+                $fastAdded = [];
             }
         }
         // C2-W-088: where a node did not read back, the backtick kind rounds give way to the reported openers.
@@ -332,6 +351,10 @@ final class Inline
             }
             $c->writerState = $first->writerState;
             $c->tickReportedOnly = false;
+            $fastAdded = [];
+        }
+        if ($fastAdded !== []) {
+            Text::recordExpandedHash($c, $fastAdded);
         }
         $c->kinds = [];
 
