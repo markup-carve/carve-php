@@ -35,6 +35,12 @@ final class WriterEscapePlacementTest extends TestCase
             'pipe pair ending in a hard break' => ["\\|a|\\\nb", "|a|\\\nb"],
             'quoted pipe line ending in a hard break' => ['> \\|a\\', '> |a\\'],
             'pipe line with a row below keeps it' => ["\\|a|\n\\|b|\\\nc", "\\|a|\n\\|b|\\\nc"],
+            // #5786: C2-W-069, a mark between two letters inside a braced span pairs with nothing (C2-I-053).
+            'slash between letters in a braced strong' => ['/*x*{*a/b*})/', '/*x*{*a/b*})/'],
+            'star between letters in a braced strong' => ['> *\\{*{*a*b*}{*a *}q', '> *\\{*{*a*b*}{*a *}q'],
+            'star between letters behind an escaped strong' => ['*\\{*{*a*b*}{*a *}q', '*\\{*{*a*b*}{*a *}q'],
+            'slash between letters in a bare strong keeps the brace' => ['{/*a/b*{*a/b*}c/}', '{/*a/b*{*a/b*}c/}'],
+            'slash between letters in the text keeps the brace' => ['{/usr/local/}', '{/usr/local/}'],
         ];
     }
 
