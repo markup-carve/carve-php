@@ -2055,7 +2055,7 @@ final class Inline
         // C2-W-094: a parenthesis glued behind a closing bracket would read as a link tail, unless that bracket ends a
         // full or collapsed reference, a footnote reference or an inline footnote with no bracket inside, which take no
         // tail (C2-I-066, C2-I-072).
-        if ($c->last === 0x5D && str_starts_with($value, '(') && self::tailCanFollow($before)) {
+        if ($c->last === 0x5D && str_starts_with($value, '(') && self::tailCanFollow($before) && self::tailCloses($c)) {
             $prefix .= '\\(';
             $value = substr($value, 1);
             $c->here += $c->here >= 0 ? 1 : 0;
@@ -2086,6 +2086,17 @@ final class Inline
             'link', 'image' => !is_string($before['key'] ?? null) || ($before['refForm'] ?? 'full') === 'shortcut',
             default => true,
         };
+    }
+
+    /**
+     * C2-I-066 to C2-I-069: whether the `(` of the text at `$c->here` opens a link tail that closes on its line; where
+     * the leaf's offsets are unknown, it may.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     */
+    private static function tailCloses(Context $c): bool
+    {
+        return $c->flat === null || $c->here < 0 || AltSource::tailEnd($c->flat, $c->here) >= 0;
     }
 
     /**
