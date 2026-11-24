@@ -97,7 +97,8 @@ final class Context
     public Layout $layout;
 
     /**
-     * @var array<string, int|null> The start of the last braced closer of a mark in a leaf block, by block path and closer.
+     * @var array<string, array{'*': int|null, '/': int|null}> The start of the last braced closer of each mark, by the path of
+     *   the inline content that holds it.
      */
     public array $closerStarts = [];
 

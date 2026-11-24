@@ -30,6 +30,11 @@ final class BracedSpanOpenerAsTextTest extends TestCase
             'strong opener in emphasis' => ['/a {*b/*}', ['3-5']],
             'quoted next line' => ["> *a {/b*\n> /}", ['5-7']],
             'closer only in the next block' => ["*a {/b* c\n\nd /}", []],
+            'closer in a code span' => ["*a {/b* c\nd `/}` e", []],
+            'escaped closer' => ["*a {/b* c\nd \\/} e", []],
+            'escaped backslash before the closer' => ["*a {/b* c\nd \\\\/} e", ['3-5']],
+            'closer after the link' => ["[*a {/b* c](url)\nd /} e", []],
+            'closer inside the link' => ["[*a {/b* c\nd /} e](url)", ['4-6']],
         ];
     }
 

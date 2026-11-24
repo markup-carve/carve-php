@@ -11,9 +11,10 @@ namespace MarkupCarve\Carve\Lint;
 final class NodeRulesB
 {
     /**
-     * @var array<string, true> The inline spans a braced closer search climbs through to the leaf block.
+     * @var array<string, true> The delimiter spans a closer search climbs through; a bracketed span (link, span, note)
+     * is its own content, since a pair never crosses its brackets.
      */
-    private const INLINE_SPANS = [
+    private const DELIMITER_SPANS = [
         'emphasis' => true,
         'strong' => true,
         'underline' => true,
@@ -23,10 +24,6 @@ final class NodeRulesB
         'subscript' => true,
         'insert' => true,
         'delete' => true,
-        'span' => true,
-        'link' => true,
-        'inline_footnote' => true,
-        'inline_extension' => true,
         'small_caps' => true,
     ];
 
@@ -86,24 +83,23 @@ final class NodeRulesB
             return;
         }
         $opener = $range[0] + $at;
-        $closer = $raw[$at + 1] . '}';
-        $last = self::lastCloser(self::leafBlock($split, $c), $closer, $c);
+        $last = self::lastClosers(self::contentOf($split, $c), $c)[$raw[$at + 1]];
         if ($last !== null && $last >= $opener + 2) {
             $c->report('braced-span-opener-as-text', $opener, $opener + 2, $path);
         }
     }
 
     /**
-     * The leaf block that holds an inline span: the first ancestor that is not an inline span.
+     * The inline content an opener can pair in: climb through the delimiter spans to the leaf block or bracketed span.
      *
      * @param string $path
      * @param \MarkupCarve\Carve\Lint\Context $c
      *
      * @return string
      */
-    private static function leafBlock(string $path, Context $c): string
+    private static function contentOf(string $path, Context $c): string
     {
-        while ($path !== '' && isset(self::INLINE_SPANS[$c->nodeTypes[$path] ?? ''])) {
+        while ($path !== '' && isset(self::DELIMITER_SPANS[$c->nodeTypes[$path] ?? ''])) {
             $path = $c->layout->parent($path);
         }
 
@@ -111,25 +107,52 @@ final class NodeRulesB
     }
 
     /**
-     * Where the last braced closer of a mark starts in a block, computed once per block so each opener costs one lookup.
+     * Where the last unescaped braced closer of each mark starts in the text of a content, once per content so each
+     * opener costs one lookup. Code, math and other opaque leaves hold no text nodes and so no closers.
      *
-     * @param string $block
-     * @param string $closer
+     * @param string $content
      * @param \MarkupCarve\Carve\Lint\Context $c
      *
-     * @return int|null
+     * @return array{'*': int|null, '/': int|null}
      */
-    private static function lastCloser(string $block, string $closer, Context $c): ?int
+    private static function lastClosers(string $content, Context $c): array
     {
-        $key = $block . "\0" . $closer;
-        if (!array_key_exists($key, $c->closerStarts)) {
-            $start = $c->layout->startOffset($block);
-            $end = $c->layout->endOffset($block);
-            $found = $start === null || $end === null ? false : strrpos(substr($c->source, $start, $end - $start), $closer);
-            $c->closerStarts[$key] = $found === false ? null : (int)$start + $found;
+        if (isset($c->closerStarts[$content])) {
+            return $c->closerStarts[$content];
+        }
+        $last = ['*' => null, '/' => null];
+        $stack = array_reverse(Support::kids($c->layout->node($content) ?? []));
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $type = $node['type'] ?? null;
+            if (is_string($type) && isset(self::DELIMITER_SPANS[$type])) {
+                array_push($stack, ...array_reverse(Support::kids($node)));
+
+                continue;
+            }
+            $range = $type === 'text' ? Support::bounds($node) : null;
+            if ($range === null) {
+                continue;
+            }
+            $text = substr($c->source, $range[0], $range[1] - $range[0]);
+            $from = 0;
+            while (($at = strpos($text, '}', $from)) !== false) {
+                $from = $at + 1;
+                $mark = $at > 0 ? $text[$at - 1] : '';
+                if ($mark !== '*' && $mark !== '/') {
+                    continue;
+                }
+                $escapes = 0;
+                while ($at - 2 - $escapes >= 0 && $text[$at - 2 - $escapes] === '\\') {
+                    $escapes++;
+                }
+                if ($escapes % 2 === 0) {
+                    $last[$mark] = $range[0] + $at - 1;
+                }
+            }
         }
 
-        return $c->closerStarts[$key];
+        return $c->closerStarts[$content] = $last;
     }
 
     /**
