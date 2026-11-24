@@ -100,3 +100,4 @@ CC-468: Hold standard tabs reader validation; the standard extension remains pro
 CC-601: Hold the obsolete node-start duplicate-id location; C2-W-138 requires the authored attribute span.
 CC-996: Hold the obsolete node-start duplicate-id location; C2-W-138 requires the authored attribute span.
 CC-1166: Hold the diagnostic range of a duplicate footnote with a lazy continuation; C2-W-138 does not distinguish the marker line from the full definition.
+lint-rules/braced-span-opener-as-text: Hold the shared fixture row `{*a {**} b*}`; its opener stands in a braced strong, which the catalog row excludes ("inside a bare emphasis or strong span"), and carve-js and carve-rs report none.

@@ -320,16 +320,16 @@ final class NodeRulesBTest extends TestCase
                 [],
             ],
             'braced-span-opener-as-text' => [
-                "{*a {**} b*}\n",
+                "*a {/b* c/}\n",
                 [
                     'braced-span-opener-as-text',
                     '/children/0/children/0/children/0',
-                    4,
-                    6,
+                    3,
+                    5,
                     'This braced span did not open: the delimiter inside it closed a span that started before '
                         . 'it. Escape that delimiter.',
                 ],
-                "{*a *} b*}\n",
+                "*a b* c/}\n",
                 [],
             ],
             'braced-span-opener-as-text/emphasis' => [
