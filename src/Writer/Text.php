@@ -1417,6 +1417,98 @@ final class Text
     }
 
     /**
+     * C2-W-146: the offsets the pair rules ask a backslash for in the text nodes of `$tree` as the rounds spell them
+     * with `$escapes`, by path, each run of text and soft breaks tested whole.
+     *
+     * @param array<mixed> $tree
+     * @param array<string, array<int, true>> $escapes
+     *
+     * @return array<string, array<int, true>>
+     */
+    public static function treePairOpeners(array $tree, array $escapes): array
+    {
+        $asked = [];
+        $pending = [['', $tree]];
+        while ($pending !== []) {
+            [$path, $node] = array_pop($pending);
+            foreach ($node as $key => $list) {
+                if (!is_array($list) || !array_is_list($list)) {
+                    continue;
+                }
+                $run = [];
+                foreach ([...$list, null] as $at => $child) {
+                    $type = is_array($child) ? ($child['type'] ?? null) : null;
+                    $childPath = $path . '/' . $key . '/' . $at;
+                    if ($type === 'text' && is_string($child['value'] ?? null)) {
+                        $run[] = self::spelledEntry($childPath, $child['value'], $escapes[$childPath] ?? []);
+
+                        continue;
+                    }
+                    if ($type === 'soft_break') {
+                        $run[] = new RunEntry($childPath, "\n", 1, [], '');
+
+                        continue;
+                    }
+                    self::askRunPairs($run, $asked);
+                    $run = [];
+                    if (is_array($child)) {
+                        $pending[] = [$childPath, $child];
+                    }
+                }
+            }
+        }
+
+        return $asked;
+    }
+
+    /**
+     * The text node `$value` as `RepairTrace::bareText()` spells it with the rounds' escapes `$offsets`.
+     *
+     * @param string $path
+     * @param string $value
+     * @param array<int, true> $offsets
+     */
+    private static function spelledEntry(string $path, string $value, array $offsets): RunEntry
+    {
+        $out = '';
+        $escaped = [];
+        $n = strlen(rtrim($value, "\r\n"));
+        for ($i = 0; $i < $n; $i++) {
+            if (isset($offsets[$i]) || ($value[$i] === '\\' && $i + 1 < $n && self::isPunct($value[$i + 1]))) {
+                $out .= '\\';
+                $escaped[$i] = true;
+            }
+            $out .= $value[$i];
+        }
+
+        return new RunEntry($path, $out . substr($value, $n), 0, $escaped, $value);
+    }
+
+    /**
+     * Adds to `$asked` what the pair rules ask of one run of text nodes and soft breaks.
+     *
+     * @param array<\MarkupCarve\Carve\Writer\RunEntry> $run
+     * @param array<string, array<int, true>> $asked
+     */
+    private static function askRunPairs(array $run, array &$asked): void
+    {
+        $texts = array_values(array_filter($run, static fn (RunEntry $entry): bool => $entry->value !== ''));
+        if ($texts === []) {
+            return;
+        }
+        $found = count($run) === 1
+            ? [$texts[0]->path => self::pairOpeners($texts[0]->out, $texts[0]->escaped, $texts[0]->value)]
+            : self::runPairOpeners($run);
+        foreach ($found as $path => $offsets) {
+            foreach ($offsets as $i => $on) {
+                if ($on) {
+                    $asked[$path][$i] = true;
+                }
+            }
+        }
+    }
+
+    /**
      * C2-W-146: the offsets of the text nodes of each run of text and soft breaks in `$log` that the pair rules ask a
      * backslash for, by path.
      *
