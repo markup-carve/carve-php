@@ -37,9 +37,6 @@ final class LintClauseTest extends TestCase
         if (in_array($case['id'], ['CC-813', 'CC-891'], true)) {
             $this->markTestSkipped('The pinned cases disagree on this diagnostic range; see _SPEC_GAPS.md.');
         }
-        if ($case['id'] === 'CC-2003') {
-            $this->markTestSkipped('CC-2003 ends the range one column past the span (carve#6534).');
-        }
         $source = $case['input'] ?? '';
         $expected = $case['expected'];
         if (isset($expected['refusal'])) {
