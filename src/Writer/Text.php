@@ -843,7 +843,9 @@ final class Text
             $escaped += array_fill_keys($firsts, true);
             self::$tickKindRounds++;
         }
-        $escaped += self::fenceLineTicks($flat, $owners);
+        if (!$c->inLineBlock) {
+            $escaped += self::fenceLineTicks($flat, $owners);
+        }
         $plan = [];
         $fixed = static fn (int $at): bool => !isset($owners[$at]);
         $firsts = $c->tickReportedOnly ? [] : $firsts;
@@ -2439,7 +2441,8 @@ final class Text
             '+' => $after === 0x2D && !self::plusMinusNeighbor($value, $i, $c, $next),
             '(' => strtolower(self::ahead($value, $i, 4, $c, $next)) === '(tm)',
             // C2-I-023
-            '%' => $after === 0x25 && ($prev === -1 || $prev === 10 || Chars::isSpace($prev) || ($i === 0 && $c->lineStart)),
+            '%' => !$c->inLineBlock && $after === 0x25
+                && ($prev === -1 || $prev === 10 || Chars::isSpace($prev) || ($i === 0 && $c->lineStart)),
             default => false,
         };
     }
@@ -3435,7 +3438,7 @@ final class Text
     private static function lineStartMark(string $value, Context $c, int $next): int
     {
         $c->behindMarker = [];
-        if (!$c->lineStart) {
+        if (!self::canOpenBlockAtLineStart($value, $c)) {
             return -1;
         }
         $tail = $c->lineTail ?? (in_array($next, [-1, 10], true) ? null : self::restOfLine($value, $c));
@@ -3481,6 +3484,13 @@ final class Text
         }
 
         return $mark;
+    }
+
+    private static function canOpenBlockAtLineStart(string $value, Context $c): bool
+    {
+        // A line block has no paragraph block openers. Only a comment fence can
+        // still claim its following lines inside the block.
+        return $c->lineStart && (!$c->inLineBlock || str_starts_with($value, '%%%'));
     }
 
     /**
