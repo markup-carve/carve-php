@@ -566,6 +566,11 @@ final class Text
     private static function potential(string $value, int $i, int $prev, int $after, Context $c, int $lineOpener): bool
     {
         $ch = $value[$i];
+        // A literal backslash has only the neighbor rule in needs(). A kind
+        // elsewhere in the leaf cannot turn one before a letter into an escape.
+        if ($ch === '\\') {
+            return false;
+        }
         if ($lineOpener === $i) {
             return true;
         }
