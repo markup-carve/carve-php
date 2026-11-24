@@ -21,6 +21,17 @@ final class ParseFindingsTest extends TestCase
             'C2-B-111 comment' => ["%%%\nx", [['unclosed-comment-fence', '/children/0', 0, 5]]],
             'C2-B-111 div' => [":::\nx", [['unclosed-container-fence', '/children/0', 0, 5]]],
             'C2-B-111 line block' => ["::: |\na", [['unclosed-container-fence', '/children/0', 0, 7]]],
+            // carve#6479: C2-B-123 makes the run in a line block body a comment block.
+            'C2-B-111 comment in a closed line block' => [
+                "::: |\na\n%%%\nc\n:::", [['unclosed-comment-fence', '/children/0/children/1', 8, 13]],
+            ],
+            'C2-B-111 comment in an unclosed line block' => [
+                "::: |\na\n%%%\nc\n", [
+                    ['unclosed-container-fence', '/children/0', 0, 13],
+                    ['unclosed-comment-fence', '/children/0/children/1', 8, 13],
+                ],
+            ],
+            'C2-B-111 closed comment in a line block' => ["::: |\na\n%%%\nc\n%%%\n:::", []],
             'C2-B-132 stray closer' => [
                 "- a\n  :::\n  x\n:::", [
                     ['unclosed-container-fence', '/children/0/children/0/children/1', 6, 13],

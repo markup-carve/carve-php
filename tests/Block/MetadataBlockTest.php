@@ -48,6 +48,18 @@ final class MetadataBlockTest extends TestCase
             'lazy line of a nested item paragraph' => ["- a\n  - b\n---yaml\nk\n---\n", ['list']],
             'list ending in a fence closes' => ["- ```\n  x\n  ```\n---yaml\nk\n---\n", ['list', 'paragraph']],
             'after a list and a blank line' => ["- a\n\n---yaml\nk\n---\n", ['list', 'frontmatter']],
+            // carve#6429: C2-B-025, C2-B-026 close the container at column 0, C2-B-232 opens the block.
+            'after a description list and a blank line' => [":: t\n: d\n\n---yaml\nk: v\n---\n", ['definition_list', 'frontmatter']],
+            'after a footnote and a blank line' => [
+                "x[^n]\n\n[^n]: y\n\n---yaml\nk: v\n---\n", ['paragraph', 'footnote', 'frontmatter'],
+            ],
+            'after a two-line footnote and a blank line' => [
+                "x[^n]\n\n[^n]: y\n  z\n\n---json\n{}\n---\n", ['paragraph', 'footnote', 'frontmatter'],
+            ],
+            'after a description list with two descriptions' => [
+                ":: t\n: d\n: e\n\n---toml\nk = 1\n---\n", ['definition_list', 'frontmatter'],
+            ],
+            'indented under a description stays inside' => [":: t\n: d\n\n  ---yaml\n  k\n  ---\n", ['definition_list']],
         ];
     }
 
