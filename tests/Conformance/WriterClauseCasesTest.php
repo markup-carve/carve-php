@@ -120,6 +120,7 @@ final class WriterClauseCasesTest extends TestCase
                 return [
                     ...self::refusalMismatches($expected['refusal'], $error),
                     ...self::diagnosticMismatches($expected, $error instanceof CarveWriteError ? $error->diagnostics : []),
+                    ...self::diagnosticMismatches($expected, $result->diagnostics),
                 ];
             }
 
