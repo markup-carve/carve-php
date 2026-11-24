@@ -2190,8 +2190,7 @@ final class Inline
         return match ($type) {
             'soft_break' => "\n",
             'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : "\\\n",
-            // C2-B-224 leaves a footnote label out: its `\|` stays two characters, so the key is written as it is.
-            'footnote_ref' => '[^' . self::labelText(self::str($node, 'key'), $c, false) . ']',
+            'footnote_ref' => $this->footnoteRef(self::str($node, 'key'), $path, $c),
             'symbol' => $this->sigil($type, $path, $next, ':' . self::str($node, 'name') . ':'),
             'tag' => $this->sigil($type, $path, $next, '#' . self::str($node, 'name')),
             'non_breaking_space' => $this->noBreakSpace($path, $c, $next),
@@ -3241,6 +3240,25 @@ final class Inline
         $title = is_string($tooltip) ? ' ' . BraceBlock::quoted($tooltip, $c->inCell) : '';
 
         return '(' . self::destination($href, $c->inCell) . $title . ')';
+    }
+
+    /**
+     * C2-B-224 leaves a footnote label out: its `\|` stays two characters, so the key is written as it is. A pipe
+     * without a backslash before it ends the cell (C2-B-169), so in a cell such a key has no spelling.
+     *
+     * @param string $key
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return string
+     */
+    private function footnoteRef(string $key, string $path, Context $c): string
+    {
+        if ($c->inCell && preg_match('/(?<!\\\\)\\|/', $key) === 1) {
+            $this->w->lose($path, 'footnote_ref', 'key');
+        }
+
+        return '[^' . self::labelText($key, $c, false) . ']';
     }
 
     /**

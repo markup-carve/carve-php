@@ -3407,7 +3407,7 @@ final class Text
 
     /**
      * Whether the written form of a node may hold a `]` that pairs an outer bracket, as `SEALED` reads it: attributes
-     * add none.
+     * add none. A list of nodes holds one where one of its nodes does.
      *
      * @param mixed $node
      *
@@ -3420,8 +3420,20 @@ final class Text
         }
 
         $type = $node['type'] ?? null;
+        if (is_string($type) && isset(self::SEALED[$type])) {
+            return false;
+        }
+        foreach ($node as $key => $value) {
+            // An attribute value stands inside its braces, where no `]` closes an outer bracket.
+            if ($key === 'attrs' || $key === 'type') {
+                continue;
+            }
+            if (is_string($value) ? str_contains($value, ']') : is_array($value) && self::holdsCloser($value)) {
+                return true;
+            }
+        }
 
-        return !(is_string($type) && isset(self::SEALED[$type])) && str_contains(Inline::strings($node), ']');
+        return false;
     }
 
     /**

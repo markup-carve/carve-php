@@ -36,6 +36,28 @@ final class FootnoteKeyCellPipeTest extends TestCase
         $this->assertSame($expected, Carve::format($expected));
     }
 
+    public function testAKeyWithABarePipeHasNoSpellingInACell(): void
+    {
+        $cell = [
+
+            'type' => 'table_cell',
+            'header' => false,
+            'children' => [
+                [
+                    'type' => 'cell_paragraph',
+                    'children' => [['type' => 'footnote_ref', 'namespace' => 'footnote', 'key' => 'a|b']],
+                ],
+            ],
+        ];
+        $table = [
+            'type' => 'table',
+            'columns' => [['type' => 'table_column']],
+            'children' => [['type' => 'table_body', 'children' => [['type' => 'table_row', 'children' => [$cell]]]]],
+        ];
+        $tree = ['type' => 'document', 'astVersion' => '2.0', 'children' => [$table]];
+        $this->assertSame(['field-unspellable'], Writer::writeWithDiagnostics($tree)->codes());
+    }
+
     /**
      * @return array<mixed>
      */

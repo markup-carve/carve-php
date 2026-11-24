@@ -28,6 +28,7 @@ final class ExtensionColonPairTest extends TestCase
             'nested pair leaves the outer bracket open' => ["\\%%\n:a[x[y]\n", "\\%%\n:a[x[y]\n"],
             'bracket inside a code span closes nothing' => ["\\%%\n:a[`]`\n", "\\%%\n:a[`]`\n"],
             'attributed node holds no closer' => ["\\%%\n:a[foo *bar*{#x}\n", "\\%%\n:a[foo *bar*{#x}\n"],
+            'closer in an attribute value' => ["\\%%\n:a[foo *bar*{title=\"]\"}\n", "\\%%\n:a[foo *bar*{title=]}\n"],
             'closer inside an attributed node' => ["\\%%\n\\:a[foo *b]r*{#x}\n", "\\%%\n\\:a[foo *b]r*{#x}\n"],
             'bracket behind underscores still closes' => ["\\%%\n\\:a[_x_]\n", "\\%%\n\\:a[\\_x_]\n"],
         ];
