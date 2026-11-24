@@ -1002,6 +1002,7 @@ final class Inline
         $node = (array)$nodes[$at];
         $following = $nodes[$at + 1] ?? null;
         $c->beforeSoftBreak = self::isSoftBreak($following);
+        $c->beforeHardBreak = is_array($following) && ($following['type'] ?? '') === 'hard_break';
         $after = is_array($following) ? self::first($following, $c) : $next;
         // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form. An empty span
         // writes nothing, so nothing glues to it.
@@ -1577,7 +1578,7 @@ final class Inline
             'text' => self::str($node, 'value'),
             'smart_punctuation' => self::str($node, 'source'),
             'abbreviation' => self::str($node, 'key'),
-            'hard_break' => $c->bareBreaks ? "\n" : '\\',
+            'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : '\\',
             'comment' => ($node['form'] ?? '') === 'braced' ? '{' : ' ',
             default => self::FIRST[$type] ?? '{',
         };
@@ -1597,7 +1598,7 @@ final class Inline
      */
     private function noBreakSpace(string $path, Context $c, int $next): string
     {
-        if ($c->inCell || ($next !== -1 && $next !== 10)) {
+        if ($c->inCell || ($next !== -1 && $next !== 10) || ($c->inLineBlock && $c->beforeHardBreak)) {
             return '\\ ';
         }
         $this->w->lose($path, 'non_breaking_space', null);

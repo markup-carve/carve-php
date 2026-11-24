@@ -97,6 +97,8 @@ final class Context
      */
     public bool $beforeSoftBreak = false;
 
+    public bool $beforeHardBreak = false;
+
     public bool $inBracket = false;
 
     /**
