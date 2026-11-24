@@ -64,6 +64,10 @@ final class WriterEscapePlacementTest extends TestCase
             // #5735: a run of two slashes is text (C2-I-049), so no escape splits it.
             'slash run before an emphasis holding code' => ['{//}/`x`/', '{//}/`x`/'],
             'slash run before an emphasis holding a link' => ['{//}/[x](u)/', '{//}/[x](u)/'],
+            // #5757: C2-W-146, a bare equals pair in a literal attribute block takes the backslash, then C2-W-088.
+            'equals pair in a literal attribute block' => ['a {x-y---=#i=} b', 'a {x-y-\\--\\=\\#i=} b'],
+            'equals pair in a block with a space keeps it' => ['a {x-y =#i=} b', 'a {x-y =#i=} b'],
+            'key values in prose keep the braces' => ['the map {a=1, b=2} here', 'the map {a=1, b=2} here'],
         ];
     }
 

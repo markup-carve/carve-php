@@ -401,7 +401,7 @@ final class Text
             // A brace that starts a line is left to the line rules, where a block attribute line may form.
             if (!$escape && $byte === 0x7B) {
                 $end = self::literalBlockEnd($value, $i);
-                if ($end > $i) {
+                if ($end > $i && !self::pairEscapeIn($c->pairEscapes, $i, $end)) {
                     $c->escapedAt += array_fill($i, $end - $i, false);
                     $out .= substr($value, $i, $end - $i);
                     $prev = 0x7D;
@@ -422,6 +422,27 @@ final class Text
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-146: whether a mark between `$from` and `$to` takes a backslash for a pair rule of lint, which an attribute
+     * block copied whole would leave bare.
+     *
+     * @param array<int, true> $pairEscapes
+     */
+    private static function pairEscapeIn(array $pairEscapes, int $from, int $to): bool
+    {
+        if ($pairEscapes === []) {
+            return false;
+        }
+        // The range is the block `literalBlockEnd()` has just read, so the scan stays within its cost.
+        for ($at = $from + 1; $at < $to; $at++) {
+            if (isset($pairEscapes[$at])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
