@@ -41,6 +41,11 @@ final class WriterEscapePlacementTest extends TestCase
             'star between letters behind an escaped strong' => ['*\\{*{*a*b*}{*a *}q', '*\\{*{*a*b*}{*a *}q'],
             'slash between letters in a bare strong keeps the brace' => ['{/*a/b*{*a/b*}c/}', '{/*a/b*{*a/b*}c/}'],
             'slash between letters in the text keeps the brace' => ['{/usr/local/}', '{/usr/local/}'],
+            // #5841: C2-I-047, C2-I-048, the flanking of a mark reads the code point beside it, not a byte of it.
+            'escaped star behind U+FFFD' => ["\u{FFFD}\\*©*[*", "\u{FFFD}\\*©*[*"],
+            'escaped star behind a CJK letter' => ['日\\*本*[*', '日*本*[*'],
+            'escaped star behind an accented letter' => ['é\\*x*[*', 'é*x*[*'],
+            'star behind a non-breaking space' => ["a\\*\u{A0}*x*", "a*\u{A0}*x*"],
         ];
     }
 

@@ -2455,7 +2455,7 @@ final class Text
         for ($at = 0; $at < $n; $at++) {
             $ch = $text[$at];
             if ($ch === "\0") {
-                $before = $at > 0 ? min(ord($text[$at - 1]), 0x80) : -1;
+                $before = Chars::before($text, $at);
                 self::pairNode($types[$at] ?? '', $nodes[$at] ?? [], $open, $paired, $bracket, $before);
 
                 continue;
@@ -2468,8 +2468,9 @@ final class Text
             if ($ch !== '*' && $ch !== '/') {
                 continue;
             }
-            $before = $at > 0 ? ord($text[$at - 1]) : -1;
-            $after = $at + 1 < $n ? ord($text[$at + 1]) : -1;
+            // C2-I-047, C2-I-048: the flanking tests read code points, not the bytes of a UTF-8 sequence.
+            $before = Chars::before($text, $at);
+            $after = Chars::at($text, $at + 1);
             // C2-I-049: the mark a bare brace takes as a braced opener does not count for the run behind it.
             $behindBraced = $braced !== null && $at > 1 && $text[$at - 1] === $ch && $text[$at - 2] === '{' && $braced($at - 1);
             if (
@@ -2597,7 +2598,7 @@ final class Text
         $first = is_array($node['children'] ?? null) ? $node['children'][0] ?? null : null;
         $value = is_array($first) && ($first['type'] ?? null) === 'text' && is_string($first['value'] ?? null) ? $first['value'] : '';
 
-        return $value !== '' && Chars::isWord(ord($value[0]));
+        return $value !== '' && Chars::isWord(Chars::at($value, 0));
     }
 
     /**
