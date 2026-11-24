@@ -40,6 +40,9 @@ final class SpanCloserDropsOpenerTest extends TestCase
             'text brace before a strong holding an empty braced emphasis' => ['\\``c`* {/*{//} {/  **^*|', '\\``c`* {/*{//} {/  **^*|'],
             'brace glued before the closer of a subscript' => ['{, \\^\\{\\{,,} ', '{, ^{\\{,,}'],
             'brace glued before the closer of a highlight' => ['{=a\\{=}', '{=a\\{=}'],
+            'empty braced superscript in the text' => ['\\{^^},}^},', '{^^},}^},'],
+            'empty braced subscript in quoted text' => ['> ,{,,},,}a,,^},,}', '> ,{,,},,}a,,^},,}'],
+            'empty braced strong in the text of an emphasis' => ['x {/{**}*}}', 'x {/{**}*}}'],
         ];
     }
 

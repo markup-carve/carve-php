@@ -1983,7 +1983,7 @@ final class Text
     private static function closerFollows(string $flat, int $from, string $mark, Context $c): bool
     {
         $c->closers ??= self::closers($flat, $c);
-        [$offsets, $shifts, $closes, $forced, $opened] = $c->closers;
+        [$offsets, $shifts, $closes, $forced, $opened, $written] = $c->closers;
         if (($forced[$mark] ?? -1) > $from) {
             return true;
         }
@@ -1993,6 +1993,10 @@ final class Text
         }
         // The run starts behind the mark, which is the first character of an atom at `$from`.
         $start = self::writtenAt($from, $offsets, $shifts) + 1;
+        // C2-I-043, C2-I-057: a closer glued behind the opener takes it holding nothing, so `{^^}` forms nothing.
+        if ($mark !== '%' && substr($written, $start, 2) === $mark . '}') {
+            return false;
+        }
         // C2-I-043: a braced pair other than a comment holds at least one character, so `{==}` forms nothing.
         $last = $closes[$mark] ?? -1;
 
@@ -2011,7 +2015,7 @@ final class Text
      * @param string $flat
      * @param \MarkupCarve\Carve\Writer\Context $c
      *
-     * @return array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>, 4: array<string, int>}
+     * @return array{0: array<int>, 1: array<int>, 2: array<string, int>, 3: array<string, int>, 4: array<string, int>, 5: string}
      */
     private static function closers(string $flat, Context $c): array
     {
@@ -2065,7 +2069,7 @@ final class Text
             $closes[$mark] = self::lastCloser($written, $mark);
         }
 
-        return [$offsets, $shifts, $closes, $forced, $opened];
+        return [$offsets, $shifts, $closes, $forced, $opened, $written];
     }
 
     /**
