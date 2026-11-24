@@ -538,7 +538,7 @@ final class LineShapes
         $q = $s[$k];
         if ($title && ($q === '"' || $q === "'")) {
             $close = self::titleEnd($s, $k + 1, $end, $q);
-            if ($close <= $k + 1) {
+            if ($close < 0) {
                 return null;
             }
             $tooltip = self::quotedTitle($s, $k + 1, $close, $q);
