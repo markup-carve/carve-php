@@ -85,8 +85,9 @@ final class DataAttributes
         }
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
         $last = $children === [] ? null : $children[count($children) - 1];
-        $lastPos = is_array($last) && is_array($last['pos'] ?? null) ? $last['pos'] : [];
-        $lastEnd = is_int($lastPos['endOffset'] ?? null) ? $lastPos['endOffset'] : 0;
+        $lastPos = is_array($last) ? $last['pos'] ?? null : null;
+        $lastEnd = is_int($lastPos) ? $lastPos & 0xFFFFFFFF
+            : (is_array($lastPos) && is_int($lastPos['endOffset'] ?? null) ? $lastPos['endOffset'] : 0);
         $from = max($start + 1, $lastEnd);
         for ($at = strpos($this->source, '{', $from); $at !== false && $at < $end; $at = strpos($this->source, '{', $at + 1)) {
             if ($this->run($at, $end, false) === $end) {

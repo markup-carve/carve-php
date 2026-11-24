@@ -89,6 +89,11 @@ final class TreeEncoder
     private bool $offsetsOnly = false;
 
     /**
+     * Positions of the main source as the int `startOffset << 32 | endOffset` (lint).
+     */
+    private bool $packedPos = false;
+
+    /**
      * @var array<int, array<bool>>
      */
     private array $omittedAbbreviationExpansions = [];
@@ -445,8 +450,31 @@ final class TreeEncoder
     public function encodeForLint(Node $root, string $source): array
     {
         $this->compactEmptyCells = true;
+        $this->packedPos = true;
 
         return $this->encodeReleasing($root, $source);
+    }
+
+    /**
+     * An encoder that only expands the packed positions of `$source`, see `position()`.
+     */
+    public static function positions(string $source): self
+    {
+        $encoder = new self();
+        $encoder->sources[''] = $source;
+        $encoder->setSource('');
+
+        return $encoder;
+    }
+
+    /**
+     * The `pos` the encoder writes for a packed position of the source given to `positions()`.
+     *
+     * @return array<string, int>
+     */
+    public function position(int $packed): array
+    {
+        return $this->pos($packed >> 32, $packed & 0xFFFFFFFF);
     }
 
     /**
@@ -485,7 +513,7 @@ final class TreeEncoder
         if ($children !== null) {
             $out['children'] = $children;
         }
-        if ($positions && $node->start >= 0 && $node->type !== 'document' && $this->offsetsOnly) {
+        if ($positions && $node->start >= 0 && $node->type !== 'document' && $this->packs($node)) {
             $out['pos'] = $node->start << 32 | $node->end;
         } elseif ($positions && $node->start >= 0 && $node->type !== 'document') {
             $file = $node->file ?? '';
@@ -501,6 +529,11 @@ final class TreeEncoder
         }
 
         return $out;
+    }
+
+    private function packs(Node $node): bool
+    {
+        return $this->offsetsOnly || $this->packedPos && ($node->file ?? '') === '';
     }
 
     /**
