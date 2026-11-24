@@ -1436,14 +1436,19 @@ final class DataRules
                     $deferredInline[] = $record;
                 }
             },
-            static function (stdClass $record) use ($self, $apply, $needBlocks, $deferred, &$deferredBlocks): void {
+            static function (stdClass $record) use ($self, $apply, $needBlocks, $deferred, &$deferredBlocks): bool {
+                $kept = false;
                 if (isset($needBlocks[$record->type ?? '']) || isset($needBlocks['*'])) {
                     $self->lookupRecords['block'][] = $record;
+                    $kept = true;
                 }
                 $apply($record, 'block');
                 if (isset($deferred['block']['*']) || isset($deferred['block'][$record->type ?? ''])) {
                     $deferredBlocks[] = $record;
+                    $kept = true;
                 }
+
+                return $kept;
             },
             $acceptBlock,
             $mightUseBlock,

@@ -160,7 +160,7 @@ final class DataModel
     /**
      * @param \MarkupCarve\Carve\Lint\Context $context
      * @param \Closure(\stdClass): void $onInline
-     * @param \Closure(\stdClass): void $onBlock
+     * @param \Closure(\stdClass): bool $onBlock Whether the rules keep the record past the call.
      * @param \Closure(string, string, string, array<string, mixed>, int, int, int): bool $acceptBlock
      * @param \Closure(string, string): bool $mightUseBlock
      * @param \Closure(string, array<string, mixed>|null, int, int): bool $mightUseInline
@@ -1015,10 +1015,6 @@ final class DataModel
                 after_quote_mark: null,
                 prev_type: null,
             );
-            // The record carries the same span fields, so it is its own bounds entry.
-            if ($needBounds) {
-                $this->blocks[] = $record;
-            }
             if (in_array($type, ['table', 'table_row', 'table_cell'], true)) {
                 $tablePath = $item->path;
                 while ($tablePath !== '' && ($c->nodeTypes[$tablePath] ?? '') !== 'table') {
@@ -1036,7 +1032,14 @@ final class DataModel
                 $record->node = null;
                 $record->nodeSource = $node;
             }
-            ($this->onBlock)($record);
+            // A record the rules keep carries the same span fields, so it is its own bounds entry.
+            if (($this->onBlock)($record)) {
+                if ($needBounds) {
+                    $this->blocks[] = $record;
+                }
+            } elseif ($needBounds) {
+                $this->blocks[] = new BlockBounds(...$bounds);
+            }
         }
         $this->blockWalked = [];
     }
