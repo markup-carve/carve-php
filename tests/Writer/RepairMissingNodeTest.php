@@ -23,8 +23,8 @@ final class RepairMissingNodeTest extends TestCase
     public static function sources(): array
     {
         return [
-            'superscript behind a text' => ['^}{,,}{^^\\{\\^^} {{,\\}{^', '^}{,,}{^^{\\^^} {{,}{^'],
-            'superscript behind a subscript' => ['^}{,,,}{^^\\{\\^^} {{,\\}{^', '^}{,,,}{^^{\\^^} {{,}{^'],
+            'superscript behind a text' => ['^}{,,}{^^\\{\\^^} {{,\\}{^', '^}{,,}{^^\\{^^} {{,}{^'],
+            'superscript behind a subscript' => ['^}{,,,}{^^\\{\\^^} {{,\\}{^', '^}{,,,}{^^\\{^^} {{,}{^'],
             'strong behind a code span' => ['\\``c`* \\*/}{*{//}{/ **}', null],
         ];
     }

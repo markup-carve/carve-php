@@ -2032,11 +2032,12 @@ final class Text
         if (self::emptyPairAt($rest, $i === 0 && $span[2])) {
             return false;
         }
-        if ($i === 0 && $span[2]) {
-            return true;
-        }
         // A node behind the text may supply the closer, or keep the brace from forming; the read-back decides.
         $later = self::laterSpanText($span, $next);
+        // C2-I-036: behind a node a brace may open its attribute block, which no `/` or `*` starts.
+        if ($i === 0 && $span[2] && ($later === null || ($next !== '*' && $next !== '/'))) {
+            return true;
+        }
         if ($later === null) {
             return $i < strlen($value) - 1 || self::undecided();
         }
@@ -2099,7 +2100,8 @@ final class Text
             return false;
         }
 
-        return $next === '*' || $next === '/' ? $span[3] : $next !== '%' && ($i === 0 || $value[$i - 1] !== $next);
+        // C2-I-055: behind a braced opener of the same mark the brace is that opener's content, not glued to the closer.
+        return $next === '*' || $next === '/' ? $span[3] : $next !== '%' && ($i < 2 || $value[$i - 1] !== $next || $value[$i - 2] !== '{');
     }
 
     /**

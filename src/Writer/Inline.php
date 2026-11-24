@@ -2210,8 +2210,9 @@ final class Inline
         // Only the escape decisions read the facts, and a traced write spells its texts bare.
         if ($c->writerState?->repairTrace === null) {
             $braced = isset($open[$type]) || self::bracedAlways($node, $prev, $next, $path . '/children', $this->bracedPaired);
-            // Only a span that is surely bare has its closer without a `}` behind it.
-            $behind = $braced || !self::textEdges($children, $mark) ? 0x7D : $next;
+            // A span not braced whatever its texts is written bare; where it still takes the braced form, the
+            // read-back reports a closer its texts left bare (C2-W-069, C2-W-125).
+            $behind = $braced ? 0x7D : $next;
             self::noteSpanTexts($children, $path . '/children', $mark, $c, $braced, $behind);
         }
         $inner = $this->content($children, $path . '/children', $c, ord($mark));
@@ -2341,24 +2342,6 @@ final class Inline
     }
 
     /**
-     * Whether the content starts and ends with text, and does not end with a `{` and `$mark`, which a brace test may
-     * escape: then C2-W-069 decides the form from the texts alone.
-     *
-     * @param array<mixed> $children
-     * @param string $mark
-     */
-    private static function textEdges(array $children, string $mark): bool
-    {
-        $first = $children[0] ?? null;
-        $last = $children[count($children) - 1] ?? null;
-        if (!is_array($first) || !is_array($last) || self::str($first, 'type') !== 'text' || self::str($last, 'type') !== 'text') {
-            return false;
-        }
-
-        return !str_ends_with(self::str($last, 'value'), '{' . $mark);
-    }
-
-    /**
      * C2-I-055: whether the written content ends with a bare `{` and a mark, the mark of a braced opener, which is no
      * delimiter that pairs with the closer behind it.
      */
@@ -2376,8 +2359,8 @@ final class Inline
     /**
      * Whether the run of `$run` marks at `$at` of the text `$nodes[$k]` is a brace's: the second mark of an empty pair
      * `{//}`, which takes its own closer and forms nothing beside any node (C2-I-043), or a bare brace's that no closer
-     * takes. With a node beside the brace, the brace may take a backslash, which frees its mark; a node behind the text
-     * that spells no bare `$mark` keeps it, and its texts may hold the closer, where the content ends in text.
+     * takes (C2-I-055, C2-I-058). A node behind the text that spells no bare `$mark` keeps it, and its texts may hold
+     * the closer.
      *
      * @param array<mixed> $nodes
      * @param string|int $k
@@ -2391,11 +2374,8 @@ final class Inline
         if ($run === 2 && $at > 0 && $value[$at - 1] === '{' && ($value[$at + 2] ?? '') === '}') {
             return true;
         }
-        $last = $nodes[array_key_last($nodes)];
         $later = $k === array_key_last($nodes) ? '' : self::laterOpenText(array_slice($nodes, (int)$k + 1), $mark);
-        // Content that ends in a node may be written braced, and its text escapes read the closer as `/}` (noteSpanTexts).
-        $endsInText = is_array($last) && self::str($last, 'type') === 'text';
-        if ($later === null || ($later !== '' && !$endsInText) || ($at <= 1 && $k !== array_key_first($nodes))) {
+        if ($later === null) {
             return false;
         }
 
@@ -2412,7 +2392,7 @@ final class Inline
             return false;
         }
 
-        return !Text::bracedCloserPairs(substr($value, $at + $run + ($run === 1 ? 1 : 0)), $mark);
+        return !Text::bracedCloserPairs(substr($value, $at + $run), $mark);
     }
 
     /**
