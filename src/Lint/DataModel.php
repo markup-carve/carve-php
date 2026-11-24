@@ -509,9 +509,7 @@ final class DataModel
                 && $sourceLine->content >= $sourceLine->start
                 && $sourceLine->content <= $sourceLine->end
                 ? $sourceLine->content
-                : ($holder !== null && $holder->startLine === $i + 1
-                    && $holder->start >= $sourceLine->start && $holder->start <= $sourceLine->end
-                    ? $holder->start : self::quoteStart($sourceLine, $marks));
+                : self::quoteStart($sourceLine, $marks);
             $masked = $this->masked($sourceLine);
             $body = self::trimEnd(substr($masked, $start - $sourceLine->start));
             $rawBody = $masked === $sourceLine->text
