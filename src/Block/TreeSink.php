@@ -172,8 +172,8 @@ final class TreeSink implements Sink
         $para = Node::at('paragraph', $caption->spans[0], $caption->end);
         $para->lines = $caption->spans;
         $cap->children = [$para];
-        if ($node->type !== 'code_block') {
-            // C2-A-082: comments below an open block stay inside that block.
+        if ($node->type === 'table' || $node->type === 'figure_group') {
+            // C2-A-082: a table or a figure group takes the comments above its caption; behind any other block they stay siblings.
             foreach ($after as $comment) {
                 $node->children[] = $comment;
             }
