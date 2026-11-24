@@ -2530,7 +2530,8 @@ final class Text
             }
             $type = is_string($child['type'] ?? null) ? $child['type'] : '';
             if ($type === 'text' && is_string($child['value'] ?? null)) {
-                self::textMarks($child['value'], $mark, $edge, $k === $last ? $edge : 0x7D, $closes, $between, $blocked);
+                $behind = $k === $last ? $edge : 0x7D;
+                self::textMarks($child['value'], $mark, $edge, $behind, $closes, $between, $blocked, $k > array_key_first($nodes));
             } elseif (
                 !isset(self::WHOLE[$type]) && !in_array($type, ['link', 'image', 'span', 'inline_footnote', 'inline_extension'], true)
                 && is_array($child['children'] ?? null)
@@ -2555,6 +2556,7 @@ final class Text
      * @param bool $closes
      * @param bool $between
      * @param bool $blocked
+     * @param bool $afterNode
      */
     private static function textMarks(
         string $value,
@@ -2564,6 +2566,7 @@ final class Text
         bool &$closes,
         bool &$between,
         bool &$blocked,
+        bool $afterNode = false,
     ): void {
         $n = strlen($value);
         for ($at = strpos($value, $mark); $at !== false; $at = strpos($value, $mark, $at + 1)) {
@@ -2573,8 +2576,10 @@ final class Text
 
                 continue;
             }
-            // C2-I-060: the mark of a bare brace with no closer behind it is that opener's, and pairs with nothing.
-            if ($at > 0 && $value[$at - 1] === '{' && !str_contains(substr($value, $at + 2), $mark . '}')) {
+            // C2-I-060: the mark of a bare brace with no closer behind it is that opener's, and pairs with nothing. With
+            // a node behind the text, the brace may take a backslash, which frees its mark.
+            $alone = $behind !== 0x7D && ($at > 1 || !$afterNode);
+            if ($alone && $at > 0 && $value[$at - 1] === '{' && !str_contains(substr($value, $at + 2), $mark . '}')) {
                 continue;
             }
             $before = $at > 0 ? Chars::before($value, $at) : $edge;

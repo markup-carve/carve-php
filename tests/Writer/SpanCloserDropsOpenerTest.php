@@ -56,4 +56,29 @@ final class SpanCloserDropsOpenerTest extends TestCase
         self::assertSame($expected . "\n", Carve::write($tree));
         self::assertSame(Carve::toHtml($source), Carve::toHtml($expected));
     }
+
+    /**
+     * Codex review of #5864: a strong braced for its trailing backslash, and braces with a node beside them. The form
+     * of these is not pinned; it must read back without a diagnostic, through `format()` and `write()`.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function provideReadBack(): array
+    {
+        return [
+            'strong ending in a backslash with a brace inside' => ['*[{*\\\\*'],
+            'strong holding a brace before an emphasis' => ['*{*/[/*'],
+            'brace behind a subscript in an emphasis' => ['} {*/{,\\\\,}{*/[*} y'],
+        ];
+    }
+
+    #[DataProvider('provideReadBack')]
+    public function testWritesAFormThatReadsBack(string $source): void
+    {
+        $result = Carve::formatWithDiagnostics($source);
+        self::assertSame([], $result->diagnostics);
+        self::assertSame(Carve::toHtml($source), Carve::toHtml($result->source));
+        $tree = json_decode(Carve::toJson($source), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(Carve::toHtml($source), Carve::toHtml(Carve::write($tree)));
+    }
 }
