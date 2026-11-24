@@ -43,9 +43,16 @@ final class TableWriter
     private array $blocked = [];
 
     /**
-     * Whether the row being written holds backticks in two or more cells.
+     * Whether the cell being written keeps a backslash on every backtick (C2-B-169).
      */
     private bool $tickedRow = false;
+
+    /**
+     * The cells of the row being written that keep a backslash on every backtick, by index.
+     *
+     * @var array<int, true>
+     */
+    private array $tickedCells = [];
 
     /**
      * @var int
@@ -663,23 +670,27 @@ final class TableWriter
      */
     private function row(array $row, string $path, bool $head, bool $bodyHeader): array
     {
-        $first = [];
-        $continued = [];
         // C2-L-019: the recorded continuation rows include those with only empty fragments.
         $below = $this->w->fact($path, 'continuationLines');
         // Without the count the wraps alone place the continuation rows.
         $below = is_int($below) ? max(0, $below) : PHP_INT_MAX;
         $height = $below === PHP_INT_MAX ? 1 : $below + 1;
-        $this->tickedRow = self::tickedCells($row) >= 2;
-        foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
-            [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader, $below);
-            $text = $fragments[0] ?? '';
-            $first[] = $text === '' ? $prefix . ' ' : $prefix . ' ' . $text . ' ';
-            if (count($fragments) > 1) {
-                $continued[count($first) - 1] = $fragments;
-                $height = max($height, max(array_keys($fragments)) + 1);
+        $this->tickedCells = [];
+        $points = $this->w->wrapPoints;
+        $start = $height;
+        [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $start);
+        // C2-B-169: a cell whose bare run would pair with a run of a later cell keeps a backslash on every backtick.
+        $ticked = $this->w->repairTrace === null && self::tickedCells($row) >= 2;
+        while ($ticked) {
+            $cells = self::cellsPairedAcross([$first, ...self::continuedSegments($first, $continued, $height)], $this->tickedCells);
+            if ($cells === []) {
+                break;
             }
+            $this->tickedCells += $cells;
+            $this->w->wrapPoints = $points;
+            [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $start);
         }
+        $this->tickedCells = [];
         if ($first === []) {
             // C2-W-057: a row with no cell has no spelling, `||` is a row of one empty cell.
             $this->w->lose($path, 'table_row', null);
@@ -687,6 +698,56 @@ final class TableWriter
         $tail = $this->rowAttributes($row, $path);
         $lines = [];
         $lines[] = ['lead' => '|', 'segments' => $first, 'tail' => $tail];
+        foreach (self::continuedSegments($first, $continued, $height) as $segments) {
+            $lines[] = ['lead' => '+', 'segments' => $segments, 'tail' => ''];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The first-line segment of each cell of a row, the fragments of the cells that continue, and the row's height.
+     *
+     * @param array<mixed> $row
+     * @param string $path
+     * @param bool $head
+     * @param bool $bodyHeader
+     * @param int $below
+     * @param int $height
+     *
+     * @return array{array<string>, array<int, array<int, string>>, int}
+     */
+    private function cellLines(array $row, string $path, bool $head, bool $bodyHeader, int $below, int $height): array
+    {
+        $first = [];
+        $continued = [];
+        foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
+            $this->tickedRow = isset($this->tickedCells[count($first)]);
+            [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader, $below);
+            $this->tickedRow = false;
+            $text = $fragments[0] ?? '';
+            $first[] = $text === '' ? $prefix . ' ' : $prefix . ' ' . $text . ' ';
+            if (count($fragments) > 1) {
+                $continued[count($first) - 1] = $fragments;
+                $height = max($height, max(array_keys($fragments)) + 1);
+            }
+        }
+
+        return [$first, $continued, $height];
+    }
+
+    /**
+     * The segments of each continuation row of a row.
+     *
+     * @param array<string> $first
+     * @param array<int, array<int, string>> $continued
+     * @param int $height
+     *
+     * @return array<array<string>>
+     */
+    private static function continuedSegments(array $first, array $continued, int $height): array
+    {
+        $lines = [];
         for ($line = 1; $line < $height; $line++) {
             $segments = array_fill(0, count($first), ' ');
             foreach ($continued as $at => $fragments) {
@@ -695,10 +756,77 @@ final class TableWriter
                     $segments[$at] = ' ' . $text . ' ';
                 }
             }
-            $lines[] = ['lead' => '+', 'segments' => $segments, 'tail' => ''];
+            $lines[] = $segments;
         }
 
         return $lines;
+    }
+
+    /**
+     * The segments whose backtick run the row split (C2-B-169) pairs with a run of a later segment, on any line. A
+     * segment found takes a backslash on every backtick, so the scan reads it as holding no run, as later lines do.
+     *
+     * @param array<array<string>> $lines
+     * @param array<int, true> $ticked
+     *
+     * @return array<int, true>
+     */
+    private static function cellsPairedAcross(array $lines, array $ticked): array
+    {
+        $found = [];
+        foreach ($lines as $segments) {
+            $line = implode('|', $segments);
+            $pipes = [];
+            $from = -1;
+            foreach ($segments as $segment) {
+                $from += strlen($segment) + 1;
+                $pipes[] = $from;
+            }
+            $end = strlen($line);
+            $k = 0;
+            $cell = 0;
+            $open = [];
+            while ($k < $end) {
+                $k += strcspn($line, '\\`', $k);
+                if ($k >= $end) {
+                    break;
+                }
+                if ($line[$k] === '\\') {
+                    $k += 2;
+
+                    continue;
+                }
+                while ($pipes[$cell] < $k) {
+                    $cell++;
+                }
+                if (isset($found[$cell]) || isset($ticked[$cell])) {
+                    $k = $pipes[$cell] + 1;
+
+                    continue;
+                }
+                $run = strspn($line, '`', $k);
+                $close = isset($open[$run]) ? false : $k + $run;
+                while ($close !== false && ($close = strpos($line, '`', $close)) !== false && strspn($line, '`', $close) !== $run) {
+                    $close += strspn($line, '`', $close);
+                }
+                if ($close === false) {
+                    // No later run of this length closes it, nor any later run of the same length.
+                    $open[$run] = true;
+                    $k += $run;
+
+                    continue;
+                }
+                if ($pipes[$cell] < $close) {
+                    $found[$cell] = true;
+                    $k = $pipes[$cell] + 1;
+
+                    continue;
+                }
+                $k = $close + $run;
+            }
+        }
+
+        return $found;
     }
 
     /**
