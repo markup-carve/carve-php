@@ -370,6 +370,11 @@ final class Context
     public bool $gluedBrace = false;
 
     /**
+     * Whether that brace is glued before the opener of a node whose mark is not `#` (C2-I-060).
+     */
+    public bool $gluedNode = false;
+
+    /**
      * C2-W-125, case one: the offsets of the text being written whose brace is glued before a node.
      *
      * @var array<int, true>

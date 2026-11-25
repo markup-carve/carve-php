@@ -259,6 +259,12 @@ final class Text
     public static bool $caseFive = false;
 
     /**
+     * While `$recorded` is set: a glued brace of C2-W-125 case one was escaped that stands elsewhere than before the
+     * opener of a node whose mark is not `#`.
+     */
+    public static bool $gluedElsewhere = false;
+
+    /**
      * Set where a cell holds a text backtick: the tick plan of the leaf cannot see the pipes a code span pairs across
      * (C2-B-169) or the fragments of a continued cell (C2-B-184), so the read-back rounds place those backslashes.
      */
@@ -595,6 +601,9 @@ final class Text
             }
             if ($escape && self::gluedBrace($c)) {
                 $c->gluedBraces[$i] = true;
+                if (!$c->gluedNode && self::$recorded !== null) {
+                    self::$gluedElsewhere = true;
+                }
             }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;
@@ -2244,6 +2253,7 @@ final class Text
             // C2-I-060: a braced opener with no closer still takes the mark of the node, which then cannot open.
             if (!isset($c->flatAtoms[$at + 1]) && $mark !== '' && str_contains(self::MARKS . '%', $mark)) {
                 $c->gluedBrace = true;
+                $c->gluedNode = $mark !== '#';
 
                 return true;
             }
@@ -2336,6 +2346,7 @@ final class Text
         if (self::gluedBeforeOwnCloser($value, $i, $span, $later)) {
             // C2-W-088: a backslash of C2-W-125 gives no kind.
             $c->gluedBrace = true;
+            $c->gluedNode = false;
 
             return true;
         }
