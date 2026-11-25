@@ -254,6 +254,11 @@ final class Text
     public static bool $undecided = false;
 
     /**
+     * Set where the bracket plan escaped a text `[` for C2-W-125 case five (`caseFiveLinks()`).
+     */
+    public static bool $caseFive = false;
+
+    /**
      * Set where a cell holds a text backtick: the tick plan of the leaf cannot see the pipes a code span pairs across
      * (C2-B-169) or the fragments of a continued cell (C2-B-184), so the read-back rounds place those backslashes.
      */
@@ -1951,7 +1956,7 @@ final class Text
 
             return (self::$nestedBrackets[2][$i] ?? true) || self::undecided();
         }
-        $c->brackets ??= self::brackets((string)$c->flat, $c->labels, $c->flatFirst, self::sealed($c));
+        $c->brackets ??= self::brackets((string)$c->flat, $c->labels, $c->flatFirst, self::sealed($c), self::caseFiveLinks($c));
 
         return $c->brackets[$c->here + $i] ?? true;
     }
@@ -1965,17 +1970,18 @@ final class Text
      * @param array<string, true> $labels
      * @param array<int, int> $nodeFirst
      * @param array<int, true> $sealed
+     * @param array<int, true> $caseFive
      *
      * @return array<int, bool>
      */
-    private static function brackets(string $flat, array $labels, array $nodeFirst, array $sealed): array
+    private static function brackets(string $flat, array $labels, array $nodeFirst, array $sealed, array $caseFive): array
     {
         // C2-I-118: near the depth cap a bracket that pairs nothing still counts, so the plan keeps its backslash
         // there rather than leave the bracket to the read-back.
         $conservative = self::$conservative;
         self::$conservative = $conservative || self::openDepth($flat) >= Tables::INLINE_DEPTH;
         try {
-            return self::bracketPlan($flat, $labels, $nodeFirst, $sealed);
+            return self::bracketPlan($flat, $labels, $nodeFirst, $sealed, $caseFive);
         } finally {
             self::$conservative = $conservative;
         }
@@ -2022,26 +2028,37 @@ final class Text
      * @param array<string, true> $labels
      * @param array<int, int> $nodeFirst
      * @param array<int, true> $sealed
+     * @param array<int, true> $caseFive The inline links `caseFiveLinks()` finds, by offset.
      *
      * @return array<int, bool>
      */
-    private static function bracketPlan(string $flat, array $labels, array $nodeFirst, array $sealed): array
+    private static function bracketPlan(string $flat, array $labels, array $nodeFirst, array $sealed, array $caseFive = []): array
     {
         $out = [];
         $open = [];
         $node = PHP_INT_MAX;
         $holder = PHP_INT_MAX;
         $first = PHP_INT_MAX;
+        // Whether no `]` stands between the bracket and the nearest node behind it.
+        $bareToNode = false;
         for ($k = strlen($flat) - 1; $k >= 0; $k--) {
             $ch = $flat[$k];
             if ($ch === "\0") {
                 $node = $k;
+                $bareToNode = true;
                 if (!isset($sealed[$k])) {
                     $holder = $k;
                 }
             } elseif ($ch === ']') {
                 $open[] = $k;
                 $first = $k;
+                $bareToNode = false;
+            } elseif (
+                $ch === '[' && $open === [] && $bareToNode && isset($caseFive[$node]) && $labels === []
+                && ($flat[$k + 1] ?? '') !== '^' && self::plainOpener($flat, $k)
+            ) {
+                $out[$k] = true;
+                self::$caseFive = true;
             } elseif ($ch === '[') {
                 // C2-I-076: a footnote label ends at the first closing bracket.
                 $pair = $open === [] ? PHP_INT_MAX : $open[count($open) - 1];
@@ -2057,6 +2074,58 @@ final class Text
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-088, C2-W-125 case five: read bare, the escaped `]` of these links closes the link's opener, and the link's
+     * closer then pairs with the nearest text `[` before it, each such `[` in turn, as carve-js plans it. Only inline
+     * links whose text holds no other bracket and no node, and no `[` or `{` behind the `]`; the rest stays undecided.
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return array<int, true>
+     */
+    private static function caseFiveLinks(Context $c): array
+    {
+        $out = [];
+        foreach ($c->flatTypes as $at => $type) {
+            $node = $c->flatNodes[$at] ?? null;
+            if ($type !== 'link' || !is_array($node) || isset($node['key']) || !is_string($node['href'] ?? null)) {
+                continue;
+            }
+            $text = '';
+            foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+                if (!is_array($child) || ($child['type'] ?? null) !== 'text' || !is_string($child['value'] ?? null)) {
+                    continue 2;
+                }
+                $text .= $child['value'];
+            }
+            $close = strpos($text, ']');
+            if (
+                $close !== false && !str_contains($text, '[') && strpos($text, ']', $close + 1) === false
+                && !str_starts_with($text, '^') && !in_array($text[$close + 1] ?? '', ['[', '{'], true)
+            ) {
+                $out[$at] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * A text `[` that no caret, `!`, backslash or inline extension name before it turns into another construct.
+     */
+    private static function plainOpener(string $flat, int $k): bool
+    {
+        if ($k === 0) {
+            return true;
+        }
+        if (str_contains("^!\\\0", $flat[$k - 1])) {
+            return false;
+        }
+        $name = strspn(strrev(substr($flat, max(0, $k - 64), min($k, 64))), Tables::SIGIL_INLINE_EXTENSION_REST);
+
+        return $name === 0 || ($flat[$k - $name - 1] ?? ':') !== ':';
     }
 
     /**

@@ -81,6 +81,11 @@ final class Writer
     private static array $localOwn = [];
 
     /**
+     * `Text::$caseFive` of the last local write.
+     */
+    private static bool $localCaseFive = false;
+
+    /**
      * Whether the last `bareSource()` placed a backslash of C2-W-125 itself.
      */
     private static bool $bareRepaired = false;
@@ -447,6 +452,13 @@ final class Writer
         // C2-W-088: the backslashes a row's pairing across a pipe gives were placed as the first round places them;
         // where that form reads back, the procedure ends there.
         if (self::$cellKinds && $result->diagnostics === []) {
+            $print = self::trimmedPrint($tree, $layout, $options);
+            if (self::readsBack($result->source, $print, $options)) {
+                return self::withPrunedNoteCarets($result, $print, $options, $parsed);
+            }
+        }
+        // C2-W-125 case five: the plan placed the escapes the rounds would add one link per round (carve-js#5592).
+        if (self::$localCaseFive && !$undecided && $result->diagnostics === []) {
             $print = self::trimmedPrint($tree, $layout, $options);
             if (self::readsBack($result->source, $print, $options)) {
                 return self::withPrunedNoteCarets($result, $print, $options, $parsed);
@@ -2302,6 +2314,7 @@ final class Writer
         Text::$recordedPairs = [];
         Text::$recordedOwn = [];
         Text::$undecided = false;
+        Text::$caseFive = false;
         Text::$cellTicks = false;
         Text::$cellKinds = false;
         Text::$conservative = $conservative;
@@ -2311,6 +2324,7 @@ final class Writer
             self::$cellTicks = Text::$cellTicks;
             self::$cellKinds = Text::$cellKinds;
             self::$localOwn = Text::$recordedOwn;
+            self::$localCaseFive = Text::$caseFive;
 
             return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided, Text::$recordedPairs];
         } finally {
@@ -2319,6 +2333,7 @@ final class Writer
             Text::$recordedPairs = [];
             Text::$recordedOwn = [];
             Text::$undecided = false;
+            Text::$caseFive = false;
             Text::$conservative = false;
             Text::$bareSigils = false;
         }
