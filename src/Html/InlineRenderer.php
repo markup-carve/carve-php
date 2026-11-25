@@ -74,6 +74,13 @@ final class InlineRenderer
 
     private string $moved = '';
 
+    /**
+     * C2-H-043: set for the text of one line block line; the lead holds until the first node of the line is written.
+     */
+    private bool $verse = false;
+
+    private bool $verseLead = false;
+
     public ?Profile $profile = null;
 
     /**
@@ -107,6 +114,26 @@ final class InlineRenderer
     }
 
     /**
+     * The content of a line of a line block, with its whitespace kept (C2-H-043).
+     *
+     * @param array<\MarkupCarve\Carve\Node> $nodes
+     * @param int $depth
+     *
+     * @return string
+     */
+    public function verseLine(array $nodes, int $depth): string
+    {
+        $this->verse = true;
+        $this->verseLead = true;
+        try {
+            return $this->inlines($nodes, $depth);
+        } finally {
+            $this->verse = false;
+            $this->verseLead = false;
+        }
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Node> $nodes
      * @param int $depth
      * @param bool $nested
@@ -132,11 +159,12 @@ final class InlineRenderer
             } elseif ($node->type === 'text') {
                 $value = $node->f['value'] ?? '';
                 // Plain text needs no escaping: the check of Escape::text, done here to save two calls.
-                $out .= is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value) ? $value
-                    : Escape::text(PlainText::str($value));
+                $out .= !$this->verse && is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value)
+                    ? $value : $this->textHtml(PlainText::str($value));
             } else {
                 $out .= $this->other($node, $list, $i, $depth);
             }
+            $this->verseLead = false;
         }
 
         return $out;
@@ -160,6 +188,7 @@ final class InlineRenderer
             } else {
                 $out .= $profile->inline($node, $depth, $this);
             }
+            $this->verseLead = false;
         }
 
         return $out;
@@ -336,6 +365,51 @@ final class InlineRenderer
         }
     }
 
+    private function textHtml(string $value): string
+    {
+        return $this->verse ? $this->verseText($value) : Escape::text($value);
+    }
+
+    /**
+     * C2-H-043: a run of spaces and tabs is one `&nbsp;` per column when it leads the line or covers two or more
+     * columns, else one space. Columns count from the start of the text node; a tab goes to the next multiple of 4.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    private function verseText(string $value): string
+    {
+        $out = '';
+        $col = 0;
+        $lead = $this->verseLead;
+        $len = strlen($value);
+        $i = 0;
+        while ($i < $len) {
+            $n = strcspn($value, " \t", $i);
+            if ($n > 0) {
+                $part = substr($value, $i, $n);
+                $out .= Escape::text($part);
+                // One column per code point: every byte but a UTF-8 continuation byte.
+                $col += $n - (int)preg_match_all('/[\x80-\xBF]/', $part);
+                $i += $n;
+                $lead = false;
+
+                continue;
+            }
+            $n = strspn($value, " \t", $i);
+            $start = $col;
+            for ($end = $i + $n; $i < $end; $i++) {
+                $col = $value[$i] === "\t" ? intdiv($col, 4) * 4 + 4 : $col + 1;
+            }
+            $width = $col - $start;
+            $out .= $lead || $width > 1 ? str_repeat('&nbsp;', $width) : ' ';
+            $lead = false;
+        }
+
+        return $out;
+    }
+
     private function fixed(string $type): string
     {
         return $type === 'hard_break' && $this->o->xhtml ? "<br />\n" : self::FIXED[$type];
@@ -345,7 +419,7 @@ final class InlineRenderer
     {
         $type = $node->type;
         if ($type === 'text') {
-            return Escape::text(PlainText::str($node->f['value'] ?? ''));
+            return $this->textHtml(PlainText::str($node->f['value'] ?? ''));
         }
         if (isset(self::FIXED[$type])) {
             return $this->fixed($type);

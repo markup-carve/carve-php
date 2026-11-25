@@ -1739,10 +1739,7 @@ final class HtmlRenderer
      */
     private function lineHtml(Node $line, int $depth): string
     {
-        $html = $this->inline->inlines($line->children ?? [], $depth + 2);
-        $spaces = strspn($html, ' ');
-
-        return str_repeat('&nbsp;', $spaces) . substr($html, $spaces);
+        return $this->inline->verseLine($line->children ?? [], $depth + 2);
     }
 
     /**
