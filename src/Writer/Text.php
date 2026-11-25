@@ -1154,7 +1154,7 @@ final class Text
             } elseif ($type === 'soft_break' || $type === 'hard_break') {
                 $flat .= "\n";
             } elseif (is_string($type) && isset(self::PLAN_SPANS[$type]) && is_array($node['children'] ?? null)) {
-                if (str_contains(Inline::strings(array_diff_key($node, ['children' => true])), '`')) {
+                if (Inline::holds($node, '`', 'children')) {
                     return false;
                 }
                 $flat .= "\1";
@@ -1166,7 +1166,7 @@ final class Text
                 $spelled = (string)self::plannedAtom($node);
                 $atomSpans[] = [strlen($flat) + (int)strpos($spelled, '`'), strlen($flat) + (int)strrpos($spelled, '`') + 1];
                 $flat .= $spelled;
-            } elseif (in_array($type, self::TICK_ATOMS, true) || str_contains(Inline::strings($node), '`')) {
+            } elseif (in_array($type, self::TICK_ATOMS, true) || Inline::holds($node, '`')) {
                 return false;
             } else {
                 $flat .= "\1";
@@ -1544,7 +1544,7 @@ final class Text
     {
         foreach ($c->flatNodes as $node) {
             $type = $node['type'] ?? null;
-            if (is_string($type) && !isset(self::WHOLE[$type]) && str_contains(Inline::strings($node), '`')) {
+            if (is_string($type) && !isset(self::WHOLE[$type]) && Inline::holds($node, '`')) {
                 return true;
             }
         }
@@ -2151,7 +2151,7 @@ final class Text
             $node = $c->flatNodes[$at] ?? null;
             if (
                 isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
-                && ((isset(self::SEALED[$type]) && !self::openComment($node)) || !str_contains(Inline::strings($node), ']')))
+                && ((isset(self::SEALED[$type]) && !self::openComment($node)) || !Inline::holds($node, ']')))
             ) {
                 $out[$at] = true;
             }
@@ -4148,7 +4148,7 @@ final class Text
             return chr($first) . ($tick ? 'x`' : 'x');
         }
 
-        return str_contains(Inline::strings($node), '`') ? null : chr($first) . 'x';
+        return Inline::holds($node, '`') ? null : chr($first) . 'x';
     }
 
     /**
@@ -4179,7 +4179,7 @@ final class Text
             }
         }
 
-        return str_contains(Inline::strings(is_array($node['attrs'] ?? null) ? $node['attrs'] : []), '`') ? true : false;
+        return Inline::holds(is_array($node['attrs'] ?? null) ? $node['attrs'] : [], '`') ? true : false;
     }
 
     /**

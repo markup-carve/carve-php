@@ -1394,6 +1394,29 @@ final class Inline
     }
 
     /**
+     * Whether one of `strings()` of `$node` holds `$mark`, a single character, without building them.
+     *
+     * @param array<mixed> $node
+     * @param string $mark
+     * @param string|null $skip A field of `$node` itself left out.
+     *
+     * @return bool
+     */
+    public static function holds(array $node, string $mark, ?string $skip = null): bool
+    {
+        foreach ($node as $key => $value) {
+            if ($key === $skip) {
+                continue;
+            }
+            if (is_string($value) ? str_contains($value, $mark) : is_array($value) && self::holds($value, $mark)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The text a node holds outside brackets and outside nodes of `$mark`, each text closed by `\0`: where its closers of
      * `$mark` are written bare (C2-I-055).
      *
@@ -2100,7 +2123,7 @@ final class Inline
             // C2-I-066: the bracket of an inline extension is no link text, so no tail follows it.
             'footnote_ref', 'inline_extension' => false,
             // Bare, a bracket inside the note pairs with its closer, and the tail makes a link of that pair.
-            'inline_footnote' => str_contains(self::strings($before), '['),
+            'inline_footnote' => self::holds($before, '['),
             'link', 'image' => !is_string($before['key'] ?? null) || ($before['refForm'] ?? 'full') === 'shortcut',
             default => true,
         };
@@ -2823,7 +2846,7 @@ final class Inline
             $type = $node['type'] ?? '';
             if (
                 !in_array($type, ['text', 'soft_break', 'hard_break', 'link', 'inline_footnote'], true)
-                || isset($node['attrs']) || str_contains(self::strings(array_diff_key($node, ['children' => true])), '}')
+                || isset($node['attrs']) || self::holds($node, '}', 'children')
                 || (is_array($node['children'] ?? null) && self::mayWriteBrace($node['children']))
             ) {
                 return true;
