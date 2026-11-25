@@ -1168,7 +1168,7 @@ final class Blocks
             $this->w->lose($path, Inline::str($node, 'type'), null);
         }
         if ($mark === '') {
-            $text = self::protectParagraphLead($text, $children, $this->w->lead, $path);
+            $text = self::protectLead($text, $children, $this->w->lead, $path, $this->w->repairTrace === null);
         }
         $text = self::endContent($text, $children, $c);
         if ($mark === '' && ($node['type'] ?? null) === 'paragraph' && self::metadataLead($children, $path, $text)) {
@@ -1194,7 +1194,7 @@ final class Blocks
      *
      * @return string
      */
-    private static function protectParagraphLead(string $text, array $children, ?string $head, string $path): string
+    public static function protectParagraphLead(string $text, array $children, ?string $head, string $path): string
     {
         if (!self::mayOpenBlock($text)) {
             return $text;
@@ -1313,7 +1313,50 @@ final class Blocks
         return $paragraph ?? $text;
     }
 
-    private static function mayOpenBlock(string $text): bool
+    /**
+     * `protectParagraphLead()`, and for content that goes on its first line; a traced write leaves that to the rounds.
+     *
+     * @param string $text
+     * @param array<mixed> $children
+     * @param string|null $head
+     * @param string $path
+     * @param bool $lines
+     *
+     * @return string
+     */
+    private static function protectLead(string $text, array $children, ?string $head, string $path, bool $lines): string
+    {
+        $newline = strpos($text, "\n");
+        if ($newline === false) {
+            return self::protectParagraphLead($text, $children, $head, $path);
+        }
+
+        return $lines ? self::firstLine($text, $newline, $children, $head, $path) : $text;
+    }
+
+    /**
+     * C2-W-092: a first line that starts with text is tested as it is written (Text::firstLine), and only an attribute or
+     * include line starts with a brace, which the text writer tests too.
+     *
+     * @param string $text
+     * @param int $newline
+     * @param array<mixed> $children
+     * @param string|null $head
+     * @param string $path
+     *
+     * @return string
+     */
+    private static function firstLine(string $text, int $newline, array $children, ?string $head, string $path): string
+    {
+        $first = $children[0] ?? null;
+        if ($text[0] === '{' || (is_array($first) && ($first['type'] ?? null) === 'text')) {
+            return $text;
+        }
+
+        return FirstLine::protect($text, $newline, $children, $head, $path);
+    }
+
+    public static function mayOpenBlock(string $text): bool
     {
         if ($text === '' || str_contains($text, "\n")) {
             return false;
@@ -1367,7 +1410,7 @@ final class Blocks
      * The block tree of a source without its inline pass: no later stage changes a block's kind, and the inline nodes
      * of a long paragraph cost far more than its blocks (carve-php#5664).
      */
-    private static function blocksOf(string $source): Node
+    public static function blocksOf(string $source): Node
     {
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source);
@@ -1382,7 +1425,7 @@ final class Blocks
      * @param \MarkupCarve\Carve\Node $root
      * @param array<string> $containers
      */
-    private static function firstBlockIsParagraph(Node $root, array $containers): bool
+    public static function firstBlockIsParagraph(Node $root, array $containers): bool
     {
         $node = $root->children[0] ?? null;
         foreach ($containers as $type) {
@@ -1402,7 +1445,7 @@ final class Blocks
      *
      * @return array<string>
      */
-    private static function containers(string $line): array
+    public static function containers(string $line): array
     {
         static $known = [];
         if (isset($known[$line])) {
@@ -1507,10 +1550,12 @@ final class Blocks
             $inlines = is_array($block) && is_array($block['children'] ?? null) ? $block['children'] : [];
             $c = $this->context($inlines, false);
             $outer = $this->w->takeSmartRun();
-            $part = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
-            // A text number mark at the caption lead would read back as caption_number.
-            if (str_starts_with($part, '#') && is_array($inlines[0] ?? null) && ($inlines[0]['type'] ?? '') === 'text') {
-                $part = '\\' . $part;
+            $outerTexts = Text::$captionTexts;
+            Text::$captionTexts = self::captionTexts($inlines, $path . '/children/' . $at . '/children');
+            try {
+                $part = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
+            } finally {
+                Text::$captionTexts = $outerTexts;
             }
             if ($this->w->takeSmartRun()) {
                 SmartReadBack::leafReadBack($this->w, $inlines, $part, $path . '/children/' . $at, 'caption');
@@ -1520,6 +1565,30 @@ final class Blocks
         }
         $this->w->lead = ($this->w->lead ?? $prefix) . '^ ';
         $this->w->emitLines($prefix, '  ', implode(' ', $parts));
+    }
+
+    /**
+     * C2-B-207: the top-level texts of a caption before its number mark that hold a `#`.
+     *
+     * @param array<mixed> $inlines
+     * @param string $path
+     *
+     * @return array<string, true>
+     */
+    private static function captionTexts(array $inlines, string $path): array
+    {
+        $texts = [];
+        foreach ($inlines as $at => $inline) {
+            $type = is_array($inline) ? $inline['type'] ?? null : null;
+            if ($type === 'caption_number') {
+                break;
+            }
+            if ($type === 'text' && str_contains(Inline::str($inline, 'value'), '#')) {
+                $texts[$path . '/' . $at] = true;
+            }
+        }
+
+        return $texts;
     }
 
     /**

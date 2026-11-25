@@ -40,4 +40,23 @@ final class Fuzz5WriterRenderImportTest extends TestCase
         self::assertSame("| | |\n+ | ---JSON c |\n", Carve::format("||\n+|---JSON c |\n"));
         self::assertSame("| a | |\n+ | x *b* c |\n", Carve::format("| a ||\n+| x *b* c |\n"));
     }
+
+    public function testTreeWriteKeepsTheEscapesOfACaptionMarkAndADefinitionShape(): void
+    {
+        foreach (["Text\n\n![]()\n^ Fig \\#\n", "![]()\n^ a \\# b\n", "![]()\n^ #1 \\# x\n", "[^1]\\: n\nx\n"] as $source) {
+            self::assertSame($source, Carve::write(Carve::parse($source)));
+            self::assertSame($source, Carve::format($source));
+        }
+        self::assertSame("[^1]\\: n\nx\n", Carve::format(" [^1]: n\nx\n"));
+        self::assertSame("| a |\\\nx\n", Carve::format("\\| a |\\\nx\n"));
+    }
+
+    public function testHardBreakBlockLineThatWouldCloseItKeepsItsEscape(): void
+    {
+        $source = "::: \\\n:::\\\n.}\n";
+        $expected = "::: \\\n\\:::\n.}\n:::\n";
+        self::assertSame($expected, Carve::write(Carve::parse($source)));
+        self::assertSame($expected, Carve::formatWithDiagnostics($source)->source);
+        self::assertSame([], Carve::formatWithDiagnostics($source)->codes());
+    }
 }
