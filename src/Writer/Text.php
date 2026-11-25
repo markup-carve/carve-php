@@ -7,10 +7,12 @@ namespace MarkupCarve\Carve\Writer;
 use Closure;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\IncludeShape;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\Markers;
 use MarkupCarve\Carve\Block\TableBuilder;
+use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
@@ -4079,8 +4081,15 @@ final class Text
         $flat = $c->flat;
         $n = strlen($flat);
         $rest = '';
-        for ($i = $c->here + strlen($value); $i < $n && $flat[$i] !== "\n"; $i++) {
-            $spelled = $flat[$i] !== "\0" ? $flat[$i] : $c->flatAtoms[$i] ?? self::nodeOnLine($i, $c);
+        for ($i = $c->here + strlen($value); $i < $n; $i++) {
+            // The text up to the next node or line end is taken whole.
+            $run = strcspn($flat, "\0\n", $i);
+            $rest .= substr($flat, $i, $run);
+            $i += $run;
+            if ($i >= $n || $flat[$i] === "\n") {
+                break;
+            }
+            $spelled = $c->flatAtoms[$i] ?? self::nodeOnLine($i, $c);
             if ($spelled === null) {
                 return null;
             }
@@ -4421,7 +4430,11 @@ final class Text
         if ($read !== null) {
             return $read;
         }
-        $children = Carve::parse($source)->children ?? [];
+        // The top blocks are the block pass's; the inline pass and resolution only fill and annotate them. An include
+        // is expanded after the block pass, so that line takes the whole parse.
+        $sink = new TreeSink($source);
+        (new BlockParser($sink))->parse($source);
+        $children = $sink->hasInclude ? Carve::parse($source)->children ?? [] : $sink->root?->children ?? [];
         $read = [count($children), (string)($children[0]->type ?? '')];
         if (count(self::$blockReads) >= self::BLOCK_READS) {
             self::$blockReads = [];
