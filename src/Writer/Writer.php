@@ -412,8 +412,20 @@ final class Writer
             return;
         }
         foreach ($value as $at => $part) {
-            if (is_array($part)) {
-                $step = str_replace(['~', '/'], ['~0', '~1'], (string)$at);
+            if (!is_array($part)) {
+                continue;
+            }
+            // A node of scalar fields alone has no fallback, attributes or nodes in it.
+            $leaf = is_string($part['type'] ?? null);
+            foreach ($leaf ? $part : [] as $field) {
+                if (is_array($field)) {
+                    $leaf = false;
+
+                    break;
+                }
+            }
+            if (!$leaf) {
+                $step = is_int($at) ? (string)$at : str_replace(['~', '/'], ['~0', '~1'], $at);
                 self::findAttributeSlotLineFeeds($part, $path . '/' . $step, $losses, $fallbackNodes);
             }
         }
