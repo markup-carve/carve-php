@@ -108,7 +108,8 @@ final class Alignments
     }
 
     /**
-     * C2-M-039: the columns a parse counts (C2-B-172), with the slots that row spans from above take in each row.
+     * C2-M-039: the columns a parse counts (C2-B-172), with the slots that row spans from above take in each row, placed
+     * as `placed` places them.
      *
      * @param array<array<string, mixed>> $groups
      *
@@ -116,15 +117,26 @@ final class Alignments
      */
     public static function gridWidth(array $groups): int
     {
-        $rows = [];
-        foreach ($groups as $g => $group) {
-            foreach (J::nodes($group) as $r => $row) {
-                $rows[$g][$r] = J::nodes($row);
-            }
-        }
         $width = 0;
-        foreach (self::placed($groups, $rows) as [$g, $r, $c, $column]) {
-            $width = max($width, $column + (J::int($rows[$g][$r][$c], 'colspan') ?? 1));
+        foreach ($groups as $group) {
+            $freeAt = [];
+            foreach (J::nodes($group) as $r => $row) {
+                $column = 0;
+                foreach (J::nodes($row) as $cell) {
+                    while (($freeAt[$column] ?? 0) > $r) {
+                        $column++;
+                    }
+                    $span = J::int($cell, 'colspan') ?? 1;
+                    $rowspan = J::int($cell, 'rowspan') ?? 1;
+                    if ($rowspan > 1) {
+                        for ($more = 0; $more < $span; $more++) {
+                            $freeAt[$column + $more] = max($freeAt[$column + $more] ?? 0, $r + $rowspan);
+                        }
+                    }
+                    $column += $span;
+                }
+                $width = max($width, $column);
+            }
         }
 
         return $width;
