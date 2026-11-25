@@ -298,6 +298,25 @@ final class ReferenceApparatusTest extends TestCase
         $this->assertMatchesRegularExpression('~ref-doe.*ref-roe.*ref-a".*ref-b"~s', $out);
     }
 
+    public function testAPoolEntryGoesIntoTheLastDirectiveList(): void
+    {
+        $source = "See :cite[c].\n\n::: references\n:: a\n: A.\n:::\n\n::: references\n:: b\n: B.\n:::\n";
+        $this->assertSame(self::lines([
+            '<p>See [<a id="cite-c-1" href="#ref-c" data-cite-key="c">3</a>].</p>',
+            '<div class="references">',
+            '  <ol class="references">',
+            '    <li id="ref-a">A.</li>',
+            '  </ol>',
+            '</div>',
+            '<div class="references">',
+            '  <ol start="2" class="references">',
+            '    <li id="ref-b">B.</li>',
+            '    <li id="ref-c">Pool.. <a href="#cite-c-1" class="ref-backref">↩</a></li>',
+            '  </ol>',
+            '</div>',
+        ]), $this->html($source, Citations::bundle(bibliography: [['id' => 'c', 'title' => 'Pool.']])));
+    }
+
     public function testCitationsFromACslPool(): void
     {
         $bundle = Citations::bundle(bibliography: [

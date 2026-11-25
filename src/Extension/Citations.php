@@ -113,12 +113,13 @@ final class Citations
         [$entries, $directives] = self::collect($view, $bibliography ?? []);
         $backlinked = $bibliography !== null;
         [$order, $numbers, $refIds, $useIds, $sourceKeys] = self::number($view, $entries, $directives, $mode, $backlinked);
-        $placed = false;
+        $placed = 0;
         $claimed = false;
         // C2-X-058 (carve#6123): each claimed directive lists every entry it defines, in source order.
         $cited = array_values(array_filter($order, static fn (string $key): bool => !isset($sourceKeys[$key])));
         $list = static fn (array $keys): Node => self::list($keys, $entries, $refIds, $useIds, $mode, true, $numbers[$keys[0] ?? ''] ?? 1);
-        Apparatus::walk($view, static function (Node $node) use (&$placed, &$claimed, $directives, $cited, $list): ?Node {
+        $last = count($directives);
+        Apparatus::walk($view, static function (Node $node) use (&$placed, &$claimed, $directives, $cited, $list, $last): ?Node {
             if (!self::isReferences($node)) {
                 return null;
             }
@@ -127,17 +128,17 @@ final class Citations
             $kept = static fn (Node $child): bool => !self::isEntryList($child);
             $body->children = array_values(array_filter($body->children ?? [], $kept));
             $keys = $directives[$node] ?? [];
-            if (!$placed) {
-                // The first directive also lists the pool entries the document cites.
+            $placed++;
+            if ($placed === $last) {
+                // carve#6759: the last directive also lists the pool entries the document cites, so items keep their numbers.
                 $keys = [...$keys, ...$cited];
             }
             $body->children[] = $list($keys);
-            $placed = true;
             $claimed = true;
 
             return Apparatus::claimDirective(self::REFERENCES, $node, [$body]);
         });
-        if (!$placed && $order !== []) {
+        if ($placed === 0 && $order !== []) {
             // No directive places the list: it goes at the end of the document, as in 0.1.
             $node = new Node('block_extension', []);
             $node->f['name'] = self::REFERENCES;
