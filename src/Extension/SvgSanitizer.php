@@ -13,7 +13,8 @@ use MarkupCarve\Carve\Html\UrlPolicy;
  * A tokenizer, not a regex scrub: an element off the allowlist is dropped with its subtree, an attribute off the
  * allowlist and every `on*` handler is dropped, URL and style values are checked, and only the survivors are written
  * again. The output holds no `<script>`, `<foreignObject>`, `<style>`, event handler, dangerous or external URL, or
- * active CSS. Output bytes equal carve-js on the same input, except for the fixes of carve#6755 and carve#6760.
+ * active CSS. Output bytes equal carve-js on the same input, except for the fixes of carve#6755,
+ * carve#6760 and carve#6761.
  */
 final class SvgSanitizer
 {
@@ -117,6 +118,11 @@ final class SvgSanitizer
         'marker-start', 'marker-mid', 'marker-end', 'color', 'stop-color',
         'flood-color', 'values', 'from', 'to', 'by',
     ];
+
+    /**
+     * @var array<string>
+     */
+    private const ANIMATION_VALUE_ATTRS = ['values', 'from', 'to', 'by'];
 
     /**
      * The named references that can spell a scheme; decoded for checks only, never for output.
@@ -365,9 +371,11 @@ final class SvgSanitizer
     {
         $lowerTag = strtolower($tag);
         $externalHref = ($this->opts->allowLinks && $lowerTag === 'a') || ($this->opts->allowExternalImages && $lowerTag === 'image');
+        $attrs = self::parseAttrs($raw);
+        $animatesHref = self::animatesHref($attrs);
         $out = '';
         $seen = [];
-        foreach (self::parseAttrs($raw) as [$name, $value]) {
+        foreach ($attrs as [$name, $value]) {
             if (isset($seen[$name])) {
                 continue;
             }
@@ -376,10 +384,45 @@ final class SvgSanitizer
             if ($isRoot && strtolower($name) === 'xmlns') {
                 continue;
             }
+            $animationValue = in_array(strtolower($name), self::ANIMATION_VALUE_ATTRS, true);
+            if ($animatesHref && $animationValue && $value !== null && !self::localRefs($value)) {
+                continue;
+            }
             $out .= $this->sanitizeAttribute($name, $value, $externalHref);
         }
 
         return $out;
+    }
+
+    /**
+     * carve#6761: an animation of `href` may only hold `#id` entries, like the `href` it changes.
+     *
+     * @param array<array{string, string|null}> $attrs
+     */
+    private static function animatesHref(array $attrs): bool
+    {
+        foreach ($attrs as [$name, $value]) {
+            if (strtolower($name) === 'attributename' && $value !== null) {
+                $target = strtolower(self::trim(self::normalizeForCheck($value)));
+                if ($target === 'href' || $target === 'xlink:href') {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function localRefs(string $value): bool
+    {
+        foreach (explode(';', self::normalizeForCheck($value)) as $segment) {
+            $segment = self::trim($segment);
+            if ($segment !== '' && !str_starts_with($segment, '#')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

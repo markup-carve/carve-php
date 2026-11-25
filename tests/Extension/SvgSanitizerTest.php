@@ -111,6 +111,24 @@ final class SvgSanitizerTest extends TestCase
         );
     }
 
+    public function testAnHrefAnimationKeepsOnlyLocalReferences(): void
+    {
+        $opts = ['allowAnimation' => true];
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><set attributeName="href"/></use></svg>',
+            SvgSanitizer::sanitize('<svg><use href="#x"><set attributeName="href" to="evil.svg#x"/></use></svg>', $opts)['svg'],
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><animate attributeName="xlink:href" dur="1s"/></use></svg>',
+            SvgSanitizer::sanitize(
+                '<svg><use href="#x"><animate attributeName="xlink:href" values="#a;evil.svg#x" dur="1s"/></use></svg>',
+                $opts,
+            )['svg'],
+        );
+        $local = '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><animate attributeName="HREF" values="#a;#b;"/></use></svg>';
+        self::assertSame($local, SvgSanitizer::sanitize($local, $opts)['svg']);
+    }
+
     public function testOptionsObjectAndArrayAgree(): void
     {
         $source = '<svg><a href="https://example.com/"><text>x</text></a><a href="mailto:a@b.c"><text>y</text></a></svg>';
