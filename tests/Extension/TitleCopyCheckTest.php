@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Extension;
 
+use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\CopyLedger;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
@@ -88,8 +89,15 @@ final class TitleCopyCheckTest extends TestCase
             return $view;
         });
         $result = Carve::renderWithDocumentTransforms("x\n", [], ['extensions' => [$forged]]);
-
         self::assertContains('extension-transform-failed', $result->codes());
+
+        $run = $forged->documentTransform;
+        self::assertNotNull($run);
+        $bound = Closure::bind($run, null, Navigation::class);
+        self::assertInstanceOf(Closure::class, $bound);
+        $rebound = new ExtensionDefinition('x.bound', '1', documentTransform: $bound);
+        $result = Carve::renderWithDocumentTransforms("x\n", [], ['extensions' => [$rebound]]);
+        self::assertContains('extension-transform-failed', $result->codes(), 'a closure bound to Navigation is not trusted');
     }
 
     public function testATemplateIsWalkedAgainInADeeperPlace(): void

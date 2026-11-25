@@ -6,13 +6,14 @@ namespace MarkupCarve\Carve\Extension;
 
 use Closure;
 use MarkupCarve\Carve\Node;
+use ReflectionClass;
 use ReflectionFunction;
 
 /**
  * Internal: the copies a built-in document transform makes of one node, so that the view check reads each template
  * once per place instead of each copy (carve-php#5978).
  *
- * Only a transform closure written in `Navigation` records copies, and only while `run()` runs it: such a transform
+ * Only a transform closure written in the `Navigation` source file records copies, and only while `run()` runs it: such a transform
  * takes no callback, runs no other code and changes no copy after making it, so each copy still holds the values of its
  * template when the check reads the view. A transform that calls one of them is not trusted itself, so its copies are
  * checked one by one.
@@ -64,8 +65,13 @@ final class CopyLedger
         }
     }
 
+    /**
+     * A closure whose code is in `Navigation`; `Closure::bind()` changes the scope of a closure, not where its code is.
+     */
     private static function trusted(Closure $run): bool
     {
-        return (new ReflectionFunction($run))->getClosureScopeClass()?->getName() === Navigation::class;
+        $file = (new ReflectionFunction($run))->getFileName();
+
+        return $file !== false && $file === (new ReflectionClass(Navigation::class))->getFileName();
     }
 }
