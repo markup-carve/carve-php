@@ -13,6 +13,32 @@ use stdClass;
  */
 final class CompiledSchema
 {
+    /**
+     * A schema with `const` and no other keyword.
+     *
+     * @var int
+     */
+    public const CONST_ONLY = 1;
+
+    /**
+     * A schema with `type` and no other keyword.
+     *
+     * @var int
+     */
+    public const TYPE_ONLY = 2;
+
+    /**
+     * Keywords that check nothing.
+     *
+     * @var array<string>
+     */
+    private const ANNOTATIONS = ['description', '$comment', 'title'];
+
+    /**
+     * `CONST_ONLY`, `TYPE_ONLY` or 0, which the validator runs keyword by keyword.
+     */
+    public int $kind = 0;
+
     public ?string $ref;
 
     public mixed $type;
@@ -155,6 +181,18 @@ final class CompiledSchema
         $this->scalarKeywords($schema);
         $this->objectKeywords($schema);
         $this->arrayKeywords($schema);
+        $this->kind = self::kindOf($schema);
+    }
+
+    private static function kindOf(stdClass $schema): int
+    {
+        $keywords = array_values(array_diff(array_keys(get_object_vars($schema)), self::ANNOTATIONS));
+
+        return match ($keywords) {
+            ['const'] => self::CONST_ONLY,
+            ['type'] => self::TYPE_ONLY,
+            default => 0,
+        };
     }
 
     private function scalarKeywords(stdClass $schema): void

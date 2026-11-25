@@ -203,11 +203,18 @@ final class Carve
         $shiftAbove = HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
         $shiftPath = $shiftAbove !== null ? (Findings::paths($doc)[$shiftAbove] ?? null) : null;
         $transformEntries = [];
+        $findingsRoot = $doc;
         if ($transforms !== []) {
-            [$doc, $facts, $transformEntries] = self::applyDocumentTransforms($doc, $source, $opts, $transforms);
+            [$view, $transformEntries] = self::applyDocumentTransforms($doc, $opts, $transforms);
+            // The parse findings name nodes of the resolved document, which a transformed view does not hold.
+            $findingsRoot = $view ?? new Node('document');
+            if ($view !== null) {
+                $doc = $view;
+                $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
+            }
         }
         [$html, $log] = HtmlRenderer::renderWithLog($doc, $opts, $source, $facts, true, $shiftAbove, true);
-        $entries = $findings->finish($doc);
+        $entries = $findings->finish($findingsRoot);
         array_push($entries, ...$transformEntries);
         $losses = new Findings();
         foreach ($log->entries as $entry) {
@@ -288,18 +295,22 @@ final class Carve
     }
 
     /**
+     * C2-X-055: a view a transform gives back unchanged is not checked again, since every node it kept passed the same
+     * checks before the transform ran.
+     *
      * @param \MarkupCarve\Carve\Node $doc
-     * @param string|null $source
      * @param \MarkupCarve\Carve\Options $opts
      * @param array<mixed> $transforms
      *
-     * @return array{\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Resolve\Facts|null, array<\MarkupCarve\Carve\Diagnostics\Diagnostic>}
+     * @return array{\MarkupCarve\Carve\Node|null, array<\MarkupCarve\Carve\Diagnostics\Diagnostic>} The final view,
+     *   or null when no transform changed the resolved document, and the failures.
      */
-    private static function applyDocumentTransforms(Node $doc, ?string $source, Options $opts, array $transforms): array
+    private static function applyDocumentTransforms(Node $doc, Options $opts, array $transforms): array
     {
-        $view = Extensions::copy($doc);
+        $view = $doc;
+        $changedView = false;
         $entries = [];
-        $beforeIds = self::authoredIdCounts($view, $opts);
+        $beforeIds = null;
         foreach ($transforms as $transform) {
             if (!$transform instanceof DocumentTransform) {
                 throw new OptionError('document transform: invalid registration');
@@ -310,14 +321,21 @@ final class Carve
                 if ($changed->type !== 'document') {
                     throw new UnexpectedValueException('document transform did not return a document');
                 }
+                if (Extensions::same($changed, $view)) {
+                    $view = $changed;
+
+                    continue;
+                }
+                $beforeIds ??= self::authoredIdCounts($view, $opts);
                 $afterIds = self::authoredIdCounts($changed, $opts);
                 foreach ($afterIds as $id => $count) {
                     if ($count > 1 && $count > ($beforeIds[$id] ?? 0)) {
                         throw new UnexpectedValueException('document transform duplicated an authored id');
                     }
                 }
-                TreeReader::check(TreeEncoder::json($changed, null), self::readerExtensions($opts->extensions));
+                TreeReader::checkTreeOf($changed, self::readerExtensions($opts->extensions));
                 $view = $changed;
+                $changedView = true;
                 $beforeIds = $afterIds;
             } catch (Throwable) {
                 $entries[] = new Diagnostic(
@@ -329,9 +347,8 @@ final class Carve
                 );
             }
         }
-        $facts = Resolver::resolve($view, $source, $opts, true)->facts;
 
-        return [$view, $facts, $entries];
+        return [$changedView ? $view : null, $entries];
     }
 
     /**
