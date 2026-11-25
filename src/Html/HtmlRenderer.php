@@ -1948,7 +1948,13 @@ final class HtmlRenderer
     private function host(int $depth = 0): RenderHost
     {
         return new RenderHost(
-            fn (array $nodes): string => implode("\n", $this->blocks($nodes, 0)),
+            function (array $nodes, int $depth = 0): string {
+                if ($depth === 0) {
+                    return implode("\n", $this->blocks($nodes, 0));
+                }
+
+                return implode("\n", array_filter($this->blocks($nodes, $depth), static fn (string $block): bool => $block !== ''));
+            },
             fn (array $nodes): string => $this->inline->inlines($nodes, 0),
             static fn (array $nodes): string => PlainText::of($nodes),
             function (string $prefix, bool $reserve = true): string {

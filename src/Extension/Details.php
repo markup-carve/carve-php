@@ -73,7 +73,7 @@ final class Details
     }
 
     /**
-     * Writes `head`, the body one level in, then `tail`, indented to the block depth like core containers.
+     * Writes `head`, `inner` and the body one level in, then `tail`; the body is rendered at its actual depth.
      *
      * @param string $head
      * @param string $inner
@@ -89,74 +89,11 @@ final class Details
         RenderHost $host,
     ): string {
         $pad = str_repeat('  ', $host->blockDepth);
-        $lines = [$head, $pad . '  ' . $inner];
-        foreach ($body as $block) {
-            $html = ($host->blocks)([$block]);
-            if ($html === '') {
-                continue;
-            }
-            $rawRanges = [];
-            $searchFrom = 0;
-            foreach (self::rawValues([$block]) as $value) {
-                $at = strpos($html, $value, $searchFrom);
-                while ($at !== false && $at > 0 && $html[$at - 1] !== "\n") {
-                    $at = strpos($html, $value, $at + 1);
-                }
-                if ($at !== false) {
-                    $rawRanges[] = [$at, $at + strlen($value)];
-                    $searchFrom = $at + strlen($value);
-                }
-            }
-            $literal = false;
-            $rendered = [];
-            $offset = 0;
-            foreach (explode("\n", $html) as $line) {
-                $rawLine = false;
-                foreach ($rawRanges as [$start, $end]) {
-                    if ($offset >= $start && $offset < $end) {
-                        $rawLine = true;
+        $html = ($host->blocks)($body, $host->blockDepth + 1);
 
-                        break;
-                    }
-                }
-                $rendered[] = $rawLine || $literal || $line === '' ? $line : $pad . '  ' . $line;
-                // An HTML pre/textarea element owns the whitespace of every
-                // following line, including its closing tag line.
-                foreach (preg_split('/(<\/?(?:pre|textarea)\b[^>]*>)/i', $line, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [] as $part) {
-                    if (preg_match('/^<(pre|textarea)\b/i', $part) === 1) {
-                        $literal = true;
-                    } elseif (preg_match('/^<\/(pre|textarea)\b/i', $part) === 1) {
-                        $literal = false;
-                    }
-                }
-                $offset += strlen($line) + 1;
-            }
-            $lines[] = implode("\n", $rendered);
-        }
-        $lines[] = $pad . $tail;
-
-        return implode("\n", $lines);
-    }
-
-    /**
-     * The raw HTML payloads in document order, whose lines must remain byte exact.
-     *
-     * @param array<\MarkupCarve\Carve\Node> $nodes
-     *
-     * @return array<string>
-     */
-    private static function rawValues(array $nodes): array
-    {
-        $values = [];
-        foreach ($nodes as $node) {
-            if ($node->type === 'raw_block' && ($node->f['format'] ?? null) === 'html') {
-                $value = PlainText::str($node->f['value'] ?? '');
-                $values[] = str_ends_with($value, "\n") ? substr($value, 0, -1) : $value;
-            }
-            array_push($values, ...self::rawValues($node->children ?? []));
-        }
-
-        return $values;
+        return $head . "\n" . $pad . '  ' . $inner
+            . ($html === '' ? '' : "\n" . $html)
+            . "\n" . $pad . $tail;
     }
 
     public static function attrs(Node $node, RenderHost $host, ?string $base = null): string
