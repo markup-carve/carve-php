@@ -1000,7 +1000,7 @@ final class BlockParser
                 }
             }
             if (
-                ($ch !== ':' || $this->depthAt($owner) + 1 <= Tables::BLOCK_DEPTH)
+                ($ch !== ':' || $this->depth + 1 <= Tables::BLOCK_DEPTH)
                 && LineShapes::isFenceLine($s, $j, $this->le)
             ) {
                 return true;
@@ -1086,6 +1086,11 @@ final class BlockParser
     private function listInterrupts(Marker $marker, int $owner, int $c): bool
     {
         $candidate = $this->stack[$owner + 1] ?? null;
+        // C2-B-190, C2-B-228 (carve#6610): the test runs before the containers that do not own the line close, so every
+        // open block counts. An item joins an open list; any other marker opens a list and its item.
+        if ($this->depth + ($candidate !== null && $candidate->kind === Frame::LIST ? 1 : 2) > Tables::BLOCK_DEPTH) {
+            return false;
+        }
         $kind = $this->stack[$owner]->kind;
         $inItem = $kind === Frame::ITEM || $kind === Frame::DESC || $kind === Frame::FOOTNOTE;
         if ($candidate !== null) {
@@ -1105,42 +1110,14 @@ final class BlockParser
             // C2-B-022 holds at the description list's column; left of it C2-B-015 nests in the body.
             $leftOfList = $candidate->kind === Frame::DLIST && $c - $this->base < $candidate->markerCol;
             if ($leftOfList && ($body !== null && $body->kind === Frame::DESC || $this->leaf?->kind === Frame::TERM)) {
-                return $inItem && $this->mayNest($marker) && $this->canNestAt($owner);
+                return $inItem && $this->mayNest($marker);
             }
 
             // C2-B-021: a marker without the quote mark closes a quote inside an item, when it may open a nested list (C2-B-056).
-            return $candidate->kind === Frame::QUOTE && $inItem && $this->mayNest($marker) && $this->canNestAt($owner);
+            return $candidate->kind === Frame::QUOTE && $inItem && $this->mayNest($marker);
         }
 
-        return $inItem && $this->mayNest($marker) && $this->canNestAt($owner);
-    }
-
-    /**
-     * C2-B-190: a refused two-container marker stays text in an open paragraph.
-     *
-     * @param int $owner
-     *
-     * @return bool
-     */
-    private function canNestAt(int $owner): bool
-    {
-        return $this->depthAt($owner) + 2 <= Tables::BLOCK_DEPTH;
-    }
-
-    /**
-     * Count the open containers that own this line. Unowned quote or item
-     * frames close before a new block is read at the line's column.
-     */
-    private function depthAt(int $owner): int
-    {
-        $depth = $this->depth;
-        for ($k = count($this->stack) - 1; $k > $owner; $k--) {
-            if (isset(self::COUNTED[$this->stack[$k]->kind])) {
-                $depth--;
-            }
-        }
-
-        return $depth;
+        return $inItem && $this->mayNest($marker);
     }
 
     /**
