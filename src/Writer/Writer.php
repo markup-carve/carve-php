@@ -104,6 +104,11 @@ final class Writer
     private static bool $localCaseFive = false;
 
     /**
+     * `Text::$gluedElsewhere` of the last local write.
+     */
+    private static bool $localGluedElsewhere = false;
+
+    /**
      * Whether the last `bareSource()` placed a backslash of C2-W-125 itself.
      */
     private static bool $bareRepaired = false;
@@ -481,6 +486,11 @@ final class Writer
             = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
         $localOwn = self::$localOwn;
         $cellTicks = self::$cellTicks;
+        // C2-I-060: a brace glued before the opener of a node takes the node's mark, so the bare form never reads back,
+        // and its backslash gives no kind (C2-W-088). A local write whose only escapes are such braces needs no kind
+        // check (carve-js `leavesKind`).
+        $gluedNodesOnly = $localEscapes !== [] && !$undecided && $localDecided === [] && $localOwn === []
+            && !self::$localGluedElsewhere;
         // C2-W-088: the backslashes a row's pairing across a pipe gives were placed as the first round places them;
         // where that form reads back, the procedure ends there.
         if (self::$cellKinds && $result->diagnostics === []) {
@@ -538,7 +548,7 @@ final class Writer
         }
         if (
             $parsed !== null && strlen($parsed) < 65536 && $result->diagnostics === [] && $localEscapes !== []
-            && !$pairsOnly && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
+            && !$pairsOnly && !$gluedNodesOnly && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)
         ) {
             // C2-W-088: with escapes every form carries, the form without escapes is taken only through `mayTakeBare()`.
             // Elsewhere the procedure form is tried first, and the form without escapes is written only where it fails.
@@ -657,8 +667,9 @@ final class Writer
         $needsKindRound = false;
         $conservativeLater = false;
         if (
-            $localEscapes !== [] && !$pairsOnly
+            $localEscapes !== [] && !$pairsOnly && !$gluedNodesOnly
             && (self::takesLocalForm($unchecked, $undecided, $localDecided) || $undecided)
+            && ($undecided || !RepairPlanner::settlesKinds($tree, $localEscapes))
         ) {
             // Without trimmed line-end blanks the tree is the one the first bare read-back was taken of.
             if ($removed === [] && $firstBare !== null) {
@@ -2567,6 +2578,7 @@ final class Writer
         Text::$recordedOwn = [];
         Text::$undecided = false;
         Text::$caseFive = false;
+        Text::$gluedElsewhere = false;
         Text::$cellTicks = false;
         Text::$cellKinds = false;
         Text::$conservative = $conservative;
@@ -2577,6 +2589,7 @@ final class Writer
             self::$cellKinds = Text::$cellKinds;
             self::$localOwn = Text::$recordedOwn;
             self::$localCaseFive = Text::$caseFive;
+            self::$localGluedElsewhere = Text::$gluedElsewhere;
 
             return [$result, Text::$recorded ?? [], Text::$undecided, Text::$recordedDecided, Text::$recordedPairs];
         } finally {
@@ -2586,6 +2599,7 @@ final class Writer
             Text::$recordedOwn = [];
             Text::$undecided = false;
             Text::$caseFive = false;
+            Text::$gluedElsewhere = false;
             Text::$conservative = false;
             Text::$bareSigils = false;
         }
