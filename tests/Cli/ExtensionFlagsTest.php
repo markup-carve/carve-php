@@ -75,6 +75,9 @@ final class ExtensionFlagsTest extends TestCase
             'an unknown cite mode' => [
                 ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":"other"}}', 'a.crv'],
             ],
+            'a null cite mode' => [
+                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":null}}', 'a.crv'],
+            ],
             'a cite mode that is no string' => [
                 ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":true}}', 'a.crv'],
             ],

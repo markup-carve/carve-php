@@ -584,7 +584,7 @@ HELP;
                 throw new OptionError('--extension-options: ' . Citations::CITE . ' has no option ' . $option);
             }
         }
-        $mode = $settings['mode'] ?? Citations::MODES[0];
+        $mode = array_key_exists('mode', $settings) ? $settings['mode'] : Citations::MODES[0];
         if (!is_string($mode) || !in_array($mode, Citations::MODES, true)) {
             throw new OptionError('--extension-options: ' . Citations::CITE . ' mode is ' . implode(' or ', Citations::MODES));
         }
