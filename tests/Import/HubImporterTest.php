@@ -273,6 +273,7 @@ final class HubImporterTest extends TestCase
             'alone' => ["![a][r]\n", "\n"],
             'in text' => ["x ![a][r] y\n", "x  y\n"],
             'with attributes' => ["![a][r]{.c}\n", "[]{.c}\n"],
+            'with its own src and alt' => ["![a][r]{src=foo alt=bar}\n", "![bar](foo)\n"],
             'collapsed label' => ["![a][]\n", "\n"],
             'defined with an empty destination' => ["![a][b]\n\n[b]:\n", "![a]()\n"],
         ];
