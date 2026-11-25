@@ -180,6 +180,42 @@ final class HubImporterTest extends TestCase
         $this->assertSame($expected, self::source($input, 'djot'));
     }
 
+    /**
+     * djot.js closes a `[` only with a `]` before `(`, `[` or `{`; a closing emphasis or quote drops the `[` inside it
+     * (carve#6665). Outputs as carve-js next2 renders them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotBracketProvider(): array
+    {
+        return [
+            'lone bracket in link text' => ["[a [b] c](x)\n", "<p>[a <a href=\"x\">b] c</a></p>\n"],
+            'lone bracket in image text' => ["![a [b] c](x)\n", "<p>![a <a href=\"x\">b] c</a></p>\n"],
+            'lone bracket in reference text' => ["[a [b] c][r]\n\n[r]: /u\n", "<p>[a <a href=\"/u\">b] c</a></p>\n"],
+            'bracket closed before a link' => ["x [a] [b](y) z\n", "<p>x [a] <a href=\"y\">b</a> z</p>\n"],
+            'span inside link text' => ["[a [b]{.k} c](x)\n", "<p><a href=\"x\">a <span class=\"k\">b</span> c</a></p>\n"],
+            'bracket inside emphasis' => ["[a _[b]_ c](x)\n", "<p><a href=\"x\">a <em>[b]</em> c</a></p>\n"],
+            'bracket inside quotes' => ["[a \"[b]\" c](x)\n", "<p><a href=\"x\">a “[b]” c</a></p>\n"],
+            'lone bracket before a link closer' => ["[a] b](x)\n", "<p><a href=\"x\">a] b</a></p>\n"],
+        ];
+    }
+
+    #[DataProvider('djotBracketProvider')]
+    public function testClosesADjotBracketAsDjotJsDoes(string $input, string $html): void
+    {
+        $this->assertSame($html, Carve::render(self::source($input, 'djot')) . "\n");
+    }
+
+    /**
+     * djot.js gives an image the text of its content as alt: escapes, code, nested images and line breaks included.
+     */
+    public function testWritesADjotImageAltAsDjotJsDoes(): void
+    {
+        $this->assertSame("![a\nc](x)\n", self::source("![a\nc](x)\n", 'djot'));
+        $this->assertSame("![a \\[b c](x)\n", self::source("![a \\[b c](x)\n", 'djot'));
+        $this->assertSame("![a c i](x)\n", self::source("![a `c` ![i](j)](x)\n", 'djot'));
+    }
+
     public function testKeepsDjotAbbreviationsPastTheLibraryPatternLimit(): void
     {
         $definitions = '';
