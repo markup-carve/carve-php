@@ -74,6 +74,12 @@ final class Writer
     private static ?string $parsedSource = null;
 
     /**
+     * Whether the write already reports a loss before its local write, so its read-back is skipped as carve-js skips
+     * the check of a group with a loss.
+     */
+    private static bool $lossReported = false;
+
+    /**
      * `Text::$recordedOwn` of the last local write.
      *
      * @var array<string, array<int, true>>
@@ -175,11 +181,13 @@ final class Writer
         // A write nested in another, as of an extension body, keeps its own group check.
         $captured = self::$captured;
         $inGroups = self::$inGroups;
+        $lossReported = self::$lossReported;
         self::$captured = null;
         self::$inGroups = false;
         try {
             $parsedSource = self::$parsedSource;
             [$losses, $fallbackNodes] = self::normalizedAttributeValueLosses($tree);
+            self::$lossReported = $losses !== [];
             $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
                 static fn (): WriteResult => self::writeChecked($tree, $layout, $options),
             ));
@@ -193,6 +201,7 @@ final class Writer
         } finally {
             self::$captured = $captured;
             self::$inGroups = $inGroups;
+            self::$lossReported = $lossReported;
         }
     }
 
@@ -575,8 +584,9 @@ final class Writer
         $unchecked = !$undecided && !$risk;
         // A form equal to the source the tree was parsed from reads back as that tree, and a tree without ASCII
         // punctuation in its strings takes no escape decision that could misread.
-        // Without the source, a braced opener in the text of its span is read back as a parse's tree is.
-        if ($unchecked && self::readsBackUnread($tree, $parsed, $result->source)) {
+        // Without the source, a braced opener in the text of its span goes to the rounds as a parse's tree does, and any
+        // other tree is read back (C2-W-002).
+        if ($unchecked && self::readsBackUnread($tree, $parsed, $result, $options)) {
             return self::uncheckedPruned($result, $parsed, $tree, $layout, $options);
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
@@ -708,8 +718,8 @@ final class Writer
             if (($cellTicks || $conservativeLater) && !RepairPlanner::hasTextNoteBeforeCaretPair($tree)) {
                 // The local write left the cell backticks to the rounds, so the conservative form stands where they stop.
                 $result = self::conservativeWrite($original, $originalLayout, $options, $treePrint)[0];
-                $fallback = self::conservativeFallback($result, $risk);
-                if ($conservativeLater && self::conservativeTaken($result, $fallback, $treePrint, $options)) {
+                $fallback = self::conservativeFallback($result, $risk, $original, $treePrint, $options);
+                if ($conservativeLater && ($result->diagnostics !== [] || $fallback !== null)) {
                     return $result;
                 }
             }
@@ -961,21 +971,25 @@ final class Writer
     }
 
     /**
-     * Whether a local write the heuristics call safe is taken without a read-back: it equals the source the tree was
-     * parsed from, the tree has no ASCII punctuation in its strings, or the tree is supplied and holds no brace or pair
-     * mark that may pair with the bare spelling of a span.
+     * Whether a local write the heuristics call safe is taken without the rounds: it equals the source the tree was
+     * parsed from, below that source's leading empty lines too, the tree has no ASCII punctuation in its strings, or the
+     * tree is supplied, holds no brace or pair mark that may pair with the bare spelling of a span, and reads back as
+     * itself where C2-A-161 can compare it.
      *
      * @param array<string, mixed> $tree
      * @param string|null $parsed
-     * @param string $source
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param array<string, mixed> $options
      */
-    private static function readsBackUnread(array $tree, ?string $parsed, string $source): bool
+    private static function readsBackUnread(array $tree, ?string $parsed, WriteResult $result, array $options): bool
     {
         if ($parsed === null && !self::hasBracedCloserRisk($tree) && !self::hasPairMarkRisk($tree)) {
-            return true;
+            return $result->diagnostics !== [] || self::$lossReported || !self::comparable($tree)
+                || self::readsBackAsTree($tree, $result->source, $options);
         }
 
-        return $parsed === $source || ($parsed !== null && self::sameBelowLeadingBlankLines($parsed, $source))
+        return $parsed === $result->source
+            || ($parsed !== null && self::sameBelowLeadingBlankLines($parsed, $result->source))
             || !self::hasPunctuation($tree);
     }
 
@@ -1140,26 +1154,27 @@ final class Writer
     }
 
     /**
-     * C2-W-091: the conservative form kept where the rounds find none, null where it reports a loss or the tree carries
-     * round risk.
-     */
-    private static function conservativeFallback(WriteResult $result, bool $risk): ?WriteResult
-    {
-        return $risk || $result->diagnostics !== [] ? null : $result;
-    }
-
-    /**
-     * Whether the conservative form is taken without the rounds: it reports a loss, or it reads back as the tree; a
-     * form that reads as another tree goes to the rounds.
+     * C2-W-091: the conservative form kept where the rounds find none, null where it reports a loss, the tree carries
+     * round risk, or it reads as another tree.
      *
      * @param \MarkupCarve\Carve\Writer\WriteResult $result
-     * @param \MarkupCarve\Carve\Writer\WriteResult|null $fallback
+     * @param bool $risk
+     * @param array<string, mixed> $tree
      * @param string $treePrint
      * @param array<string, mixed> $options
      */
-    private static function conservativeTaken(WriteResult $result, ?WriteResult $fallback, string $treePrint, array $options): bool
-    {
-        return $result->diagnostics !== [] || ($fallback !== null && self::readsBack($result->source, $treePrint, $options));
+    private static function conservativeFallback(
+        WriteResult $result,
+        bool $risk,
+        array $tree,
+        string $treePrint,
+        array $options,
+    ): ?WriteResult {
+        if ($risk || $result->diagnostics !== []) {
+            return null;
+        }
+
+        return !self::comparable($tree) || self::readsBack($result->source, $treePrint, $options) ? $result : null;
     }
 
     // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
@@ -2313,6 +2328,52 @@ final class Writer
         return new WriteResult($result->source, [
             new Diagnostic('writer-refused', 'warning', 'render-loss', 'Writer repair stopped for this block group', ''),
         ]);
+    }
+
+    /**
+     * Whether a supplied tree compares with its read-back by C2-A-161: a 2.0 document without the rewrites the writer
+     * may spell (carve-js `holdsRewrites`) or a span count it spells with marks (C2-W-145).
+     *
+     * @param array<string, mixed> $tree
+     */
+    private static function comparable(array $tree): bool
+    {
+        if (($tree['type'] ?? null) !== 'document' || ($tree['astVersion'] ?? null) !== '2.0') {
+            return false;
+        }
+        $pending = [$tree];
+        while (($node = array_pop($pending)) !== null) {
+            $type = $node['type'] ?? null;
+            if (
+                $type === 'inline_extension' || $type === 'block_extension' || is_array($node['data'] ?? null)
+                || isset($node['colspan']) || isset($node['rowspan'])
+            ) {
+                return false;
+            }
+            foreach ($node as $value) {
+                if (is_array($value)) {
+                    $pending[] = $value;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * C2-W-002: whether the source reads back as the blocks of the tree, as carve-js `readsBack` compares a group's
+     * blocks; root fields have their own reports (C2-W-011).
+     *
+     * @param array<string, mixed> $tree
+     * @param string $source
+     * @param array<string, mixed> $options
+     */
+    private static function readsBackAsTree(array $tree, string $source, array $options): bool
+    {
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        $read = TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions));
+
+        return TreeEquality::equal($tree['children'] ?? [], $read['children'] ?? []);
     }
 
     /**
