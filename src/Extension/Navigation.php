@@ -121,7 +121,7 @@ final class Navigation
             $texts = NavTree::headingTexts($view);
             $byId = self::number($view, $minLevel);
             if ($crossref !== 'title' && $byId !== []) {
-                NavTree::rewrite($view, static function (Node $node) use ($byId, $label, $crossref): ?array {
+                NavTree::rewrite($view, static function (Node $node) use ($byId, $label, $crossref, $texts): ?array {
                     if (!NavTree::isTitleXref($node)) {
                         return null;
                     }
@@ -132,7 +132,7 @@ final class Navigation
                     }
                     $children = $crossref === 'number'
                         ? [NavTree::text($label . ' ' . $target['number'])]
-                        : [NavTree::text($label . ' ' . $target['number'] . ' - '), ...array_map(Extensions::copy(...), $target['title'])];
+                        : [NavTree::text($label . ' ' . $target['number'] . ' - '), ...NavTree::copiedTitle($target['title'], $texts)];
 
                     return [NavTree::link('#' . $key, $children, NavTree::attrs($node))];
                 }, true, visitReplacements: false);
