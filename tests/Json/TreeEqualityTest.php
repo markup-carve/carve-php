@@ -39,6 +39,12 @@ final class TreeEqualityTest extends TestCase
             'empty map and list' => [[], ['type' => 'x', 'pos' => 1]],
             'table' => [$table, self::reversed($table)],
             'map against list' => [['x' => 1], [1]],
+            // Only a node's `pos` is a position; a `pos` in an untyped map such as extension props is data.
+            'pos in props' => [
+                ['type' => 'inline_extension', 'props' => ['pos' => 'a']],
+                ['type' => 'inline_extension', 'props' => ['pos' => 'b']],
+            ],
+            'pos in an untyped map' => [['pos' => 1, 'x' => 'y'], ['pos' => 2, 'x' => 'y']],
         ];
     }
 

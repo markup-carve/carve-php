@@ -190,7 +190,8 @@ final class TreeEquality
     }
 
     /**
-     * Two leaves identical but for their positions are the same; with `children` the test could walk a subtree.
+     * Two leaves identical but for their positions are the same; with `children` the test could walk a subtree. Only a
+     * node's `pos` is a position: in an untyped map, such as extension props, it is data.
      *
      * @param array<mixed> $a
      * @param array<mixed> $b
@@ -200,7 +201,12 @@ final class TreeEquality
         if (isset($a['children']) || isset($b['children'])) {
             return false;
         }
-        unset($a['pos'], $b['pos']);
+        if (is_string($a['type'] ?? null)) {
+            unset($a['pos']);
+        }
+        if (is_string($b['type'] ?? null)) {
+            unset($b['pos']);
+        }
 
         return $a === $b;
     }
