@@ -24,7 +24,7 @@ final class SvgSanitizerTest extends TestCase
         $path = dirname(__DIR__) . '/fixtures/svg-sanitize/parity.json';
         /** @var array<array{from: string, src: string, opts: array<string, mixed>, svg: string, ok: bool}> $rows */
         $rows = json_decode((string)file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
-        // carve-js rows a js-first ruling changed (carve#6763, #6765), each naming its ticket.
+        // carve-js rows a js-first ruling changed (carve#6763, #6765, #6774), each naming its ticket.
         $deltaPath = dirname(__DIR__) . '/fixtures/svg-sanitize/parity-js-first.json';
         /** @var array<array{index: int, tickets: array<string>, src: string, svg: string, ok: bool}> $deltas */
         $deltas = json_decode((string)file_get_contents($deltaPath), true, flags: JSON_THROW_ON_ERROR);
@@ -103,6 +103,23 @@ final class SvgSanitizerTest extends TestCase
         );
         $valueless = SvgSanitizer::sanitize('<svg xmlns><rect/></svg>')['svg'];
         self::assertSame('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', $valueless);
+    }
+
+    public function testValuelessAttributesAreDropped(): void
+    {
+        // carve#6774: XML has no valueless attributes, and none of the allowed ones is boolean.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"/>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg id/>'),
+        );
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><rect width fill/></svg>'),
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" class="a"><g aria-label="x"><circle r="1"/></g></svg>',
+            SvgSanitizer::sanitize('<svg data-x class="a" role><g aria-hidden aria-label="x"><circle r="1" DATA-Y/></g></svg>')['svg'],
+        );
     }
 
     public function testStyleWithACssImageFunctionIsDropped(): void

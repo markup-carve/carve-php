@@ -514,7 +514,7 @@ final class SvgSanitizer
             return '';
         }
         if ($value === null) {
-            return ' ' . $name;
+            return '';
         }
         if (in_array($lower, self::REF_VALUE_ATTRS, true) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value)) {
             return '';
