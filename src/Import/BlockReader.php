@@ -647,7 +647,7 @@ final class BlockReader
     }
 
     /**
-     * C2-H-043: one paragraph per stanza, a line per `<br>`, and leading no-break spaces as spaces.
+     * C2-H-043: one paragraph per stanza, a line per `<br>`, and the no-break spaces of the verse whitespace as spaces.
      *
      * @return array<string, mixed>
      */
@@ -689,16 +689,44 @@ final class BlockReader
         if (($children[0]['type'] ?? null) === 'soft_break') {
             array_shift($children);
         }
-        if (($children[0]['type'] ?? null) === 'text') {
-            $value = J::str($children[0], 'value');
-            $nbsp = 0;
-            while (substr($value, $nbsp * 2, 2) === "\u{00A0}") {
-                $nbsp++;
-            }
-            $children[0]['value'] = str_repeat(' ', $nbsp) . substr($value, $nbsp * 2);
-        }
+        $lead = true;
+        $children = self::verseSpaces($children, $lead);
 
         return Whitespace::breaks(Whitespace::coalesce($children), $host, $this->context);
+    }
+
+    /**
+     * C2-H-043 read back: a no-break space run the renderer wrote for spaces is spaces again. The renderer writes a
+     * run as `&nbsp;` only when it leads the line or covers two or more columns, and always takes the whole space and
+     * tab run, so a lone interior no-break space or one next to a space or tab was authored and stays.
+     *
+     * @param array<array<string, mixed>> $nodes
+     * @param bool $lead
+     *
+     * @return array<array<string, mixed>>
+     */
+    private static function verseSpaces(array $nodes, bool &$lead): array
+    {
+        foreach ($nodes as $k => $node) {
+            if ($node['type'] === 'text') {
+                $value = J::str($node, 'value');
+                if (str_contains($value, "\u{00A0}")) {
+                    $first = $lead;
+                    $nodes[$k]['value'] = preg_replace_callback(
+                        '/(?<![ \t\x{00A0}])\x{00A0}+(?![ \t\x{00A0}])/u',
+                        static fn (array $m): string => $m[0][1] === 0 && $first || strlen($m[0][0]) > 2
+                            ? str_repeat(' ', strlen($m[0][0]) >> 1) : $m[0][0],
+                        $value,
+                        flags: PREG_OFFSET_CAPTURE,
+                    ) ?? $value;
+                }
+            } elseif (isset($node['children'])) {
+                $nodes[$k]['children'] = self::verseSpaces(J::nodes($node), $lead);
+            }
+            $lead = false;
+        }
+
+        return $nodes;
     }
 
     /**
