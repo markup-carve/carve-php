@@ -24,7 +24,8 @@ final class PublicSurfaceTest extends TestCase
             'formatWithDiagnostics',
             'headingId', 'importDocument', 'importHtml', 'includeDependencies', 'lint', 'migrateTree', 'parse', 'parseWithDiagnostics',
             'parseWithLayout', 'plainText', 'positionOf', 'render', 'renderWithDiagnostics', 'renderWithDocumentTransforms',
-            'safeCodeFence', 'sourceFingerprint', 'supportsIncrementalParagraphReuse', 'tableGrid', 'toHtml', 'toJson',
+            'safeCodeFence', 'selectIncludeRegion', 'sourceFingerprint', 'supportsIncrementalParagraphReuse', 'tableGrid', 'toHtml',
+            'toJson',
             'treeFingerprint', 'tryRenderHtmlStreaming', 'validateLayout',
             'validateTree', 'version', 'write', 'writeTo', 'writeWithDiagnostics', 'writers',
         ], $names);

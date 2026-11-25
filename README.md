@@ -61,6 +61,7 @@ Every error a call throws implements `CarveException`.
 | `decodeTree($json, $options)`, `validateTree($tree, $options)` | the tree of AST JSON, or `TreeError` |
 | `lint($source, $options)` | lint diagnostics |
 | `includeDependencies($sourceOrTree, $options)` | the files the includes of a document read |
+| `selectIncludeRegion($source, $name, $mode)` | `['ok' => true, 'start' => ..., 'end' => ...]`: the lines an include with `@region:name` selects from a file, in `carve` or `code` mode |
 | `positionOf($source, $offset)` | `['line' => ..., 'column' => ...]` of a UTF-8 byte offset, as the command line counts them |
 | `diffTree($a, $b)`, `applyPatch($tree, $patch, $options)` | a JSON Patch (RFC 6902) between two trees, and the tree it gives; `applyPatch` takes `fingerprint` and throws `Json\PatchError` |
 | `sourceFingerprint($source)`, `treeFingerprint($tree)` | `sha256:` and the hash of the source bytes or of `encodeTree($tree)` |

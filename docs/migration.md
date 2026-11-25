@@ -96,6 +96,7 @@ The bridge keeps its class names and moves to the schema of the 0.2 Tiptap kit i
 | `$expander->getSuppressedWarnings()` | not exposed yet |
 | `$converter->toHtmlWithIncludes(...)`, `renderIncluded(...)` (host helpers) | `Carve::render($source, ['includes' => $resolver])` |
 | `IncludeExpander::includeSitesForPosition()` | gone: a node from an included file carries `pos.file` |
+| `IncludeExpander::selectIncludeRegion($source, $name, $mode)` | `Carve::selectIncludeRegion($source, $name, $mode)`, same arguments and result |
 
 ## Lint
 

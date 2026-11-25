@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve;
 
 use Composer\InstalledVersions;
+use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\EditorSession;
 use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TreeSink;
@@ -30,6 +31,7 @@ use MarkupCarve\Carve\Import\HubImporter;
 use MarkupCarve\Carve\Import\ImportResult;
 use MarkupCarve\Carve\Include\Expander;
 use MarkupCarve\Carve\Include\IncludeResolver;
+use MarkupCarve\Carve\Include\Selection;
 use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Inline\Finisher;
 use MarkupCarve\Carve\Inline\InlineContext;
@@ -698,6 +700,27 @@ final class Carve
         }
 
         return $out;
+    }
+
+    /**
+     * C2-N-037 to C2-N-041: where the region `$name` of an included file's source lies, as an include directive in
+     * `$mode` (`carve` or `code`) selects it. `start` and `end` are the one-based first and last selected line; an empty
+     * region has `end` one less than `start`. Where the directive would report `include-region-invalid`, `ok` is false.
+     *
+     * @throws \InvalidArgumentException For a mode other than `carve` or `code`.
+     *
+     * @return array{ok: true, start: int, end: int}|array{ok: false, rule: 'include-region-invalid'}
+     */
+    public static function selectIncludeRegion(string $source, string $name, string $mode): array
+    {
+        if ($mode !== 'carve' && $mode !== 'code') {
+            throw new InvalidArgumentException('Include region mode must be carve or code');
+        }
+        $range = Selection::regionLines($source, $name, $mode === 'code');
+
+        return $range === null
+            ? ['ok' => false, 'rule' => 'include-region-invalid']
+            : ['ok' => true, 'start' => $range[0], 'end' => $range[1]];
     }
 
     /**
