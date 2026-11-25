@@ -41,6 +41,19 @@ final class TreeEquality
     }
 
     /**
+     * `equal()` without the normalized copies: both trees are walked in place and the walk stops at the first difference.
+     *
+     * @param mixed $a
+     * @param mixed $b
+     *
+     * @return bool
+     */
+    public static function same(mixed $a, mixed $b): bool
+    {
+        return self::sameValues($a, $b, false, false);
+    }
+
+    /**
      * A key that two trees share exactly when `equal()` holds for them, so a tree can be dropped before the other is
      * built.
      *
@@ -90,6 +103,87 @@ final class TreeEquality
         }
 
         return [hash('xxh128', $stream), $parts];
+    }
+
+    /**
+     * @param mixed $a
+     * @param mixed $b
+     * @param bool $marksA `$a` stands in a table with span marks.
+     * @param bool $marksB `$b` stands in a table with span marks.
+     */
+    private static function sameValues(mixed $a, mixed $b, bool $marksA, bool $marksB): bool
+    {
+        if (!is_array($a) || !is_array($b)) {
+            return $a === $b;
+        }
+        $list = array_is_list($a);
+        if ($list !== array_is_list($b)) {
+            return self::normalize($a, $marksA) === self::normalize($b, $marksB);
+        }
+
+        return $list ? self::sameLists($a, $b, $marksA, $marksB) : self::sameMaps($a, $b, $marksA, $marksB);
+    }
+
+    /**
+     * @param array<mixed> $a
+     * @param array<mixed> $b
+     * @param bool $marksA
+     * @param bool $marksB
+     */
+    private static function sameLists(array $a, array $b, bool $marksA, bool $marksB): bool
+    {
+        if (self::hasTextPair($a) || self::hasTextPair($b)) {
+            $a = self::coalesced($a);
+            $b = self::coalesced($b);
+        }
+        if (count($a) !== count($b)) {
+            return false;
+        }
+        foreach ($a as $at => $item) {
+            if (!self::sameValues($item, $b[$at], $marksA, $marksB)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<mixed> $a
+     * @param array<mixed> $b
+     * @param bool $marksA
+     * @param bool $marksB
+     */
+    private static function sameMaps(array $a, array $b, bool $marksA, bool $marksB): bool
+    {
+        $typeA = is_string($a['type'] ?? null) ? $a['type'] : null;
+        $typeB = is_string($b['type'] ?? null) ? $b['type'] : null;
+        if ($typeA === 'table') {
+            $marksA = self::hasSpanMarks($a);
+        }
+        if ($typeB === 'table') {
+            $marksB = self::hasSpanMarks($b);
+        }
+        $count = 0;
+        foreach ($a as $name => $item) {
+            if ($typeA !== null && self::skipped($a, $typeA, (string)$name, $marksA)) {
+                continue;
+            }
+            if (
+                !array_key_exists($name, $b) || ($typeB !== null && self::skipped($b, $typeB, (string)$name, $marksB))
+                || !self::sameValues($item, $b[$name], $marksA, $marksB)
+            ) {
+                return false;
+            }
+            $count++;
+        }
+        foreach ($b as $name => $_) {
+            if ($typeB === null || !self::skipped($b, $typeB, (string)$name, $marksB)) {
+                $count--;
+            }
+        }
+
+        return $count === 0;
     }
 
     /**

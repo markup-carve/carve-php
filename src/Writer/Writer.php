@@ -1001,7 +1001,8 @@ final class Writer
     {
         if ($parsed === null && !self::hasBracedCloserRisk($tree) && !self::hasPairMarkRisk($tree)) {
             return $result->diagnostics !== [] || self::$lossReported || !self::hasPunctuation($tree)
-                || !self::comparable($tree) || self::readsBackAsTree($tree, $result->source, $options);
+                || !self::comparable($tree) || self::readsBackAsTree($tree, $result->source, $options)
+                || !self::readerAccepts($tree);
         }
 
         return $parsed === $result->source
@@ -1190,7 +1191,9 @@ final class Writer
             return null;
         }
 
-        return !self::comparable($tree) || self::readsBack($result->source, $treePrint, $options) ? $result : null;
+        return !self::comparable($tree) || self::readsBack($result->source, $treePrint, $options) || !self::readerAccepts($tree)
+            ? $result
+            : null;
     }
 
     // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
@@ -2348,8 +2351,7 @@ final class Writer
 
     /**
      * Whether a supplied tree compares with its read-back by C2-A-161: a 2.0 document without the rewrites the writer
-     * may spell (carve-js `holdsRewrites`) or a span count it spells with marks (C2-W-145), that passes the reader's
-     * checks: a parse fills the fields a tree may lack, as the `alt` of an image.
+     * may spell (carve-js `holdsRewrites`) or a span count it spells with marks (C2-W-145).
      *
      * @param array<string, mixed> $tree
      */
@@ -2373,6 +2375,19 @@ final class Writer
                 }
             }
         }
+
+        return true;
+    }
+
+    /**
+     * Whether the tree passes the reader's checks. A parse fills the fields a tree that fails them may lack, as the
+     * `alt` of an image, so its read-back is no proof of a misread. Asked only after a read-back differs: the check
+     * costs about as much as the parse.
+     *
+     * @param array<string, mixed> $tree
+     */
+    private static function readerAccepts(array $tree): bool
+    {
         $json = json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         try {
             TreeReader::check($json === false ? '' : $json);
@@ -2393,13 +2408,13 @@ final class Writer
      */
     private static function readsBackAsTree(array $tree, string $source, array $options): bool
     {
-        $print = TreeEquality::fingerprint($tree['children'] ?? []);
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
         HeapPages::release();
-        $read = TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions));
+        $read = TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions))['children'] ?? [];
         HeapPages::release();
+        $children = $tree['children'] ?? [];
 
-        return TreeEquality::fingerprint($read['children'] ?? []) === $print;
+        return $read === $children || TreeEquality::same($read, $children);
     }
 
     /**
