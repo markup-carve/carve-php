@@ -361,6 +361,18 @@ final class RepairPlanner
     private bool $singleParagraph = false;
 
     /**
+     * The backslashes the comparison of the last round asked for, before its kind escapes.
+     *
+     * @var array<string, array<int, true>>
+     */
+    private array $compareAsks = [];
+
+    /**
+     * @var array<string, true>|null `linkTexts()`.
+     */
+    private ?array $linkTexts = null;
+
+    /**
      * The escapes of the source `repair()` settled on.
      *
      * @var array<string, array<int, true>>|null
@@ -629,6 +641,20 @@ final class RepairPlanner
             $seen[$key] = true;
             $compared = $first ?? $this->compared($source, $escapes, $this->layout);
             unset($first);
+            if ($round === 0 && $compared !== null && !$compared[1]['equal'] && $this->probed === null) {
+                $fallback = $this->linkFallback($escapes, $compared);
+                if ($fallback === true) {
+                    continue;
+                }
+                if ($fallback !== null) {
+                    [$source, $escapes] = $fallback;
+                    if (!$this->charge($source)) {
+                        return $settled;
+                    }
+                    $seen[hash('xxh3', $source . "\0" . serialize($this->attempts))] = true;
+                    $compared = $this->compared($source, $escapes, $this->layout);
+                }
+            }
             if ($compared === null || $compared[1]['equal']) {
                 // C2-W-146: the settled spelling is tested with the pair rules too, and their escapes go through the
                 // rounds again; where those do not settle, the spelling before them stands.
@@ -654,6 +680,239 @@ final class RepairPlanner
         }
 
         return $settled;
+    }
+
+    /**
+     * C2-W-088, C2-W-125 case five: the first round reads the brackets of link text bare, so a bare closer reports the
+     * kinds of what it lets form (carve-js `compareWithLinkFallback`). Where the round reports no construct, it is
+     * written again with every lone link bracket escaped: the source and escapes to compare instead. Where it reports
+     * one and asks nothing inside a link, the round stands and those brackets take their backslash from the next round
+     * on (true). Null where the tree has no lone link bracket left bare, and where carve-js, which compares up to the
+     * first difference and repairs in passes, could read the round otherwise: the rounds then go on one repair at a
+     * time.
+     *
+     * @param array<string, array<int, true>> $escapes
+     * @param array{
+     *     array{
+     *         source: string,
+     *         text: array<int, int>,
+     *         paths: array<int, string>,
+     *         nodes: array<int, array{string, string, int, int}>,
+     *         ranges: array<string, array{int, int}>
+     *     },
+     *     array{
+     *         equal: bool,
+     *         openers: array<string, array<int, true>>,
+     *         moved: array<int, array{string, string, int, int, int}>,
+     *         read: array<string, mixed>
+     *     }
+     * } $compared
+     *
+     * @return array{string, array<string, array<int, true>>}|true|null
+     */
+    private function linkFallback(array $escapes, array $compared): array|bool|null
+    {
+        [$positions, $links] = LinkFallback::positions($this->tree);
+        $placed = [];
+        foreach ($positions as $path => $offsets) {
+            $offsets = array_diff_key($offsets, $this->escapes[$path] ?? []);
+            if ($offsets !== []) {
+                $placed[$path] = $offsets;
+            }
+        }
+        if ($placed === []) {
+            return null;
+        }
+        [$candidate, $comparison] = $compared;
+        unset($compared);
+        if ($comparison['openers'] !== []) {
+            if ($this->gluedCloser($placed) || $this->breaksLink($candidate, $comparison, $links)) {
+                return null;
+            }
+            $state = get_object_vars($this);
+            $this->appliedRound($escapes, $candidate, $comparison);
+            if (!$this->linkRepairRequested() && !$this->bareTextOpener($placed)) {
+                $this->addAsked($placed);
+
+                return true;
+            }
+            foreach ($state as $name => $value) {
+                $this->{$name} = $value;
+            }
+
+            return null;
+        }
+        $this->addAsked($placed);
+
+        return [Writer::bareSource($this->tree, $this->layout, $this->options, $this->escapes), $this->escapes];
+    }
+
+    /**
+     * Whether a leaf block that holds a lone link bracket still holds a bare text `[` outside every link after the
+     * round: the link backslashes change which `]` it can pair with, so the rounds decide it one round at a time.
+     *
+     * @param array<string, array<int, true>> $placed
+     */
+    private function bareTextOpener(array $placed): bool
+    {
+        $inLink = $this->linkTexts();
+        $leafOf = [];
+        foreach ($this->leafTexts() as $leaf => $texts) {
+            foreach ($texts as $text) {
+                $leafOf[$text] = $leaf;
+            }
+        }
+        $leaves = [];
+        foreach ($placed as $path => $_) {
+            $leaves[$leafOf[$path] ?? $this->leafOf($path)] = true;
+        }
+        $texts = $this->leafTexts();
+        foreach ($leaves as $leaf => $_) {
+            foreach ($texts[$leaf] ?? [] as $text) {
+                if (isset($inLink[$text])) {
+                    continue;
+                }
+                $value = self::leafValue($this->tree, $text) ?? '';
+                for ($at = strpos($value, '['); $at !== false; $at = strpos($value, '[', $at + 1)) {
+                    if (!isset($this->escapes[$text][$at])) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a lone `]` of link text stands right before `[`, `{` or `(`, where read bare it opens another construct.
+     *
+     * @param array<string, array<int, true>> $placed
+     */
+    private function gluedCloser(array $placed): bool
+    {
+        foreach ($placed as $path => $offsets) {
+            $value = self::leafValue($this->tree, $path) ?? '';
+            foreach ($offsets as $at => $_) {
+                if ($value[$at] === ']' && str_contains('[{(', $value[$at + 1] ?? 'x')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the bare round broke a link with a lone bracket where carve-js, which compares in source order, reports
+     * a repair inside it: another node opens at the link's own opener (`[g]{h}](x)` reads a span), or a link before
+     * the first reported opener ends at no link of the read-back. A link whose closer the reported construct took
+     * still ends there.
+     *
+     * @param array{nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{openers: array<string, array<int, true>>, read: array<string, mixed>} $comparison
+     * @param array<string, array<string, true>> $links The text paths with a lone bracket, by link path.
+     */
+    private function breaksLink(array $candidate, array $comparison, array $links): bool
+    {
+        $first = PHP_INT_MAX;
+        foreach ($comparison['openers'] as $path => $_) {
+            $first = min($first, $this->textOrder[$path] ?? PHP_INT_MAX);
+        }
+        [$starts, $ends] = self::bracketedSpans($comparison['read']);
+        foreach ($candidate['nodes'] as [$packed, $type, $start, $end]) {
+            if ($type !== 'link') {
+                continue;
+            }
+            $texts = $links[RepairTrace::unpackPath($packed)] ?? null;
+            if ($texts === null) {
+                continue;
+            }
+            if (isset($starts[$start]) && !isset($starts[$start]['link ' . $end])) {
+                return true;
+            }
+            if (isset($ends[$end])) {
+                continue;
+            }
+            foreach ($texts as $text => $_) {
+                if (($this->textOrder[$text] ?? PHP_INT_MAX) < $first) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The bracketed nodes of a read-back by start offset, keyed `type end`, and the end offsets of its links.
+     *
+     * @param array<string, mixed> $read
+     *
+     * @return array{array<int, array<string, true>>, array<int, true>}
+     */
+    private static function bracketedSpans(array $read): array
+    {
+        $starts = [];
+        $ends = [];
+        $pending = [$read];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            $type = $node['type'] ?? null;
+            if (is_string($type) && in_array($type, self::BRACKETED, true)) {
+                [$start, $end] = TreeEncoder::offsets($node['pos'] ?? null) ?? [-1, -1];
+                $starts[$start][$type . ' ' . $end] = true;
+                if ($type === 'link') {
+                    $ends[$end] = true;
+                }
+            }
+            foreach (self::childrenOf($node) as $child) {
+                $pending[] = $child;
+            }
+        }
+
+        return [$starts, $ends];
+    }
+
+    /**
+     * Whether the round's comparison asks for a backslash in a link or below one (carve-js `linkRepairRequested`):
+     * the kind and partner escapes the round adds after it do not count.
+     */
+    private function linkRepairRequested(): bool
+    {
+        $inLink = $this->linkTexts();
+        foreach ($this->compareAsks as $path => $_) {
+            if (isset($inLink[$path])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The text paths in a link or below one.
+     *
+     * @return array<string, true>
+     */
+    private function linkTexts(): array
+    {
+        if ($this->linkTexts === null) {
+            $this->linkTexts = [];
+            $pending = [['', $this->tree, false]];
+            while ($pending !== []) {
+                [$path, $node, $inside] = array_pop($pending);
+                $inside = $inside || ($node['type'] ?? null) === 'link';
+                if ($inside && ($node['type'] ?? null) === 'text') {
+                    $this->linkTexts[$path] = true;
+                }
+                foreach (self::childrenOf($node) as $index => $child) {
+                    $pending[] = [$path . '/children/' . $index, $child, $inside];
+                }
+            }
+        }
+
+        return $this->linkTexts;
     }
 
     /**
@@ -782,6 +1041,7 @@ final class RepairPlanner
         $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys);
         $missing = self::missingSiblings($candidate, $read);
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
+        $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
         unset($read);
         if ($asked === [] && $trials === [] && $comparison['openers'] === []) {
             $asked = $keys;
