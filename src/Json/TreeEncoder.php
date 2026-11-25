@@ -498,6 +498,12 @@ final class TreeEncoder
         $children = $this->encodedChildren($node, $positions);
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
+            // Most fields are strings, which go to the wire as they are.
+            if (is_string($value) && $key !== 'expansion' && $key !== 'title') {
+                $out[$key] = $value;
+
+                continue;
+            }
             if (
                 $this->omitsExpansion($node, $key)
                 || $value === null
