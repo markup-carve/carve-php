@@ -220,15 +220,15 @@ final class BlockParser
         $this->i = $ls;
         $this->col = 0;
         $this->base = 0;
-        if ($this->commentCloserLine($ls, $le)) {
-            return;
-        }
         $top = count($this->stack) - 1;
         if ($top === 0) {
             $this->stripI = -1;
             $owner = 0;
         } else {
             $owner = $this->matchContainers();
+        }
+        if ($this->commentCloserLine($le)) {
+            return;
         }
         $leaf = $this->leaf;
         $forced = false;
@@ -309,11 +309,13 @@ final class BlockParser
     }
 
     /**
-     * C2-B-109, C2-B-137: a bare `%` run closes an open comment block, also one in a line block, before ownership is
-     * tested, and closes no container.
+     * C2-B-109, C2-B-137: a bare `%` run behind the prefixes of the containers that own the line closes an open
+     * comment block, also one in a line block, also where the comment's container does not own the line, and closes
+     * no container.
      */
-    private function commentCloserLine(int $ls, int $le): bool
+    private function commentCloserLine(int $le): bool
     {
+        $ls = $this->i;
         $leaf = $this->leaf;
         if ($leaf !== null && $leaf->kind === Frame::COMMENT_BLOCK && $this->bareCommentCloser($ls, $le, $leaf->level)) {
             $this->closeOpaque($leaf, $le);
@@ -355,20 +357,6 @@ final class BlockParser
     {
         $j = $ls + strspn($this->s, " \t", $ls, $le - $ls);
         $end = LineShapes::trimEnd($this->s, $j, $le);
-        $quoteDepth = 0;
-        foreach ($this->stack as $frame) {
-            if ($frame->kind === Frame::QUOTE) {
-                $quoteDepth++;
-            }
-        }
-        while (
-            $quoteDepth > 0 && $j < $end && $this->s[$j] === '>'
-            && ($j + 1 === $end || $this->s[$j + 1] === ' ')
-        ) {
-            $j++;
-            $j += strspn($this->s, " \t", $j, $end - $j);
-            $quoteDepth--;
-        }
 
         return $j < $end && strspn($this->s, '%', $j, $end - $j) === $end - $j && $end - $j >= $level;
     }
@@ -412,7 +400,7 @@ final class BlockParser
         if ($ch === '>' && ($j + 1 === $this->le || $this->s[$j + 1] === ' ')) {
             return false;
         }
-        if ($ch === '#' && preg_match('/^#{1,6} /', substr($this->s, $j, $this->le - $j)) === 1) {
+        if (($ch === '#' || $ch === '=') && $this->headingContent($j) >= 0) {
             return false;
         }
         if ($ch === '{' && LineShapes::attributeLine($this->s, $j, $this->le, new Attrs())) {
@@ -1757,6 +1745,22 @@ final class BlockParser
     }
 
     /**
+     * C2-B-151: the offset of the text behind a heading marker run at `$j`, or -1 where the line is no heading.
+     */
+    private function headingContent(int $j): int
+    {
+        $s = $this->s;
+        $n = strspn($s, $s[$j], $j, $this->le - $j);
+        if ($n > 6 || $j + $n >= $this->le || $s[$j + $n] !== ' ') {
+            return -1;
+        }
+        $k = $j + $n + 1;
+        $k += strspn($s, " \t", $k, $this->le - $k);
+
+        return $k < $this->le ? $k : -1;
+    }
+
+    /**
      * C2-B-151 to C2-B-154.
      *
      * @param int $j
@@ -1766,18 +1770,12 @@ final class BlockParser
      */
     private function openHeading(int $j, int $c): bool
     {
-        $s = $this->s;
-        $n = strspn($s, $s[$j], $j, $this->le - $j);
-        if ($n > 6 || $j + $n >= $this->le || $s[$j + $n] !== ' ') {
-            return false;
-        }
-        $k = $j + $n + 1;
-        $k += strspn($s, " \t", $k, $this->le - $k);
-        if ($k >= $this->le) {
+        $k = $this->headingContent($j);
+        if ($k < 0) {
             return false;
         }
         $f = new Frame(Frame::HEADING, $j);
-        $f->level = $n;
+        $f->level = strspn($this->s, $this->s[$j], $j, $this->le - $j);
         $f->markerCol = $c - $this->base;
         $f->end = $this->le;
         $f->spans = [$k, $f->end];
@@ -2289,9 +2287,22 @@ final class BlockParser
      */
     private function trimHeldBlank(Frame $f): void
     {
+        if ($f->lineComment !== null) {
+            $this->trimHeldBlank($f->lineComment);
+        }
         $s = $this->s;
         $n = count($f->spans);
-        while ($n >= 2 && LineShapes::trimEnd($s, $f->spans[$n - 2], $f->spans[$n - 1]) === $f->spans[$n - 2]) {
+        // C2-B-123: a comment block in a line block ends no stanza, so a blank line above it is body.
+        $after = -1;
+        foreach ([...$f->hiddenComments, $f->lineComment] as $comment) {
+            if ($comment !== null && $comment->start > $after) {
+                $after = $comment->start;
+            }
+        }
+        while (
+            $n >= 2 && $f->spans[$n - 2] > $after
+            && LineShapes::trimEnd($s, $f->spans[$n - 2], $f->spans[$n - 1]) === $f->spans[$n - 2]
+        ) {
             $n -= 2;
         }
         $f->spans = array_slice($f->spans, 0, $n);

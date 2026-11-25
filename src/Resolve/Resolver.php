@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Resolve;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Diagnostics\Message;
+use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Node;
@@ -708,7 +709,7 @@ final class Resolver
             $node = $this->nodes[$i];
             $id = self::idOf($node);
             if ($id !== null) {
-                $plain = self::nfc(self::fold(PlainText::of($node->children ?? [])));
+                $plain = self::nfc(Chars::fold(PlainText::of($node->children ?? [])));
                 if ($plain !== '') {
                     $this->headingKeys[$plain] ??= $id;
                 }
@@ -945,7 +946,7 @@ final class Resolver
         if ($node->type === 'image' || ($node->f['refForm'] ?? null) === 'shortcut') {
             return;
         }
-        $plain = $this->plainKeys[$key] ??= self::nfc(self::fold(PlainText::of(
+        $plain = $this->plainKeys[$key] ??= self::nfc(Chars::fold(PlainText::of(
             InlineRunner::parse($key, [0, strlen($key)], new InlineContext()),
         )));
         if ($plain !== '' && isset($this->headingKeys[$plain])) {

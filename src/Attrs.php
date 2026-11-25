@@ -32,6 +32,13 @@ final class Attrs
     public ?string $lang = null;
 
     /**
+     * The value written last to `abbr`, `time` or `kbd` in any spelling, which a non-span node keeps (C2-A-035).
+     *
+     * @var array<string, string>
+     */
+    private array $semanticLast = [];
+
+    /**
      * @return bool
      */
     public function isEmpty(): bool
@@ -62,6 +69,7 @@ final class Attrs
         foreach ($other->pairs as [$key, $value]) {
             $this->setKey($key, $value);
         }
+        $this->semanticLast = $other->semanticLast + $this->semanticLast;
     }
 
     /**
@@ -73,10 +81,14 @@ final class Attrs
     public function setKey(string $key, string $value): void
     {
         $lower = strtolower($key);
+        $semantic = in_array($lower, ['abbr', 'time', 'kbd'], true);
+        if ($semantic) {
+            $this->semanticLast[$lower] = $value;
+        }
         foreach ($this->pairs as $i => $pair) {
             if (
                 strtolower($pair[0]) === $lower && (
-                !in_array($lower, ['abbr', 'time', 'kbd'], true) || ($pair[0] === $lower) === ($key === $lower)
+                !$semantic || ($pair[0] === $lower) === ($key === $lower)
                 )
             ) {
                 $this->pairs[$i][1] = $value;
@@ -197,7 +209,7 @@ final class Attrs
             $lower = strtolower($name);
             if (isset($seen[$lower])) {
                 $index = $seen[$lower];
-                $pairs[$index] = [$pairs[$index][0], $value];
+                $pairs[$index] = [$pairs[$index][0], $this->semanticLast[$lower] ?? $value];
             } else {
                 $seen[$lower] = count($pairs);
                 $pairs[] = [$name, $value];

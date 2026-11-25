@@ -41,7 +41,11 @@ final class Markers
             $m = self::ordered('1', '.', -1);
             $m = self::tail($s, $j + 1, $le, 1, $m);
             // C2-B-043, C2-B-229: test the text before reading a task box.
-            if ($m !== null && $s[$m->box] === '.' && $m->box + 1 < $le && $s[$m->box + 1] === ' ') {
+            if ($m === null) {
+                return null;
+            }
+            $first = $m->box + strspn($s, " \t", $m->box, $le - $m->box);
+            if ($s[$first] === '.' && $first + 1 < $le && $s[$first + 1] === ' ') {
                 return null;
             }
 

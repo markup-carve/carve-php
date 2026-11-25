@@ -245,10 +245,37 @@ final class Finisher
 
                 continue;
             }
-            $out[] = [Scanner::TEXT, substr($this->t, $item[2], $item[3] - $item[2]), $item[2], $item[3], true];
+            $mark = $top && !$this->captionSeen && $this->sc->caption ? $this->bareMark($item[2], $item[3]) : -1;
+            if ($mark < 0) {
+                $out[] = [Scanner::TEXT, substr($this->t, $item[2], $item[3] - $item[2]), $item[2], $item[3], true];
+
+                continue;
+            }
+            // C2-B-207: an attribute block that stays text is caption text, so its first bare `#` is the mark.
+            $this->captionSeen = true;
+            if ($mark > $item[2]) {
+                $out[] = [Scanner::TEXT, substr($this->t, $item[2], $mark - $item[2]), $item[2], $mark, true];
+            }
+            $out[] = [Scanner::NODE, $this->sc->node('caption_number', $mark, $mark + 1), $mark, $mark + 1, false, null];
+            $out[] = [Scanner::TEXT, substr($this->t, $mark + 1, $item[3] - $mark - 1), $mark + 1, $item[3], true];
         }
 
         return $out;
+    }
+
+    /**
+     * The offset of the first `#` in `[$from, $to)` that no mention character follows, or -1.
+     */
+    private function bareMark(int $from, int $to): int
+    {
+        for ($i = $from; $i < $to; $i++) {
+            $i += strcspn($this->t, '#', $i, $to - $i);
+            if ($i < $to && ($i + 1 >= strlen($this->t) || strspn($this->t[$i + 1], Tables::SIGIL_MENTION_CHARS) === 0)) {
+                return $i;
+            }
+        }
+
+        return -1;
     }
 
     /**
