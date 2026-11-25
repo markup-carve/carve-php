@@ -208,6 +208,32 @@ final class HubImporterTest extends TestCase
     }
 
     /**
+     * After `][` the link text closes only with its label, at the `]` that finds it as the last open `[`; an empty label
+     * takes the link's text content; `]{` closes a span with or without attributes (carve#6665). Sources as carve-js
+     * next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotReferenceBracketProvider(): array
+    {
+        return [
+            'label that never closes' => ["[a][[b]\n", "\\[a]\\[[b]\n"],
+            'label holding a link' => ["[a][b[c]](x) d]\n\n[b[c]](x) d]: /u\n", "a\n\n\\[b[c\\]](x) d]: /u\n"],
+            'label holding verbatim' => ["[a][b `]` c]\n\n[b `]` c]: /u\n", "a\n\n[b `]` c]: /u\n"],
+            'collapsed label with a bracket' => ["][r]][](x)\n\n[r]: y\n", "]r](x)\n"],
+            'collapsed label with an escape' => ["[a \\[b][]\n\n[a [b]: /u\n", "[a \\[b](/u)\n"],
+            'span before a failed attribute' => ["[r]{=x}\n", "[r]{}{=x}\n"],
+            'span before emphasis in braces' => ["[a]{_b_}\n", "[a]{}/b/\n"],
+        ];
+    }
+
+    #[DataProvider('djotReferenceBracketProvider')]
+    public function testClosesADjotReferenceLabelAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    /**
      * djot.js gives an image the text of its content as alt: escapes, code, nested images and line breaks included.
      */
     public function testWritesADjotImageAltAsDjotJsDoes(): void
