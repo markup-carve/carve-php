@@ -633,7 +633,9 @@ final class Inline
         $dots = 0;
         // The hyphen and dot runs feed only the escape decisions, and a traced write spells its texts bare.
         $traced = $c->writerState?->repairTrace !== null;
-        $dotsAhead = $traced ? [] : self::dotsAhead($nodes);
+        // C2-I-114: content without a dot has no dot runs.
+        $dotted = !$traced && self::holds($nodes, '.');
+        $dotsAhead = $dotted ? self::dotsAhead($nodes) : [];
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -706,7 +708,7 @@ final class Inline
             $out .= $part;
             if (!$traced) {
                 $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
-                $dots = self::dotsAfter($node, $dots);
+                $dots = $dotted ? self::dotsAfter($node, $dots) : 0;
             }
             if ($text) {
                 self::advanceFollowingPipe($c, $node, $type);
