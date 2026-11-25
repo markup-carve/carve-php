@@ -267,6 +267,12 @@ final class Text
     public static bool $gluedElsewhere = false;
 
     /**
+     * While `$recorded` is set: a line of text that is a colon run as long as the fence of the fenced block it stands in
+     * directly took a backslash. Bare, it closes that block, so the form without escapes does not read back.
+     */
+    public static bool $closesFence = false;
+
+    /**
      * Set where a cell holds a text backtick: the tick plan of the leaf cannot see the pipes a code span pairs across
      * (C2-B-169) or the fragments of a continued cell (C2-B-184), so the read-back rounds place those backslashes.
      */
@@ -485,6 +491,18 @@ final class Text
         return $out;
     }
 
+    /**
+     * Whether the line the text opens is a colon run, with blanks behind it only, that closes the fenced block the
+     * paragraph stands in directly. Not in a block of hard-break lines: there the kind rounds escape the line openers.
+     */
+    private static function closerLine(Context $c): bool
+    {
+        $line = rtrim($c->openedLine ?? '', " \t");
+
+        return $c->owner === 'fenced' && !$c->inQuote && !$c->bareBreaks && $c->fenceRun >= 3 && strlen($line) >= $c->fenceRun
+            && strspn($line, ':') === strlen($line);
+    }
+
     private static function escapedText(string $value, Context $c, int $next): string
     {
         $n = strlen($value);
@@ -606,6 +624,9 @@ final class Text
                 if (!$c->gluedNode && self::$recorded !== null) {
                     self::$gluedElsewhere = true;
                 }
+            }
+            if ($escape && $i === 0 && $marks === 0 && $byte === 0x3A && self::$recorded !== null && self::closerLine($c)) {
+                self::$closesFence = true;
             }
             $c->escapedAt[$i] = $escape;
             $out .= $escape ? '\\' . $ch : $ch;

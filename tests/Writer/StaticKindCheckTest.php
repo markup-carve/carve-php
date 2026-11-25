@@ -67,4 +67,37 @@ final class StaticKindCheckTest extends TestCase
         $this->assertSame('', $lines[261]);
         $this->assertSame('\\::::', $lines[262]);
     }
+
+    public function testColonLinesPastTheDepthCapBelow64KbKeepTheirLineEscapes(): void
+    {
+        // carve-php#5624: below 64 KB the escaped lines close their divs bare, so the form without escapes is not read.
+        $open = [];
+        for ($k = 0; $k < 210; $k++) {
+            $open[] = str_repeat(':', 213 - $k);
+        }
+        $source = implode("\n", [...$open, '+', '', ...array_reverse($open)]) . "\n";
+        $written = Carve::format($source);
+        $lines = explode("\n", $written);
+
+        $this->assertSame('\\' . str_repeat(':', 13), $lines[200]);
+        $this->assertSame('\\::::', $lines[209]);
+        $this->assertSame('\\+', $lines[210]);
+        $this->assertSame('\\::::', $lines[212]);
+        $this->assertSame($written, Carve::format($written));
+    }
+
+    public function testItemLinePastTheDepthCapTakesNoKindRoundBelow64Kb(): void
+    {
+        // carve-php#5624: as above 64 KB and in the spec model, the list marker the escaped lines leave in their
+        // paragraph keeps no backslash, so the written page is a fixed point at every size.
+        $open = [];
+        for ($k = 0; $k < 210; $k++) {
+            $open[] = str_repeat(':', 213 - $k);
+        }
+        $source = implode("\n", [...$open, '- item', '', ...array_reverse($open)]) . "\n";
+        $written = Carve::format($source);
+
+        $this->assertSame('- item', explode("\n", $written)[210]);
+        $this->assertSame($written, Carve::format($written));
+    }
 }
