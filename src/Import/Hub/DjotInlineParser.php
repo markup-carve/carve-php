@@ -10,6 +10,7 @@ use Djot\Node\Inline\HardBreak;
 use Djot\Node\Inline\Image;
 use Djot\Node\Inline\Link;
 use Djot\Node\Inline\SoftBreak;
+use Djot\Node\Inline\Span;
 use Djot\Node\Inline\Text;
 use Djot\Node\Node;
 use Djot\Parser\InlineParser;
@@ -48,22 +49,95 @@ final class DjotInlineParser extends InlineParser
      */
     private array $bracketScanEnds = [];
 
+    /**
+     * @var array<int, int> The `]` that closes the reference label of the link text opened at each key.
+     */
+    private array $bracketScanLabelEnds = [];
+
     protected function parseInlines(Node $parent, string $text, int $origin = 0): void
     {
         $outerText = $this->bracketScanText;
         $outerEnds = $this->bracketScanEnds;
+        $outerLabelEnds = $this->bracketScanLabelEnds;
         try {
             parent::parseInlines($parent, $text, $origin);
         } finally {
             $this->bracketScanText = $outerText;
             $this->bracketScanEnds = $outerEnds;
+            $this->bracketScanLabelEnds = $outerLabelEnds;
         }
+    }
+
+    /**
+     * The library link with the brackets of `findBalancedBracketEnd()`: a reference label ends where djot.js ends it,
+     * and `]{` closes a span even when no attribute block follows, as in djot.js.
+     */
+    protected function parseLink(string $text, int $pos): ?array
+    {
+        $end = $this->findBalancedBracketEnd($text, $pos);
+        $next = $end === null ? '' : ($text[$end + 1] ?? '');
+        if ($end !== null && $next === '[') {
+            $labelEnd = $this->bracketScanLabelEnds[$pos] ?? null;
+            if ($labelEnd !== null) {
+                return $this->referenceLink($text, $pos, $end, $labelEnd);
+            }
+        }
+        $result = parent::parseLink($text, $pos);
+        if ($result === null && $end !== null && $next === '{') {
+            $span = new Span();
+            $this->parseInlines($span, substr($text, $pos + 1, $end - $pos - 1), $this->textOrigin + $pos + 1);
+
+            return ['node' => $span, 'pos' => $end + 1];
+        }
+
+        return $result;
+    }
+
+    /**
+     * A reference link as djot.js reads it: the label ends at `$labelEnd`, and an empty label takes the text content
+     * of the link (`getStringContent`). Both are trimmed with their white space runs collapsed.
+     *
+     * @return array{node: \Djot\Node\Inline\Link, pos: int}
+     */
+    private function referenceLink(string $text, int $pos, int $end, int $labelEnd): array
+    {
+        $linkText = substr($text, $pos + 1, $end - $pos - 1);
+        $label = substr($text, $end + 2, $labelEnd - $end - 2);
+        $link = new Link();
+        $this->parseInlines($link, $linkText, $this->textOrigin + $pos + 1);
+        $ref = trim(preg_replace('/[ \t\r\n]+/', ' ', $label === '' ? $this->extractText($link) : $label) ?? '', " \t\r\n");
+        $link->setReferenceLabel($label === '' ? '' : $ref);
+        $location = $this->warningLocation($pos, substr($text, $pos, $labelEnd - $pos + 1));
+        $endPos = $this->applyConsecutiveAttributes($link, $text, $labelEnd + 1);
+        if ($this->blockParser->defersReferences()) {
+            $this->blockParser->deferReference($link, $ref, $location['line'], $location['column']);
+
+            return ['node' => $link, 'pos' => $endPos];
+        }
+        $definition = $this->blockParser->getReference($ref);
+        if ($definition === null) {
+            $this->blockParser->addUndefinedReferenceWarning($ref, $location['line'], $location['column'], true);
+
+            return ['node' => $link, 'pos' => $endPos];
+        }
+        $this->blockParser->markReferenceUsed($ref, $this->currentLine);
+        $link->setDestination($definition->url);
+        foreach ($definition->attributes as $key => $value) {
+            if ($key === 'class') {
+                $link->addClass((string)$value);
+            } elseif ($link->getAttribute($key) === null) {
+                $link->setAttribute($key, (string)$value);
+            }
+        }
+
+        return ['node' => $link, 'pos' => $endPos];
     }
 
     /**
      * The `]` that closes the `[` at `$open`, found the way djot.js matches openers: a `]` closes the last open `[`
      * only when `(`, `[` or `{` follows it, any other `]` is text (carve#6665), and a closing emphasis or quote drops
-     * the openers inside it. A footnote reference and the label after `][` open no bracket.
+     * the openers inside it. After `][` the link text closes only once its label does: the label's `[` is no opener,
+     * and the next `]` that finds the link text as the last open `[` closes the label, whatever follows it.
      *
      * One scan from the start of the text decides every `[` in it, so openers before `$open` take part as in djot.js.
      * A `[` that scan does not see as an opener gets a scan of its own.
@@ -73,6 +147,7 @@ final class DjotInlineParser extends InlineParser
         if ($text !== $this->bracketScanText) {
             $this->bracketScanText = $text;
             $this->bracketScanEnds = [];
+            $this->bracketScanLabelEnds = [];
             $this->scanBrackets($text, null);
         }
         if (array_key_exists($open, $this->bracketScanEnds)) {
@@ -90,7 +165,7 @@ final class DjotInlineParser extends InlineParser
      */
     private function scanBrackets(string $text, ?int $own): ?int
     {
-        /** @var array<int, array{0: string, 1: int, 2: int}> $openers kind, start and end of each open opener */
+        /** @var array<int, array{0: string, 1: int, 2: int, 3?: int}> $openers kind, start, end and label `]` of each open opener */
         $openers = [];
         /** @var array<string, array<int, int>> $byKind the index in `$openers` of each open opener, by kind */
         $byKind = ['[' => []];
@@ -120,7 +195,7 @@ final class DjotInlineParser extends InlineParser
             if ($char === ']') {
                 $resume = $this->closeBracket($text, $at, $openers, $byKind, $own);
                 if ($resume === null) {
-                    return $at;
+                    return $this->bracketScanEnds[(int)$own];
                 }
                 $at = $resume;
 
@@ -152,7 +227,7 @@ final class DjotInlineParser extends InlineParser
     /**
      * @param string $text
      * @param int $at
-     * @param array<int, array{0: string, 1: int, 2: int}> $openers
+     * @param array<int, array{0: string, 1: int, 2: int, 3?: int}> $openers
      * @param array<string, array<int, int>> $byKind
      * @param int|null $own
      *
@@ -160,12 +235,34 @@ final class DjotInlineParser extends InlineParser
      */
     private function closeBracket(string $text, int $at, array &$openers, array &$byKind, ?int $own): ?int
     {
-        $next = $text[$at + 1] ?? '';
-        if ($byKind['['] === [] || ($next !== '(' && $next !== '[' && $next !== '{')) {
+        if ($byKind['['] === []) {
             return $at + 1;
         }
         $index = (int)end($byKind['[']);
         $start = $openers[$index][1];
+        if (isset($openers[$index][3])) {
+            $this->bracketScanEnds[$start] = $openers[$index][3];
+            $this->bracketScanLabelEnds[$start] = $at;
+            if ($start === $own) {
+                return null;
+            }
+            $this->dropOpeners($openers, $byKind, $index);
+
+            return $at + 1;
+        }
+        $next = $text[$at + 1] ?? '';
+        if ($next === '[') {
+            $this->dropOpeners($openers, $byKind, $index + 1);
+            $opener = $openers[$index];
+            $opener[3] = $at;
+            $openers[$index] = $opener;
+            $this->bracketScanEnds[$at + 1] ??= null;
+
+            return $at + 2;
+        }
+        if ($next !== '(' && $next !== '{') {
+            return $at + 1;
+        }
         $this->bracketScanEnds[$start] = $at;
         if ($start === $own) {
             return null;
@@ -173,11 +270,6 @@ final class DjotInlineParser extends InlineParser
         $this->dropOpeners($openers, $byKind, $index);
         if ($next === '(') {
             return $this->findLinkDestinationEnd($text, $at + 1) ?? $at + 1;
-        }
-        if ($next === '[') {
-            $labelEnd = strpos($text, ']', $at + 2);
-
-            return $labelEnd === false ? $at + 1 : $labelEnd + 1;
         }
         $attributeEnd = $this->findAttributeEnd($text, $at + 1);
         if ($attributeEnd !== null && $this->isValidAttrPayload(substr($text, $at + 2, $attributeEnd - $at - 2))) {
@@ -192,7 +284,7 @@ final class DjotInlineParser extends InlineParser
      *
      * @param string $text
      * @param int $at
-     * @param array<int, array{0: string, 1: int, 2: int}> $openers
+     * @param array<int, array{0: string, 1: int, 2: int, 3?: int}> $openers
      * @param array<string, array<int, int>> $byKind
      */
     private function matchDelimiter(string $text, int $at, array &$openers, array &$byKind): int
@@ -231,7 +323,7 @@ final class DjotInlineParser extends InlineParser
     }
 
     /**
-     * @param array<int, array{0: string, 1: int, 2: int}> $openers
+     * @param array<int, array{0: string, 1: int, 2: int, 3?: int}> $openers
      * @param array<string, array<int, int>> $byKind
      * @param int $end
      * @param int $start
@@ -247,7 +339,7 @@ final class DjotInlineParser extends InlineParser
      * Drops the opener at `$index` and every opener after it, as djot.js `clearOpeners` does; a dropped `[` closes
      * nowhere.
      *
-     * @param array<int, array{0: string, 1: int, 2: int}> $openers
+     * @param array<int, array{0: string, 1: int, 2: int, 3?: int}> $openers
      * @param array<string, array<int, int>> $byKind
      * @param int $index
      */
