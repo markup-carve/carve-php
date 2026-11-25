@@ -259,7 +259,7 @@ final class PositionChecker
     }
 
     /**
-     * C2-A-145: siblings do not overlap.
+     * C2-A-145: siblings do not overlap. A pipe table holds its comment as a child, so only a delimited table meets the exemption.
      *
      * @param array<mixed> $nodes
      * @param string $path
@@ -276,7 +276,8 @@ final class PositionChecker
             if ($last !== null && $last['pos']['endOffset'] > $node['pos']['startOffset']) {
                 $breaks = isset(self::BREAKS[$last['type']], self::BREAKS[$node['type']]);
                 $before = $last['type'] === 'comment' && self::inside($last['pos'], $node['pos']);
-                $after = $node['type'] === 'comment' && $last['type'] === 'code_block' && self::inside($node['pos'], $last['pos']);
+                $after = $node['type'] === 'comment' && in_array($last['type'], ['code_block', 'table'], true)
+                    && self::inside($node['pos'], $last['pos']);
                 if (!$breaks && !$before && !$after) {
                     $this->found[] = $path . ': ' . $last['type'] . ' overlaps ' . $node['type'] . ' (C2-A-145)';
                 }
