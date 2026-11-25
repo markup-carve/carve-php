@@ -386,12 +386,15 @@ final class TreeEncoder
                 }
             }
             $children = [];
-            self::appendNodes($node->f['title'] ?? null, $children);
+            if (isset($node->f['title'])) {
+                self::appendNodes($node->f['title'], $children);
+            }
             foreach ($node->children ?? [] as $child) {
                 $children[] = $child;
             }
             foreach ($node->f as $key => $value) {
-                if ($key !== 'title') {
+                // A scalar field holds no node; most fields are scalars.
+                if ($key !== 'title' && (is_array($value) || $value instanceof Node)) {
                     self::appendNodes($value, $children);
                 }
             }
