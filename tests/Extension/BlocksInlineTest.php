@@ -103,6 +103,19 @@ final class BlocksInlineTest extends TestCase
         );
     }
 
+    public function testDisclosureContinuationLinesHaveNoIndent(): void
+    {
+        $this->assertSame(
+            "<details>\n  <summary>T</summary>\n  <p>x<br>\ny</p>\n</details>",
+            self::html("::: details \"T\"\nx\\\ny\n:::\n", Details::bundle()),
+        );
+        $this->assertSame(
+            "<ul>\n  <li>a\n    <section class=\"spoiler spoiler-revealed\">\n      <h3 class=\"spoiler-title\">Spoiler</h3>\n"
+            . "      <p>p\nq</p>\n    </section>\n  </li>\n</ul>",
+            self::html("- a\n\n  ::: spoiler\n  p\n  q\n  :::\n", Spoiler::bundle(), ['mode' => 'static']),
+        );
+    }
+
     public function testDetailsPreservesRawHtmlLines(): void
     {
         $this->assertSame(
@@ -225,6 +238,11 @@ final class BlocksInlineTest extends TestCase
         $this->assertSame(
             '<p>P</p>',
             self::html(':wiki[P]', Wikilinks::bundle(urlGenerator: static fn (): string => 'javascript:alert(1)')),
+        );
+        $this->assertSame(
+            '<p><a href="a-b-c#x" class="wikilink" data-wikilink="a b c"> y </a> '
+            . '<a href="#only" class="wikilink" data-wikilink="">#only</a></p>',
+            self::html(':wiki[a *b* `c`#x| y ] :wiki[#only]', Wikilinks::bundle()),
         );
         $this->assertSame('<p><span class="ext-wiki">P</span></p>', Carve::render(':wiki[P]'));
         $node = json_decode(Carve::encodeTree(Carve::parse(':wiki[P]', ['extensions' => [Wikilinks::bundle()]])), true);

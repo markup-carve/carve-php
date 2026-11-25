@@ -28,10 +28,9 @@ final class Wikilinks
         $classes = array_values(array_filter(explode(' ', $cssClass), static fn (string $c): bool => $c !== ''));
         $link = static function (Node $node, RenderHost $host) use ($generate, $classes, $newWindow): string {
             $fallback = PlainText::nodes($node->f['fallback'] ?? []);
-            $source = $node->f['source'] ?? [];
-            $body = is_array($source) && is_string($source['body'] ?? null)
-                ? $source['body'] : ($host->plainText)($fallback);
-            [$page, $anchor, $display] = self::target($body);
+            $props = $node->f['props'] ?? [];
+            $target = is_array($props) && is_string($props['target'] ?? null) ? $props['target'] : ($host->plainText)($fallback);
+            [$page, $anchor] = self::target($target);
             $href = $generate($page) . $anchor;
             // C2-X-057: the target becomes a link only through the URL policy (C2-H-159).
             if ($page === '' && $anchor === '' || !$host->isUrlAllowed($href)) {
@@ -48,10 +47,9 @@ final class Wikilinks
             $kept = array_values(array_filter($attrs->pairs, static fn (array $p): bool => !isset($names[strtolower($p[0])])));
             $attrs->classes = [...$classes, ...$attrs->classes];
             $attrs->pairs = [$generated[0], ...$kept, ...array_slice($generated, 1)];
-            $text = $display !== '' ? $display : ($page === '' ? $anchor : $page);
 
             return '<a href="' . RenderHost::escapeAttribute($href) . '"' . AuthorAttrs::write($attrs, $host) . '>'
-                . RenderHost::escapeText($text) . '</a>';
+                . RenderHost::escapeText(self::linkText($node, $host, $page, $anchor)) . '</a>';
         };
         $definition = Standard::definitions('carve.wiki')[0] ?? null;
         assert($definition instanceof ExtensionDefinition);
@@ -68,9 +66,23 @@ final class Wikilinks
     }
 
     /**
-     * `Page#anchor|Display`: the page, the anchor with its `#`, and the display text, each possibly empty.
+     * The display text, or the page (else the anchor) when the inline source has no `|`.
+     */
+    private static function linkText(Node $node, RenderHost $host, string $page, string $anchor): string
+    {
+        $source = $node->f['source'] ?? [];
+        $body = is_array($source) && ($source['form'] ?? null) === 'inline' ? ($source['body'] ?? null) : null;
+        if (is_string($body) && !str_contains($body, '|')) {
+            return $page === '' ? $anchor : $page;
+        }
+
+        return ($host->plainText)(PlainText::nodes($node->f['fallback'] ?? []));
+    }
+
+    /**
+     * `Page#anchor` (anything after a `|` ignored): the page and the anchor with its `#`, each possibly empty.
      *
-     * @return array{0: string, 1: string, 2: string}
+     * @return array{0: string, 1: string}
      */
     private static function target(string $text): array
     {
@@ -81,7 +93,6 @@ final class Wikilinks
         return [
             $hash === false ? $path : trim(substr($path, 0, $hash)),
             $hash === false ? '' : '#' . substr($path, $hash + 1),
-            $bar === false ? '' : trim(substr($text, $bar + 1)),
         ];
     }
 }

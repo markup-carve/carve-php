@@ -185,8 +185,9 @@ final class Standard
         $node->f['version'] = '1';
         $text = new Node('text');
         $plain = PlainText::of($claim->node->children ?? []);
-        $bar = strpos($plain, '|');
-        $text->f['value'] = $claim->name === 'wiki' && $bar !== false ? trim(substr($plain, $bar + 1)) : $plain;
+        $bar = $claim->name === 'wiki' ? strpos($plain, '|') : false;
+        $node->f['props'] = ['target' => $bar === false ? $plain : substr($plain, 0, $bar)];
+        $text->f['value'] = $bar === false ? $plain : substr($plain, $bar + 1);
         $node->f['fallback'] = [$text];
 
         return $node;
