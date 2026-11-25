@@ -490,6 +490,8 @@ final class Writer
         }
         $unsettledByKind = false;
         $firstBare = null;
+        // The marked candidate of the bare form, which the first round of the repair below would write again.
+        $markedBare = null;
         // C2-W-146 places its pair escapes after the procedure of C2-W-088, for pairs of bare marks that stay text, so a
         // write whose escapes are all of these and that reads back reads so bare too: no kind round, no bare read-back.
         $pairsOnly = $localEscapes !== [] && $result->diagnostics === []
@@ -533,6 +535,7 @@ final class Writer
             }
             if (!$bareHolds) {
                 $marked = self::markedCandidate($tree, $layout, $options, [], $bare);
+                $markedBare = [$bare, $marked];
                 $reported = ReadbackRound::compare($marked, $readBare, $tree, $wanted, false)['openers'];
                 $expanded = RepairPlanner::expandedKindEscapes($tree, $reported, $localEscapes);
                 $unsettledByKind = $expanded !== $localEscapes;
@@ -618,6 +621,7 @@ final class Writer
         unset($firstBare);
         if ($read !== null && $readPrint !== $treePrint) {
             $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
+            $markedBare = [$bareSource, $bare];
             $bareCompared = ReadbackRound::compare($bare, $read, $tree, $treePrint, false);
             $reported = $bareCompared['openers'];
             $needsKindRound = RepairPlanner::expandedKindEscapes($tree, $reported, $localEscapes) !== $localEscapes;
@@ -668,14 +672,18 @@ final class Writer
             $prints = [$treePrint, $treeParts];
             $scoped = self::scopedRepair($tree, $layout, $options, $glued, $prints, $bareSource, $bareRanges, $read, $readParts);
             if ($scoped === null) {
-                // The first round would write and read this same candidate again.
-                $bare = self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
+                // The first round would write and read this same candidate again. Without glued ticks it is the
+                // candidate the kind check above marked.
+                $bare = $glued === [] && $removed === [] && $markedBare !== null && $markedBare[0] === $bareSource
+                    ? $markedBare[1]
+                    : self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
                 $planner = new RepairPlanner($tree, $layout, $options, $glued, $treePrint);
                 $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false), $readParts);
                 unset($bare);
             }
             unset($read);
         }
+        unset($markedBare);
         $spans = null;
         if ($scoped !== null) {
             [$repaired, $spans] = $scoped;
