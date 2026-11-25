@@ -13,8 +13,8 @@ final class SvgSanitizeOptions
      * @param bool $allowStyle Keep the `style` attribute when its value cannot fetch or execute. The `<style>` element
      *   is always dropped.
      * @param bool $allowLinks Keep `<a>` and its external `href` (safe schemes only).
-     * @param bool $allowAnimation Keep the SMIL elements `animate`, `set` and `mpath` (carve-js
-     *   drops `animateTransform` and `animateMotion` too).
+     * @param bool $allowAnimation Keep the SMIL elements `animate`, `animateTransform`, `animateMotion`, `set` and
+     *   `mpath`.
      * @param bool $allowExternalImages Keep `<image>` and its external `href` (safe schemes only; `data:` stays
      *   refused).
      * @param array{deny?: array<string>, allow?: array<string>}|null $urlPolicy The scheme policy of

@@ -247,7 +247,7 @@ characters XML allows: raw control characters are dropped and a numeric referenc
 The output keeps only presentational elements and attributes: no `<script>`, `<foreignObject>`, `<style>`, event
 handlers, external references or active CSS. `SvgSanitizeOptions` (or the same keys in an array) widens that:
 `allowLinks` keeps `<a>` with external `href`, `allowExternalImages` keeps `<image>`, `allowAnimation` keeps
-`<animate>`, `<set>` and `<mpath>`, and `allowStyle` keeps a `style` attribute that cannot fetch or execute.
+`<animate>`, `<animateTransform>`, `<animateMotion>`, `<set>` and `<mpath>`, and `allowStyle` keeps a `style` attribute that cannot fetch or execute.
 `urlPolicy` takes the `deny` or `allow` list of the render option of the same name.
 
 ```php

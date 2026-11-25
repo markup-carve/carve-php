@@ -10,10 +10,13 @@ use MarkupCarve\Carve\Extension\SvgSanitizeOptions;
 use MarkupCarve\Carve\Extension\SvgSanitizer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 final class SvgSanitizerTest extends TestCase
 {
     /**
+     * @throws \RuntimeException
+     *
      * @return array<string, array{string, array<string, mixed>, string, bool}>
      */
     public static function parityRows(): array
@@ -21,6 +24,17 @@ final class SvgSanitizerTest extends TestCase
         $path = dirname(__DIR__) . '/fixtures/svg-sanitize/parity.json';
         /** @var array<array{from: string, src: string, opts: array<string, mixed>, svg: string, ok: bool}> $rows */
         $rows = json_decode((string)file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        // carve-js rows a js-first ruling changed (carve#6763, #6765), each naming its ticket.
+        $deltaPath = dirname(__DIR__) . '/fixtures/svg-sanitize/parity-js-first.json';
+        /** @var array<array{index: int, tickets: array<string>, src: string, svg: string, ok: bool}> $deltas */
+        $deltas = json_decode((string)file_get_contents($deltaPath), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($deltas as $delta) {
+            $row = $rows[$delta['index']];
+            if ($row['src'] !== $delta['src']) {
+                throw new RuntimeException('parity-js-first row ' . $delta['index'] . ' names another source');
+            }
+            $rows[$delta['index']] = ['svg' => $delta['svg'], 'ok' => $delta['ok']] + $row;
+        }
         $out = [];
         foreach ($rows as $i => $row) {
             $out[$row['from'] . ' ' . $i] = [$row['src'], $row['opts'], $row['svg'], $row['ok']];
@@ -214,6 +228,28 @@ final class SvgSanitizerTest extends TestCase
             self::assertTrue(@$document->loadXML($result['svg']), $source);
         }
         self::assertGreaterThan(900, $kept);
+    }
+
+    public function testAnimateTransformAndAnimateMotionAreKeptUnderAllowAnimation(): void
+    {
+        // carve#6765
+        $opts = ['allowAnimation' => true];
+        $animation = '<animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s"/>';
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><rect>' . $animation . '</rect></svg>',
+            SvgSanitizer::sanitize('<svg><rect>' . $animation . '</rect></svg>', $opts)['svg'],
+        );
+        $motion = '<svg xmlns="http://www.w3.org/2000/svg"><path id="p"/>'
+            . '<circle><animateMotion dur="2s"><mpath href="#p"/></animateMotion></circle></svg>';
+        self::assertSame($motion, SvgSanitizer::sanitize($motion, $opts)['svg']);
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><animateMotion/></use></svg>',
+            SvgSanitizer::sanitize('<svg><use href="#x"><animateMotion onbegin="alert(1)" href="evil.svg#x"/></use></svg>', $opts)['svg'],
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
+            SvgSanitizer::sanitize('<svg><rect><animateTransform attributeName="transform"/></rect></svg>')['svg'],
+        );
     }
 
     public function testMalformedInputIsRefused(): void

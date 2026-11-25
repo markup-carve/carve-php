@@ -73,7 +73,7 @@ final class SvgSanitizer
      *
      * @var array<string>
      */
-    private const ANIMATION_TAGS = ['animate', 'animateTransform', 'animateMotion', 'set', 'mpath'];
+    private const ANIMATION_TAGS = ['animate', 'animatetransform', 'animatemotion', 'set', 'mpath'];
 
     /**
      * Matched in lower case.
