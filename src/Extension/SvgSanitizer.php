@@ -28,7 +28,12 @@ final class SvgSanitizer
      *
      * @var string
      */
-    private const WS = '[\t\n\x0B\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]';
+    private const WS = '[' . self::WS_CHARS . ']';
+
+    /**
+     * @var string
+     */
+    private const WS_CHARS = '\t\n\x0B\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
 
     /**
      * Raw characters outside the XML 1.0 `Char` production (carve#6764); valid UTF-8 holds no surrogates.
@@ -90,13 +95,13 @@ final class SvgSanitizer
     private const NAME_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_:.-';
 
     /**
-     * One attribute (name, then a double-quoted, single-quoted or bare value) or one skipped character. An unclosed
-     * quote runs to the end.
+     * One attribute (name, then a double-quoted, single-quoted or bare value) or a run of skipped characters. An
+     * unclosed quote runs to the end. Every repeat is over one class, so a long run stays under the PCRE match limit.
      *
      * @var string
      */
     private const ATTR = '~\G' . self::WS . '*+(?:([A-Za-z_:][A-Za-z0-9_:.-]*+)(?:' . self::WS . '*+=' . self::WS
-        . '*+(?:"([^"]*+)"?|\'([^\']*+)\'?|((?:(?!' . self::WS . ')[^>])*+)))?|.)~su';
+        . '*+(?:"([^"]*+)"?|\'([^\']*+)\'?|([^>' . self::WS_CHARS . ']*+)))?|[^A-Za-z_:' . self::WS_CHARS . ']++)~u';
 
     /**
      * @var string
@@ -536,8 +541,12 @@ final class SvgSanitizer
         }
         $lowerTag = strtolower($tag);
         $externalHref = ($this->opts->allowLinks && $lowerTag === 'a') || ($this->opts->allowExternalImages && $lowerTag === 'image');
-        // Group 1 is the name (null for a skipped character); groups 2 to 4 are the value.
-        preg_match_all(self::ATTR, $raw, $attrs, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+        // Group 1 is the name (null for skipped characters); groups 2 to 4 are the value.
+        if (strlen($raw) <= self::BATCH_BYTES) {
+            preg_match_all(self::ATTR, $raw, $attrs, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+        } else {
+            $attrs = self::namedAttrs($raw);
+        }
         $animatesHref = stripos($raw, 'attributename') !== false && self::animatesHref($attrs);
         $out = '';
         $seen = [];
@@ -560,6 +569,26 @@ final class SvgSanitizer
         }
 
         return $out;
+    }
+
+    /**
+     * A long attribute run, matched one attribute at a time; only named matches are kept, so memory follows the
+     * attribute count.
+     *
+     * @return array<array<string|null>> `ATTR` matches.
+     */
+    private static function namedAttrs(string $raw): array
+    {
+        $attrs = [];
+        $at = 0;
+        while (preg_match(self::ATTR, $raw, $m, PREG_UNMATCHED_AS_NULL, $at) === 1) {
+            $at += strlen($m[0]);
+            if ($m[1] !== null) {
+                $attrs[] = $m;
+            }
+        }
+
+        return $attrs;
     }
 
     /**
