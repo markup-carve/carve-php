@@ -2237,7 +2237,7 @@ final class Inline
             'raw_inline' => $this->spanValue($node, $path, $c, '') . '{=' . self::str($node, 'format') . '}',
             'autolink' => $this->autolink($node, $path),
             'comment' => $this->comment($node, $path, $c, $next),
-            'critic_comment' => '{#' . $this->cellValue($node, $path, $c, self::str($node, 'value')) . '#}',
+            'critic_comment' => $this->criticComment($node, $path, $c),
             default => $this->extensionOrCitation($node, $type, $path, $c, $next),
         };
     }
@@ -3492,10 +3492,13 @@ final class Inline
                 // The reader drops the CR of a line ending and, in a comment, the spaces and tabs around it.
                 $this->w->lose($path, self::str($node, 'type'), 'value');
             }
-            $lines = array_slice(explode("\n", $span ? self::codeSpan($value) : $value), 1);
+            if (!$span) {
+                return $value;
+            }
+            $lines = array_slice(explode("\n", self::codeSpan($value)), 1);
             $last = count($lines) - 1;
             foreach ($lines as $at => $line) {
-                if ($span && $at === $last) {
+                if ($at === $last) {
                     if (!self::spellableFinalSpanLine($line, $c)) {
                         $this->w->lose($path, self::str($node, 'type'), 'value');
 
@@ -3504,12 +3507,7 @@ final class Inline
 
                     continue;
                 }
-                if (!$span && $at === $last && $line === '') {
-                    $spelled = self::codeSpan($value);
-                    $line = substr($spelled, (int)strrpos($spelled, "\n") + 1);
-                    $line = str_starts_with($line, ' ') ? '' : $line;
-                }
-                if (Text::opensBlock($line, $span ? $c : null)) {
+                if (Text::opensBlock($line, $c)) {
                     $this->w->lose($path, self::str($node, 'type'), 'value');
 
                     break;
@@ -3705,7 +3703,21 @@ final class Inline
         // A line comment outside a cell writes its line feeds as spaces below, so it reads back as a comment.
         $value = $braced || $c->inCell ? $this->cellValue($node, $path, $c, self::str($node, 'value')) : self::str($node, 'value');
         if ($braced) {
-            return $value === '' ? '{%%}' : '{% ' . $value . ' %}';
+            if ($value === '') {
+                return '{%%}';
+            }
+            // C2-W-005, C2-A-074: where a padded line reads as a block opener, the value stands glued to the marks.
+            if ($this->laterLineOpens($value, ' %}', $c)) {
+                $glued = !str_starts_with($value, ' ') && !str_ends_with($value, ' ');
+                if (!$glued || $this->laterLineOpens($value, '%}', $c)) {
+                    $this->w->lose($path, 'comment', 'value');
+                }
+                if ($glued) {
+                    return '{%' . $value . '%}';
+                }
+            }
+
+            return '{% ' . $value . ' %}';
         }
         $kept = rtrim($value, " \t");
         if ($kept !== $value || str_contains($kept, "\n")) {
@@ -3720,6 +3732,42 @@ final class Inline
         $lead = $c->last === -1 || $c->last === 10 ? '' : ' ';
 
         return $lead . ($kept === '' ? '%%' : '%% ' . str_replace("\n", ' ', $kept));
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return string
+     */
+    private function criticComment(array $node, string $path, Context $c): string
+    {
+        $value = $this->cellValue($node, $path, $c, self::str($node, 'value'));
+        if ($this->laterLineOpens($value, '#}', $c)) {
+            $this->w->lose($path, 'critic_comment', 'value');
+        }
+
+        return '{#' . $value . '#}';
+    }
+
+    /**
+     * C2-B-014: a later line of a comment value, its last line with the closing marks, can interrupt the paragraph.
+     */
+    private function laterLineOpens(string $value, string $close, Context $c): bool
+    {
+        if ($c->inCell || $c->inLineBlock || !str_contains($value, "\n")) {
+            return false;
+        }
+        $lines = array_slice(explode("\n", $value), 1);
+        $last = count($lines) - 1;
+        foreach ($lines as $at => $line) {
+            if (Text::opensBlock($at === $last ? $line . $close : $line, $c)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
