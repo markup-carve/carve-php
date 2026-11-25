@@ -3458,6 +3458,10 @@ final class Inline
      */
     public static function destination(string $value, bool $pipes = false): string
     {
+        // Only a parenthesis, a backslash or a pipe takes a backslash.
+        if (strpbrk($value, '()\\|') === false) {
+            return $value;
+        }
         $unmatched = [];
         $open = [];
         $n = strlen($value);
