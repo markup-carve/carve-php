@@ -1811,9 +1811,20 @@ final class Inline
             return;
         }
         $children = array_values($children);
-        $slash = strrpos($path, '/');
-        $key = strlen($path) . '/' . substr($path, $slash === false ? 0 : $slash + 1);
-        if ($this->onlyEmptyAt($children, strlen($path), $key) || self::emptyTextRun($children, count($children) - 1) !== null) {
+        $lead = $children[0];
+        $leadType = is_array($lead) && is_string($lead['type'] ?? null) ? $lead['type'] : '';
+        // A first child that writes something of its own leaves the content nonempty (`emptyNested()`).
+        if (
+            !is_array($lead) || ($leadType === 'text' ? ($lead['value'] ?? '') !== ''
+                : !isset(self::PAIRED[$leadType]) && !isset(self::BRACED[$leadType]))
+        ) {
+            $this->forgetEmptyAt($children, strlen($path));
+            $only = false;
+        } else {
+            $slash = strrpos($path, '/');
+            $only = $this->onlyEmptyAt($children, strlen($path), strlen($path) . '/' . substr($path, $slash === false ? 0 : $slash + 1));
+        }
+        if ($only || self::emptyTextRun($children, count($children) - 1) !== null) {
             $this->w->lose($path, $type, null);
         }
     }
@@ -1850,13 +1861,26 @@ final class Inline
             }
         }
         $this->emptyContent[$key] = [$children, $only];
-        // Each answer is read once, by the level above; a kept one would hold its replaced content alive.
+        $this->forgetEmptyAt($children, $length);
+
+        return $only;
+    }
+
+    /**
+     * Each answer of `onlyEmptyAt()` is read once, by the level above; a kept one would hold its replaced content alive.
+     *
+     * @param array<mixed> $children
+     * @param int $length The length of the node's path.
+     */
+    private function forgetEmptyAt(array $children, int $length): void
+    {
+        if ($this->emptyContent === []) {
+            return;
+        }
         foreach ($children as $k => $child) {
             $childLength = $length + 10 + strlen((string)$k);
             unset($this->emptyContent[$childLength . '/' . $k]);
         }
-
-        return $only;
     }
 
     /**
