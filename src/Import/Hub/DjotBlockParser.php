@@ -7,7 +7,8 @@ namespace MarkupCarve\Carve\Import\Hub;
 use Djot\Parser\BlockParser;
 
 /**
- * The library block parser with the djot.js autolinks of `DjotInlineParser`.
+ * The library block parser with the djot.js autolinks of `DjotInlineParser` and the djot.js list markers of
+ * `DjotListParser`.
  */
 final class DjotBlockParser extends BlockParser
 {
@@ -15,5 +16,6 @@ final class DjotBlockParser extends BlockParser
     {
         parent::__construct();
         $this->inlineParser = new DjotInlineParser($this);
+        $this->listParser = new DjotListParser();
     }
 }

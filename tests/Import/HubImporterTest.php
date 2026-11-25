@@ -234,6 +234,34 @@ final class HubImporterTest extends TestCase
     }
 
     /**
+     * djot.js ends a list marker at any white space, glues no attributes to it, and reads only `[ ]`, `[x]` and `[X]`
+     * one space after a bullet as a task box (carve-php#5972). Sources as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotListMarkerProvider(): array
+    {
+        return [
+            'span after a bullet' => ["- [r]{.c}\n", "- [r]{.c}\n"],
+            'attributes on an ordered marker' => ["1.{.c}\n", "[1.]{.c}\n"],
+            'attributes on a roman marker' => ["(x){.c}\n", "[(x)]{.c}\n"],
+            'failed block on a bullet' => ["-{=x}\n", "-{=x}\n"],
+            'other task character' => ["- [-] a\n", "- \\[-] a\n"],
+            'attributes on a task box' => ["- [ ]{.c} a\n", "- [ ]{.c} a\n"],
+            'tab after a bullet' => ["-\ta\n", "- a\n"],
+            'tab after a task box' => ["- [ ]\ta\n", "- [ ] a\n"],
+            'tab before a task box' => ["-\t[ ] a\n", "- \\[ ] a\n"],
+            'tab after an ordered marker' => ["1)\tb\n", ". b\n"],
+        ];
+    }
+
+    #[DataProvider('djotListMarkerProvider')]
+    public function testReadsADjotListMarkerAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    /**
      * djot.js gives an image the text of its content as alt: escapes, code, nested images and line breaks included.
      */
     public function testWritesADjotImageAltAsDjotJsDoes(): void
