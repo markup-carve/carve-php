@@ -28,6 +28,8 @@ final class CaseFivePlanTest extends TestCase
             'in a quote and list' => ["> - \\[a [b\\] c](x) \\[a [b\\] c](x)\n"],
             'inside strong' => ["*\\[a [b\\] c](x) \\[a [b\\] c](x)*\n"],
             'an image before keeps its rounds' => ["!\\[a [b\\] c](x) \\[a [b\\] c](x)\n"],
+            'a definition keeps the rounds' => ["\\[a [b\\] c](x) \\[a [b\\] c](x)\n\n[z]: /z\n"],
+            'a key the link text spells' => ["\\[a [b\\] c](x) \\[a [b\\] c](x)\n\n[b]: /u\n"],
         ];
     }
 
