@@ -1115,21 +1115,17 @@ final class Inline
     ): string {
         $node = (array)$nodes[$at];
         $following = $nodes[$at + 1] ?? null;
-        $followingType = is_array($following) ? $following['type'] ?? '' : '';
+        $followingType = is_array($following) && is_string($following['type'] ?? null) ? $following['type'] : '';
         $c->beforeSoftBreak = $followingType === 'soft_break';
         $c->beforeHardBreak = $followingType === 'hard_break';
         $after = is_array($following) ? $first ?? self::first($following, $c) : $next;
         // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form. An empty span
         // writes nothing, so nothing glues to it.
-        $type = self::str($node, 'type');
-        if (
-            isset(self::PAIRED[$type]) && is_array($following) && self::str($following, 'type') === $type
-            && ($following['children'] ?? []) !== []
-        ) {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        if (isset(self::PAIRED[$type]) && $followingType === $type && ($following['children'] ?? []) !== []) {
             $after = 0x7B;
         }
-        $retry = $type === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
-            && str_ends_with(self::str($node, 'value'), '{');
+        $retry = $type === 'text' && isset(self::PAIRED[$followingType]) && str_ends_with(self::str($node, 'value'), '{');
         $snapshot = null;
         if ($retry) {
             // The replay never reads the run log; a shared one would be copied in full on the next append.
