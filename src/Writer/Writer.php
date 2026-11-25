@@ -2942,6 +2942,22 @@ final class Writer
     }
 
     /**
+     * `ControlLines::keepAbove()`, loaded only for a written control comment.
+     *
+     * @param string $source
+     * @param array<mixed>|null $layout
+     * @param \MarkupCarve\Carve\Writer\State $w
+     */
+    private static function keptAbove(string $source, ?array $layout, State $w): string
+    {
+        if (!str_contains($source, 'carve-lint-disable-next-line')) {
+            return $source;
+        }
+
+        return ControlLines::keepAbove($source, ControlLines::source($layout), $w->extensions);
+    }
+
+    /**
      * @param array<string, mixed> $tree
      * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
@@ -2969,10 +2985,7 @@ final class Writer
         HeapPages::release();
         $source = implode("\n", $w->lines) . "\n";
         $joined = $source;
-        // Only a written control comment has lines to keep above (`ControlLines::keepAbove()`).
-        if (str_contains($source, 'carve-lint-disable-next-line')) {
-            $source = ControlLines::keepAbove($source, ControlLines::source($layout), $w->extensions);
-        }
+        $source = self::keptAbove($source, $layout, $w);
         // C2-W-099: a first block that would read as another tree on line 1 stands below one blank line.
         $first = is_array($children[0] ?? null) ? $children[0] : [];
         $opener = LineShapes::frontmatter($source, 0, (int)strpos($source, "\n")) !== null;

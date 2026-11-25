@@ -216,7 +216,7 @@ final class Inline
             if (!is_array($node)) {
                 continue;
             }
-            $type = $node['type'] ?? '';
+            $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             if ($type === 'text' && is_string($node['value'] ?? null)) {
                 if (strpbrk($node['value'], '/*') !== false) {
                     $counts['/'] += substr_count($node['value'], '/');
@@ -675,8 +675,8 @@ final class Inline
             $firstFollowing = is_array($following) ? self::first($following, $c) : null;
             $this->visibleNext = $firstFollowing !== null && !self::isBracedComment($following)
                 ? $firstFollowing : self::visibleNext($nodes, $at, $c, $next);
-            $c->lineTail = $text && is_array($following) && isset(self::VERBATIM[$following['type'] ?? ''])
-                ? self::spanLineTail($following) : null;
+            $c->lineTail = $text && is_array($following) && is_string($following['type'] ?? null)
+                && isset(self::VERBATIM[$following['type']]) ? self::spanLineTail($following) : null;
             $c->lineAfterSpan = '';
             $c->lineAfterSpanEnds = false;
             $c->lineAfterSpanPipeSource = -1;
@@ -1100,6 +1100,7 @@ final class Inline
      * @param string $out What the list wrote so far.
      * @param array{0: int, 1: int, 2: \MarkupCarve\Carve\Writer\Context}|null $redo Where the text before stands in
      *   `$out`, and the context it was written in.
+     * @param int|null $first The first character of the following node, where the caller read it.
      *
      * @return string
      */
@@ -2071,6 +2072,9 @@ final class Inline
         }
     }
 
+    // Runs for every text node; the cheap tests of its loss reports stay inline.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     /**
      * @param array<mixed> $node
      * @param \MarkupCarve\Carve\Writer\Context $c
@@ -2133,6 +2137,8 @@ final class Inline
 
         return $prefix . Text::escapePairs($value, $c, $next);
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * Whether a link tail can follow the closing bracket that ends the written form of `$before`.

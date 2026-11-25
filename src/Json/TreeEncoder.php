@@ -46,6 +46,13 @@ final class TreeEncoder
     public const OMIT_EMPTY = ['props' => true, 'slots' => true, 'payload' => true, 'resourceIds' => true];
 
     /**
+     * The string fields `node()` does not copy as they are: an omitted expansion and the title it encodes first.
+     *
+     * @var array<string, true>
+     */
+    private const WALKED_STRINGS = ['expansion' => true, 'title' => true];
+
+    /**
      * @var array<int>
      */
     private array $lineStarts = [];
@@ -520,22 +527,12 @@ final class TreeEncoder
         $out = ['type' => $node->type];
         foreach ($node->f as $key => $value) {
             // Most fields are strings, which go to the wire as they are.
-            if (is_string($value) && $key !== 'expansion' && $key !== 'title') {
+            if (is_string($value) && !isset(self::WALKED_STRINGS[$key])) {
                 $out[$key] = $value;
 
                 continue;
             }
-            if (
-                $this->omitsExpansion($node, $key)
-                || $value === null
-                || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []
-            ) {
-                continue;
-            }
-            if (
-                isset(self::OMIT_EMPTY[$key])
-                && ($value === [] || $value instanceof stdClass && get_object_vars($value) === [])
-            ) {
+            if ($this->omitted($node, $key, $value)) {
                 continue;
             }
             $out[$key] = $key === 'title' ? $title : $this->value($value, $positions);
@@ -559,6 +556,22 @@ final class TreeEncoder
         }
 
         return $out;
+    }
+
+    /**
+     * Whether a field stays off the wire: an omitted expansion, a null, empty attributes or an empty `OMIT_EMPTY` value.
+     */
+    private function omitted(Node $node, string $key, mixed $value): bool
+    {
+        if (
+            $this->omitsExpansion($node, $key)
+            || $value === null
+            || $value instanceof Attrs && $value->id === null && $value->classes === [] && $value->pairs === []
+        ) {
+            return true;
+        }
+
+        return isset(self::OMIT_EMPTY[$key]) && ($value === [] || $value instanceof stdClass && get_object_vars($value) === []);
     }
 
     private function packs(Node $node): bool

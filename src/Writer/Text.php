@@ -1034,8 +1034,8 @@ final class Text
         $shielded = [];
         $atoms = [];
         if (
-            $c->leafNodes === null || !Inline::holds($c->leafNodes, '`') || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded, $atoms)
-            || $owners === []
+            $c->leafNodes === null || !Inline::holds($c->leafNodes, '`')
+            || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded, $atoms) || $owners === []
         ) {
             return null;
         }
@@ -4434,7 +4434,7 @@ final class Text
         // is expanded after the block pass, so that line takes the whole parse.
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source);
-        $children = $sink->hasInclude ? Carve::parse($source)->children ?? [] : $sink->root?->children ?? [];
+        $children = $sink->hasInclude ? Carve::parse($source)->children ?? [] : $sink->root->children ?? [];
         $read = [count($children), (string)($children[0]->type ?? '')];
         if (count(self::$blockReads) >= self::BLOCK_READS) {
             self::$blockReads = [];
