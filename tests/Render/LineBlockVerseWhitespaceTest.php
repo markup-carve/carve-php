@@ -25,6 +25,7 @@ final class LineBlockVerseWhitespaceTest extends TestCase
             'a run in link text' => ['[a  b](u)', '<a href="u">a&nbsp;&nbsp;b</a>'],
             'columns restart in each text node' => ["/ab/\tc", '<em>ab</em>&nbsp;&nbsp;&nbsp;&nbsp;c'],
             'escaped text keeps its columns' => ["a&b\tc", 'a&amp;b c'],
+            'a comment before the lead writes nothing' => ['{% c %} a', '&nbsp;a'],
         ];
     }
 

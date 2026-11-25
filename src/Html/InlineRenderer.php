@@ -152,6 +152,7 @@ final class InlineRenderer
             $list = array_values($list);
         }
         foreach ($list as $i => $node) {
+            $written = strlen($out);
             $tag = $node->f === [] ? Tables::DELIMITER_HTML[$node->type] ?? null : null;
             if ($tag !== null) {
                 // A delimiter span with no attributes, the common case of node(), without its lookups.
@@ -164,7 +165,10 @@ final class InlineRenderer
             } else {
                 $out .= $this->other($node, $list, $i, $depth);
             }
-            $this->verseLead = false;
+            // A node that writes nothing, such as a comment, leaves the lead of the line in place.
+            if ($this->verseLead && strlen($out) > $written) {
+                $this->verseLead = false;
+            }
         }
 
         return $out;
@@ -183,12 +187,15 @@ final class InlineRenderer
         $list = array_values(self::dropCommentLineBreaks($nodes, $nested, $profile));
         $out = '';
         foreach ($list as $i => $node) {
+            $written = strlen($out);
             if ($node->type === 'smart_punctuation' && $this->o->quotes !== null && $profile->allowsInline($node)) {
                 $out .= Escape::text($this->quote($node, $this->o->quotes, $list[$i - 1] ?? null, $list[$i + 1] ?? null));
             } else {
                 $out .= $profile->inline($node, $depth, $this);
             }
-            $this->verseLead = false;
+            if ($this->verseLead && strlen($out) > $written) {
+                $this->verseLead = false;
+            }
         }
 
         return $out;
