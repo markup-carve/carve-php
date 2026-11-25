@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Import\Hub;
 
+use Closure;
 use Djot\Node\Block\ListBlock;
 use Djot\Parser\Block\ListParser;
 use Djot\Parser\Utility\IndentationHelper;
@@ -20,6 +21,13 @@ final class DjotListParser extends ListParser
      */
     private const MARKER_TAB = '/\A([-*+](?: \[[xX ]\])?|\d+[.)]|\(\d+\)|[a-zA-Z][.)]|\([a-zA-Z]\)'
         . '|[ivxlcdmIVXLCDM]+[.)]|\([ivxlcdmIVXLCDM]+\))\t/';
+
+    /**
+     * @param \Closure(string): bool $opensBlock Whether a line ends a list as a block of its own, by the block parser.
+     */
+    public function __construct(private Closure $opensBlock)
+    {
+    }
 
     /**
      * @param string $line
@@ -65,7 +73,7 @@ final class DjotListParser extends ListParser
             // A line past the marker belongs to the item, and so does a lazy line.
             $item = IndentationHelper::getLeadingSpaces($line) > $base ? null : $this->parseListItemMarker(ltrim($line, " \t"));
             if ($item === null) {
-                if ($blank && IndentationHelper::getLeadingSpaces($line) <= $base) {
+                if (IndentationHelper::getLeadingSpaces($line) <= $base && ($blank || ($this->opensBlock)($line))) {
                     break;
                 }
                 $blank = false;

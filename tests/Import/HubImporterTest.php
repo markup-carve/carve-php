@@ -273,6 +273,7 @@ final class HubImporterTest extends TestCase
             'roman before a decimal list' => ["(I) one\n\n(1) two\n", "I.  one\n. two\n"],
             'roman before a lowercase item' => ["I. one\ni. two\n", "I.  one\ni. two\n"],
             'roman by a later numeral' => ["i. one\nii. two\n", "i. one\nii. two\n"],
+            'roman before a heading' => ["i. one\n# h\nj. two\n", "i. one\n\n= h\n\nj. two\n"],
         ];
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Import\Hub;
 
+use Closure;
 use Djot\Node\Inline\Image;
 use Djot\Node\Inline\Link;
 use Djot\Parser\BlockParser;
@@ -24,7 +25,9 @@ final class DjotBlockParser extends BlockParser
     {
         parent::__construct();
         $this->inlineParser = new DjotInlineParser($this);
-        $this->listParser = new DjotListParser();
+        // The library's own test for a line that ends a list instead of continuing its paragraph.
+        $opensBlock = Closure::bind(fn (string $line): bool => $this->opensBlock($line), $this, BlockParser::class);
+        $this->listParser = new DjotListParser($opensBlock);
         $this->labels = new WeakMap();
     }
 
