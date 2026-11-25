@@ -37,6 +37,7 @@ use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeMigration;
 use MarkupCarve\Carve\Json\TreePatch;
 use MarkupCarve\Carve\Json\TreeReader;
+use MarkupCarve\Carve\Json\ViewCheck;
 use MarkupCarve\Carve\Layout\LayoutBuilder;
 use MarkupCarve\Carve\Layout\LayoutReader;
 use MarkupCarve\Carve\Lint\Linter;
@@ -205,7 +206,7 @@ final class Carve
         $transformEntries = [];
         $findingsRoot = $doc;
         if ($transforms !== []) {
-            [$view, $transformEntries] = self::applyDocumentTransforms($doc, $opts, $transforms);
+            [$view, $transformEntries] = self::transformWithoutCollector($doc, $opts, $transforms);
             // The parse findings name nodes of the resolved document, which a transformed view does not hold.
             $findingsRoot = $view ?? new Node('document');
             if ($view !== null) {
@@ -295,6 +296,28 @@ final class Carve
     }
 
     /**
+     * `applyDocumentTransforms()` with the cycle collector off: the view copies are acyclic, and a collector run
+     * on the copies of a large document costs more than the transforms.
+     *
+     * @param \MarkupCarve\Carve\Node $doc
+     * @param \MarkupCarve\Carve\Options $opts
+     * @param array<mixed> $transforms
+     *
+     * @return array{\MarkupCarve\Carve\Node|null, array<\MarkupCarve\Carve\Diagnostics\Diagnostic>}
+     */
+    private static function transformWithoutCollector(Node $doc, Options $opts, array $transforms): array
+    {
+        $gc = self::collectorOff();
+        try {
+            return self::applyDocumentTransforms($doc, $opts, $transforms);
+        } finally {
+            if ($gc) {
+                gc_enable();
+            }
+        }
+    }
+
+    /**
      * C2-X-055: a view a transform gives back unchanged is not checked again, since every node it kept passed the same
      * checks before the transform ran.
      *
@@ -333,7 +356,10 @@ final class Carve
                         throw new UnexpectedValueException('document transform duplicated an authored id');
                     }
                 }
-                TreeReader::checkTreeOf($changed, self::readerExtensions($opts->extensions));
+                $reader = self::readerExtensions($opts->extensions);
+                if (!ViewCheck::passes($changed, $reader)) {
+                    TreeReader::checkTreeOf($changed, $reader);
+                }
                 $view = $changed;
                 $changedView = true;
                 $beforeIds = $afterIds;

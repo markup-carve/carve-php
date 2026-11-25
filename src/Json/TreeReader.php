@@ -18,14 +18,14 @@ final class TreeReader
      *
      * @var int
      */
-    private const JSON_DEPTH = 3 * (Tables::BLOCK_DEPTH + Tables::INLINE_DEPTH + 8) * (Tables::INCLUDE_DEPTH + 1);
+    public const JSON_DEPTH = 3 * (Tables::BLOCK_DEPTH + Tables::INLINE_DEPTH + 8) * (Tables::INCLUDE_DEPTH + 1);
 
     /**
      * C2-B-190: the containers that count one level each.
      *
      * @var array<string, true>
      */
-    private const CONTAINERS = [
+    public const CONTAINERS = [
         'block_quote' => true,
         'list' => true,
         'list_item' => true,
@@ -61,7 +61,7 @@ final class TreeReader
      * @var array<string, true>
      */
 
-    private const INLINE = [
+    public const INLINE = [
         'emphasis' => true,
         'strong' => true,
         'span' => true,
@@ -94,7 +94,7 @@ final class TreeReader
      *
      * @var array<string, true>
      */
-    private const OPAQUE_FIELDS = [
+    public const OPAQUE_FIELDS = [
         'data' => true,
         'props' => true,
         'payload' => true,
@@ -325,7 +325,7 @@ final class TreeReader
         return $root;
     }
 
-    private static function schema(): stdClass
+    public static function schema(): stdClass
     {
         if (self::$schema === null) {
             $path = dirname(__DIR__, 2) . '/spec/data/ast-schema.json';
