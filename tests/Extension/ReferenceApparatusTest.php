@@ -217,13 +217,13 @@ final class ReferenceApparatusTest extends TestCase
     public function testCitationsNumbersAndList(): void
     {
         $this->assertSame(self::lines([
-            '<p>See [<a href="#ref-roe" data-cite-key="roe">1</a>] and [<a href="#ref-doe" data-cite-key="doe">2</a>, '
-                . '<a href="#ref-roe" data-cite-key="roe">1</a>, p. 4].</p>',
+            '<p>See [<a href="#ref-roe" data-cite-key="roe">2</a>] and [<a href="#ref-doe" data-cite-key="doe">1</a>, '
+                . '<a href="#ref-roe" data-cite-key="roe">2</a>, p. 4].</p>',
             '<div class="references">',
             '  <p class="admonition-title">References</p>',
             '  <ol class="references">',
-            '    <li id="ref-roe">Roe, R. (2019). Paper.</li>',
             '    <li id="ref-doe">Doe, J. (2020). <em>A book</em>.</li>',
+            '    <li id="ref-roe">Roe, R. (2019). Paper.</li>',
             '  </ol>',
             '</div>',
         ]), $this->html("See :cite[roe] and :cite[doe; roe]{locator=\"p. 4\"}.\n\n" . self::REFS, Citations::bundle()));
@@ -257,13 +257,64 @@ final class ReferenceApparatusTest extends TestCase
     public function testCitationsInNotesNumberAfterTheBody(): void
     {
         $this->assertStringContainsString(
-            'B [<a href="#ref-doe" data-cite-key="doe">2</a>]',
+            'B [<a href="#ref-doe" data-cite-key="doe">1</a>]',
             $this->html("A :cite[roe].[^n] B :cite[doe].\n\n[^n]: :cite[roe] again.\n\n" . self::REFS, Citations::bundle()),
         );
         $this->assertStringContainsString(
             'B [<a href="#ref-doe" data-cite-key="doe">1</a>]',
             $this->html("A^[see :cite[roe]] B :cite[doe].\n\n" . self::REFS, Citations::bundle()),
         );
+    }
+
+    public function testCitationsListEveryEntryInSourceOrder(): void
+    {
+        $refs = "::: references \"R\"\n:: doe\n: Doe.\n\n:: roe\n: Roe.\n\n:: zed\n: Zed.\n:::\n";
+        $this->assertSame(self::lines([
+            '<p>[<a href="#ref-zed" data-cite-key="zed">3</a>] [<a href="#ref-roe" data-cite-key="roe">2</a>]</p>',
+            '<div class="references">',
+            '  <p class="admonition-title">R</p>',
+            '  <ol class="references">',
+            '    <li id="ref-doe">Doe.</li>',
+            '    <li id="ref-roe">Roe.</li>',
+            '    <li id="ref-zed">Zed.</li>',
+            '  </ol>',
+            '</div>',
+        ]), $this->html(":cite[zed] :cite[roe]\n\n" . $refs, Citations::bundle()));
+        $this->assertStringContainsString(
+            '<li id="ref-roe">Roe.</li>',
+            $this->html("None.\n\n" . $refs, Citations::bundle()),
+        );
+        $two = ":cite[zed]\n\n::: references\n:: doe\n: Doe.\n:::\n\n::: bibliography\n:: zed\n: Zed.\n:::\n";
+        $out = $this->html($two, Citations::bundle());
+        $this->assertStringContainsString('[<a href="#ref-zed" data-cite-key="zed">2</a>]', $out);
+        $this->assertStringContainsString('<ol start="2" class="references">', $out);
+    }
+
+    public function testCitedPoolEntriesNumberAfterTheDocumentEntriesBodyFirst(): void
+    {
+        $bundle = Citations::bundle(bibliography: [['id' => 'a', 'title' => 'A'], ['id' => 'b', 'title' => 'B']]);
+        $out = $this->html("X :cite[b].[^n] Y :cite[a].\n\n[^n]: :cite[b] again.\n\n" . self::REFS, $bundle);
+        $this->assertStringContainsString('Y [<a id="cite-a-1" href="#ref-a" data-cite-key="a">4</a>]', $out);
+        $this->assertMatchesRegularExpression('~ref-doe.*ref-roe.*ref-a".*ref-b"~s', $out);
+    }
+
+    public function testAPoolEntryGoesIntoTheLastDirectiveList(): void
+    {
+        $source = "See :cite[c].\n\n::: references\n:: a\n: A.\n:::\n\n::: references\n:: b\n: B.\n:::\n";
+        $this->assertSame(self::lines([
+            '<p>See [<a id="cite-c-1" href="#ref-c" data-cite-key="c">3</a>].</p>',
+            '<div class="references">',
+            '  <ol class="references">',
+            '    <li id="ref-a">A.</li>',
+            '  </ol>',
+            '</div>',
+            '<div class="references">',
+            '  <ol start="2" class="references">',
+            '    <li id="ref-b">B.</li>',
+            '    <li id="ref-c">Pool.. <a href="#cite-c-1" class="ref-backref">↩</a></li>',
+            '  </ol>',
+            '</div>',
+        ]), $this->html($source, Citations::bundle(bibliography: [['id' => 'c', 'title' => 'Pool.']])));
     }
 
     public function testCitationsFromACslPool(): void

@@ -61,6 +61,7 @@ Every error a call throws implements `CarveException`.
 | `decodeTree($json, $options)`, `validateTree($tree, $options)` | the tree of AST JSON, or `TreeError` |
 | `lint($source, $options)` | lint diagnostics |
 | `includeDependencies($sourceOrTree, $options)` | the files the includes of a document read |
+| `selectIncludeRegion($source, $name, $mode)` | `['ok' => true, 'start' => ..., 'end' => ...]`: the lines an include with `@region:name` selects from a file, in `carve` or `code` mode |
 | `positionOf($source, $offset)` | `['line' => ..., 'column' => ...]` of a UTF-8 byte offset, as the command line counts them |
 | `diffTree($a, $b)`, `applyPatch($tree, $patch, $options)` | a JSON Patch (RFC 6902) between two trees, and the tree it gives; `applyPatch` takes `fingerprint` and throws `Json\PatchError` |
 | `sourceFingerprint($source)`, `treeFingerprint($tree)` | `sha256:` and the hash of the source bytes or of `encodeTree($tree)` |
@@ -115,7 +116,8 @@ vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] [--adapter=NA
 vendor/bin/carve import --from gfm --directory SRC --output DST
 ```
 
-Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
+Every switch `--NAME` also takes the form `--no-NAME`, which turns it off (`--no-sections`, `--no-smart-typography`,
+`--no-raw-html`); the last of the two wins. Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
 `--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br` and `--heading-shift N` (also with `--to markdown`); `render` and `import` take `--allow-loss CODE`
 (repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`
 and `--upgrade`, which turns on the notices about text that 0.1 or Djot read differently (an indented line under a

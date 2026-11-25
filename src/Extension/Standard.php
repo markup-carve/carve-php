@@ -70,6 +70,7 @@ final class Standard
             'carve.spoiler', 'carve.spoilerBlock' => Spoiler::bundle(),
             'carve.fencedRender.mermaid' => FencedRender::mermaid(),
             'carve.mathBlock' => MathBlock::bundle(),
+            'carve.wiki' => Wikilinks::bundle(),
             default => null,
         };
     }

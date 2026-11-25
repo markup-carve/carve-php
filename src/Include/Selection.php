@@ -88,6 +88,50 @@ final class Selection
         return [substr($text, $start, $end - $start), $start, null];
     }
 
+    /**
+     * C2-N-037 to C2-N-041: the one-based first and last line strictly between the markers of region `$wanted`, or
+     * null where the include would report `include-region-invalid`. An empty region ends one line before it starts.
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    public static function regionLines(string $text, string $wanted, bool $code): ?array
+    {
+        if (str_starts_with($text, "\u{FEFF}")) {
+            $text = substr($text, 3);
+        }
+        $stack = [];
+        $opened = [];
+        $range = null;
+        foreach (self::lines($text) as $index => [$line]) {
+            $marker = self::marker($line, $code);
+            if ($marker === 'invalid') {
+                return null;
+            }
+            if (!is_array($marker)) {
+                continue;
+            }
+            [$closing, $name] = $marker;
+            if (!$closing) {
+                if ($name === '' || isset($opened[$name])) {
+                    return null;
+                }
+                $opened[$name] = true;
+                $stack[] = [$name, $index + 1];
+
+                continue;
+            }
+            $open = array_pop($stack);
+            if ($open === null || $name !== '' && $name !== $open[0]) {
+                return null;
+            }
+            if ($open[0] === $wanted) {
+                $range = [$open[1] + 1, $index];
+            }
+        }
+
+        return $stack === [] ? $range : null;
+    }
+
     private static function quoteState(string $line, bool $quoted): bool
     {
         for ($i = 0, $n = strlen($line); $i < $n; $i++) {

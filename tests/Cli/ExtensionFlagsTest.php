@@ -69,6 +69,9 @@ final class ExtensionFlagsTest extends TestCase
                 ['render', '--extensions', '["carve.tabs"]', '--extension-options', '{"carve.tabs":{"mode":"x"}}', 'a.crv'],
             ],
             'a command without the flag' => [['diagnostics', '--extensions', '[]', 'a.crv']],
+            'an option of carve.cite' => [
+                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":"author-date"}}', 'a.crv'],
+            ],
         ];
     }
 
@@ -106,6 +109,43 @@ final class ExtensionFlagsTest extends TestCase
         [$status, $stdout] = self::runCommand($args, ":wiki[Page|Display]\n");
         self::assertSame(0, $status);
         self::assertSame("Display\n", $stdout);
+    }
+
+    public function testWikiAndCiteRenderTheirExtensions(): void
+    {
+        $source = "See :wiki[Home Page] and :cite[roe].\n\n::: references\n:: doe\n: Doe.\n\n:: roe\n: Roe.\n:::\n";
+        $args = ['render', '--extensions', '["carve.wiki","carve.cite","carve.cite"]', 'a.crv'];
+        [$status, $stdout, $stderr] = self::runCommand($args, $source);
+        self::assertSame(0, $status);
+        self::assertSame('', $stderr);
+        self::assertSame(
+            '<p>See <a href="home-page" class="wikilink" data-wikilink="Home Page">Home Page</a> and '
+            . "[<a href=\"#ref-roe\" data-cite-key=\"roe\">2</a>].</p>\n"
+            . "<div class=\"references\">\n  <ol class=\"references\">\n    <li id=\"ref-doe\">Doe.</li>\n"
+            . "    <li id=\"ref-roe\">Roe.</li>\n  </ol>\n</div>\n",
+            $stdout,
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function tabLists(): array
+    {
+        return [
+            'tabs then tab' => ['["carve.tabs","carve.tab"]'],
+            'tab then tabs' => ['["carve.tab","carve.tabs"]'],
+            'tabs twice' => ['["carve.tabs","carve.tabs"]'],
+        ];
+    }
+
+    #[DataProvider('tabLists')]
+    public function testOverlappingCatalogNamesAreAccepted(string $list): void
+    {
+        [$expectedStatus, $expected] = self::runCommand(['render', '--extensions', '["carve.tabs"]', 'a.crv'], self::TABS);
+        [$status, $stdout, $stderr] = self::runCommand(['render', '--extensions', $list, 'a.crv'], self::TABS);
+        self::assertSame([0, 0, ''], [$expectedStatus, $status, $stderr]);
+        self::assertSame($expected, $stdout);
     }
 
     /**
