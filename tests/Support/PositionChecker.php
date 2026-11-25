@@ -121,7 +121,7 @@ final class PositionChecker
             return;
         }
         if (array_is_list($value)) {
-            $this->siblings($value, $path);
+            $this->siblings($value, $path, $file);
             foreach ($value as $at => $item) {
                 $this->walk($item, $path . '/' . $at, $file, $ancestors, $inCell, $derived);
             }
@@ -259,14 +259,15 @@ final class PositionChecker
     }
 
     /**
-     * C2-A-145: siblings do not overlap. A pipe table holds its comment as a child, so only a delimited table meets the exemption.
+     * C2-A-145: siblings do not overlap.
      *
      * @param array<mixed> $nodes
      * @param string $path
+     * @param string $file
      *
      * @return void
      */
-    private function siblings(array $nodes, string $path): void
+    private function siblings(array $nodes, string $path, string $file): void
     {
         $last = null;
         foreach ($nodes as $node) {
@@ -276,14 +277,35 @@ final class PositionChecker
             if ($last !== null && $last['pos']['endOffset'] > $node['pos']['startOffset']) {
                 $breaks = isset(self::BREAKS[$last['type']], self::BREAKS[$node['type']]);
                 $before = $last['type'] === 'comment' && self::inside($last['pos'], $node['pos']);
-                $after = $node['type'] === 'comment' && in_array($last['type'], ['code_block', 'table'], true)
-                    && self::inside($node['pos'], $last['pos']);
+                $fenced = $last['type'] === 'code_block'
+                    || ($last['type'] === 'table' && $this->afterFence($file, $node['pos']['startOffset']));
+                $after = $node['type'] === 'comment' && $fenced && self::inside($node['pos'], $last['pos']);
                 if (!$breaks && !$before && !$after) {
                     $this->found[] = $path . ': ' . $last['type'] . ' overlaps ' . $node['type'] . ' (C2-A-145)';
                 }
             }
             $last = $node;
         }
+    }
+
+    /**
+     * The line above the comment closes a fence: a delimited table, not a pipe table, whose comments are children.
+     *
+     * @param string $file
+     * @param int $offset
+     *
+     * @return bool
+     */
+    private function afterFence(string $file, int $offset): bool
+    {
+        $head = substr($this->tables[$file][1] ?? '', 0, $offset);
+        $end = strrpos($head, "\n");
+        if ($end === false) {
+            return false;
+        }
+        $lines = explode("\n", substr($head, 0, $end));
+
+        return preg_match('/^[>\s]*(`{3,}|~{3,})\s*$/', (string)end($lines)) === 1;
     }
 
     /**
