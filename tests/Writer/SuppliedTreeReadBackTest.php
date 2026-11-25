@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -76,6 +77,15 @@ final class SuppliedTreeReadBackTest extends TestCase
         $result = Writer::writeWithDiagnostics($tree);
         $this->assertSame($expected, $result->source);
         $this->assertFalse(TreeEquality::equal($tree, self::read($result->source)));
+        $this->assertNotSame([], $result->codes());
+    }
+
+    public function testATreeWithARequiredExtensionTheWriteImplementsStillReportsALoss(): void
+    {
+        $tree = self::lossyTrees()['shortcut link whose text is not its key'][0];
+        $tree['extensions'] = [['name' => 'org.example.x', 'version' => '1', 'required' => true, 'slots' => []]];
+        $result = Writer::writeWithDiagnostics($tree, null, ['extensions' => [new ExtensionDefinition('org.example.x', '1')]]);
+
         $this->assertNotSame([], $result->codes());
     }
 

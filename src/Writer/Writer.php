@@ -12,7 +12,6 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Json\TreeError;
-use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Options;
 
@@ -1002,7 +1001,7 @@ final class Writer
         if ($parsed === null && !self::hasBracedCloserRisk($tree) && !self::hasPairMarkRisk($tree)) {
             return $result->diagnostics !== [] || self::$lossReported || !self::hasPunctuation($tree)
                 || !self::comparable($tree) || self::readsBackAsTree($tree, $result->source, $options)
-                || !self::readerAccepts($tree);
+                || !self::readerAccepts($tree, $options);
         }
 
         return $parsed === $result->source
@@ -1191,7 +1190,8 @@ final class Writer
             return null;
         }
 
-        return !self::comparable($tree) || self::readsBack($result->source, $treePrint, $options) || !self::readerAccepts($tree)
+        return !self::comparable($tree) || self::readsBack($result->source, $treePrint, $options)
+            || !self::readerAccepts($tree, $options)
             ? $result
             : null;
     }
@@ -2382,15 +2382,15 @@ final class Writer
     /**
      * Whether the tree passes the reader's checks. A parse fills the fields a tree that fails them may lack, as the
      * `alt` of an image, so its read-back is no proof of a misread. Asked only after a read-back differs: the check
-     * costs about as much as the parse.
+     * costs about as much as the parse. The write's extensions implement the ones the tree requires (C2-A-018).
      *
      * @param array<string, mixed> $tree
+     * @param array<string, mixed> $options
      */
-    private static function readerAccepts(array $tree): bool
+    private static function readerAccepts(array $tree, array $options): bool
     {
-        $json = json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         try {
-            TreeReader::check($json === false ? '' : $json);
+            Carve::validateTree($tree, isset($options['extensions']) ? ['extensions' => $options['extensions']] : []);
         } catch (TreeError) {
             return false;
         }
