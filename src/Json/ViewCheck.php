@@ -150,6 +150,9 @@ final class ViewCheck
                 return false;
             }
             foreach ($fields as $key => $value) {
+                if (!is_array($value) && !is_object($value)) {
+                    continue;
+                }
                 $found = self::nodesOfField($key, $value, $depth);
                 if ($found === null) {
                     return false;
@@ -212,6 +215,9 @@ final class ViewCheck
      */
     private static function nodeChecks(string $type, array $fields, array $declared): bool
     {
+        if (!isset($fields['attrs']) && !isset($fields['data']) && !isset($fields['props'])) {
+            return true;
+        }
         $attrs = $fields['attrs'] ?? null;
         $seen = [];
         foreach ($attrs instanceof stdClass && is_array($attrs->keyValues ?? null) ? $attrs->keyValues : [] as $pair) {
@@ -477,6 +483,10 @@ final class ViewCheck
         $checks = [...self::valueChecks($c), ...self::combinators($c)];
         $string = self::stringRules($c);
         $number = self::numberRules($c);
+        $onlyObject = $c->ref === null && $c->type === 'object' && count($checks) === 1;
+        if ($onlyObject && $string === null && $number === null && !$c->arrayRules && $c->objectRules) {
+            return self::objectRules($c, true);
+        }
         $object = $c->objectRules ? self::objectRules($c) : null;
         $array = $c->arrayRules ? self::arrayRules($c) : null;
         if ($string === null && $number === null && $array === null && $object !== null && count($checks) <= 1) {
@@ -715,11 +725,25 @@ final class ViewCheck
     }
 
     /**
-     * `SchemaValidator::objectRules()` and `member()`.
+     * The members of an object value, or null for any other value.
      *
-     * @return \Closure(\MarkupCarve\Carve\Node|\stdClass, self): bool
+     * @return array<mixed>|null
      */
-    private static function objectRules(CompiledSchema $c): Closure
+    private function propsOf(mixed $value): ?array
+    {
+        if ($value instanceof Node) {
+            return $this->fieldsOf($value);
+        }
+
+        return $value instanceof stdClass ? get_object_vars($value) : null;
+    }
+
+    /**
+     * `SchemaValidator::objectRules()` and `member()`; `$typed` folds in the `object` type check.
+     *
+     * @return ($typed is true ? \Closure(mixed, self): bool : \Closure(\MarkupCarve\Carve\Node|\stdClass, self): bool)
+     */
+    private static function objectRules(CompiledSchema $c, bool $typed = false): Closure
     {
         $properties = [];
         foreach ($c->propertyChecks as $key => $sub) {
@@ -727,10 +751,12 @@ final class ViewCheck
         }
         $additional = $c->additional === null ? null : self::compile($c->additional);
         if ($c->propertyNames === null && $c->patternProperties === [] && $c->dependentRequired === [] && $c->maxProperties === null) {
-            return self::plainObject($c, $properties, $additional);
+            return self::plainObject($c, $properties, $additional, $typed);
         }
+        $full = self::fullObject($c, $properties, $additional);
 
-        return self::fullObject($c, $properties, $additional);
+        return $typed ? static fn (mixed $value, self $check): bool => ($value instanceof Node || $value instanceof stdClass)
+            && $full($value, $check) : $full;
     }
 
     /**
@@ -740,10 +766,11 @@ final class ViewCheck
      * @param \MarkupCarve\Carve\Json\CompiledSchema $c
      * @param array<string, \Closure(mixed, self): bool> $properties
      * @param (\Closure(mixed, self): bool)|null $additional
+     * @param bool $typed
      *
-     * @return \Closure(\MarkupCarve\Carve\Node|\stdClass, self): bool
+     * @return \Closure(mixed, self): bool
      */
-    private static function plainObject(CompiledSchema $c, array $properties, ?Closure $additional): Closure
+    private static function plainObject(CompiledSchema $c, array $properties, ?Closure $additional, bool $typed): Closure
     {
         $required = $c->required;
         $minProperties = $c->minProperties;
@@ -756,7 +783,7 @@ final class ViewCheck
         }
 
         return static function (
-            Node|stdClass $value,
+            mixed $value,
             self $check,
         ) use (
             $required,
@@ -764,8 +791,12 @@ final class ViewCheck
             $properties,
             $simple,
             $additional,
+            $typed,
         ): bool {
-            $props = $value instanceof Node ? $check->fieldsOf($value) : get_object_vars($value);
+            $props = $check->propsOf($value);
+            if ($props === null) {
+                return !$typed;
+            }
             foreach ($required as $key) {
                 if (!array_key_exists($key, $props)) {
                     return false;
