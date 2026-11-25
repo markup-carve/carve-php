@@ -277,7 +277,10 @@ final class HubImporterTest extends TestCase
             'roman before a line after a fence' => ["i. ```\n   code\n   ```\nlazy\nj. two\n", "i. ```\n   code\n   ```\n\nlazy\nj. two\n"],
             'alpha after a heading item' => ["i. # h\nlazy\nj. two\n", "{start=9}\na. = h\n     lazy\nb. two\n"],
             'alpha after inline code' => ["i. ``` foo ```\nlazy\nj. two\n", "{start=9}\na. ` foo `\n   lazy\nb. two\n"],
-            'roman after a fence in a nested item' => ["i. one\n\n   - ```\n     code\n     ```\nlazy\nj. two\n", "i. one\n   - ```\n     code\n     ```\n\nlazy\nj. two\n"],
+            'roman after a fence in a nested item' => [
+                "i. one\n\n   - ```\n     code\n     ```\nlazy\nj. two\n",
+                "i. one\n   - ```\n     code\n     ```\n\nlazy\nj. two\n",
+            ],
             'alpha after an unclosed fence' => ["i. ```\n   c\nj. two\n", "{start=9}\na. ```\n   c\n   ```\nb. two\n"],
         ];
     }
