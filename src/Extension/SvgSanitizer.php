@@ -31,6 +31,13 @@ final class SvgSanitizer
     private const WS = '[\t\n\x0B\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]';
 
     /**
+     * Raw characters outside the XML 1.0 `Char` production (carve#6764); valid UTF-8 holds no surrogates.
+     *
+     * @var string
+     */
+    private const NON_XML_CHAR = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x{FFFE}\x{FFFF}]/u';
+
+    /**
      * Removed before a scheme is read; a probe class, so it is wider than what a target may emit.
      *
      * @var string
@@ -66,7 +73,7 @@ final class SvgSanitizer
      *
      * @var array<string>
      */
-    private const ANIMATION_TAGS = ['animate', 'animateTransform', 'animateMotion', 'set', 'mpath'];
+    private const ANIMATION_TAGS = ['animate', 'animatetransform', 'animatemotion', 'set', 'mpath'];
 
     /**
      * Matched in lower case.
@@ -190,7 +197,8 @@ final class SvgSanitizer
     private function run(string $source): array
     {
         $fail = ['svg' => '', 'ok' => false];
-        $src = self::trim(self::validUtf8($source));
+        // carve#6764: dropped before any check, so a check never sees a value the output does not hold.
+        $src = self::trim((string)preg_replace(self::NON_XML_CHAR, '', self::validUtf8($source)));
         $length = strlen($src);
         $cursor = 0;
         while ($cursor < $length) {
@@ -672,7 +680,9 @@ final class SvgSanitizer
 
     private static function nonLocalUrl(string $value): bool
     {
-        return preg_match('~url\(' . self::WS . '*[\'"]?' . self::WS . '*(?!#)~iu', $value) === 1;
+        // Atomic, so `(?!#)` cannot pass one character early on `url('#g')` (carve#6763). Only CSS whitespace is
+        // skipped: a URL keeps a leading no-break space, so `url(\u{A0}#g)` names another resource.
+        return preg_match('~url\((?>[\t\n\f\r ]*[\'"]?[\t\n\f\r ]*)(?!#)~i', $value) === 1;
     }
 
     private static function refAttrUnsafe(string $value): bool
@@ -700,11 +710,45 @@ final class SvgSanitizer
     }
 
     /**
-     * Keeps the entities XML defines (the five names and numeric references) and escapes every other `&`.
+     * Keeps the entities XML defines (the five names and numeric references to an XML `Char`) and escapes every other `&`.
      */
     private static function escapeAmp(string $text): string
     {
-        return (string)preg_replace('~&(?!#[0-9]+;|#x[0-9a-fA-F]+;|(?:amp|lt|gt|quot|apos);)~', '&amp;', $text);
+        if (!str_contains($text, '&')) {
+            return $text;
+        }
+
+        return (string)preg_replace_callback(
+            '~&(#[0-9]+;|#x[0-9a-fA-F]+;|(?:amp|lt|gt|quot|apos);)?~',
+            static function (array $m): string {
+                $ref = $m[1] ?? '';
+                if ($ref === '') {
+                    return '&amp;';
+                }
+                if ($ref[0] !== '#') {
+                    return $m[0];
+                }
+
+                return self::isXmlCharRef($ref) ? $m[0] : '&amp;' . $ref;
+            },
+            $text,
+        );
+    }
+
+    /**
+     * @param string $ref A numeric reference body such as `#x1F;`.
+     */
+    private static function isXmlCharRef(string $ref): bool
+    {
+        $hex = $ref[1] === 'x';
+        $digits = ltrim(substr($ref, $hex ? 2 : 1, -1), '0');
+        if (strlen($digits) > ($hex ? 6 : 7)) {
+            return false;
+        }
+        $cp = $digits === '' ? 0 : ($hex ? (int)hexdec($digits) : (int)$digits);
+
+        return $cp === 0x9 || $cp === 0xA || $cp === 0xD || ($cp >= 0x20 && $cp <= 0xD7FF)
+            || ($cp >= 0xE000 && $cp <= 0xFFFD) || ($cp >= 0x10000 && $cp <= 0x10FFFF);
     }
 
     private static function escapeText(string $text): string

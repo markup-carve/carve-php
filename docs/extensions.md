@@ -250,12 +250,13 @@ direct links, since ids and references are resolved again over the edited view (
 
 `SvgSanitizer::sanitize($svg, $options)` cleans an SVG string for a host that embeds SVG itself, the same as
 carve-js `sanitizeSvg`. It returns `['svg' => ..., 'ok' => ...]`; when `ok` is false the input was not one
-well-formed `<svg>` root, `svg` is empty, and the host shows the source as text.
+well-formed `<svg>` root, `svg` is empty, and the host shows the source as text. A kept output holds only
+characters XML allows: raw control characters are dropped and a numeric reference to one is escaped.
 
 The output keeps only presentational elements and attributes: no `<script>`, `<foreignObject>`, `<style>`, event
 handlers, external references or active CSS. `SvgSanitizeOptions` (or the same keys in an array) widens that:
 `allowLinks` keeps `<a>` with external `href`, `allowExternalImages` keeps `<image>`, `allowAnimation` keeps
-`<animate>`, `<set>` and `<mpath>`, and `allowStyle` keeps a `style` attribute that cannot fetch or execute.
+`<animate>`, `<animateTransform>`, `<animateMotion>`, `<set>` and `<mpath>`, and `allowStyle` keeps a `style` attribute that cannot fetch or execute.
 `urlPolicy` takes the `deny` or `allow` list of the render option of the same name.
 
 ```php
