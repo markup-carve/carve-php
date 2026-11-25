@@ -262,6 +262,29 @@ final class HubImporterTest extends TestCase
     }
 
     /**
+     * djot.js renders an image with an undefined reference as `<img>` with only its own attributes, which the HTML
+     * importer does not keep as an image (carve#6693). Sources as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotUndefinedImageProvider(): array
+    {
+        return [
+            'alone' => ["![a][r]\n", "\n"],
+            'in text' => ["x ![a][r] y\n", "x  y\n"],
+            'with attributes' => ["![a][r]{.c}\n", "[]{.c}\n"],
+            'collapsed label' => ["![a][]\n", "\n"],
+            'defined with an empty destination' => ["![a][b]\n\n[b]:\n", "![a]()\n"],
+        ];
+    }
+
+    #[DataProvider('djotUndefinedImageProvider')]
+    public function testDropsADjotImageWithAnUndefinedReferenceAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    /**
      * djot.js gives an image the text of its content as alt: escapes, code, nested images and line breaks included.
      */
     public function testWritesADjotImageAltAsDjotJsDoes(): void
