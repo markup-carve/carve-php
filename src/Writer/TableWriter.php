@@ -520,6 +520,7 @@ final class TableWriter
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source, true);
         $table = null;
+        $before = false;
         foreach ($sink->root->children ?? [] as $block) {
             // A comment before the first row reads back before the table.
             if ($block->type !== 'comment') {
@@ -527,14 +528,31 @@ final class TableWriter
 
                 break;
             }
+            $before = true;
+        }
+        if ($before) {
+            $this->w->lose($path, 'table', null);
+
+            return;
         }
         $read = self::readGroups($table);
-        foreach ($groups as $k => [$type, $rows, $at]) {
-            if (($read[$k] ?? null) !== [$type, $rows]) {
+        foreach ($groups as $k => [$type, $rows, $at, , $kinds, $lead]) {
+            if (!isset($read[$k]) || [$read[$k][0], $read[$k][1]] !== [$type, $rows]) {
                 $this->w->lose($path . '/children/' . $at, $type, null);
 
                 return;
             }
+            if ($read[$k][2] === $kinds) {
+                continue;
+            }
+            // A comment before the first row of a group reads back at the end of the group above.
+            $this->w->lose($path . '/children/' . $at, $type, null);
+            $next = $groups[$k + 1] ?? null;
+            if ($next !== null && $next[5] !== null && !str_starts_with($read[$k + 1][2] ?? '', 'c')) {
+                $this->w->lose($path . '/children/' . $next[2] . '/children/' . $next[5], 'comment', null);
+            }
+
+            return;
         }
         if (count($read) > count($groups)) {
             [$type, , $at] = $groups[count($groups) - 1];
@@ -549,7 +567,7 @@ final class TableWriter
      * @param array<mixed> $node
      * @param string $path
      *
-     * @return array<array{0: string, 1: int, 2: int|string, 3: array<mixed>}>|null
+     * @return array<array{0: string, 1: int, 2: int|string, 3: array<mixed>, 4: string, 5: int|string|null}>|null
      */
     private function writtenGroups(array $node, string $path): ?array
     {
@@ -558,24 +576,52 @@ final class TableWriter
             if (!is_array($group) || !in_array($group['type'] ?? '', self::GROUPS, true)) {
                 continue;
             }
-            $rows = [];
-            foreach (is_array($group['children'] ?? null) ? $group['children'] : [] as $r => $row) {
-                if (!is_array($row) || ($row['type'] ?? '') !== 'table_row') {
-                    continue;
-                }
-                if ($this->w->lostAt("$path/children/$at/children/$r")) {
-                    return null;
-                }
-                $rows[] = $row;
+            $children = $this->groupChildren(is_array($group['children'] ?? null) ? $group['children'] : [], "$path/children/$at");
+            if ($children === null) {
+                return null;
             }
-            $groups[] = [(string)$group['type'], count($rows), $at, $rows];
+            [$rows, $kinds, $lead] = $children;
+            $groups[] = [(string)$group['type'], count($rows), $at, $rows, $kinds, $lead];
         }
 
         return $groups;
     }
 
     /**
-     * @return array<array{0: string, 1: int}>
+     * The rows of a group, its rows and comments in order (`r`, `c`), and the index of a comment before its first row.
+     *
+     * @param array<mixed> $children
+     * @param string $path
+     *
+     * @return array{0: array<mixed>, 1: string, 2: int|string|null}|null
+     */
+    private function groupChildren(array $children, string $path): ?array
+    {
+        $rows = [];
+        $kinds = '';
+        $lead = null;
+        foreach ($children as $r => $row) {
+            if (is_array($row) && ($row['type'] ?? '') === 'comment') {
+                $kinds .= 'c';
+                $lead ??= $rows === [] ? $r : null;
+
+                continue;
+            }
+            if (!is_array($row) || ($row['type'] ?? '') !== 'table_row') {
+                continue;
+            }
+            if ($this->w->lostAt("$path/children/$r")) {
+                return null;
+            }
+            $kinds .= 'r';
+            $rows[] = $row;
+        }
+
+        return [$rows, $kinds, $lead];
+    }
+
+    /**
+     * @return array<array{0: string, 1: int, 2: string}>
      */
     private static function readGroups(?Node $table): array
     {
@@ -585,8 +631,11 @@ final class TableWriter
         }
         foreach ($table->children ?? [] as $group) {
             if (in_array($group->type, self::GROUPS, true)) {
-                $rows = array_filter($group->children ?? [], static fn (Node $row): bool => $row->type === 'table_row');
-                $read[] = [$group->type, count($rows)];
+                $kinds = '';
+                foreach ($group->children ?? [] as $row) {
+                    $kinds .= $row->type === 'table_row' ? 'r' : ($row->type === 'comment' ? 'c' : '');
+                }
+                $read[] = [$group->type, substr_count($kinds, 'r'), $kinds];
             }
         }
 
@@ -596,10 +645,15 @@ final class TableWriter
     /**
      * A body, or a head of header rows above one body that does not lead with a header row, reads back unchanged.
      *
-     * @param array<array{0: string, 1: int, 2: int|string, 3: array<mixed>}> $groups
+     * @param array<array{0: string, 1: int, 2: int|string, 3: array<mixed>, 4: string, 5: int|string|null}> $groups
      */
     private static function plainGroups(array $groups): bool
     {
+        foreach ($groups as $group) {
+            if ($group[5] !== null) {
+                return false;
+            }
+        }
         $body = $groups[count($groups) - 1];
         if ($body[0] !== 'table_body' || $body[1] === 0 || count($groups) > 2 || self::leadingHeaderRows([$body[3][0]]) > 0) {
             return false;
@@ -733,7 +787,7 @@ final class TableWriter
                 continue;
             }
             if (($group['type'] ?? '') === 'comment') {
-                $lines[] = self::commentLine($group);
+                $lines[] = $this->commentLine($group, $path . '/children/' . $g);
 
                 continue;
             }
@@ -772,7 +826,7 @@ final class TableWriter
                 if ($last && $at === $lastAt) {
                     self::dropBlankTail($lines);
                 }
-                $lines[] = self::commentLine($item);
+                $lines[] = $this->commentLine($item, $path . '/children/' . $at);
                 if ($last && $at === $lastAt) {
                     $lines[] = ['lead' => '+', 'segments' => [' '], 'tail' => ''];
                 }
@@ -807,14 +861,18 @@ final class TableWriter
     }
 
     /**
-     * C2-W-135: a comment among the rows is a comment-only line.
+     * C2-W-135: a comment among the rows is a comment-only line, which reads back as a line comment (C2-W-117).
      *
      * @param array<mixed> $comment
+     * @param string $path
      *
      * @return string
      */
-    private static function commentLine(array $comment): string
+    private function commentLine(array $comment, string $path): string
     {
+        if (($comment['form'] ?? 'line') !== 'line') {
+            $this->w->lose($path, 'comment', 'form');
+        }
         $value = rtrim(str_replace("\n", ' ', is_string($comment['value'] ?? null) ? $comment['value'] : ''), " \t");
 
         return $value === '' ? '%%' : '%% ' . $value;
