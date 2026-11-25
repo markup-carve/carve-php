@@ -122,6 +122,23 @@ final class SvgSanitizerTest extends TestCase
         );
     }
 
+    public function testEmptyPrefixedNamespaceDeclarationIsDropped(): void
+    {
+        // carve#6779: Namespaces in XML 1.0 forbids undeclaring a prefix.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg xmlns:xlink=""><rect/></svg>'),
+        );
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><g/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink=\'\'/></svg>'),
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns:xlink="http://www.w3.org/1999/xlink"/></svg>',
+            SvgSanitizer::sanitize('<svg xmlns:xlink=""><g xmlns:xlink="http://www.w3.org/1999/xlink"/></svg>')['svg'],
+        );
+    }
+
     public function testStyleWithACssImageFunctionIsDropped(): void
     {
         // carve#6760: C2-H-162 blanks these in the core renderer; carve-js kept them.

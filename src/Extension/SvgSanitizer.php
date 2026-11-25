@@ -513,7 +513,8 @@ final class SvgSanitizer
         if (!str_starts_with($lower, 'aria-') && !str_starts_with($lower, 'data-') && !in_array($lower, self::ALLOWED_ATTRS, true)) {
             return '';
         }
-        if ($value === null) {
+        // carve#6779: an empty prefixed namespace declaration undeclares the prefix, which XML forbids.
+        if ($value === null || ($value === '' && str_starts_with($lower, 'xmlns:'))) {
             return '';
         }
         if (in_array($lower, self::REF_VALUE_ATTRS, true) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value)) {
