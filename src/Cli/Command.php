@@ -559,13 +559,29 @@ HELP;
                 $parsed['options']['extensions'][$i] = Citations::bundle(self::citeMode($byName[$name] ?? []));
             } elseif (($byName[$name] ?? []) !== []) {
                 $renderers[$name] = ['standard' => $byName[$name]];
-            } elseif (Standard::renderer($name, 'interactive') !== null) {
-                $renderers[$name] = 'standard';
             }
+            $renderers += self::standardRenderers($name);
         }
         if ($renderers !== []) {
             $parsed['options']['renderers'] = $renderers;
         }
+    }
+
+    /**
+     * C2-X-072: a row that registers others, as `carve.glossary` does `carve.term`, gives each its standard renderer.
+     *
+     * @return array<string, string>
+     */
+    private static function standardRenderers(string $name): array
+    {
+        $renderers = [];
+        foreach (Standard::definitions($name) ?? [] as $definition) {
+            if (Standard::renderer($definition->name, 'interactive') !== null) {
+                $renderers[$definition->name] = 'standard';
+            }
+        }
+
+        return $renderers;
     }
 
     /**

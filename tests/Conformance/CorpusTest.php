@@ -22,7 +22,12 @@ final class CorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    public const HELD = [];
+    public const HELD = [
+        'CC-002' => 'carve#6762 ruling (C2-H-043, verse whitespace), carve-php line owned by lane v6762-php',
+        'CC-2143' => 'carve#6762 ruling (C2-H-043, verse whitespace), carve-php line owned by lane v6762-php',
+        'CC-2144' => 'carve#6762 ruling (C2-H-043, verse whitespace), carve-php line owned by lane v6762-php',
+        'CC-2145' => 'carve#6762 ruling (C2-H-043, verse whitespace), carve-php line owned by lane v6762-php',
+    ];
 
     /**
      * @var array<string, true>

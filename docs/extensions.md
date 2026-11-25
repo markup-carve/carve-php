@@ -8,9 +8,10 @@ Each factory returns an `Extension\Bundle`. Pass it in the `extensions` option o
 has any. `Bundle::merge(...)` combines bundles, and two claims of one name fail with `OptionError` (C2-X-014).
 `$bundle->withoutRenderers()` keeps the claims and writes every fallback (C2-X-035).
 
-The named standard registrations `carve.codeGroup`, `carve.details`, `carve.fencedRender.mermaid`,
-`carve.mathBlock`, `carve.spoiler` and `carve.spoilerBlock` can also be passed as strings in `extensions`.
-Without a renderer, their fallback is used. Named `carve.tabs` accepts a host renderer option:
+Every name of the catalog can also be passed as a string in `extensions`. A name with a matcher, as
+`carve.codeGroup` or `carve.fencedRender.d2`, writes its fallback without a renderer. A name marked `transform`
+(C2-X-072), as `carve.headingPermalinks` or `carve.toc`, runs its document transform with its default options.
+Named `carve.tabs` accepts a host renderer option:
 
 ```php
 Carve::render($source, [
@@ -22,6 +23,9 @@ Carve::render($source, [
 `mode` defaults to `css`; `aria` writes a tablist with buttons and named panels. Both modes keep authored
 `role`, `aria-label` and `aria-labelledby` on the wrapper before generated defaults.
 
+Named `carve.smartQuotes` takes `locale`, one of the 20 locales of its row with `en` the default, for the quote
+glyphs of smart typography: `'renderers' => ['carve.smartQuotes' => ['standard' => ['locale' => 'de']]]` (C2-X-075).
+
 On the command line, `--extensions` registers named standard extensions on `render`, `ast`, `lint` and `fmt`, and
 `render` gives each its standard renderer; `--extension-options` sets the renderer options (C2-T-010):
 
@@ -29,10 +33,15 @@ On the command line, `--extensions` registers named standard extensions on `rend
 carve render --extensions '["carve.tabs"]' --extension-options '{"carve.tabs":{"mode":"aria"}}' doc.crv
 ```
 
-The names are those of `data/extensions.json`: `carve.cite`, `carve.codeGroup`, `carve.details`,
-`carve.fencedRender.mermaid`, `carve.imgFence.image`, `carve.imgFence.img`, `carve.mathBlock`, `carve.spoiler`,
-`carve.spoilerBlock`, `carve.tab`, `carve.tabs` and `carve.wiki`. Any other name is a usage error, and so is an
-options entry for an extension that `--extensions` does not list. Host extensions stay library-only.
+The names are those of `data/extensions.json`: `carve.autolink`, `carve.cite`, `carve.codeCallouts`,
+`carve.codeGroup`, `carve.colorSwatch`, `carve.details`, `carve.externalLinks`, `carve.fencedRender.abc`, `.chart`,
+`.d2`, `.dot`, `.graphviz`, `.mermaid`, `.plantuml`, `.puml`, `.vega-lite` and `.wavedrom`, `carve.glossary`,
+`carve.headingNumbers`, `carve.headingPermalinks`, `carve.headingReference`, `carve.imgFence.image`,
+`carve.imgFence.img`, `carve.index`, `carve.indexTerm`, `carve.listTable`, `carve.mathBlock`, `carve.semanticSpan`,
+`carve.smartQuotes`, `carve.spoiler`, `carve.spoilerBlock`, `carve.tab`, `carve.tabNormalize`, `carve.tabs`,
+`carve.term`, `carve.toc`, `carve.tocPlacement` and `carve.wiki`. `carve.glossary` registers `carve.term` with it, and
+`carve.index` registers `carve.indexTerm`. Any other name is a usage error, and so is an options entry for an
+extension that `--extensions` does not list. Host extensions stay library-only.
 
 ```php
 use MarkupCarve\Carve\Carve;

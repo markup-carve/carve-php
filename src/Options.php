@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve;
 
 use Closure;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
+use MarkupCarve\Carve\Extension\SmartQuotes;
 use MarkupCarve\Carve\Extension\Standard;
 use MarkupCarve\Carve\Generated\Tables;
 
@@ -47,7 +48,7 @@ final class Options
     public array $rendered = [];
 
     /**
-     * @var array<string, \Closure|string|array{standard: array{mode: string}}>
+     * @var array<string, \Closure|string|array{standard: array<string, string>}>
      */
     private array $rendererOptions = [];
 
@@ -71,6 +72,22 @@ final class Options
      * @var array<array{0: string, 1: string|null}>
      */
     public const SEMANTIC_KEYS = [['abbr', 'title'], ['time', 'datetime'], ['kbd', null]];
+
+    /**
+     * The one renderer option of a catalog row and its values (`rendererOptions` of `data/extensions.json`).
+     *
+     * @var array<string, array{0: string, 1: array<string>}>
+     */
+    private const RENDERER_OPTIONS = [
+        'carve.tabs' => ['mode', ['css', 'aria']],
+        'carve.codeGroup' => ['mode', ['css', 'aria']],
+        'carve.smartQuotes' => [
+            'locale', [
+                'en', 'de', 'de-CH', 'fr', 'pl', 'ru', 'ja', 'zh', 'sv', 'da',
+                'fi', 'cs', 'hu', 'it', 'es', 'pt', 'nl', 'nb', 'nn', 'uk',
+            ],
+        ],
+    ];
 
     public bool $sections = true;
 
@@ -177,18 +194,29 @@ final class Options
         }
         // Choose the channel after all options are read, independent of map order.
         foreach ($o->extensions as $extension) {
-            $renderer = $o->rendererOptions[$extension->name] ?? null;
-            if ($renderer === 'standard' || is_array($renderer)) {
-                $standardMode = is_array($renderer) ? $renderer['standard']['mode'] : 'css';
-                $renderer = Standard::renderer($extension->name, $o->mode, $standardMode);
-            }
-            $renderer ??= $o->mode === 'static' ? $extension->buildTimeRenderer : $extension->renderer;
-            if ($renderer instanceof Closure) {
-                $o->rendered[$extension->name . "\0" . $extension->version] = $renderer;
-            }
+            $o->channel($extension);
         }
 
         return $o;
+    }
+
+    private function channel(ExtensionDefinition $extension): void
+    {
+        $row = $this->rendererOptions === [] ? null : Standard::row($extension->name);
+        $renderer = $this->rendererOptions[$extension->name] ?? ($row === null ? null : $this->rendererOptions[$row] ?? null);
+        if ($extension->quotes !== null && is_array($renderer)) {
+            $this->quotes = SmartQuotes::bundle($renderer['standard']['locale'] ?? 'en')->definitions()[0]->quotes;
+
+            return;
+        }
+        if ($renderer === 'standard' || is_array($renderer)) {
+            $standardMode = is_array($renderer) ? $renderer['standard']['mode'] ?? 'css' : 'css';
+            $renderer = Standard::renderer($extension->name, $this->mode, $standardMode);
+        }
+        $renderer ??= $this->mode === 'static' ? $extension->buildTimeRenderer : $extension->renderer;
+        if ($renderer instanceof Closure) {
+            $this->rendered[$extension->name . "\0" . $extension->version] = $renderer;
+        }
     }
 
     private static function assign(self $o, string $name, mixed $value): void
@@ -454,21 +482,22 @@ final class Options
 
                 continue;
             }
-            if ($renderer === 'standard' && Standard::renderer($name, 'interactive') !== null) {
+            if ($renderer === 'standard' && Standard::rendered($name)) {
                 $validated[$name] = $renderer;
 
                 continue;
             }
+            $option = self::RENDERER_OPTIONS[$name] ?? null;
             if (
-                !in_array($name, ['carve.tabs', 'carve.codeGroup'], true)
+                $option === null
                 || !is_array($renderer) || array_keys($renderer) !== ['standard']
-                || !is_array($renderer['standard']) || array_keys($renderer['standard']) !== ['mode']
-                || !is_string($renderer['standard']['mode'])
-                || !in_array($renderer['standard']['mode'], ['css', 'aria'], true)
+                || !is_array($renderer['standard']) || array_keys($renderer['standard']) !== [$option[0]]
+                || !is_string($renderer['standard'][$option[0]])
+                || !in_array($renderer['standard'][$option[0]], $option[1], true)
             ) {
                 throw new OptionError('option renderers: invalid renderer ' . (string)$name);
             }
-            $validated[$name] = $renderer;
+            $validated[$name] = ['standard' => [$option[0] => $renderer['standard'][$option[0]]]];
         }
         $this->rendererOptions = $validated;
     }

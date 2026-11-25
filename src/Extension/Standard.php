@@ -14,6 +14,13 @@ use MarkupCarve\Carve\Resolve\PlainText;
 final class Standard
 {
     /**
+     * @var string
+     */
+    private const FENCED = 'carve.fencedRender.';
+
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
      * @return array<\MarkupCarve\Carve\Extension\ExtensionDefinition>|null
      */
     public static function definitions(string $name): ?array
@@ -30,7 +37,6 @@ final class Standard
             'carve.cite' => [Citations::citeDefinition()],
             'carve.codeGroup' => CodeGroup::bundle()->withoutRenderers()->definitions(),
             'carve.details' => Details::bundle()->withoutRenderers()->definitions(),
-            'carve.fencedRender.mermaid' => FencedRender::bundle('mermaid')->withoutRenderers()->definitions(),
             'carve.mathBlock' => MathBlock::bundle()->withoutRenderers()->definitions(),
             'carve.spoiler', 'carve.spoilerBlock' => array_values(array_filter(
                 Spoiler::bundle()->withoutRenderers()->definitions(),
@@ -38,8 +44,60 @@ final class Standard
             )),
             'carve.imgFence.img' => [ImgFence::definition('img')],
             'carve.imgFence.image' => [ImgFence::definition('image')],
-            default => null,
+            'carve.colorSwatch' => ColorSwatch::bundle()->withoutRenderers()->definitions(),
+            'carve.listTable' => ListTable::bundle()->withoutRenderers()->definitions(),
+            'carve.term' => [Glossary::termDefinition()->withoutRenderers()],
+            // C2-X-072: the glossary and the index register their inline matcher with them.
+            'carve.glossary' => [
+                Glossary::termDefinition()->withoutRenderers(),
+                new ExtensionDefinition(Glossary::GLOSSARY, '1', ['body'], documentTransform: Glossary::transform(...)),
+            ],
+            'carve.indexTerm' => [IndexTerms::markerDefinition()->withoutRenderers()],
+            'carve.index' => [
+                IndexTerms::markerDefinition()->withoutRenderers(),
+                new ExtensionDefinition(
+                    IndexTerms::INDEX,
+                    '1',
+                    ['body'],
+                    documentTransform: static fn (Node $view): Node => IndexTerms::transform($view, 'Back to'),
+                ),
+            ],
+            'carve.codeCallouts' => [
+                ...CodeCallouts::bundle()->withoutRenderers()->definitions(),
+                new ExtensionDefinition($name, '1', documentTransform: CodeCallouts::transform(...)),
+            ],
+            'carve.tabNormalize' => [
+                new ExtensionDefinition($name, '1', documentTransform: Transforms::tabNormalize()->transforms()[0]->run),
+            ],
+            'carve.autolink' => [Navigation::autolink()],
+            'carve.externalLinks' => [Navigation::externalLinks()],
+            'carve.headingNumbers' => [Navigation::headingNumbers()],
+            'carve.headingPermalinks' => [Navigation::headingPermalinks()],
+            'carve.headingReference' => [Navigation::headingReference()],
+            'carve.semanticSpan' => SemanticSpan::bundle()->definitions(),
+            'carve.smartQuotes' => SmartQuotes::bundle()->definitions(),
+            'carve.toc' => [Navigation::tableOfContents()->withoutRenderers()],
+            'carve.tocPlacement' => [Navigation::tocPlacement()->withoutRenderers()],
+            default => str_starts_with($name, self::FENCED) ? self::fenced($name) : null,
         };
+    }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * C2-X-071: one catalog row per diagram fence language.
+     *
+     * @return array<\MarkupCarve\Carve\Extension\ExtensionDefinition>|null
+     */
+    private static function fenced(string $name): ?array
+    {
+        foreach (FencedRender::presets()->definitions() as $definition) {
+            if ($definition->name === $name) {
+                return [$definition->withoutRenderers()];
+            }
+        }
+
+        return null;
     }
 
     public static function renderer(string $name, string $mode, string $tabsMode = 'css'): ?Closure
@@ -61,6 +119,40 @@ final class Standard
         return null;
     }
 
+    /**
+     * The row whose renderer choice a node without a row of its own follows, as `carve.codeCallouts` for
+     * `carve.codeCallouts.code` (C2-X-072).
+     */
+    public static function row(string $name): ?string
+    {
+        $dot = strrpos($name, '.');
+        if (self::definitions($name) !== null || $dot === false) {
+            return null;
+        }
+        $row = substr($name, 0, $dot);
+
+        return self::definitions($row) !== null ? $row : null;
+    }
+
+    /**
+     * Whether `'standard'` names a renderer for the row: its own, or that of a node it registers.
+     */
+    public static function rendered(string $name): bool
+    {
+        if (self::renderer($name, 'interactive') !== null) {
+            return true;
+        }
+        foreach (self::definitions($name) ?? [] as $definition) {
+            if (self::renderer($definition->name, 'interactive') !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     private static function rendererBundle(string $name, string $standardMode): ?Bundle
     {
         return match ($name) {
@@ -68,12 +160,20 @@ final class Standard
             'carve.codeGroup' => CodeGroup::bundle($standardMode),
             'carve.details' => Details::bundle(),
             'carve.spoiler', 'carve.spoilerBlock' => Spoiler::bundle(),
-            'carve.fencedRender.mermaid' => FencedRender::mermaid(),
+            'carve.codeCallouts.code', 'carve.codeCallouts.list' => CodeCallouts::bundle(),
+            'carve.colorSwatch' => ColorSwatch::bundle(),
+            'carve.listTable' => ListTable::bundle(),
+            'carve.term', 'carve.glossary' => Glossary::bundle(),
+            'carve.indexTerm', 'carve.index' => IndexTerms::bundle(),
+            'carve.toc' => new Bundle([Navigation::tableOfContents()]),
+            'carve.tocPlacement' => new Bundle([Navigation::tocPlacement()]),
             'carve.mathBlock' => MathBlock::bundle(),
             'carve.wiki' => Wikilinks::bundle(),
-            default => null,
+            default => str_starts_with($name, self::FENCED) ? FencedRender::presets() : null,
         };
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * C2-X-057: the plain text of the parsed content is the inline fallback.
