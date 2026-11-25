@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '1c8d567927ff22e99cb4950e226dbee29b127fd7',
+        'commit' => '71d885866aeeb3b6266e5c98acedda1e436659f8',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -7205,6 +7205,16 @@ final class Tables
             [
                 'when' => 'the candidate is a `%%` line comment with a keyword in the wrong letter case',
                 'text' => 'This line is a comment and renders nothing, but it is not a region marker. Write the case-sensitive keyword `%% #region name` or `%% #endregion`.',
+            ],
+        ],
+        'reserved-syntax' => [
+            [
+                'when' => 'a directive with a section and no path',
+                'text' => 'This "${text}" is reserved for an include from the same document in a later 0.2 release and renders as literal text. Write \\{{ to keep the text.',
+            ],
+            [
+                'when' => 'a line that starts with an id in braces and a colon',
+                'text' => 'A line that starts with "${text}" is reserved for a definition in a later 0.2 release and renders as literal text. Write \\{# to keep the text.',
             ],
         ],
         'semantic-attribute-outside-span' => [
