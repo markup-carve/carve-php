@@ -51,8 +51,8 @@ final class Text
     private const DEFINITIONS = ['link_reference_definition' => true, 'footnote' => true, 'abbreviation_def' => true];
 
     /**
-     * Inline nodes whose spelling holds no bracket that an outer bracket pairs with, as the reader takes an atom whole.
-     * Any other node, a link too (carve#6656), holds no such bracket when no string in it holds `]`.
+     * Inline nodes whose spelling holds no bracket that an outer bracket pairs with: the reader takes an atom whole, and
+     * a bracket construct closes its own brackets. Any other node holds no such bracket when no string in it holds `]`.
      *
      * @var array<string, true>
      */
@@ -64,6 +64,9 @@ final class Text
         'autolink' => true,
         'xref' => true,
         'footnote_ref' => true,
+        'link' => true,
+        'image' => true,
+        'inline_footnote' => true,
     ];
 
     /**
@@ -2071,7 +2074,8 @@ final class Text
             $node = $c->flatNodes[$at] ?? null;
             if (
                 isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
-                && ((isset(self::SEALED[$type]) && !self::openComment($node)) || !str_contains(Inline::strings($node), ']')))
+                && ((isset(self::SEALED[$type]) && !self::openComment($node)
+                && !in_array($type, ['link', 'image', 'inline_footnote'], true)) || !str_contains(Inline::strings($node), ']')))
             ) {
                 $out[$at] = true;
             }
