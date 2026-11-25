@@ -52,7 +52,7 @@ final class Text
 
     /**
      * Inline nodes whose spelling holds no bracket that an outer bracket pairs with: the reader takes an atom whole, and
-     * a bracket construct closes its own brackets. Any other node holds no such bracket when no string in it holds `]`.
+     * a link is sealed only by its strings (carve#6656). Any other node holds no such bracket when no string in it holds `]`.
      *
      * @var array<string, true>
      */
@@ -64,9 +64,6 @@ final class Text
         'autolink' => true,
         'xref' => true,
         'footnote_ref' => true,
-        'link' => true,
-        'image' => true,
-        'inline_footnote' => true,
     ];
 
     /**

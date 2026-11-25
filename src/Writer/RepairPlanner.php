@@ -436,9 +436,13 @@ final class RepairPlanner
                     continue;
                 }
                 $expanded[$path][$at] = true;
-                // A line kind has its own column rule. The inline `#` kind is
-                // the one whose further runs can stand inside another mark.
+                // A line kind has its own column rule. The inline `#` kind is the one whose further runs can stand
+                // inside another mark, and a text `[` outside a bracketed node reports the kind `[` (C2-W-088, C2-W-094).
                 if ($kind !== '#' && $kind !== '{#') {
+                    if ($kind === '[' && BracketKind::expands($tree, $path, $value, $at)) {
+                        self::expandKindInLeaf($tree, $leaves[$leaf] ?? [], $leaf, $kind, $expanded, $done);
+                    }
+
                     continue;
                 }
                 // C2-W-088: a reported `#` before a space or the line end opens no tag, so it is the line kind of a
