@@ -11,6 +11,8 @@ use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
+use MarkupCarve\Carve\Json\TreeError;
+use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Options;
 
@@ -78,6 +80,12 @@ final class Writer
      * the check of a group with a loss.
      */
     private static bool $lossReported = false;
+
+    /**
+     * Whether a supplied tree the heuristics call safe is read back. The importer writes trees of its own build, whose
+     * one-paragraph read-back does not fit the memory its gates allow (carve-php#5664, #5722).
+     */
+    private static bool $readsSupplied = true;
 
     /**
      * `Text::$recordedOwn` of the last local write.
@@ -165,11 +173,16 @@ final class Writer
      * @param array<string, mixed> $tree A decoded 2.0 tree.
      * @param array<mixed>|null $layout A layout record (`source-layout.md`).
      * @param array<string, mixed> $options
+     * @param bool $readsSupplied False for the importer's own trees (`$readsSupplied`).
      *
      * @return \MarkupCarve\Carve\Writer\WriteResult
      */
-    public static function writeWithDiagnostics(array $tree, ?array $layout = null, array $options = []): WriteResult
-    {
+    public static function writeWithDiagnostics(
+        array $tree,
+        ?array $layout = null,
+        array $options = [],
+        bool $readsSupplied = true,
+    ): WriteResult {
         // A minimal empty document has no nodes or root fields to audit, and needs only C2-W-022's final line feed.
         if (
             $layout === null && $options === [] && count($tree) === 3 && ($tree['type'] ?? null) === 'document'
@@ -182,6 +195,8 @@ final class Writer
         $captured = self::$captured;
         $inGroups = self::$inGroups;
         $lossReported = self::$lossReported;
+        $outerReadsSupplied = self::$readsSupplied;
+        self::$readsSupplied = $readsSupplied && $outerReadsSupplied;
         self::$captured = null;
         self::$inGroups = false;
         try {
@@ -202,6 +217,7 @@ final class Writer
             self::$captured = $captured;
             self::$inGroups = $inGroups;
             self::$lossReported = $lossReported;
+            self::$readsSupplied = $outerReadsSupplied;
         }
     }
 
@@ -2332,13 +2348,14 @@ final class Writer
 
     /**
      * Whether a supplied tree compares with its read-back by C2-A-161: a 2.0 document without the rewrites the writer
-     * may spell (carve-js `holdsRewrites`) or a span count it spells with marks (C2-W-145).
+     * may spell (carve-js `holdsRewrites`) or a span count it spells with marks (C2-W-145), that passes the reader's
+     * checks: a parse fills the fields a tree may lack, as the `alt` of an image.
      *
      * @param array<string, mixed> $tree
      */
     private static function comparable(array $tree): bool
     {
-        if (($tree['type'] ?? null) !== 'document' || ($tree['astVersion'] ?? null) !== '2.0') {
+        if (!self::$readsSupplied || ($tree['type'] ?? null) !== 'document' || ($tree['astVersion'] ?? null) !== '2.0') {
             return false;
         }
         $pending = [$tree];
@@ -2356,6 +2373,12 @@ final class Writer
                 }
             }
         }
+        $json = json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        try {
+            TreeReader::check($json === false ? '' : $json);
+        } catch (TreeError) {
+            return false;
+        }
 
         return true;
     }
@@ -2370,10 +2393,13 @@ final class Writer
      */
     private static function readsBackAsTree(array $tree, string $source, array $options): bool
     {
+        $print = TreeEquality::fingerprint($tree['children'] ?? []);
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        HeapPages::release();
         $read = TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions));
+        HeapPages::release();
 
-        return TreeEquality::equal($tree['children'] ?? [], $read['children'] ?? []);
+        return TreeEquality::fingerprint($read['children'] ?? []) === $print;
     }
 
     /**

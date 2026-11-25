@@ -138,7 +138,7 @@ final class HtmlImporter
         }
         $diagnostics = $context->diagnostics;
         // C2-M-074: the writer's loss entries follow the importer's.
-        $written = Writer::writeWithDiagnostics($document);
+        $written = Writer::writeWithDiagnostics($document, readsSupplied: false);
         $source = $written->source;
         $diagnostics = array_merge($diagnostics, $written->diagnostics);
         unset($written);
