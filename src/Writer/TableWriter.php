@@ -519,7 +519,16 @@ final class TableWriter
         // The groups are decided by the block parse (C2-B-178, C2-B-187), so the inlines are not read.
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source, true);
-        $read = self::readGroups($sink->root?->children[0] ?? null);
+        $table = null;
+        foreach ($sink->root->children ?? [] as $block) {
+            // A comment before the first row reads back before the table.
+            if ($block->type !== 'comment') {
+                $table = $block;
+
+                break;
+            }
+        }
+        $read = self::readGroups($table);
         foreach ($groups as $k => [$type, $rows, $at]) {
             if (($read[$k] ?? null) !== [$type, $rows]) {
                 $this->w->lose($path . '/children/' . $at, $type, null);
@@ -599,7 +608,7 @@ final class TableWriter
             return true;
         }
         $head = $groups[0];
-        if ($head[0] !== 'table_head') {
+        if ($head[0] !== 'table_head' || $head[1] === 0) {
             return false;
         }
         foreach ($head[3] as $row) {

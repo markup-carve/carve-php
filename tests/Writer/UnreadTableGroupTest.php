@@ -58,6 +58,36 @@ final class UnreadTableGroupTest extends TestCase
         self::assertSame([], Carve::importHtml($html)->diagnostics);
     }
 
+    public function testAnEmptyHeadIsReported(): void
+    {
+        $cell = [
+
+            'type' => 'table_cell',
+            'header' => false,
+            'children' => [
+                ['type' => 'cell_paragraph', 'children' => [['type' => 'text', 'value' => 'x']]],
+            ],
+        ];
+        $result = Carve::writeWithDiagnostics([
+
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'table',
+                    'columns' => [['type' => 'table_column']],
+                    'children' => [
+                        ['type' => 'table_head', 'children' => []],
+                        ['type' => 'table_body', 'children' => [['type' => 'table_row', 'children' => [$cell]]]],
+                    ],
+                ],
+            ],
+        ]);
+        self::assertSame("| x |\n", $result->source);
+        $losses = array_map(static fn ($entry): array => [$entry->code, $entry->path], $result->diagnostics);
+        self::assertSame([['structure-unspellable', '/children/0/children/0']], $losses);
+    }
+
     public function testARowWithNoCellIsReportedOnce(): void
     {
         $html = '<table><thead><tr><th>H</th></tr><tr></tr></thead><tbody><tr><td>a</td></tr></tbody></table>';
