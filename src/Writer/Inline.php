@@ -715,7 +715,15 @@ final class Inline
             $parts[2][] = $at;
             $out .= $part;
             if (!$traced) {
-                $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
+                // The hyphens the node ends a run with: a text's, with those before it when it is all hyphens, and one
+                // for a dash node (C2-W-125 case four).
+                if ($text) {
+                    $spelled = self::str($node, 'value');
+                    $run = strlen($spelled) - strlen(rtrim($spelled, '-'));
+                    $hyphens = $run === strlen($spelled) ? $hyphens + $run : $run;
+                } else {
+                    $hyphens = $c->last === 0x2D ? 1 : 0;
+                }
                 $dots = $dotted ? self::dotsAfter($node, $dots) : 0;
             }
             if ($text) {
@@ -1154,28 +1162,6 @@ final class Inline
         if ($c->inLineBlock && !$c->inCell && $next !== -1 && !$c->beforeSoftBreak) {
             $this->w->lose($path, $type, null);
         }
-    }
-
-    /**
-     * The hyphens the written node ends a run with: a text value's, counting those before it when it is all hyphens,
-     * and one for a dash node (C2-W-125 case four).
-     *
-     * @param array<mixed> $node
-     * @param string $type
-     * @param \MarkupCarve\Carve\Writer\Context $c
-     * @param int $before
-     *
-     * @return int
-     */
-    private static function hyphensAfter(array $node, string $type, Context $c, int $before): int
-    {
-        if ($type !== 'text') {
-            return $c->last === 0x2D ? 1 : 0;
-        }
-        $value = self::str($node, 'value');
-        $run = strlen($value) - strlen(rtrim($value, '-'));
-
-        return $run === strlen($value) ? $before + $run : $run;
     }
 
     /**
@@ -1740,8 +1726,9 @@ final class Inline
         if ($out === '') {
             return;
         }
-        $c->last = Chars::before($out, strlen($out));
-        $c->lineStart = $c->blockLines && $out[strlen($out) - 1] === "\n";
+        $byte = ord($out[-1]);
+        $c->last = $byte < 0x80 ? $byte : Chars::before($out, strlen($out));
+        $c->lineStart = $c->blockLines && $byte === 10;
         if ($c->lineStart) {
             $c->prevOpenedLine = $c->openedLine;
             $c->openedLine = null;
