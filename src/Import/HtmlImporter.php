@@ -9,6 +9,7 @@ use JsonException;
 use MarkupCarve\Carve\Diagnostics\Cap;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Json\TreeDepth;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Node;
@@ -139,7 +140,7 @@ final class HtmlImporter
         if ($context->rootDir !== null) {
             $document['dir'] = $context->rootDir;
         }
-        if (TreeReader::exceedsDepth($document)) {
+        if (TreeDepth::exceeds($document)) {
             throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
         }
         $diagnostics = $context->diagnostics;
@@ -280,7 +281,7 @@ final class HtmlImporter
      */
     private static function read(array $document): Node
     {
-        if (TreeReader::exceedsDepth($document)) {
+        if (TreeDepth::exceeds($document)) {
             throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
         }
 
