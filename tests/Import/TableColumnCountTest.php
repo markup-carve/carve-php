@@ -59,4 +59,18 @@ final class TableColumnCountTest extends TestCase
         $this->assertSame([], $result->codes());
         $this->assertSame(array_fill(0, $columns, ['type' => 'table_column']), $result->document['children'][0]['columns']);
     }
+
+    /**
+     * C2-W-117: a row span the writer cannot mark shortens the written rows, so `columns` is reported with it.
+     */
+    public function testUnmarkedRowSpanReportsColumns(): void
+    {
+        $result = Carve::importHtml('<table><tr><td rowspan="2" colspan="2">a</td></tr><tr><td>b</td></tr></table>');
+        $this->assertSame("| a | < |\n| b |\n", $result->source);
+        $this->assertCount(3, $result->document['children'][0]['columns']);
+        $this->assertSame(
+            ['/children/0/columns', '/children/0/children/0/children/0/children/0/rowspan'],
+            array_map(static fn ($d): string => $d->path, $result->diagnostics),
+        );
+    }
 }
