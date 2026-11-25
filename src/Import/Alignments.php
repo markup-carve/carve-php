@@ -56,7 +56,8 @@ final class Alignments
     }
 
     /**
-     * In a table with no head, a column whose cells all show one alignment has it as its own.
+     * In a table with no head, a column whose cells all show one alignment has it as its own, but only while every
+     * column before it has one too, as the list has no empty entry (C2-B-211); any other cell keeps its own.
      *
      * @param array<array<string, mixed>> $columns
      * @param array<int, array<array{0: int, 1: int, 2: int, 3: string|null}>> $byColumn
@@ -67,10 +68,12 @@ final class Alignments
      */
     private static function columns(array $columns, array $byColumn, array &$groups, string $axis): array
     {
-        foreach ($byColumn as $column => $entries) {
+        foreach (array_keys($columns) as $column) {
+            $entries = $byColumn[$column] ?? [];
             $aligns = array_unique(array_map(static fn (array $e): string => $e[3] ?? '', $entries));
-            if (!isset($columns[$column]) || count($aligns) !== 1 || $entries[0][3] === null) {
-                continue;
+            // `baseline` has no `valigns` entry (C2-B-211), so its cells keep it, and so do those of every later column.
+            if (count($aligns) !== 1 || $entries[0][3] === null || $entries[0][3] === 'baseline') {
+                break;
             }
             $columns[$column][$axis] = $entries[0][3];
             foreach ($entries as [$g, $r, $c]) {
