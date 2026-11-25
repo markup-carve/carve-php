@@ -38,6 +38,14 @@ final class SvgSanitizer
     private const NON_XML_CHAR = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x{FFFE}\x{FFFF}]/u';
 
     /**
+     * The single-byte part of `NON_XML_CHAR`.
+     *
+     * @var string
+     */
+    private const NON_XML_BYTES = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F"
+        . "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F";
+
+    /**
      * Removed before a scheme is read; a probe class, so it is wider than what a target may emit.
      *
      * @var string
@@ -52,6 +60,51 @@ final class SvgSanitizer
      * @var string
      */
     private const SURROGATE_STANDIN = "\u{E000}";
+
+    /**
+     * The text before a token, then the token: a comment, CDATA section or processing instruction up to its first
+     * closer, a close tag (group 3), or any other tag (group 4 names an open tag) up to a `>` outside quotes. It stops
+     * at a `<` none of these closes.
+     *
+     * @var string
+     */
+    private const TOKEN = '~\G([^<]*+)(<(?:!--(?:[^-]++|-(?!->))*+-->|!\[CDATA\[(?:[^\]]++|\](?!\]>))*+\]\]>'
+        . '|\?(?:[^?]++|\?(?!>))*+\?>|/([A-Za-z][A-Za-z0-9_:.-]*+)' . self::WS . '*+>'
+        . '|(?!!--|!\[CDATA\[|\?)([A-Za-z][A-Za-z0-9_:.-]*+)?(?:[^"\'<>]++|"[^"]*+"|\'[^\']*+\')*+>))~u';
+
+    /**
+     * One attribute (name, then a double-quoted, single-quoted or bare value) or one skipped character. An unclosed
+     * quote runs to the end.
+     *
+     * @var string
+     */
+    private const ATTR = '~\G' . self::WS . '*+(?:([A-Za-z_:][A-Za-z0-9_:.-]*+)(?:' . self::WS . '*+=' . self::WS
+        . '*+(?:"([^"]*+)"?|\'([^\']*+)\'?|((?:(?!' . self::WS . ')[^>])*+)))?|.)~su';
+
+    /**
+     * @var string
+     */
+    private const TRIM = '~^' . self::WS . '+|' . self::WS . '+\z~u';
+
+    /**
+     * @var string
+     */
+    private const WS_RUN = '~' . self::WS . '+~u';
+
+    /**
+     * @var string
+     */
+    private const SELF_CLOSED_TAIL = '~/>' . self::WS . '*\z~u';
+
+    /**
+     * @var string
+     */
+    private const CLOSED_TAIL = '~</svg>' . self::WS . '*\z~iu';
+
+    /**
+     * @var string
+     */
+    private const CSS_ESCAPE = '~\\\\([0-9a-fA-F]{1,6}' . self::WS . '?|.)~su';
 
     /**
      * @var array<string>
@@ -169,8 +222,24 @@ final class SvgSanitizer
 
     private bool $rootSelfClosed = false;
 
+    /**
+     * The lists above keyed by entry, built once: `in_array()` over the attribute list cost more than the rest of
+     * an attribute's checks.
+     *
+     * @var array<string, array<string, true>>
+     */
+    private static array $sets = [];
+
     private function __construct(private SvgSanitizeOptions $opts)
     {
+        self::$sets = self::$sets ?: [
+            'tags' => array_fill_keys(self::ALLOWED_TAGS, true),
+            'animationTags' => array_fill_keys(self::ANIMATION_TAGS, true),
+            'attrs' => array_fill_keys(self::ALLOWED_ATTRS, true),
+            'refValueAttrs' => array_fill_keys(self::REF_VALUE_ATTRS, true),
+            'animationValueAttrs' => array_fill_keys(self::ANIMATION_VALUE_ATTRS, true),
+            'dangerousSchemes' => array_fill_keys(self::DANGEROUS_URL_SCHEMES, true),
+        ];
     }
 
     /**
@@ -198,28 +267,43 @@ final class SvgSanitizer
     {
         $fail = ['svg' => '', 'ok' => false];
         // carve#6764: dropped before any check, so a check never sees a value the output does not hold.
-        $src = self::trim((string)preg_replace(self::NON_XML_CHAR, '', self::validUtf8($source)));
-        $length = strlen($src);
-        $cursor = 0;
-        while ($cursor < $length) {
-            $start = strpos($src, '<', $cursor);
-            if ($start === false) {
-                break;
-            }
-            if (!$this->consumeText(substr($src, $cursor, $start - $cursor))) {
-                return $fail;
-            }
-            $end = self::tokenEnd($src, $start);
-            if ($end < 0 || !$this->consumeToken(substr($src, $start, $end - $start))) {
-                return $fail;
-            }
-            $cursor = $end;
+        $src = self::validUtf8($source);
+        if (strcspn($src, self::NON_XML_BYTES) !== strlen($src) || str_contains($src, "\u{FFFE}") || str_contains($src, "\u{FFFF}")) {
+            $src = (string)preg_replace(self::NON_XML_CHAR, '', $src);
         }
-        if (!$this->consumeText((string)substr($src, $cursor)) || !$this->sawRoot || $this->kept || $this->dropStack) {
+        $src = self::trim($src);
+        if (preg_match_all(self::TOKEN, $src, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL) === false) {
+            return $fail;
+        }
+        $cursor = 0;
+        foreach ($matches as [$match, $text, $token, $closeName, $openName]) {
+            $cursor += strlen($match);
+            if ($text !== '' && !$this->consumeText($text)) {
+                return $fail;
+            }
+            if ($closeName !== null) {
+                if (!$this->closeTag($closeName)) {
+                    return $fail;
+                }
+
+                continue;
+            }
+            if ($openName === null) {
+                continue;
+            }
+            $selfClose = str_ends_with((string)$token, '/>');
+            $raw = (string)substr((string)$token, strlen($openName) + 1, -($selfClose ? 2 : 1));
+            if (!$this->openTag($openName, $raw, $selfClose)) {
+                return $fail;
+            }
+        }
+        // The tokens stop early only at a `<` that does not close.
+        $rest = (string)substr($src, $cursor);
+        if (str_contains($rest, '<') || !$this->consumeText($rest) || !$this->sawRoot || $this->kept || $this->dropStack) {
             return $fail;
         }
         $svg = implode('', $this->out);
-        $tail = $this->rootSelfClosed ? '~/>' . self::WS . '*\z~u' : '~</svg>' . self::WS . '*\z~iu';
+        $tail = $this->rootSelfClosed ? self::SELF_CLOSED_TAIL : self::CLOSED_TAIL;
         if (preg_match('~^<svg[\s/>]~i', $svg) !== 1 || preg_match($tail, $svg) !== 1) {
             return $fail;
         }
@@ -242,43 +326,20 @@ final class SvgSanitizer
 
     private static function trim(string $text): string
     {
-        return (string)preg_replace('~^' . self::WS . '+|' . self::WS . '+\z~u', '', $text);
-    }
-
-    /**
-     * @return int The offset after the token, or -1 when it does not close.
-     */
-    private static function tokenEnd(string $src, int $start): int
-    {
-        foreach (['<!--' => '-->', '<![CDATA[' => ']]>', '<?' => '?>'] as $open => $close) {
-            if (substr_compare($src, $open, $start, strlen($open)) === 0) {
-                $at = strpos($src, $close, $start + strlen($open));
-
-                return $at === false ? -1 : $at + strlen($close);
-            }
+        if ($text === '') {
+            return $text;
         }
-        $length = strlen($src);
-        $at = $start + 1;
-        while ($at < $length) {
-            $at += strcspn($src, '"\'<>', $at);
-            if ($at >= $length) {
-                return -1;
-            }
-            $char = $src[$at];
-            if ($char === '>') {
-                return $at + 1;
-            }
-            if ($char === '<') {
-                return -1;
-            }
-            $close = strpos($src, $char, $at + 1);
-            if ($close === false) {
-                return -1;
-            }
-            $at = $close + 1;
+        // No `WS` character starts or ends at an ASCII byte outside the set.
+        $first = ord($text[0]);
+        $last = ord($text[-1]);
+        if (
+            $first < 0x80 && $first !== 0x20 && ($first < 0x09 || $first > 0x0D)
+            && $last < 0x80 && $last !== 0x20 && ($last < 0x09 || $last > 0x0D)
+        ) {
+            return $text;
         }
 
-        return -1;
+        return (string)preg_replace(self::TRIM, '', $text);
     }
 
     private function consumeText(string $between): bool
@@ -294,21 +355,6 @@ final class SvgSanitizer
         }
 
         return true;
-    }
-
-    private function consumeToken(string $token): bool
-    {
-        if (preg_match('~^</([A-Za-z][A-Za-z0-9_:.-]*)' . self::WS . '*>\z~u', $token, $m) === 1) {
-            return $this->closeTag($m[1]);
-        }
-        if (preg_match('~^<([A-Za-z][A-Za-z0-9_:.-]*)~', $token, $m) !== 1) {
-            return true;
-        }
-        $name = $m[1];
-        $selfClose = str_ends_with($token, '/>');
-        $raw = (string)substr($token, strlen($name) + 1, strlen($token) - strlen($name) - 1 - ($selfClose ? 2 : 1));
-
-        return $this->openTag($name, $raw, $selfClose);
     }
 
     private function closeTag(string $name): bool
@@ -366,21 +412,24 @@ final class SvgSanitizer
     private function tagAllowed(string $name): bool
     {
         $lower = strtolower($name);
-        if (in_array($name, self::ALLOWED_TAGS, true) || in_array($lower, self::ALLOWED_TAGS, true)) {
+        if (isset(self::$sets['tags'][$name]) || isset(self::$sets['tags'][$lower])) {
             return true;
         }
 
         return ($this->opts->allowLinks && $lower === 'a')
-            || ($this->opts->allowAnimation && in_array($lower, self::ANIMATION_TAGS, true))
+            || ($this->opts->allowAnimation && isset(self::$sets['animationTags'][$lower]))
             || ($this->opts->allowExternalImages && $lower === 'image');
     }
 
     private function sanitizeAttrs(string $raw, string $tag, bool $isRoot): string
     {
+        if ($raw === '') {
+            return '';
+        }
         $lowerTag = strtolower($tag);
         $externalHref = ($this->opts->allowLinks && $lowerTag === 'a') || ($this->opts->allowExternalImages && $lowerTag === 'image');
         $attrs = self::parseAttrs($raw);
-        $animatesHref = self::animatesHref($attrs);
+        $animatesHref = stripos($raw, 'attributename') !== false && self::animatesHref($attrs);
         $out = '';
         $seen = [];
         foreach ($attrs as [$name, $value]) {
@@ -392,8 +441,10 @@ final class SvgSanitizer
             if ($isRoot && strtolower($name) === 'xmlns') {
                 continue;
             }
-            $animationValue = in_array(strtolower($name), self::ANIMATION_VALUE_ATTRS, true);
-            if ($animatesHref && $animationValue && $value !== null && !self::localRefs($value)) {
+            if (
+                $animatesHref && $value !== null && isset(self::$sets['animationValueAttrs'][strtolower($name)])
+                && !self::localRefs($value)
+            ) {
                 continue;
             }
             $out .= $this->sanitizeAttribute($name, $value, $externalHref);
@@ -438,63 +489,15 @@ final class SvgSanitizer
      */
     private static function parseAttrs(string $raw): array
     {
+        preg_match_all(self::ATTR, $raw, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
         $out = [];
-        $length = strlen($raw);
-        $at = 0;
-        while ($at < $length) {
-            $at = self::skipSpace($raw, $at);
-            if ($at >= $length) {
-                break;
+        foreach ($matches as $m) {
+            if ($m[1] !== null) {
+                $out[] = [$m[1], $m[2] ?? $m[3] ?? $m[4]];
             }
-            if (preg_match('~\G[A-Za-z_:][A-Za-z0-9_:.-]*~', $raw, $m, 0, $at) !== 1) {
-                $at += self::charLength($raw[$at]);
-
-                continue;
-            }
-            $name = $m[0];
-            $at = self::skipSpace($raw, $at + strlen($name));
-            if (($raw[$at] ?? '') !== '=') {
-                $out[] = [$name, null];
-
-                continue;
-            }
-            $at = self::skipSpace($raw, $at + 1);
-            $quote = $raw[$at] ?? '';
-            if ($quote === '"' || $quote === "'") {
-                $close = strpos($raw, $quote, $at + 1);
-                $end = $close === false ? $length : $close;
-                $out[] = [$name, substr($raw, $at + 1, $end - $at - 1)];
-                $at = $end + 1;
-
-                continue;
-            }
-            preg_match('~\G(?:(?!' . self::WS . ')[^>])*~u', $raw, $m, 0, $at);
-            $out[] = [$name, $m[0] ?? ''];
-            $at += strlen($m[0] ?? '');
         }
 
         return $out;
-    }
-
-    private static function skipSpace(string $raw, int $at): int
-    {
-        if (preg_match('~\G' . self::WS . '+~u', $raw, $m, 0, $at) === 1) {
-            return $at + strlen($m[0]);
-        }
-
-        return $at;
-    }
-
-    private static function charLength(string $lead): int
-    {
-        $byte = ord($lead);
-
-        return match (true) {
-            $byte < 0xC0 => 1,
-            $byte < 0xE0 => 2,
-            $byte < 0xF0 => 3,
-            default => 4,
-        };
     }
 
     private function sanitizeAttribute(string $name, ?string $value, bool $externalHref): string
@@ -510,14 +513,14 @@ final class SvgSanitizer
             return $this->opts->allowStyle && $value !== null && !self::styleIsDangerous($value)
                 ? ' ' . $name . '="' . self::escapeAttr($value) . '"' : '';
         }
-        if (!str_starts_with($lower, 'aria-') && !str_starts_with($lower, 'data-') && !in_array($lower, self::ALLOWED_ATTRS, true)) {
+        if (!str_starts_with($lower, 'aria-') && !str_starts_with($lower, 'data-') && !isset(self::$sets['attrs'][$lower])) {
             return '';
         }
         // carve#6779: an empty prefixed namespace declaration undeclares the prefix, which XML forbids.
         if ($value === null || ($value === '' && str_starts_with($lower, 'xmlns:'))) {
             return '';
         }
-        if (in_array($lower, self::REF_VALUE_ATTRS, true) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value)) {
+        if (isset(self::$sets['refValueAttrs'][$lower]) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value)) {
             return '';
         }
 
@@ -597,12 +600,15 @@ final class SvgSanitizer
 
     private static function schemeIsSafe(string $url): bool
     {
+        if (!str_contains($url, ':')) {
+            return true;
+        }
         $probe = (string)preg_replace(self::SCHEME_STRIP, '', $url);
         if (preg_match('~^([a-zA-Z][a-zA-Z0-9+.-]*):~', $probe, $m) !== 1) {
             return true;
         }
 
-        return !in_array(strtolower($m[1]), self::DANGEROUS_URL_SCHEMES, true);
+        return !isset(self::$sets['dangerousSchemes'][strtolower($m[1])]);
     }
 
     private static function codePoint(int $cp): ?string
@@ -647,7 +653,7 @@ final class SvgSanitizer
         }
 
         return (string)preg_replace_callback(
-            '~\\\\([0-9a-fA-F]{1,6}' . self::WS . '?|.)~su',
+            self::CSS_ESCAPE,
             static function (array $m): string {
                 $esc = $m[1];
                 if (ctype_xdigit($esc[0])) {
@@ -668,7 +674,7 @@ final class SvgSanitizer
     private static function styleIsDangerous(string $value): bool
     {
         $compact = (string)preg_replace('~/\*.*?\*/~s', '', $value);
-        $compact = (string)preg_replace('~' . self::WS . '+~u', '', mb_strtolower(self::normalizeForCheck($compact), 'UTF-8'));
+        $compact = (string)preg_replace(self::WS_RUN, '', mb_strtolower(self::normalizeForCheck($compact), 'UTF-8'));
         // carve#6760: the core list of C2-H-162 (CSS image functions fetch from a bare string) plus `javascript:`.
         foreach ([...Tables::URL_STYLE_PATTERNS, 'javascript:'] as $needle) {
             if (str_contains($compact, $needle)) {
@@ -681,6 +687,10 @@ final class SvgSanitizer
 
     private static function nonLocalUrl(string $value): bool
     {
+        if (stripos($value, 'url(') === false) {
+            return false;
+        }
+
         // Atomic, so `(?!#)` cannot pass one character early on `url('#g')` (carve#6763). Only CSS whitespace is
         // skipped: a URL keeps a leading no-break space, so `url(\u{A0}#g)` names another resource.
         return preg_match('~url\((?>[\t\n\f\r ]*[\'"]?[\t\n\f\r ]*)(?!#)~i', $value) === 1;
@@ -692,6 +702,9 @@ final class SvgSanitizer
             $segment = self::trim($segment);
             if (self::nonLocalUrl($segment)) {
                 return true;
+            }
+            if (!str_contains($segment, ':') && !str_contains($segment, '/')) {
+                continue;
             }
             $probe = (string)preg_replace(self::SCHEME_STRIP, '', $segment);
             // A slash-led path (`//host/x`, `/abs`) fetches remotely like an absolute URL.

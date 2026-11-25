@@ -294,4 +294,57 @@ final class SvgSanitizerTest extends TestCase
             self::assertSame(['svg' => '', 'ok' => false], SvgSanitizer::sanitize($source), $source);
         }
     }
+
+    /**
+     * Token and attribute boundaries: comment, CDATA and processing-instruction closers, quotes, a bare `<`, and the
+     * characters an attribute run skips.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function tokenShapes(): array
+    {
+        $root = '<svg xmlns="http://www.w3.org/2000/svg">';
+
+        return [
+            'unclosed comment' => ['<svg><!-- x</svg>', ''],
+            'comment closer overlapping its opener' => ['<svg><!--></svg>-->', ''],
+            'comment holding a tag' => ['<svg><!-- <g> --><g/></svg>', $root . '<g/></svg>'],
+            'unclosed CDATA section' => ['<svg><![CDATA[ x</svg>', ''],
+            'CDATA section holding a close tag' => ['<svg><text><![CDATA[</text>]]></text></svg>', $root . '<text/></svg>'],
+            'processing-instruction closer overlapping its opener' => ['<svg><?></svg>?>', ''],
+            'quoted greater-than in a value' => [
+                '<svg><g class="a>b" id=\'c>d\'/></svg>',
+                $root . '<g class="a&gt;b" id="c&gt;d"/></svg>',
+            ],
+            'bare less-than in a tag' => ['<svg><g <rect/></svg>', ''],
+            'unclosed quote' => ['<svg><g class="a></svg>', ''],
+            'unclosed single quote' => ["<svg><g class='a id=b></g></svg>", ''],
+            'close tag with an attribute' => ['<svg><g></g x></g></svg>', $root . '<g/></svg>'],
+            'close tag ending in a no-break space' => ["<svg><g></g\u{A0}></svg>", $root . '<g/></svg>'],
+            'doctype' => ['<!DOCTYPE svg><svg/>', '<svg xmlns="http://www.w3.org/2000/svg"/>'],
+            'bare values ending at a no-break space' => [
+                "<svg><g class=a\u{A0}id=b fill=red/></svg>",
+                $root . '<g class="a" id="b" fill="red"/></svg>',
+            ],
+            'characters skipped between attributes' => ['<svg><g 1x="2" é="3" id="4"/></svg>', $root . '<g x="2" id="4"/></svg>'],
+            'empty bare value' => ['<svg><g id= /></svg>', $root . '<g id=""/></svg>'],
+            'name with a colon and a dot' => [
+                '<svg><g xml:space="preserve" data-a.b="c"/></svg>',
+                $root . '<g xml:space="preserve" data-a.b="c"/></svg>',
+            ],
+            'tag case' => ['<svg><LinearGradient/><lineargradient/><linearGradient/></svg>', $root . '<linearGradient/></svg>'],
+            'text after the root' => ['<svg></svg>x', ''],
+            'whitespace around the root' => ["\u{FEFF}\u{3000} <svg/>\u{A0}", '<svg xmlns="http://www.w3.org/2000/svg"/>'],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param string $svg Empty when the input is refused.
+     */
+    #[DataProvider('tokenShapes')]
+    public function testTokenShapes(string $source, string $svg): void
+    {
+        self::assertSame(['svg' => $svg, 'ok' => $svg !== ''], SvgSanitizer::sanitize($source));
+    }
 }
