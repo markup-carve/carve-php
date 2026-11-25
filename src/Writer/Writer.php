@@ -989,8 +989,8 @@ final class Writer
     /**
      * Whether a local write the heuristics call safe is taken without the rounds: it equals the source the tree was
      * parsed from, below that source's leading empty lines too, the tree has no ASCII punctuation in its strings, or the
-     * tree is supplied, holds no brace or pair mark that may pair with the bare spelling of a span, and reads back as
-     * itself where C2-A-161 can compare it.
+     * tree is supplied, holds no brace or pair mark that may pair with the bare spelling of a span, and has no ASCII
+     * punctuation or reads back as itself where C2-A-161 can compare it.
      *
      * @param array<string, mixed> $tree
      * @param string|null $parsed
@@ -1000,8 +1000,8 @@ final class Writer
     private static function readsBackUnread(array $tree, ?string $parsed, WriteResult $result, array $options): bool
     {
         if ($parsed === null && !self::hasBracedCloserRisk($tree) && !self::hasPairMarkRisk($tree)) {
-            return $result->diagnostics !== [] || self::$lossReported || !self::comparable($tree)
-                || self::readsBackAsTree($tree, $result->source, $options);
+            return $result->diagnostics !== [] || self::$lossReported || !self::hasPunctuation($tree)
+                || !self::comparable($tree) || self::readsBackAsTree($tree, $result->source, $options);
         }
 
         return $parsed === $result->source
