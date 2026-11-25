@@ -36,6 +36,13 @@ final class SuppliedTreeReadBackTest extends TestCase
                 self::document([['type' => 'paragraph', 'children' => [$link]], $definition]),
                 "[a]\n\n[b]: /u\n",
             ],
+            'shortcut link without punctuation in its strings' => [
+                self::document([
+                    ['type' => 'paragraph', 'children' => [['href' => 'u'] + $link]],
+                    ['href' => 'u'] + $definition,
+                ]),
+                "[a]\n\n[b]: u\n",
+            ],
             'shortcut link before a bracket a line comment closes' => [
                 self::document([
                     [
