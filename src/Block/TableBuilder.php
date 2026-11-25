@@ -331,6 +331,10 @@ final class TableBuilder
         }
         $head = self::headRows($rows);
         $foot = self::count($f->attrs, 'footer-rows');
+        // C2-B-187: an empty `body-rows` ends the head above a footer count smaller than the rows.
+        if ($foot !== null && $foot > 0 && $foot < count($rows) && $head > count($rows) - $foot && self::bodyPlan($f->attrs, 0) === []) {
+            $head = count($rows) - $foot;
+        }
         $footStart = $foot === null || $foot <= 0 ? count($rows) : max($head, count($rows) - $foot);
         $plan = self::bodyPlan($f->attrs, $footStart - $head);
         [$rowNodes, $width] = self::spans($rows, $head, $footStart, self::bodyStarts($plan, $head));
@@ -795,8 +799,11 @@ final class TableBuilder
      */
     private static function bodyEntries(string $value, bool $emptyAllowed): ?array
     {
+        if (trim($value, " \t") === '' && !$emptyAllowed) {
+            return [];
+        }
         if ($value === '') {
-            return $emptyAllowed ? [null] : [];
+            return [null];
         }
         $out = [];
         foreach (explode(',', $value) as $raw) {
