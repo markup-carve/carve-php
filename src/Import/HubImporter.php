@@ -48,13 +48,14 @@ final class HubImporter
      * @param string $input
      * @param string $format `markdown`, `gfm` or `djot`.
      * @param array<string, mixed> $options `strictLosses` (C2-M-082), `allowLosses` and `maxLosses` (C2-H-204, C2-H-205).
+     * @param bool $checksTree Internal: as `HtmlImporter::import()`.
      *
      * @throws \MarkupCarve\Carve\OptionError An editor adapter other than `generic` (C2-M-102).
      * @throws \MarkupCarve\Carve\Import\ImportInputError
      *
      * @return \MarkupCarve\Carve\Import\ImportResult
      */
-    public static function import(string $input, string $format, array $options = []): ImportResult
+    public static function import(string $input, string $format, array $options = [], bool $checksTree = true): ImportResult
     {
         // C2-M-102: an editor adapter reads HTML only.
         if (($options['adapter'] ?? 'generic') !== 'generic') {
@@ -88,6 +89,7 @@ final class HubImporter
                 return array_merge($lead, $sink->raw === [] ? $children : self::restoreRaw($children, $sink->raw));
             },
             report: self::withoutHtmlRanges(...),
+            checksTree: $checksTree,
         );
     }
 

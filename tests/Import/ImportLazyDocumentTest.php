@@ -108,6 +108,36 @@ final class ImportLazyDocumentTest extends TestCase
         $this->assertSame($expected, $copy->document);
     }
 
+    /**
+     * carve-php#5965: without the tree check the tree is read from the JSON on its first read.
+     */
+    public function testTheTreeIsReadOnFirstReadWithoutTheCheck(): void
+    {
+        $html = '<p><em>a</em> <a href="u">[b] c</a></p>';
+        $checked = HtmlImporter::import($html);
+        $result = HtmlImporter::import($html, checksTree: false);
+        $property = new ReflectionProperty(ImportResult::class, 'tree');
+
+        $this->assertSame($checked->source, $result->source);
+        $this->assertSame($checked->codes(), $result->codes());
+        $this->assertFalse($property->isInitialized($result));
+        $this->assertTrue(isset($result->tree));
+        $tree = $result->tree;
+        $this->assertTrue($property->isInitialized($result));
+        $this->assertSame($tree, $result->tree);
+        $this->assertSame(Carve::encodeTree($checked->tree), Carve::encodeTree($tree));
+        $this->assertSame($checked->document, $result->document);
+    }
+
+    public function testAResultWithoutTheCheckSerializesItsTree(): void
+    {
+        $html = '<p><em>a</em></p>';
+        $copy = unserialize(serialize(HtmlImporter::import($html, checksTree: false)));
+
+        $this->assertInstanceOf(ImportResult::class, $copy);
+        $this->assertSame(Carve::encodeTree(HtmlImporter::import($html)->tree), Carve::encodeTree($copy->tree));
+    }
+
     public function testASerializedResultKeepsItsDiagnosticKeys(): void
     {
         $result = HtmlImporter::import('<p><em>a</em></p>');

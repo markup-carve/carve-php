@@ -15,8 +15,9 @@ use RuntimeException;
 
 /**
  * `carve import --from=html [--raw-html] [FILE]`, as the `import` command of the carve-js 0.2 command line: the canonical
- * source on standard output, each diagnostic as `carve[CODE]: MESSAGE` on standard error. Exit 0, 1 when the importer
- * built a tree the reader refuses or the writer reports a loss, 2 on usage or input errors (C2-M-006, C2-W-101).
+ * source on standard output, each diagnostic as `carve[CODE]: MESSAGE` on standard error. Exit 0, 1 when the writer
+ * reports a loss, 2 on usage or input errors (C2-M-006, C2-W-101). Unlike the library, the command line does not read
+ * the imported tree back (carve-php#5965).
  * Markdown, GFM and Djot go through the HTML hub; `--raw-html` applies to HTML only.
  */
 final class ImportCommand
@@ -72,7 +73,10 @@ final class ImportCommand
             return self::fail($err, 'input-unreadable', $display . ': cannot be read', 2);
         }
         try {
-            $result = $from === 'html' ? HtmlImporter::import($html, $options) : HubImporter::import($html, $from, $options);
+            // carve-php#5965: the command line writes only the source, so it skips the tree check the library keeps.
+            $result = $from === 'html'
+                ? HtmlImporter::import($html, $options, checksTree: false)
+                : HubImporter::import($html, $from, $options, checksTree: false);
         } catch (OptionError $e) {
             return self::fail($err, 'usage', $e->getMessage(), 2);
         } catch (ImportInputError $e) {

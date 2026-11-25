@@ -70,6 +70,8 @@ final class HtmlImporter
      * @param \Closure(array<array<string, mixed>>): array<array<string, mixed>>|null $finish The hub's changes to the imported children.
      * @param \Closure(array<\MarkupCarve\Carve\Diagnostics\Diagnostic>): array<\MarkupCarve\Carve\Diagnostics\Diagnostic>|null $report
      *   The hub's changes to the final diagnostics.
+     * @param bool $checksTree Internal: false leaves the tree check to the first read of `tree` (carve-php#5965). The
+     *   command line writes only the source.
      *
      * @throws \MarkupCarve\Carve\Import\ImportInputError C2-M-006, or without `ext-dom`.
      * @throws \MarkupCarve\Carve\OptionError ! An option the importer reads has a value it refuses.
@@ -84,6 +86,7 @@ final class HtmlImporter
         ?Closure $prepare = null,
         ?Closure $finish = null,
         ?Closure $report = null,
+        bool $checksTree = true,
     ): ImportResult {
         if (!HtmlParser::available()) {
             throw new ImportInputError('HTML import requires the PHP DOM extension (ext-dom)');
@@ -145,9 +148,12 @@ final class HtmlImporter
         // The array and the Node tree are never held together: the tree is read from the JSON text alone.
         $json = self::encode($document);
         unset($document, $children);
-        // Return the pages the arrays held, so the tree's nodes can take them.
-        HeapPages::release(self::FREED);
-        $tree = self::readJson($json);
+        $tree = null;
+        if ($checksTree) {
+            // Return the pages the arrays held, so the tree's nodes can take them.
+            HeapPages::release(self::FREED);
+            $tree = self::readJson($json);
+        }
         [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
             $diagnostics = array_map(static fn (Diagnostic $d): Diagnostic => new Diagnostic(

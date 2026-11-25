@@ -1559,12 +1559,13 @@ final class Text
         if ($c->writerState?->repairTrace !== null && self::$captionTexts === null) {
             return self::escape($value, $c, $next);
         }
-        $start = clone $c;
+        // Escaping adds only backslashes, so a value without a pair mark asks for no round and needs no copy of `$c`.
+        $start = strpbrk($value, '_~=*') === false ? null : clone $c;
         $forced = $c->runPairEscapes[$c->textPath] ?? [];
         $c->pairEscapes = $forced;
         $out = self::escape($value, $c, $next);
         $c->pairEscapes = [];
-        for ($round = 0; $round < 64; $round++) {
+        for ($round = 0; $start !== null && $round < 64; $round++) {
             $asked = self::pairOpeners($out, $c->escapedAt, $value);
             $asked = array_diff_key($asked, $forced);
             if ($asked === []) {

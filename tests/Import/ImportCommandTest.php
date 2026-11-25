@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Import;
 
 use MarkupCarve\Carve\Cli\Command;
+use MarkupCarve\Carve\Import\HubImporter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -41,6 +42,20 @@ final class ImportCommandTest extends TestCase
         $this->assertSame(0, $status);
         $this->assertSame("carve[import-attribute-dropped]: Attribute onclick dropped: an event handler\n", $err);
         $this->assertNotSame('', $out);
+    }
+
+    /**
+     * carve-php#5965: the command line skips the tree check and writes the source the library writes.
+     */
+    public function testDjotImportWritesTheLibrarySource(): void
+    {
+        $djot = str_repeat('[a [b] c](x) ', 40) . "\n\n- _x_ [y](z)\n";
+        $result = HubImporter::import($djot, 'djot');
+        [$status, $out, $err] = self::call(['import', '--from', 'djot'], $djot);
+
+        $this->assertSame(0, $status, $err);
+        $this->assertSame($result->source, $out);
+        $this->assertStringStartsWith('\\[a [b\\] c](x) ', $out);
     }
 
     public function testRawHtmlFlagKeepsComments(): void
