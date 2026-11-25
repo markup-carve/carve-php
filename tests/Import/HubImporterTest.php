@@ -274,6 +274,9 @@ final class HubImporterTest extends TestCase
             'roman before a lowercase item' => ["I. one\ni. two\n", "I.  one\ni. two\n"],
             'roman by a later numeral' => ["i. one\nii. two\n", "i. one\nii. two\n"],
             'roman before a heading' => ["i. one\n# h\nj. two\n", "i. one\n\n= h\n\nj. two\n"],
+            'roman before a line after a fence' => ["i. ```\n   code\n   ```\nlazy\nj. two\n", "i. ```\n   code\n   ```\n\nlazy\nj. two\n"],
+            'alpha after a heading item' => ["i. # h\nlazy\nj. two\n", "{start=9}\na. = h\n     lazy\nb. two\n"],
+            'alpha after an unclosed fence' => ["i. ```\n   c\nj. two\n", "{start=9}\na. ```\n   c\n   ```\nb. two\n"],
         ];
     }
 
