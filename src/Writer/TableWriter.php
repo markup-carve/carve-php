@@ -686,6 +686,10 @@ final class TableWriter
     private function spanCounts(array $node, string $path): void
     {
         if ($this->spans !== null) {
+            // C2-W-117: every written cell, mark or not, is one column, so a row span with no marks shortens the rows.
+            if (self::writtenWidth($node, $path, $this->spans) !== count(is_array($node['columns'] ?? null) ? $node['columns'] : [])) {
+                $this->w->lose($path, 'table', 'columns');
+            }
             foreach ($this->spans->unspelled as $at) {
                 $this->w->lose($at, 'table_cell', 'rowspan');
             }
@@ -711,6 +715,33 @@ final class TableWriter
                 }
             }
         }
+    }
+
+    /**
+     * The columns a parse of the written rows counts: the cells of the widest row, with the marks `$spans` adds.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\SpanMarks $spans
+     */
+    private static function writtenWidth(array $node, string $path, SpanMarks $spans): int
+    {
+        $width = 0;
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $g => $group) {
+            if (!is_array($group) || ($group['type'] ?? '') === 'comment') {
+                continue;
+            }
+            foreach (is_array($group['children'] ?? null) ? $group['children'] : [] as $r => $row) {
+                if (!is_array($row) || ($row['type'] ?? '') !== 'table_row') {
+                    continue;
+                }
+                $cells = $spans->rows[$path . '/children/' . $g . '/children/' . $r]
+                    ?? array_filter(is_array($row['children'] ?? null) ? $row['children'] : [], 'is_array');
+                $width = max($width, count($cells));
+            }
+        }
+
+        return $width;
     }
 
     /**
