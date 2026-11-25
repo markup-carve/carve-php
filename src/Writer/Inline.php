@@ -1277,7 +1277,10 @@ final class Inline
         // Most lists hold no mark, and the keys below are as long as the path.
         $marks = false;
         foreach ($nodes as $node) {
-            if (is_array($node) && self::str($node, 'type') === 'text' && strpbrk(self::str($node, 'value'), '/*') !== false) {
+            if (
+                is_array($node) && ($node['type'] ?? null) === 'text' && is_string($node['value'] ?? null)
+                && strpbrk($node['value'], '/*') !== false
+            ) {
                 $marks = true;
 
                 break;
