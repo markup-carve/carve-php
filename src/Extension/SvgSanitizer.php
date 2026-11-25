@@ -73,6 +73,23 @@ final class SvgSanitizer
         . '|(?!!--|!\[CDATA\[|\?)([A-Za-z][A-Za-z0-9_:.-]*+)?(?:[^"\'<>]++|"[^"]*+"|\'[^\']*+\')*+>))~u';
 
     /**
+     * Small enough that `preg_match_all` over it stays under the PCRE match limit.
+     *
+     * @var int
+     */
+    private const BATCH_BYTES = 8192;
+
+    /**
+     * @var string
+     */
+    private const CLOSE_TAG = '~^</([A-Za-z][A-Za-z0-9_:.-]*)' . self::WS . '*>\z~u';
+
+    /**
+     * @var string
+     */
+    private const NAME_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_:.-';
+
+    /**
      * One attribute (name, then a double-quoted, single-quoted or bare value) or one skipped character. An unclosed
      * quote runs to the end.
      *
@@ -266,34 +283,33 @@ final class SvgSanitizer
     private function run(string $source): array
     {
         $fail = ['svg' => '', 'ok' => false];
-        // carve#6764: dropped before any check, so a check never sees a value the output does not hold.
-        $src = self::validUtf8($source);
-        if (strcspn($src, self::NON_XML_BYTES) !== strlen($src) || str_contains($src, "\u{FFFE}") || str_contains($src, "\u{FFFF}")) {
-            $src = (string)preg_replace(self::NON_XML_CHAR, '', $src);
-        }
-        $src = self::trim($src);
-        if (preg_match_all(self::TOKEN, $src, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL) === false) {
-            return $fail;
-        }
+        $src = self::clean($source);
         $cursor = 0;
-        foreach ($matches as [$match, $text, $token, $closeName, $openName]) {
-            $cursor += strlen($match);
-            if ($text !== '' && !$this->consumeText($text)) {
-                return $fail;
-            }
-            if ($closeName !== null) {
-                if (!$this->closeTag($closeName)) {
-                    return $fail;
+        // A short input is read in one pass; a longer one a token at a time, so memory does not grow with its
+        // token count.
+        $batched = strlen($src) <= self::BATCH_BYTES;
+        $tokens = [];
+        if ($batched) {
+            preg_match_all(self::TOKEN, $src, $tokens, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+        }
+        $i = 0;
+        while (true) {
+            if ($batched) {
+                if (!isset($tokens[$i])) {
+                    break;
                 }
-
-                continue;
+                $m = $tokens[$i++];
+            } else {
+                $found = preg_match(self::TOKEN, $src, $m, PREG_UNMATCHED_AS_NULL, $cursor);
+                if ($found !== 1) {
+                    $m = $found === false ? self::scanToken($src, $cursor) : null;
+                    if ($m === null) {
+                        break;
+                    }
+                }
             }
-            if ($openName === null) {
-                continue;
-            }
-            $selfClose = str_ends_with((string)$token, '/>');
-            $raw = (string)substr((string)$token, strlen($openName) + 1, -($selfClose ? 2 : 1));
-            if (!$this->openTag($openName, $raw, $selfClose)) {
+            $cursor += strlen($m[0]);
+            if (!$this->consumeToken($m[1], $m[2], $m[3], $m[4])) {
                 return $fail;
             }
         }
@@ -309,6 +325,20 @@ final class SvgSanitizer
         }
 
         return ['svg' => $svg, 'ok' => true];
+    }
+
+    /**
+     * carve#6764: characters outside XML are dropped before any check, so a check never sees a value the output does
+     * not hold.
+     */
+    private static function clean(string $source): string
+    {
+        $src = self::validUtf8($source);
+        if (strcspn($src, self::NON_XML_BYTES) !== strlen($src) || str_contains($src, "\u{FFFE}") || str_contains($src, "\u{FFFF}")) {
+            $src = (string)preg_replace(self::NON_XML_CHAR, '', $src);
+        }
+
+        return self::trim($src);
     }
 
     private static function validUtf8(string $text): string
@@ -340,6 +370,84 @@ final class SvgSanitizer
         }
 
         return (string)preg_replace(self::TRIM, '', $text);
+    }
+
+    /**
+     * `TOKEN` without a regex over the token, for a token that exceeds the PCRE match limit (a long comment with PCRE
+     * JIT off).
+     *
+     * @return array{string, string, string, string|null, string|null}|null
+     */
+    private static function scanToken(string $src, int $cursor): ?array
+    {
+        $start = strpos($src, '<', $cursor);
+        $end = $start === false ? -1 : self::tokenEnd($src, $start);
+        if ($start === false || $end < 0) {
+            return null;
+        }
+        $token = substr($src, $start, $end - $start);
+        $closeName = preg_match(self::CLOSE_TAG, $token, $close) === 1 ? $close[1] : null;
+        $openName = ctype_alpha($token[1]) ? substr($token, 1, strspn($token, self::NAME_CHARS, 1)) : null;
+
+        return [substr($src, $cursor, $end - $cursor), substr($src, $cursor, $start - $cursor), $token, $closeName, $openName];
+    }
+
+    /**
+     * @return int The offset after the token, or -1 when it does not close.
+     */
+    private static function tokenEnd(string $src, int $start): int
+    {
+        foreach (['<!--' => '-->', '<![CDATA[' => ']]>', '<?' => '?>'] as $open => $close) {
+            if (substr_compare($src, $open, $start, strlen($open)) === 0) {
+                $at = strpos($src, $close, $start + strlen($open));
+
+                return $at === false ? -1 : $at + strlen($close);
+            }
+        }
+        $length = strlen($src);
+        $at = $start + 1;
+        while ($at < $length) {
+            $at += strcspn($src, '"\'<>', $at);
+            if ($at >= $length) {
+                return -1;
+            }
+            $char = $src[$at];
+            if ($char === '>') {
+                return $at + 1;
+            }
+            if ($char === '<') {
+                return -1;
+            }
+            $close = strpos($src, $char, $at + 1);
+            if ($close === false) {
+                return -1;
+            }
+            $at = $close + 1;
+        }
+
+        return -1;
+    }
+
+    /**
+     * @param string $text The text before the token.
+     * @param string $token
+     * @param string|null $closeName
+     * @param string|null $openName Null for a comment, CDATA section, processing instruction or other skipped tag.
+     */
+    private function consumeToken(string $text, string $token, ?string $closeName, ?string $openName): bool
+    {
+        if ($text !== '' && !$this->consumeText($text)) {
+            return false;
+        }
+        if ($closeName !== null) {
+            return $this->closeTag($closeName);
+        }
+        if ($openName === null) {
+            return true;
+        }
+        $selfClose = str_ends_with($token, '/>');
+
+        return $this->openTag($openName, (string)substr($token, strlen($openName) + 1, -($selfClose ? 2 : 1)), $selfClose);
     }
 
     private function consumeText(string $between): bool
@@ -428,26 +536,27 @@ final class SvgSanitizer
         }
         $lowerTag = strtolower($tag);
         $externalHref = ($this->opts->allowLinks && $lowerTag === 'a') || ($this->opts->allowExternalImages && $lowerTag === 'image');
-        $attrs = self::parseAttrs($raw);
+        // Group 1 is the name (null for a skipped character); groups 2 to 4 are the value.
+        preg_match_all(self::ATTR, $raw, $attrs, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
         $animatesHref = stripos($raw, 'attributename') !== false && self::animatesHref($attrs);
         $out = '';
         $seen = [];
-        foreach ($attrs as [$name, $value]) {
-            if (isset($seen[$name])) {
+        foreach ($attrs as $m) {
+            $name = $m[1];
+            if ($name === null || isset($seen[$name])) {
                 continue;
             }
+            $value = $m[2] ?? $m[3] ?? $m[4];
             $seen[$name] = true;
+            $lower = strtolower($name);
             // carve#6755: the root's own xmlns goes by name; a regex over the written attributes also matched values.
-            if ($isRoot && strtolower($name) === 'xmlns') {
+            if ($isRoot && $lower === 'xmlns') {
                 continue;
             }
-            if (
-                $animatesHref && $value !== null && isset(self::$sets['animationValueAttrs'][strtolower($name)])
-                && !self::localRefs($value)
-            ) {
+            if ($animatesHref && $value !== null && isset(self::$sets['animationValueAttrs'][$lower]) && !self::localRefs($value)) {
                 continue;
             }
-            $out .= $this->sanitizeAttribute($name, $value, $externalHref);
+            $out .= $this->sanitizeAttribute($name, $lower, $value, $externalHref);
         }
 
         return $out;
@@ -456,12 +565,13 @@ final class SvgSanitizer
     /**
      * carve#6761: an animation of `href` may only hold `#id` entries, like the `href` it changes.
      *
-     * @param array<array{string, string|null}> $attrs
+     * @param array<array<string|null>> $attrs `ATTR` matches.
      */
     private static function animatesHref(array $attrs): bool
     {
-        foreach ($attrs as [$name, $value]) {
-            if (strtolower($name) === 'attributename' && $value !== null) {
+        foreach ($attrs as $m) {
+            $value = $m[2] ?? $m[3] ?? $m[4];
+            if ($m[1] !== null && $value !== null && strtolower($m[1]) === 'attributename') {
                 $target = strtolower(self::trim(self::normalizeForCheck($value)));
                 if ($target === 'href' || $target === 'xlink:href') {
                     return true;
@@ -484,25 +594,8 @@ final class SvgSanitizer
         return true;
     }
 
-    /**
-     * @return array<array{string, string|null}>
-     */
-    private static function parseAttrs(string $raw): array
+    private function sanitizeAttribute(string $name, string $lower, ?string $value, bool $externalHref): string
     {
-        preg_match_all(self::ATTR, $raw, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
-        $out = [];
-        foreach ($matches as $m) {
-            if ($m[1] !== null) {
-                $out[] = [$m[1], $m[2] ?? $m[3] ?? $m[4]];
-            }
-        }
-
-        return $out;
-    }
-
-    private function sanitizeAttribute(string $name, ?string $value, bool $externalHref): string
-    {
-        $lower = strtolower($name);
         if (str_starts_with($lower, 'on')) {
             return '';
         }
