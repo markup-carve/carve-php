@@ -65,6 +65,38 @@ final class NavigationTest extends TestCase
         self::assertLessThan(64 * 1024 * 1024, memory_get_usage(true) - $memoryBefore);
     }
 
+    /**
+     * carve#6540 ruling A, whole headings as carve-js next2 writes them: a cross-reference inside a copied title is a
+     * link with its target's plain title, never a second copy.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function copiedTitleHeadingCases(): array
+    {
+        return [
+            'next two headings' => [
+                "{#h0}\n= T0 </#h1> </#h2>\n\n{#h1}\n= T1 </#h2> </#h3>\n\n{#h2}\n= T2 </#h3> </#h4>\n\n"
+                    . "{#h3}\n= T3 </#h4> </#h5>\n",
+                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2 T3</a> '
+                    . '<a href="#h2">Section 3 - T2 T3 &lt;/#h4&gt;</a></h1>',
+            ],
+            'self reference' => [
+                "{#a}\n= Ref </#a>\n",
+                '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref</a></h1>',
+            ],
+            'paragraph reference' => [
+                "{#a}\n= A </#b>\n\n{#b}\n= B _</#a>_\n\nSee </#b>.\n",
+                '<p>See <a href="#b">Section 2 - B _A_</a>.</p>',
+            ],
+        ];
+    }
+
+    #[DataProvider('copiedTitleHeadingCases')]
+    public function testCopiedTitleHoldsNoSecondCopy(string $source, string $expected): void
+    {
+        self::assertStringContainsString($expected, self::html($source, Navigation::headingNumbers()));
+    }
+
     private static function html(string $source, ExtensionDefinition ...$extensions): string
     {
         return Carve::render($source, ['extensions' => $extensions]);

@@ -34,6 +34,13 @@ final class NavTree
     private const HEADING_REFERENCE = 'heading-reference';
 
     /**
+     * The white space of JavaScript `String.prototype.trim`, as carve-js trims a copied title.
+     *
+     * @var string
+     */
+    private const JS_SPACE = '[\t\n\v\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]';
+
+    /**
      * Visits every node below `$root` in document order, slots included, and splices in what `$rewrite` returns: null
      * keeps the node and visits its children, a list replaces it. Fallbacks are visited only with `$fallbacks`.
      *
@@ -413,8 +420,36 @@ final class NavTree
                 return null;
             }
 
-            return [self::link('#' . $key, array_map(Extensions::copy(...), $texts[$key]), self::attrs($node))];
+            return [self::link('#' . $key, self::copiedTitle($texts[$key], $texts), self::attrs($node))];
         }, true, visitReplacements: false);
+    }
+
+    /**
+     * carve#6540: a copy of a heading title, in which a cross-reference stays a link to its target with the target's
+     * plain title. It copies no title again, so the copies stay linear in the input and a title that cites itself ends.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $title
+     * @param array<string, array<\MarkupCarve\Carve\Node>> $texts
+     *
+     * @return array<\MarkupCarve\Carve\Node>
+     */
+    public static function copiedTitle(array $title, array $texts): array
+    {
+        $holder = new Node('span', array_map(Extensions::copy(...), $title));
+        self::rewrite($holder, static function (Node $node) use ($texts): ?array {
+            if (!self::isTitleXref($node)) {
+                return null;
+            }
+            $key = PlainText::str($node->f['key'] ?? '');
+            if (!isset($texts[$key])) {
+                return null;
+            }
+            $text = preg_replace('/^' . self::JS_SPACE . '+|' . self::JS_SPACE . '+$/u', '', PlainText::of($texts[$key])) ?? '';
+
+            return [self::link('#' . $key, [self::text($text)], self::attrs($node))];
+        }, true, visitReplacements: false);
+
+        return $holder->children ?? [];
     }
 
     /**
