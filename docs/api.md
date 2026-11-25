@@ -488,3 +488,15 @@ Class. Provisional. The navigation extensions: each factory returns one `Extensi
 )): ExtensionDefinition`: Links bare URLs and email addresses in the text of the render view; angle autolinks `<url>` are core, and this adds no delimiter (C2-X-013). Trailing sentence punctuation stays outside the link.
 - `static tableOfContents(int $minLevel = 1, int $maxLevel = 6, string $listType = 'ul', string $cssClass = 'toc', string $position = 'top', bool $collapsible = false, string $summary = 'Table of Contents', bool $open = false): ExtensionDefinition`: A table of contents of the top-level headings, inserted at the top or bottom of the render view, as `carve.toc` with the list of links as its fallback; the renderer writes it inside a named `<nav>`.
 - `static tocPlacement(): ExtensionDefinition`: Writes a table of contents at each `toc` directive, claimed as `carve.tocPlacement`; its headings window comes from `{depth=N}` or `{from=X to=Y}`, and like `tableOfContents()` it lists only the headings a section wraps. Without this extension the directive stays the core `<div class="toc">`.
+
+### `MarkupCarve\Carve\Extension\SvgSanitizer`
+
+Class. Provisional. A standalone SVG sanitizer, the port of carve-js `sanitizeSvg` (extensions/blocks/svg-sanitize.ts).
+
+- `static sanitize(string $source, SvgSanitizeOptions|array $opts = []): array`: Sanitize an SVG source string.
+
+### `MarkupCarve\Carve\Extension\SvgSanitizeOptions`
+
+Class. Provisional. Options for `SvgSanitizer::sanitize()`, the same as carve-js `SanitizeSvgOptions`. Every flag defaults to off.
+
+- `static fromArray(array $options): SvgSanitizeOptions`

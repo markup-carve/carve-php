@@ -236,3 +236,24 @@ Carve::render($source, ['extensions' => [
 
 A transform that edits heading text keeps the heading's id and turns the references the heading resolved into
 direct links, since ids and references are resolved again over the edited view (C2-X-055).
+
+## SVG sanitizer
+
+`SvgSanitizer::sanitize($svg, $options)` cleans an SVG string for a host that embeds SVG itself, the same as
+carve-js `sanitizeSvg`. It returns `['svg' => ..., 'ok' => ...]`; when `ok` is false the input was not one
+well-formed `<svg>` root, `svg` is empty, and the host shows the source as text.
+
+The output keeps only presentational elements and attributes: no `<script>`, `<foreignObject>`, `<style>`, event
+handlers, external references or active CSS. `SvgSanitizeOptions` (or the same keys in an array) widens that:
+`allowLinks` keeps `<a>` with external `href`, `allowExternalImages` keeps `<image>`, `allowAnimation` keeps
+`<animate>`, `<set>` and `<mpath>`, and `allowStyle` keeps a `style` attribute that cannot fetch or execute.
+`urlPolicy` takes the `deny` or `allow` list of the render option of the same name.
+
+```php
+use MarkupCarve\Carve\Extension\SvgSanitizer;
+
+$result = SvgSanitizer::sanitize('<svg><script>alert(1)</script><circle r="5"/></svg>');
+// ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><circle r="5"/></svg>', 'ok' => true]
+```
+
+The img fence (`carve.imgFence.img`) does not need it: it sanitizes its own SVG.

@@ -150,6 +150,7 @@ The 0.2 extension host is provisional (see the [guide](README.md#extensions-prov
 | `DefaultAttributesExtension`, `TabNormalizeExtension`, `InlineFootnotesExtension` | `Extension\Transforms::defaultAttributes()`, `::tabNormalize()`, `::inlineFootnotesToParentheses()` |
 | `InlineExtension` nodes | inline extensions; a registered renderer writes them, else their fallback |
 | `TabsExtension` | `Extension\Tabs::extensions(true)` |
+| `SvgSanitizer::sanitize($svg, $options)` | the same call: `Extension\SvgSanitizer::sanitize()` with `SvgSanitizeOptions` (adds `urlPolicy`); the img fence sanitizes on its own |
 | `FrontmatterExtension`, `MentionsExtension`, `AdmonitionExtension`, and the other 0.1 extensions | not ported; several are core syntax in 0.2 (admonitions, mentions, citations, autolinks), the rest wait for the extension catalog |
 | `LowercaseHeadingIdsExtension`, `AsciiHeadingIdsExtension` | option `headingIds` for the id forms |
 
