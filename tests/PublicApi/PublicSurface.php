@@ -75,6 +75,8 @@ final class PublicSurface
         'MarkupCarve\Carve\Extension\IndexTerms' => 'provisional',
         'MarkupCarve\Carve\Extension\Citations' => 'provisional',
         'MarkupCarve\Carve\Extension\Navigation' => 'provisional',
+        'MarkupCarve\Carve\Extension\SvgSanitizer' => 'provisional',
+        'MarkupCarve\Carve\Extension\SvgSanitizeOptions' => 'provisional',
     ];
 
     /**
