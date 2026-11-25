@@ -70,13 +70,6 @@ final class Text
     ];
 
     /**
-     * The sealed nodes whose text can hold a `]` that pairs with a bracket before them (`BracketKind`).
-     *
-     * @var array<string, true>
-     */
-    private const BRACKETED = ['link' => true, 'image' => true, 'inline_footnote' => true];
-
-    /**
      * C2-I-036: the inline nodes that take no attribute block glued behind them.
      *
      * @var array<string, true>
@@ -2082,7 +2075,7 @@ final class Text
             if (
                 isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
                 && ((isset(self::SEALED[$type]) && !self::openComment($node)
-                && !(isset(self::BRACKETED[$type]) && BracketKind::closesEarly($node, self::SEALED)))
+                && !BracketKind::closesEarly($type, $node, self::SEALED))
                 || !str_contains(Inline::strings($node), ']')))
             ) {
                 $out[$at] = true;

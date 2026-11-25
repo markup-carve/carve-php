@@ -18,14 +18,33 @@ final class BracketKind
     private const BRACKETED = ['link' => true, 'image' => true, 'span' => true, 'inline_footnote' => true];
 
     /**
-     * Whether a `]` in the text of the bracketed node can pair with a bracket before it in the bare parse.
+     * The sealed nodes whose text can hold a `]` that pairs with a bracket before them.
      *
+     * @var array<string, true>
+     */
+    private const SEALED_BRACKETED = ['link' => true, 'image' => true, 'inline_footnote' => true];
+
+    /**
+     * Whether a `]` in the text of the sealed bracketed node can pair with a bracket before it in the bare parse.
+     *
+     * @param string $type
      * @param array<mixed> $node
      * @param array<string, true> $sealed The nodes whose spelling holds no such bracket.
      *
      * @return bool
      */
-    public static function closesEarly(array $node, array $sealed): bool
+    public static function closesEarly(string $type, array $node, array $sealed): bool
+    {
+        return isset(self::SEALED_BRACKETED[$type]) && self::textCloses($node, $sealed);
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param array<string, true> $sealed
+     *
+     * @return bool
+     */
+    private static function textCloses(array $node, array $sealed): bool
     {
         foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
             if (!is_array($child) || !is_string($child['type'] ?? null)) {
@@ -36,7 +55,7 @@ final class BracketKind
                 if (str_contains($value, ']')) {
                     return true;
                 }
-            } elseif (!isset($sealed[$child['type']]) && self::closesEarly($child, $sealed)) {
+            } elseif (!isset($sealed[$child['type']]) && self::textCloses($child, $sealed)) {
                 return true;
             }
         }
