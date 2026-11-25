@@ -233,6 +233,24 @@ final class ReferenceApparatusTest extends TestCase
         );
     }
 
+    public function testAnEmptyReferencesListHasNoEmptyLine(): void
+    {
+        $source = "See :cite[a].\n\n::: references\n:: a\n: A.\n:::\n\n::: references\n:: a\n: B.\n:::\n";
+        $this->assertSame(self::lines([
+            '<p>See [<a href="#ref-a" data-cite-key="a">1</a>].</p>',
+            '<div class="references">',
+            '  <ol class="references">',
+            '  </ol>',
+            '</div>',
+            '<div class="references">',
+            '  <ol class="references">',
+            '    <li id="ref-a">B.</li>',
+            '  </ol>',
+            '</div>',
+        ]), $this->html($source, Citations::bundle()));
+        $this->assertStringContainsString("  <ul class=\"references\">\n  </ul>\n", $this->html($source, Citations::bundle('author-date')));
+    }
+
     public function testCitationsModesAndAttributes(): void
     {
         $source = "See :cite[doe] and :cite[doe]{mode=\"suppress-author\"}.\n\n::: bibliography\n"

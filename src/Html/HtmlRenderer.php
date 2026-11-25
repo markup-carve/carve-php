@@ -1360,13 +1360,13 @@ final class HtmlRenderer
             }
         }
         $tag = $ordered ? 'ol' : 'ul';
+        $open = '<' . $tag . $this->attrs($node, $task ? ['task-list'] : [], [], $structural) . '>';
+        if ($items === []) {
+            // C2-H-008 keeps an empty line only in the containers it names; a list with no item is two lines.
+            return self::pad($depth) . $open . "\n" . self::pad($depth) . '</' . $tag . '>';
+        }
 
-        return $this->container(
-            '<' . $tag . $this->attrs($node, $task ? ['task-list'] : [], [], $structural) . '>',
-            '</' . $tag . '>',
-            $items,
-            $depth,
-        );
+        return $this->container($open, '</' . $tag . '>', $items, $depth);
     }
 
     /**
