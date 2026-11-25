@@ -208,7 +208,7 @@ final class ReadbackRound
      */
     private static function noteAttached(array $node, array &$attached): void
     {
-        $start = TreeEncoder::offsets($node['pos'] ?? null)[0] ?? null;
+        $start = ($node['attrs'] ?? []) !== [] ? TreeEncoder::offsets($node['pos'] ?? null)[0] ?? null : null;
         if ($start !== null && is_string($node['type'] ?? null)) {
             $attached[$node['type'] . "\0" . $start] = true;
         }
@@ -259,9 +259,7 @@ final class ReadbackRound
                 continue;
             }
             $unexpected = self::noteNode($node, $text, $actual, $openers, $expected);
-            if (($node['attrs'] ?? []) !== []) {
-                self::noteAttached($node, $attached);
-            }
+            self::noteAttached($node, $attached);
             if ($unexpected && !in_array($node['type'] ?? '', ['div', 'admonition', 'block_quote', 'list', 'list_item'], true)) {
                 // An inline construct consumes its source. A block container still exposes its nested
                 // openers to the same kind round.
