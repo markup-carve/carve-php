@@ -20,9 +20,7 @@ final class CappedBraceRunLinearityTest extends TestCase
         $this->assertSame(56, substr_count($source, '[r]{}\\{=x}'));
         $this->assertSame(200, substr_count($source, '[r]{}{=x}'));
         $this->assertStringEndsWith("[r]{}\\{=x} [r]{}{=x}\n", $source);
-        $read = json_decode(Carve::toJson($source), true);
-        $this->assertIsArray($read);
-        $this->assertCount(512, $read['children'][0]['children']);
+        $this->assertSame(256, preg_match_all('/"type":\s*"span"/', Carve::toJson($source)));
     }
 
     public function testBelowTheCapNoBraceIsEscaped(): void

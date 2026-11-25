@@ -688,7 +688,7 @@ final class RepairPlanner
      * to the shortest prefix that reads back, the escapes the rounds would have placed (carve-js `trimCappedRuns`).
      *
      * @param array<string, array<int, true>> $before The escapes of the round.
-     * @param array{string, int, string}|null $run The single escape of the round before: parent, index and offset.
+     * @param array{string, int, int}|null $run The single escape of the round before: parent, index and offset.
      *
      * @return array{string, int, int}|null
      */
