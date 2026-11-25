@@ -74,6 +74,13 @@ final class InlineRenderer
 
     private string $moved = '';
 
+    /**
+     * C2-H-043: set for the text of one line block line; the lead holds until the first node of the line is written.
+     */
+    private bool $verse = false;
+
+    private bool $verseLead = false;
+
     public ?Profile $profile = null;
 
     /**
@@ -107,6 +114,26 @@ final class InlineRenderer
     }
 
     /**
+     * The content of a line of a line block, with its whitespace kept (C2-H-043).
+     *
+     * @param array<\MarkupCarve\Carve\Node> $nodes
+     * @param int $depth
+     *
+     * @return string
+     */
+    public function verseLine(array $nodes, int $depth): string
+    {
+        $this->verse = true;
+        $this->verseLead = true;
+        try {
+            return $this->inlines($nodes, $depth);
+        } finally {
+            $this->verse = false;
+            $this->verseLead = false;
+        }
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Node> $nodes
      * @param int $depth
      * @param bool $nested
@@ -125,6 +152,7 @@ final class InlineRenderer
             $list = array_values($list);
         }
         foreach ($list as $i => $node) {
+            $written = strlen($out);
             $tag = $node->f === [] ? Tables::DELIMITER_HTML[$node->type] ?? null : null;
             if ($tag !== null) {
                 // A delimiter span with no attributes, the common case of node(), without its lookups.
@@ -132,10 +160,14 @@ final class InlineRenderer
             } elseif ($node->type === 'text') {
                 $value = $node->f['value'] ?? '';
                 // Plain text needs no escaping: the check of Escape::text, done here to save two calls.
-                $out .= is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value) ? $value
-                    : Escape::text(PlainText::str($value));
+                $out .= !$this->verse && is_string($value) && strcspn($value, Escape::TEXT_SPECIAL) === strlen($value)
+                    ? $value : $this->textHtml(PlainText::str($value));
             } else {
                 $out .= $this->other($node, $list, $i, $depth);
+            }
+            // A node that writes nothing, such as a comment, leaves the lead of the line in place.
+            if ($this->verseLead && strlen($out) > $written) {
+                $this->verseLead = false;
             }
         }
 
@@ -155,10 +187,14 @@ final class InlineRenderer
         $list = array_values(self::dropCommentLineBreaks($nodes, $nested, $profile));
         $out = '';
         foreach ($list as $i => $node) {
+            $written = strlen($out);
             if ($node->type === 'smart_punctuation' && $this->o->quotes !== null && $profile->allowsInline($node)) {
                 $out .= Escape::text($this->quote($node, $this->o->quotes, $list[$i - 1] ?? null, $list[$i + 1] ?? null));
             } else {
                 $out .= $profile->inline($node, $depth, $this);
+            }
+            if ($this->verseLead && strlen($out) > $written) {
+                $this->verseLead = false;
             }
         }
 
@@ -336,6 +372,58 @@ final class InlineRenderer
         }
     }
 
+    private function textHtml(string $value): string
+    {
+        return $this->verse ? $this->verseText($value) : Escape::text($value);
+    }
+
+    /**
+     * C2-H-043: a run of spaces and tabs is one `&nbsp;` per column when it leads the line or covers two or more
+     * columns, else one space. Columns count from the start of the text node; a tab goes to the next multiple of 4.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    private function verseText(string $value): string
+    {
+        $len = strlen($value);
+        $i = strcspn($value, " \t");
+        if ($i === $len) {
+            return Escape::text($value);
+        }
+        $lead = $this->verseLead && $i === 0;
+        if (strpos($value, "\t") === false) {
+            // Without a tab a run's width is its length: every space beside another space is a no-break space.
+            $out = (string)preg_replace('/ (?= )|(?<= ) /', '&nbsp;', Escape::text($value));
+
+            return $lead && $out[0] === ' ' ? '&nbsp;' . substr($out, 1) : $out;
+        }
+        $out = $i > 0 ? Escape::text(substr($value, 0, $i)) : '';
+        // One column per code point; plain ASCII skips the count.
+        $multibyte = preg_match('/[\x80-\xFF]/', $value) === 1;
+        $col = $multibyte ? $i - (int)preg_match_all('/[\x80-\xBF]/', substr($value, 0, $i)) : $i;
+        while ($i < $len) {
+            $n = strspn($value, " \t", $i);
+            $start = $col;
+            for ($end = $i + $n; $i < $end; $i++) {
+                $col = $value[$i] === "\t" ? ($col & ~3) + 4 : $col + 1;
+            }
+            $width = $col - $start;
+            $out .= $lead || $width > 1 ? str_repeat('&nbsp;', $width) : ' ';
+            $lead = false;
+            $n = strcspn($value, " \t", $i);
+            if ($n > 0) {
+                $part = substr($value, $i, $n);
+                $out .= Escape::text($part);
+                $col += $multibyte ? $n - (int)preg_match_all('/[\x80-\xBF]/', $part) : $n;
+                $i += $n;
+            }
+        }
+
+        return $out;
+    }
+
     private function fixed(string $type): string
     {
         return $type === 'hard_break' && $this->o->xhtml ? "<br />\n" : self::FIXED[$type];
@@ -345,7 +433,7 @@ final class InlineRenderer
     {
         $type = $node->type;
         if ($type === 'text') {
-            return Escape::text(PlainText::str($node->f['value'] ?? ''));
+            return $this->textHtml(PlainText::str($node->f['value'] ?? ''));
         }
         if (isset(self::FIXED[$type])) {
             return $this->fixed($type);
