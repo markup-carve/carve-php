@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Json\TreeEncoder;
@@ -1156,7 +1158,11 @@ final class RepairPlanner
         }
 
         $differences = [];
-        if ($comparison['openers'] === [] && $missing === [] && $asked === []) {
+        // C2-I-028: attribute lines the bare parse attaches or reads apart shift the blocks of the read, so they go
+        // before the text differences, which compare by path.
+        $attributeLines = $comparison['openers'] === [] && $missing === [] && $asked === []
+            && $this->escapeAttributeLinesAbove($this->tree, '');
+        if ($comparison['openers'] === [] && $missing === [] && $asked === [] && !$attributeLines) {
             self::textDifferences($this->tree, $comparison['read'], '', $differences);
         }
         // The trials below read the whole document again; only a trial read of the round's own source keeps the
@@ -1216,7 +1222,59 @@ final class RepairPlanner
 
         $this->addAsked($differences);
 
-        return $differences !== [] || $moved;
+        return $attributeLines || $differences !== [] || $moved;
+    }
+
+    /**
+     * The bare parse can attach a first line that is a whole attribute block and report nothing, which the local write
+     * escapes as a line opener (C2-W-092). A round that finds no other repair places that escape here.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     */
+    private function escapeAttributeLinesAbove(array $node, string $path): bool
+    {
+        $children = self::childrenOf($node);
+        $first = $children[0] ?? null;
+        $value = ($first['type'] ?? '') === 'text' && is_string($first['value'] ?? null) ? rtrim($first['value'], " \t") : '';
+        if ($value !== '' && $value[0] === '{' && isset($children[1]) && !isset($this->escapes[$path . '/children/0'][0])) {
+            // C2-I-028, C2-W-125 case one: lines that are all attribute blocks above line comments only move the
+            // comment, so the first brace alone takes the backslash.
+            if (Text::attributeLinesAboveComment($children)) {
+                return $this->addEscape($path . '/children/0', 0);
+            }
+            $break = in_array($children[1]['type'] ?? '', ['soft_break', 'hard_break'], true);
+            if ($break && LineShapes::attributeLine($value, 0, strlen($value), new Attrs())) {
+                return $this->escapeLineBraces($children, $path);
+            }
+        }
+        $added = false;
+        foreach ($children as $i => $child) {
+            $added = $this->escapeAttributeLinesAbove($child, $path . '/children/' . $i) || $added;
+        }
+
+        return $added;
+    }
+
+    /**
+     * C2-W-088: the line kind `{` escapes the brace that starts each line of the leaf.
+     *
+     * @param array<int, array<mixed>> $children
+     * @param string $path
+     */
+    private function escapeLineBraces(array $children, string $path): bool
+    {
+        $added = false;
+        $start = true;
+        foreach ($children as $i => $child) {
+            $type = $child['type'] ?? '';
+            if ($start && $type === 'text' && str_starts_with(is_string($child['value'] ?? null) ? $child['value'] : '', '{')) {
+                $added = $this->addEscape($path . '/children/' . $i, 0) || $added;
+            }
+            $start = $type === 'soft_break' || $type === 'hard_break';
+        }
+
+        return $added;
     }
 
     /**
