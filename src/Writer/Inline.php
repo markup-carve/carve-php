@@ -584,8 +584,9 @@ final class Inline
             }
         }
         $bare = [];
-        foreach (str_split(count_chars($value, 3)) as $mark) {
-            if (str_contains(self::ASCII_PUNCT, $mark) && substr_count($value, $mark) > ($counts[$mark] ?? 0)) {
+        foreach (count_chars($value, 1) as $byte => $count) {
+            $mark = chr($byte);
+            if (str_contains(self::ASCII_PUNCT, $mark) && $count > ($counts[$mark] ?? 0)) {
                 $bare[$mark] = true;
             }
         }

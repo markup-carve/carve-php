@@ -1759,6 +1759,10 @@ final class Text
      */
     public static function runPairOpeners(array $log): array
     {
+        // A run takes two entries.
+        if (count($log) < 2) {
+            return [];
+        }
         // The run of each entry by number, so a long paragraph of lone texts builds no array per entry (carve-php#5664).
         $runOf = [];
         $sizes = [];
