@@ -2837,6 +2837,10 @@ final class Inline
      */
     private static function pairedBrackets(array $nodes, string $path, array $labels, bool $notes, bool $braces = true): array
     {
+        // No pair forms without an opening bracket.
+        if (!self::holds($nodes, '[')) {
+            return [];
+        }
         $open = [];
         $nested = [];
         $paired = [];
