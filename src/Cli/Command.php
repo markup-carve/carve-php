@@ -536,6 +536,8 @@ HELP;
      *
      * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
      *
+     * @throws \MarkupCarve\Carve\OptionError
+     *
      * @return void
      */
     private static function extensionFlags(array &$parsed): void
@@ -555,6 +557,10 @@ HELP;
         $renderers = [];
         foreach ($names as $i => $name) {
             if ($name === Citations::CITE) {
+                $option = array_key_first($byName[$name] ?? []);
+                if ($option !== null) {
+                    throw new OptionError('--extension-options: ' . $name . ' has no option ' . $option);
+                }
                 // C2-X-058: the citation renderer needs the bundle's references directive and its transform.
                 $parsed['options']['extensions'][$i] = Citations::bundle();
             } elseif (($byName[$name] ?? []) !== []) {

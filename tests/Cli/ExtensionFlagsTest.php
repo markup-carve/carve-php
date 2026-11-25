@@ -69,6 +69,9 @@ final class ExtensionFlagsTest extends TestCase
                 ['render', '--extensions', '["carve.tabs"]', '--extension-options', '{"carve.tabs":{"mode":"x"}}', 'a.crv'],
             ],
             'a command without the flag' => [['diagnostics', '--extensions', '[]', 'a.crv']],
+            'an option of carve.cite' => [
+                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":"author-date"}}', 'a.crv'],
+            ],
         ];
     }
 
