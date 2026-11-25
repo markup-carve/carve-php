@@ -81,4 +81,29 @@ final class LineBlockRequiresOpenStanzaTest extends TestCase
     {
         $this->assertSame($expected, Carve::toHtml($source));
     }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function spaceOnlyLines(): array
+    {
+        $quote = "<blockquote>\n  <div class=\"line-block\">\n    <p>a</p>\n  </div>\n</blockquote>\n<p>c</p>";
+        $item = "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>a</p>\n    </div>\n  </li>\n</ul>\n<p>c</p>";
+
+        return [
+            'quote mark and two spaces' => ["> ::: |\n> a\n>  \nc\n", $quote],
+            'quote mark and four spaces' => ["> ::: |\n> a\n>    \nc\n", $quote],
+            'list item line of spaces' => ["- ::: |\n  a\n     \nc\n", $item],
+        ];
+    }
+
+    /**
+     * carve#6672: a quote line that holds only spaces or tabs after its mark is blank (C2-B-032) and closes the stanza
+     * (C2-B-113), so the unowned line below is no lazy line (C2-B-024).
+     */
+    #[DataProvider('spaceOnlyLines')]
+    public function testALineOfSpacesClosesTheStanza(string $source, string $expected): void
+    {
+        $this->assertSame($expected, Carve::toHtml($source));
+    }
 }

@@ -426,7 +426,7 @@ final class BlockParser
     }
 
     /**
-     * C2-B-024: only an open stanza takes a lazy line; a blank last line has closed it.
+     * C2-B-024: only an open stanza takes a lazy line; a blank last line, also one of spaces and tabs, has closed it.
      *
      * @param \MarkupCarve\Carve\Block\Frame $leaf
      *
@@ -435,8 +435,14 @@ final class BlockParser
     private function stanzaOpen(Frame $leaf): bool
     {
         $n = count($leaf->spans);
+        if ($n === 0) {
+            return false;
+        }
+        $start = $leaf->spans[$n - 2];
+        $end = $leaf->spans[$n - 1];
+        $j = $start + strspn($this->s, " \t", $start, $end - $start);
 
-        return $n > 0 && $leaf->spans[$n - 2] !== $leaf->spans[$n - 1];
+        return $j < LineShapes::trimEnd($this->s, $j, $end);
     }
 
     private function lazyLineBlockComment(Frame $leaf): bool
