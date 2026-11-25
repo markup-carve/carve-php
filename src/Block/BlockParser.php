@@ -2287,9 +2287,22 @@ final class BlockParser
      */
     private function trimHeldBlank(Frame $f): void
     {
+        if ($f->lineComment !== null) {
+            $this->trimHeldBlank($f->lineComment);
+        }
         $s = $this->s;
         $n = count($f->spans);
-        while ($n >= 2 && LineShapes::trimEnd($s, $f->spans[$n - 2], $f->spans[$n - 1]) === $f->spans[$n - 2]) {
+        // C2-B-123: a comment block in a line block ends no stanza, so a blank line above it is body.
+        $after = -1;
+        foreach ([...$f->hiddenComments, $f->lineComment] as $comment) {
+            if ($comment !== null && $comment->start > $after) {
+                $after = $comment->start;
+            }
+        }
+        while (
+            $n >= 2 && $f->spans[$n - 2] > $after
+            && LineShapes::trimEnd($s, $f->spans[$n - 2], $f->spans[$n - 1]) === $f->spans[$n - 2]
+        ) {
             $n -= 2;
         }
         $f->spans = array_slice($f->spans, 0, $n);
