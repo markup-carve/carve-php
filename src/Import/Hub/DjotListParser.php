@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Import\Hub;
 
 use Closure;
 use Djot\Node\Block\ListBlock;
+use Djot\Parser\Block\FencedBlockParser;
 use Djot\Parser\Block\ListParser;
 use Djot\Parser\Utility\IndentationHelper;
 
@@ -30,8 +31,11 @@ final class DjotListParser extends ListParser
      */
     private bool $heading = false;
 
+    private FencedBlockParser $fences;
+
     public function __construct(private Closure $opensBlock)
     {
+        $this->fences = new FencedBlockParser();
     }
 
     /**
@@ -160,12 +164,13 @@ final class DjotListParser extends ListParser
         if ($text === '' || ($open && !$this->heading)) {
             return $open;
         }
-        if ($open && preg_match('/\A(?:`{3,}|~{3,})/', $text) !== 1 && !($this->opensBlock)($text)) {
+        if ($open && !($this->opensBlock)($text)) {
             return true;
         }
         $this->heading = false;
-        if (preg_match('/\A(`{3,}|~{3,})/', $text, $m) === 1) {
-            $fence = $m[1];
+        $opener = $this->fences->parseCodeFenceOpener($text);
+        if ($opener !== null) {
+            $fence = $opener['fence'];
 
             return false;
         }
