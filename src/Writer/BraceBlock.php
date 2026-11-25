@@ -99,6 +99,13 @@ final class BraceBlock
      */
     public static function of(array $node, array $extra = []): string
     {
+        // Most nodes carry nothing a block spells.
+        if (
+            !isset($node['attrs']) && !isset($node['lang']) && ($extra['mark'] ?? '') === '' && !isset($extra['preKeys'])
+            && !isset($extra['keys'])
+        ) {
+            return '';
+        }
         $parts = self::parts($node, $extra);
         if (($extra['mark'] ?? '') !== '') {
             array_unshift($parts, $extra['mark']);
