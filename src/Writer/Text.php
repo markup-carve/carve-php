@@ -2074,13 +2074,44 @@ final class Text
             $node = $c->flatNodes[$at] ?? null;
             if (
                 isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
-                && ((isset(self::SEALED[$type]) && !self::openComment($node)) || !str_contains(Inline::strings($node), ']')))
+                && ((isset(self::SEALED[$type]) && !self::openComment($node) && !self::closesEarly($node))
+                || !str_contains(Inline::strings($node), ']')))
             ) {
                 $out[$at] = true;
             }
         }
 
         return $out;
+    }
+
+    /**
+     * C2-W-088, C2-W-125: a `]` in the text of a bracketed node takes its case-five backslash only after the round that
+     * reads the bare form, where it can pair with a bracket before the node; that round still reports the kind.
+     *
+     * @param array<mixed> $node
+     */
+    private static function closesEarly(array $node): bool
+    {
+        return in_array($node['type'] ?? null, ['link', 'image', 'inline_footnote'], true) && self::holdsTextBracket($node);
+    }
+
+    /**
+     * @param array<mixed> $node
+     */
+    private static function holdsTextBracket(array $node): bool
+    {
+        $type = $node['type'] ?? null;
+        if ($type === 'text') {
+            return is_string($node['value'] ?? null) && str_contains($node['value'], ']');
+        }
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $child) {
+            $inner = is_array($child) ? $child['type'] ?? null : null;
+            if (is_string($inner) && !isset(self::SEALED[$inner]) && self::holdsTextBracket($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -436,9 +436,13 @@ final class RepairPlanner
                     continue;
                 }
                 $expanded[$path][$at] = true;
-                // A line kind has its own column rule. The inline `#` kind is
-                // the one whose further runs can stand inside another mark.
+                // A line kind has its own column rule. The inline `#` kind is the one whose further runs can stand
+                // inside another mark, and a text `[` outside a bracketed node reports the kind `[` (C2-W-088, C2-W-094).
                 if ($kind !== '#' && $kind !== '{#') {
+                    if ($kind === '[' && !self::lineKind($tree, $path, $value, $at) && !self::inBracketedNode($tree, $path)) {
+                        self::expandKindInLeaf($tree, $leaves[$leaf] ?? [], $leaf, $kind, $expanded, $done);
+                    }
+
                     continue;
                 }
                 // C2-W-088: a reported `#` before a space or the line end opens no tag, so it is the line kind of a
@@ -460,6 +464,49 @@ final class RepairPlanner
     }
 
     // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * C2-W-088: whether the `[` at `$at` of a text starts a line of its leaf as a definition label, a line kind.
+     *
+     * @param array<mixed> $tree
+     * @param string $path
+     * @param string $value
+     * @param int $at
+     */
+    private static function lineKind(array $tree, string $path, string $value, int $at): bool
+    {
+        if ($at > 0 && $value[$at - 1] !== "\n") {
+            return false;
+        }
+        if ($at === 0) {
+            $cut = (int)strrpos($path, '/');
+            $index = (int)substr($path, $cut + 1);
+            $before = $index === 0 ? null : self::nodeAt($tree, substr($path, 0, $cut + 1) . ($index - 1));
+            if ($before !== null && !in_array($before['type'] ?? '', ['soft_break', 'hard_break'], true)) {
+                return false;
+            }
+        }
+
+        return preg_match('/\G\[[^\]\n]*\]:/', $value, $m, 0, $at) === 1;
+    }
+
+    /**
+     * C2-W-094: whether the text at `$path` stands inside a bracketed node, whose brackets pair with nothing outside it.
+     *
+     * @param array<mixed> $tree
+     * @param string $path
+     */
+    private static function inBracketedNode(array $tree, string $path): bool
+    {
+        for ($cut = strrpos($path, '/children/'); $cut !== false && $cut > 0; $cut = strrpos(substr($path, 0, $cut), '/children/')) {
+            $type = self::nodeAt($tree, substr($path, 0, $cut))['type'] ?? null;
+            if (in_array($type, ['link', 'image', 'span', 'inline_footnote'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /**
      * @param array<mixed> $tree
