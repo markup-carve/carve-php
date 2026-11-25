@@ -1748,7 +1748,9 @@ final class Inline
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         if ($type === 'text') {
-            $this->loseTextFields($node, $path);
+            if (array_key_exists('dir', $node) || array_key_exists('metadata', $node)) {
+                $this->loseTextFields($node, $path);
+            }
             $points = $c->inCell ? ($this->w->wrapPoints[$path] ?? null) : null;
             $c->here = $points === null ? $c->flatAt[$path] ?? -1 : -1;
             $c->textPath = $path;
@@ -1783,7 +1785,7 @@ final class Inline
         }
         $this->moved($c, $out);
 
-        return $this->tracedNode($out, $path, $type);
+        return $this->w->repairTrace === null ? $out : $this->tracedNode($out, $path, $type);
     }
 
     // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
@@ -2057,8 +2059,13 @@ final class Inline
     private function text(array $node, Context $c, int $next, mixed $before): string
     {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-        $this->reportLeadingValueLoss($value, $c, $next);
-        $this->loseLineFeed($value, $c);
+        if ($c->lineStart) {
+            $this->reportLeadingValueLoss($value, $c, $next);
+        }
+        // C2-W-117: outside a cell a line feed in text reads back as a soft break, so the value does not survive.
+        if (!$c->inCell && str_contains($value, "\n")) {
+            $this->w->lose($c->textPath, 'text', 'value');
+        }
         // C2-W-022: no space or tab of text stands at the end of a line.
         if ($next === 10 && !$c->bareBreaks) {
             $value = rtrim($value, " \t");
@@ -2095,7 +2102,9 @@ final class Inline
             $c->last = 0x28;
         }
 
-        self::traceGluedTick($prefix, $value, $before, $c);
+        if ($c->writerState?->repairTrace !== null) {
+            self::traceGluedTick($prefix, $value, $before, $c);
+        }
         $this->textPrefix = strlen($prefix);
         $this->textValue = $value;
 
@@ -2130,16 +2139,6 @@ final class Inline
     private static function tailCloses(Context $c): bool
     {
         return $c->flat === null || $c->here < 0 || AltSource::tailEnd($c->flat, $c->here) >= 0;
-    }
-
-    /**
-     * C2-W-117: outside a cell a line feed in text reads back as a soft break, so the value does not survive.
-     */
-    private function loseLineFeed(string $value, Context $c): void
-    {
-        if (!$c->inCell && str_contains($value, "\n")) {
-            $this->w->lose($c->textPath, 'text', 'value');
-        }
     }
 
     /**
