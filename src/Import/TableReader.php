@@ -110,6 +110,7 @@ final class TableReader
             }
             $entry = ['type' => $type, 'children' => $this->rows($group, $type === 'table_head')] + Attrs::of($group);
             if ($type === 'table_head' && $head === null) {
+                $entry['children'] = $this->headCells($group, $entry['children']);
                 $head = $entry;
             } elseif ($type === 'table_foot' && $foot === null) {
                 $foot = $entry;
@@ -126,6 +127,38 @@ final class TableReader
         }
 
         return array_merge($head === null ? [] : [$head], $out, $foot === null ? [] : [$foot]);
+    }
+
+    /**
+     * carve#6663: a head holds header cells only (C2-B-178), so each `<td>` of the `<thead>` is one, reported once.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $head
+     * @param array<array<string, mixed>> $rows
+     *
+     * @return array<array<string, mixed>>
+     */
+    private function headCells(HtmlNode $head, array $rows): array
+    {
+        $changed = false;
+        foreach ($rows as $index => $row) {
+            $cells = J::nodes($row);
+            foreach ($cells as $at => $cell) {
+                if ($cell['header'] !== true) {
+                    $cells[$at]['header'] = true;
+                    $changed = true;
+                    // `scope="col"` is implied on a head header cell, as on a `<th>`.
+                    if (($cell['scope'] ?? null) === 'col') {
+                        unset($cells[$at]['scope']);
+                    }
+                }
+            }
+            $rows[$index]['children'] = $cells;
+        }
+        if ($changed) {
+            $this->context->report($head, 'import-structure-repaired', 'The data cells of a table head read as header cells');
+        }
+
+        return $rows;
     }
 
     /**
