@@ -680,8 +680,9 @@ final class SvgSanitizer
 
     private static function nonLocalUrl(string $value): bool
     {
-        // Atomic, so `(?!#)` cannot pass one character early on `url('#g')` (carve#6763).
-        return preg_match('~url\((?>' . self::WS . '*[\'"]?' . self::WS . '*)(?!#)~iu', $value) === 1;
+        // Atomic, so `(?!#)` cannot pass one character early on `url('#g')` (carve#6763). Only CSS whitespace is
+        // skipped: a URL keeps a leading no-break space, so `url(\u{A0}#g)` names another resource.
+        return preg_match('~url\((?>[\t\n\f\r ]*[\'"]?[\t\n\f\r ]*)(?!#)~i', $value) === 1;
     }
 
     private static function refAttrUnsafe(string $value): bool
