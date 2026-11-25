@@ -6,37 +6,25 @@ namespace MarkupCarve\Carve\Extension;
 
 use Closure;
 use MarkupCarve\Carve\Node;
-use WeakMap;
+use ReflectionFunction;
 
 /**
  * Internal: the copies a built-in document transform makes of one node, so that the view check reads each template
  * once per place instead of each copy (carve-php#5978).
  *
- * Only a transform this library certifies records copies, and only while `run()` runs it: such a transform changes no
- * copy after making it, so each copy still holds the values of its template when the check reads the view. A transform
- * that calls a certified one is not certified itself, so its copies are checked one by one.
+ * Only a transform closure written in `Navigation` records copies, and only while `run()` runs it: such a transform
+ * takes no callback, runs no other code and changes no copy after making it, so each copy still holds the values of its
+ * template when the check reads the view. A transform that calls one of them is not trusted itself, so its copies are
+ * checked one by one.
  */
 final class CopyLedger
 {
     /**
-     * @var \WeakMap<\Closure, true>|null
-     */
-    private static ?WeakMap $certified = null;
-
-    /**
-     * The copy and its template, by object id of the copy; null outside a certified run.
+     * The copy and its template, by object id of the copy; null outside a trusted run.
      *
      * @var array<int, array{\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Node}>|null
      */
     private static ?array $copies = null;
-
-    public static function certify(Closure $run): Closure
-    {
-        self::$certified ??= new WeakMap();
-        self::$certified[$run] = true;
-
-        return $run;
-    }
 
     public static function record(Node $copy, Node $template): void
     {
@@ -56,8 +44,14 @@ final class CopyLedger
      */
     public static function run(Closure $run, Node $view): array
     {
-        if (!isset(self::$certified[$run])) {
-            return [$run($view), []];
+        if (!self::trusted($run)) {
+            $outer = self::$copies;
+            self::$copies = null;
+            try {
+                return [$run($view), []];
+            } finally {
+                self::$copies = $outer;
+            }
         }
         $outer = self::$copies;
         self::$copies = [];
@@ -68,5 +62,10 @@ final class CopyLedger
         } finally {
             self::$copies = $outer;
         }
+    }
+
+    private static function trusted(Closure $run): bool
+    {
+        return (new ReflectionFunction($run))->getClosureScopeClass()?->getName() === Navigation::class;
     }
 }

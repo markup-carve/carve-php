@@ -79,7 +79,7 @@ final class Navigation
             return $view;
         };
 
-        return new ExtensionDefinition(self::PERMALINKS, '1', documentTransform: CopyLedger::certify($run));
+        return new ExtensionDefinition(self::PERMALINKS, '1', documentTransform: $run);
     }
 
     private static function anchor(string $symbol, string $cssClass, string $ariaLabel, bool $showOnHover, bool $copyToClipboard): Node
@@ -141,7 +141,7 @@ final class Navigation
             return $view;
         };
 
-        return new ExtensionDefinition(self::NUMBERS, '1', documentTransform: CopyLedger::certify($run));
+        return new ExtensionDefinition(self::NUMBERS, '1', documentTransform: $run);
     }
 
     /**

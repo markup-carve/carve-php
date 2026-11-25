@@ -76,6 +76,22 @@ final class TitleCopyCheckTest extends TestCase
         self::assertContains('extension-transform-failed', $result->codes());
     }
 
+    public function testAnUncertifiedTransformCannotRecordCopies(): void
+    {
+        $forged = new ExtensionDefinition('x.forged', '1', documentTransform: static function (Node $view): Node {
+            $good = NavTree::text('good');
+            $bad = NavTree::text('bad');
+            $bad->f['value'] = 5;
+            $view->children[] = new Node('paragraph', [$bad]);
+            CopyLedger::record($bad, $good);
+
+            return $view;
+        });
+        $result = Carve::renderWithDocumentTransforms("x\n", [], ['extensions' => [$forged]]);
+
+        self::assertContains('extension-transform-failed', $result->codes());
+    }
+
     public function testATemplateIsWalkedAgainInADeeperPlace(): void
     {
         $template = self::emphasis(NavTree::text('t'));
