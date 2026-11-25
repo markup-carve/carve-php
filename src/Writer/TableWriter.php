@@ -1450,7 +1450,8 @@ final class TableWriter
         if ($index === 0) {
             return true;
         }
-        $before = $cell['children'][0]['children'][$index - 1] ?? null;
+        $block = is_array($cell['children'] ?? null) ? $cell['children'][0] ?? null : null;
+        $before = is_array($block) && is_array($block['children'] ?? null) ? $block['children'][$index - 1] ?? null : null;
 
         return is_array($before) && ($before['type'] ?? null) === 'text' && str_ends_with(Inline::str($before, 'value'), ' ');
     }
