@@ -104,7 +104,10 @@ final class HtmlImporter
             throw new ImportInputError('The input exceeds the nesting limits of a tree (C2-A-171)');
         }
         SourceLocations::assign($html, $root);
-        Adapters::apply($root, $opts->adapter);
+        // The generic adapter has no pass, and the common import does not load the editor adapters.
+        if ($opts->adapter !== 'generic') {
+            Adapters::apply($root, $opts->adapter);
+        }
         if ($prepare !== null) {
             $prepare($root);
         }
