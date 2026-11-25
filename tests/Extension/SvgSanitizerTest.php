@@ -148,6 +148,23 @@ final class SvgSanitizerTest extends TestCase
         );
     }
 
+    public function testQuotedLocalUrlReferencesAreKept(): void
+    {
+        // carve#6763
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="url(\'#g\')"/><rect fill="url(&quot;#g&quot;)"/>'
+                . '<rect fill="url( #g)"/></svg>',
+            SvgSanitizer::sanitize('<svg><rect fill="url(\'#g\')"/><rect fill=\'url("#g")\'/><rect fill="url( #g)"/></svg>')['svg'],
+        );
+        foreach (["url('https://e.example/p#g')", 'url( "//e.example/x")', "url(' x#g')", "url('#g') url(x)"] as $remote) {
+            self::assertSame(
+                '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
+                SvgSanitizer::sanitize('<svg><rect fill="' . htmlspecialchars($remote) . '"/></svg>')['svg'],
+                $remote,
+            );
+        }
+    }
+
     public function testOutputHoldsOnlyXmlCharacters(): void
     {
         // carve#6764

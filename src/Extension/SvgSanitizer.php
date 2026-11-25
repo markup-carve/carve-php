@@ -680,7 +680,8 @@ final class SvgSanitizer
 
     private static function nonLocalUrl(string $value): bool
     {
-        return preg_match('~url\(' . self::WS . '*[\'"]?' . self::WS . '*(?!#)~iu', $value) === 1;
+        // Atomic, so `(?!#)` cannot pass one character early on `url('#g')` (carve#6763).
+        return preg_match('~url\((?>' . self::WS . '*[\'"]?' . self::WS . '*)(?!#)~iu', $value) === 1;
     }
 
     private static function refAttrUnsafe(string $value): bool
