@@ -203,6 +203,28 @@ final class HubImporterTest extends TestCase
     }
 
     /**
+     * carve#6638, carve#6639: a destination with whitespace is written as is and reported; a title with line breaks
+     * folds them to spaces and only the title is reported (C2-I-067, C2-I-069, C2-W-117).
+     */
+    public function testKeepsTheLinkTailAndReportsWhatCarveCannotSpell(): void
+    {
+        $djot = Carve::importDocument("[closed](hello *a\nb*)\n", ['from' => 'djot']);
+        $this->assertSame("[closed](hello *ab*)\n", $djot->source);
+        $this->assertSame(['structure-unspellable'], array_map(static fn ($d): string => $d->code, $djot->diagnostics));
+
+        $markdown = Carve::importDocument("[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]\n", ['from' => 'markdown']);
+        $this->assertSame("[foo](/url \" title line1 line2 \")\n", $markdown->source);
+        $this->assertSame(['field-unspellable'], array_map(static fn ($d): string => $d->code, $markdown->diagnostics));
+        $this->assertSame('<p><a href="/url" title=" title line1 line2 ">foo</a></p>', Carve::toHtml($markdown->source));
+    }
+
+    public function testBracesAnEmphasisAroundALinkWhoseTailReadsAsText(): void
+    {
+        $result = Carve::importDocument('<p><em><a href="/u(r)l x">txt</a></em></p>');
+        $this->assertSame("{/[txt](/u(r)l x)/}\n", $result->source);
+    }
+
+    /**
      * @return array<string, array{string, string, string}>
      */
     public static function entries(): array

@@ -57,7 +57,17 @@ final class WriterReadbackTest extends TestCase
             ],
             'C2-W-117 a link title with a line break' => [
                 $p(['type' => 'link', 'href' => '/u', 'tooltip' => "a\nb", 'children' => [$t('x')]]),
-                "[x](/u \"a\nb\")\n",
+                "[x](/u \"a b\")\n",
+                ['field-unspellable /children/0/children/0/tooltip'],
+            ],
+            'C2-I-067 a destination with a space' => [
+                $p(['type' => 'link', 'href' => 'hello *ab*', 'children' => [$t('closed')]]),
+                "[closed](hello *ab*)\n",
+                ['structure-unspellable /children/0/children/0'],
+            ],
+            'C2-I-067 a destination with a line break' => [
+                $p(['type' => 'image', 'src' => "a\nb", 'alt' => 'x', 'children' => [$t('x')]]),
+                "![x](a\nb)\n",
                 ['structure-unspellable /children/0/children/0'],
             ],
             'C2-I-002 spaces before a line break in a code span' => [
