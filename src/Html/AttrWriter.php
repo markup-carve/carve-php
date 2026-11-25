@@ -94,7 +94,8 @@ final class AttrWriter
         if ($sourceLine !== null) {
             $seen['data-source-line'] = true;
         }
-        $this->identity($out, $seen, $id ?? $attrs?->id, $this->classes($base, $attrs !== null ? $attrs->classes : [], $tail), $lang, $dir);
+        $classes = $this->classes($base, $attrs !== null ? $attrs->classes : [], $tail);
+        $this->identity($out, $seen, self::writtenId($id, $attrs), $classes, $lang, $dir);
         if ($attrs !== null) {
             $this->authored($out, $seen, $attrs, $style);
         }
@@ -128,7 +129,7 @@ final class AttrWriter
      */
     private function identity(array &$out, array &$seen, ?string $id, string $classes, ?string $lang, ?string $dir): void
     {
-        if ($id !== null && $id !== '' && !isset($seen['id'])) {
+        if ($id !== null && !isset($seen['id'])) {
             $out[] = ['id', $id];
             $seen['id'] = true;
         }
@@ -145,6 +146,19 @@ final class AttrWriter
             $out[] = ['dir', $dir];
             $seen['dir'] = true;
         }
+    }
+
+    /**
+     * An explicit '' means no id; an authored empty id (a bare `id` key) is written as `id=""` (C2-A-032).
+     *
+     * @param string|null $id
+     * @param \MarkupCarve\Carve\Attrs|null $attrs
+     *
+     * @return string|null
+     */
+    private static function writtenId(?string $id, ?Attrs $attrs): ?string
+    {
+        return $id === '' ? null : $id ?? $attrs?->id;
     }
 
     public static function dirOf(Node $node): ?string
@@ -220,7 +234,13 @@ final class AttrWriter
             return $generated;
         }
         if ($authoredFirst) {
-            return rtrim($authored, '; ') . '; ' . $generated;
+            // C2-H-009: trimmed as carve-js trims, and only a missing `;` is added.
+            $trimmed = preg_replace('/^[\s\x{FEFF}]+|[\s\x{FEFF}]+$/u', '', $authored) ?? trim($authored);
+            if ($trimmed === '') {
+                return $generated;
+            }
+
+            return $trimmed . (str_ends_with($trimmed, ';') ? '' : ';') . ' ' . $generated;
         }
 
         return rtrim($generated, '; ') . '; ' . $authored;
