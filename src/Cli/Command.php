@@ -106,6 +106,7 @@ final class Command
         'strict-losses' => true,
         'fix' => true,
         'from-ast' => true,
+        'positions' => true,
         'no-positions' => false,
         'raw-html' => true,
         'roundtrip' => true,
@@ -153,7 +154,7 @@ Usage: carve [command] [flags] [file ...]
 Commands: render (default), ast, diagnostics, lint, fix, flatten, fmt, import, migrate-ast
 Input: a file path or - for standard input; no file reads standard input.
 
-Every command: --help, --version
+Every command: --help, --version; every switch --NAME also has --no-NAME
 Render: --to html|markdown|plain|ansi, --heading-ids MODE, --heading-shift N,
   --labels JSON, --mode interactive|static, --profile PROFILE,
   --raw-html, --roundtrip, --sections, --smart-typography, --xhtml (-x),
@@ -162,7 +163,7 @@ Render: --to html|markdown|plain|ansi, --heading-ids MODE, --heading-shift N,
   --allow-loss CODE, --max-render-losses N, --report-losses FILE
 Render, AST, lint and fmt: --extensions JSON (standard extension names),
   --extension-options JSON (their renderer options by name)
-AST: --from-ast, --no-positions
+AST: --from-ast, --positions, --no-positions
 Lint and fix: --rules JSON, --platforms JSON, --upgrade, --ignore FILE-ID,
   --strict, --json, --fix, --write
 Fmt: --check, --diff, --write, --normalize, --align-tables, --from-ast
@@ -334,6 +335,11 @@ HELP;
         }
         $equals = strpos($arg, '=');
         $name = substr($arg, 2, $equals === false ? null : $equals - 2);
+        // C2-T-008: `--no-name` turns the switch `--name` off.
+        $negated = str_starts_with($name, 'no-') && !isset(self::FLAGS[$name]) && !str_starts_with($name, 'no-no-');
+        if ($negated) {
+            $name = substr($name, 3);
+        }
         if (
             in_array($name, [
                 'mode', 'labels', 'social', 'symbols', 'raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines', 'xhtml',
@@ -345,12 +351,15 @@ HELP;
             throw new OptionError('unknown option ' . $arg);
         }
         if (isset(self::VALUED[$name]) || (isset(self::OPTION_FLAGS[$name]) && $parsed['command'] === 'render')) {
+            if ($negated) {
+                throw new OptionError('unknown option ' . $arg);
+            }
             self::valued($name, $equals !== false ? substr($arg, $equals + 1) : ($args[$i + 1] ?? null), $parsed);
 
             return $equals !== false ? $i : $i + 1;
         }
 
-        return self::switchOption($args, $i, $arg, $name, $equals, $parsed);
+        return self::switchOption($args, $i, $arg, $name, $equals, $parsed, !$negated);
     }
 
     /**
@@ -360,10 +369,11 @@ HELP;
      * @param string $arg
      * @param int $i
      * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     * @param bool $on False for the `--no-` form.
      *
      * @throws \MarkupCarve\Carve\OptionError
      */
-    private static function switchOption(array $args, int $i, string $arg, string $name, int|false $equals, array &$parsed): int
+    private static function switchOption(array $args, int $i, string $arg, string $name, int|false $equals, array &$parsed, bool $on): int
     {
         $fmt = $parsed['command'] === 'fmt';
         if ($arg === '-x' && $parsed['command'] === 'render') {
@@ -387,17 +397,15 @@ HELP;
             throw new OptionError('unknown option ' . $arg);
         }
         if ($name === 'strict-losses') {
-            $parsed['options']['strictLosses'] = true;
+            $parsed['options']['strictLosses'] = $on;
         } elseif (in_array($name, ['raw-html', 'roundtrip', 'sections', 'smart-typography', 'source-lines', 'xhtml'], true)) {
             $key = str_replace('-', '', ucwords($name, '-'));
-            $parsed['options'][lcfirst($key)] = true;
-        } elseif ($name === 'no-positions') {
-            $parsed['values']['positions'] = false;
+            $parsed['options'][lcfirst($key)] = $on;
         } else {
             $key = match ($name) {
-                'no-includes' => 'includes', 'no-json' => 'json', default => $name,
+                'no-includes' => 'includes', 'no-json' => 'json', 'no-positions' => 'positions', default => $name,
             };
-            $parsed['values'][$key] = $flags[$name];
+            $parsed['values'][$key] = $on && $flags[$name];
         }
 
         return $i;

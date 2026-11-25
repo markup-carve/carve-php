@@ -115,7 +115,8 @@ vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] [--adapter=NA
 vendor/bin/carve import --from gfm --directory SRC --output DST
 ```
 
-Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
+Every switch `--NAME` also takes the form `--no-NAME`, which turns it off (`--no-sections`, `--no-smart-typography`,
+`--no-raw-html`); the last of the two wins. Common flags: `--json`, `--includes`/`--no-includes`, `--include-root=DIR`, `--rules=JSON`, `--platforms=JSON`,
 `--option=NAME=JSON`. `render` also takes `--soft-break newline|space|br` and `--heading-shift N` (also with `--to markdown`); `render` and `import` take `--allow-loss CODE`
 (repeatable) and `--max-render-losses N`. `lint` also takes `--heading-ids=off|keep-case|lower|ascii|ascii-lower|ascii-strict|ascii-strict-lower`
 and `--upgrade`, which turns on the notices about text that 0.1 or Djot read differently (an indented line under a
