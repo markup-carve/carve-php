@@ -54,7 +54,10 @@ final class NavTree
     ): void {
         $ancestors[] = $root;
         if ($root->children !== null) {
-            $root->children = self::rewriteList($root->children, $rewrite, $fallbacks, $ancestors, $visitReplacements);
+            $children = self::rewriteList($root->children, $rewrite, $fallbacks, $ancestors, $visitReplacements);
+            if ($children !== null) {
+                $root->children = $children;
+            }
         }
         foreach ($root->f as $key => $value) {
             if (isset(self::NOT_CHILDREN[$key]) || ($key === 'fallback' && !$fallbacks)) {
@@ -63,50 +66,70 @@ final class NavTree
             if ($value instanceof Node) {
                 self::rewrite($value, $rewrite, $fallbacks, $ancestors, $visitReplacements);
             } elseif (is_array($value) && self::isList($value)) {
-                $root->f[$key] = self::rewriteList(PlainText::nodes($value), $rewrite, $fallbacks, $ancestors, $visitReplacements);
+                $list = self::rewriteList($value, $rewrite, $fallbacks, $ancestors, $visitReplacements);
+                if ($list !== null) {
+                    $root->f[$key] = $list;
+                }
             } elseif (is_array($value)) {
+                $changed = false;
                 foreach ($value as $slot => $list) {
                     if (is_array($list) && self::isList($list)) {
-                        $value[$slot] = self::rewriteList(PlainText::nodes($list), $rewrite, $fallbacks, $ancestors, $visitReplacements);
+                        $list = self::rewriteList($list, $rewrite, $fallbacks, $ancestors, $visitReplacements);
+                        if ($list !== null) {
+                            $value[$slot] = $list;
+                            $changed = true;
+                        }
                     }
                 }
-                $root->f[$key] = $value;
+                if ($changed) {
+                    $root->f[$key] = $value;
+                }
             }
         }
     }
 
     /**
+     * The list with the replacements spliced in, or null where `$rewrite` replaced nothing and the list is a list.
+     *
      * @param array<\MarkupCarve\Carve\Node> $list
      * @param \Closure(\MarkupCarve\Carve\Node, array<\MarkupCarve\Carve\Node>): (array<\MarkupCarve\Carve\Node>|null) $rewrite
      * @param bool $fallbacks
      * @param array<\MarkupCarve\Carve\Node> $ancestors
      * @param bool $visitReplacements
      *
-     * @return array<\MarkupCarve\Carve\Node>
+     * @return array<\MarkupCarve\Carve\Node>|null
      */
-    private static function rewriteList(array $list, Closure $rewrite, bool $fallbacks, array $ancestors, bool $visitReplacements): array
+    private static function rewriteList(array $list, Closure $rewrite, bool $fallbacks, array $ancestors, bool $visitReplacements): ?array
     {
-        $out = [];
+        $out = null;
+        $at = 0;
         foreach ($list as $item) {
             $replaced = $rewrite($item, $ancestors);
             if ($replaced === null) {
                 self::rewrite($item, $rewrite, $fallbacks, $ancestors, $visitReplacements);
-                $out[] = $item;
+                if ($out !== null) {
+                    $out[] = $item;
+                }
+                $at++;
 
                 continue;
             }
+            $out ??= array_values(array_slice($list, 0, $at));
             foreach ($replaced as $node) {
                 if ($visitReplacements) {
                     self::rewrite($node, $rewrite, $fallbacks, $ancestors, true);
                 }
                 $out[] = $node;
             }
+            $at++;
         }
 
-        return $out;
+        return $out ?? (array_is_list($list) ? null : array_values($list));
     }
 
     /**
+     * @phpstan-assert-if-true array<\MarkupCarve\Carve\Node> $value
+     *
      * @param array<mixed> $value
      */
     private static function isList(array $value): bool
@@ -375,18 +398,22 @@ final class NavTree
     /**
      * The display text of each heading id, read before a transform edits the headings.
      *
+     * @param \MarkupCarve\Carve\Node $view
+     * @param array<string, int> $sources Set to the object id of the heading each text was read from.
+     *
      * @return array<string, array<\MarkupCarve\Carve\Node>>
      */
-    public static function headingTexts(Node $view): array
+    public static function headingTexts(Node $view, array &$sources = []): array
     {
         $texts = [];
-        self::visit($view, static function (Node $node) use (&$texts): void {
+        self::visit($view, static function (Node $node) use (&$texts, &$sources): void {
             if ($node->type !== 'heading') {
                 return;
             }
             $id = self::headingId($node);
             if ($id !== null && !isset($texts[$id])) {
                 $texts[$id] = self::derivedInlines($node->children ?? []);
+                $sources[$id] = spl_object_id($node);
             }
         }, false);
 
@@ -395,26 +422,58 @@ final class NavTree
 
     /**
      * A cross-reference writes the text of its heading (C2-I-096), which the render reads from the edited heading;
-     * each one to a heading in `$texts` becomes a direct link with the text from before the edit.
+     * each one to a heading in `$texts` becomes a direct link with the text from before the edit. `$numbered` may
+     * replace a cross-reference first, given its key.
      *
      * @param \MarkupCarve\Carve\Node $view
      * @param array<string, array<\MarkupCarve\Carve\Node>> $texts
+     * @param (\Closure(\MarkupCarve\Carve\Node, string): (array<\MarkupCarve\Carve\Node>|null))|null $numbered
+     * @param (\Closure(string, array<\MarkupCarve\Carve\Node>): array<\MarkupCarve\Carve\Node>)|null $titles `titleCopies()`.
      *
      * @return void
      */
-    public static function freezeCrossReferences(Node $view, array $texts): void
+    public static function freezeCrossReferences(Node $view, array $texts, ?Closure $numbered = null, ?Closure $titles = null): void
     {
-        self::rewrite($view, static function (Node $node) use ($texts): ?array {
+        $titles ??= self::titleCopies($texts);
+        self::rewrite($view, static function (Node $node) use ($texts, $numbered, $titles): ?array {
             if (!self::isTitleXref($node)) {
                 return null;
             }
             $key = PlainText::str($node->f['key'] ?? '');
-            if (!isset($texts[$key])) {
-                return null;
+            $replaced = $numbered === null ? null : $numbered($node, $key);
+            if ($replaced !== null || !isset($texts[$key])) {
+                return $replaced;
             }
 
-            return [self::link('#' . $key, self::copiedTitle($texts[$key], $texts), self::attrs($node))];
+            return [self::link('#' . $key, $titles('t:' . $key, $texts[$key]), self::attrs($node))];
         }, true, visitReplacements: false);
+    }
+
+    /**
+     * `copiedTitle()` with a cache: the first call for a cache key copies the title, each later one copies that copy.
+     *
+     * @param array<string, array<\MarkupCarve\Carve\Node>> $texts
+     *
+     * @return \Closure(string, array<\MarkupCarve\Carve\Node>): array<\MarkupCarve\Carve\Node>
+     */
+    public static function titleCopies(array $texts): Closure
+    {
+        $made = [];
+
+        return static function (string $cacheKey, array $title) use (&$made, $texts): array {
+            if (!isset($made[$cacheKey])) {
+                return $made[$cacheKey] = self::copiedTitle($title, $texts);
+            }
+
+            $copies = [];
+            foreach ($made[$cacheKey] as $template) {
+                $copy = Extensions::copy($template);
+                CopyLedger::record($copy, $template);
+                $copies[] = $copy;
+            }
+
+            return $copies;
+        };
     }
 
     /**

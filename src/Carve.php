@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Export\AnsiExporter;
 use MarkupCarve\Carve\Export\CodeFence;
 use MarkupCarve\Carve\Export\MarkdownExporter;
 use MarkupCarve\Carve\Export\PlainTextExporter;
+use MarkupCarve\Carve\Extension\CopyLedger;
 use MarkupCarve\Carve\Extension\DocumentTransform;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\ExtensionProvider;
@@ -340,7 +341,7 @@ final class Carve
             }
             $candidate = Extensions::copy($view);
             try {
-                $changed = ($transform->run)($candidate);
+                [$changed, $copies] = CopyLedger::run($transform->run, $candidate);
                 if ($changed->type !== 'document') {
                     throw new UnexpectedValueException('document transform did not return a document');
                 }
@@ -357,7 +358,7 @@ final class Carve
                     }
                 }
                 $reader = self::readerExtensions($opts->extensions);
-                if (!ViewCheck::passes($changed, $reader)) {
+                if (!ViewCheck::passes($changed, $reader, $copies)) {
                     TreeReader::checkTreeOf($changed, $reader);
                 }
                 $view = $changed;
@@ -391,9 +392,8 @@ final class Carve
             if ($attrs instanceof Attrs && $attrs->id !== null) {
                 $counts[$attrs->id] = ($counts[$attrs->id] ?? 0) + 1;
             }
-            foreach (array_reverse(Walk::kids($node)) as $child) {
-                $pending[] = $child;
-            }
+            // A count needs no document order.
+            array_push($pending, ...Walk::kids($node));
         }
 
         return $counts;

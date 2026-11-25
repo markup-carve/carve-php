@@ -60,17 +60,45 @@ final class ViewCheck
     private array $fields = [];
 
     /**
+     * The template of each copy, by object id of the copy.
+     *
+     * @var array<int, \MarkupCarve\Carve\Node>
+     */
+    private array $copies = [];
+
+    /**
+     * The templates, by object id, with the item checks each one passed.
+     *
+     * @var array<int, array<int, true>>
+     */
+    private array $templates = [];
+
+    /**
+     * The block count, inline count and depth each template was walked with, by object id.
+     *
+     * @var array<int, array<string, true>>
+     */
+    private array $walked = [];
+
+    /**
      * @param \MarkupCarve\Carve\Node $tree
      * @param array<string, mixed> $options The options of `TreeReader::check()`.
+     * @param array<int, array{\MarkupCarve\Carve\Node, \MarkupCarve\Carve\Node}> $copies Children of `$tree` that hold
+     *   the same values as another node, with that template, by object id of the copy (`CopyLedger::run()`): the check
+     *   reads the template in place of each copy, once per place.
      *
      * @return bool
      */
-    public static function passes(Node $tree, array $options): bool
+    public static function passes(Node $tree, array $options, array $copies = []): bool
     {
         if (array_key_exists('annotations', $options) || $tree->type !== 'document') {
             return false;
         }
         $check = new self();
+        foreach ($copies as $id => [, $template]) {
+            $check->copies[$id] = $template;
+            $check->templates[spl_object_id($template)] = [];
+        }
         try {
             $fields = $check->fieldsOf($tree);
             if (array_key_exists('document', $fields)) {
@@ -132,6 +160,9 @@ final class ViewCheck
         $pending = [[$tree, 0, 0, 1]];
         while ($pending !== []) {
             [$node, $blocks, $inlines, $depth] = array_pop($pending);
+            if ($this->templates !== [] && $this->walkedBefore($node, $blocks . ':' . $inlines . ':' . $depth)) {
+                continue;
+            }
             $type = $node->type;
             if (isset(self::OWN_CHECKS[$type])) {
                 return false;
@@ -149,17 +180,67 @@ final class ViewCheck
             if ($blocks > Tables::BLOCK_DEPTH || $inlines > Tables::INLINE_DEPTH) {
                 return false;
             }
-            foreach ($fields as $key => $value) {
-                if (!is_array($value) && !is_object($value)) {
-                    continue;
+            if (!self::pushFields($fields, $blocks, $inlines, $depth, $pending)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether a template was walked with the same counts before, which walks the same nodes with the same counts.
+     */
+    private function walkedBefore(Node $node, string $place): bool
+    {
+        $id = spl_object_id($node);
+        if (!isset($this->templates[$id])) {
+            return false;
+        }
+        if (isset($this->walked[$id][$place])) {
+            return true;
+        }
+        $this->walked[$id][$place] = true;
+
+        return false;
+    }
+
+    /**
+     * Pushes the nodes of each field onto the walk; false where the walk cannot follow.
+     *
+     * @param array<string, mixed> $fields
+     * @param int $blocks
+     * @param int $inlines
+     * @param int $depth
+     * @param array<array{\MarkupCarve\Carve\Node, int, int, int}> $pending
+     *
+     * @return bool
+     */
+    private static function pushFields(array $fields, int $blocks, int $inlines, int $depth, array &$pending): bool
+    {
+        foreach ($fields as $key => $value) {
+            if (!is_array($value) && !is_object($value)) {
+                continue;
+            }
+            // The `children` case of nodesOfField() without the list of pairs.
+            if ($key === 'children' && is_array($value) && $depth + 2 < TreeReader::JSON_DEPTH - 1) {
+                for ($i = count($value) - 1; $i >= 0; $i--) {
+                    $child = $value[$i] ?? null;
+                    if ($child instanceof Node) {
+                        $pending[] = [$child, $blocks, $inlines, $depth + 2];
+                    } elseif (is_array($child) || is_object($child)) {
+                        return false;
+                    }
                 }
-                $found = self::nodesOfField($key, $value, $depth);
-                if ($found === null) {
-                    return false;
-                }
-                foreach ($found as [$child, $childDepth]) {
-                    $pending[] = [$child, $blocks, $inlines, $childDepth];
-                }
+
+                continue;
+            }
+            $found = self::nodesOfField($key, $value, $depth);
+            if ($found === null) {
+                return false;
+            }
+            foreach ($found as [$child, $childDepth]) {
+                $pending[] = [$child, $blocks, $inlines, $childDepth];
             }
         }
 
@@ -355,7 +436,15 @@ final class ViewCheck
                 = is_int($value) || is_bool($value) || $value instanceof Node ? $value : self::plain($value);
         }
         if ($node->children !== null) {
-            $out['children'] = self::plain($node->children);
+            $children = self::plain($node->children);
+            if ($this->copies !== [] && is_array($children)) {
+                foreach ($children as $i => $child) {
+                    if ($child instanceof Node && isset($this->copies[spl_object_id($child)])) {
+                        $children[$i] = $this->copies[spl_object_id($child)];
+                    }
+                }
+            }
+            $out['children'] = $children;
         }
         // `TreeDecoder::position()` is null for a node with neither.
         if ($node->treePos !== '' || isset($node->layout['pos'])) {
@@ -1022,7 +1111,21 @@ final class ViewCheck
                 $type = $item instanceof Node ? $item->type
                     : ($item instanceof stdClass && isset($item->type) && is_string($item->type) ? $item->type : null);
                 $target = $type === null ? null : ($targets[$type] ?? null);
-                if ($target === null || !$target($item, $check)) {
+                if ($target === null) {
+                    return false;
+                }
+                $template = $item instanceof Node && $check->templates !== [] ? spl_object_id($item) : null;
+                if ($template !== null && isset($check->templates[$template])) {
+                    if (!isset($check->templates[$template][spl_object_id($target)])) {
+                        if (!$target($item, $check)) {
+                            return false;
+                        }
+                        $check->templates[$template][spl_object_id($target)] = true;
+                    }
+
+                    continue;
+                }
+                if (!$target($item, $check)) {
                     return false;
                 }
             }
