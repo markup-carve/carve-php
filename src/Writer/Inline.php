@@ -634,19 +634,39 @@ final class Inline
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $following = $nodes[$at + 1] ?? null;
+            $text = $type === 'text';
+            // The neighbor fields are set here rather than by a call per node: this loop runs for every inline node.
+            // C2-W-099, C2-I-114: the hyphen and dot runs a text continues.
             if (!$traced) {
-                self::hyphenNeighbors($c, $type, $following, $hyphens);
-                self::dotNeighbors($c, $type, $dots, $dotsAhead, $at);
-                $this->loseLoneEmptyText($nodes, $at, $path);
+                $c->hyphensBefore = $text ? $hyphens : 0;
+                $c->hyphenAfter = $text && is_array($following) && ($following['type'] ?? '') === 'text'
+                    && str_starts_with(self::str($following, 'value'), '-');
+                $c->lastInContent = $text && $following === null;
+                $c->dotsBefore = $text ? $dots : 0;
+                $c->dotsAfter = $text ? $dotsAhead[$at + 1] ?? 0 : 0;
+                if ($text && ($node['value'] ?? null) === '') {
+                    $this->loseLoneEmptyText($nodes, $at, $path);
+                }
             }
-            self::resetFollowingPipe($c, $type);
-            $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
+            if (!$text && !isset(self::VERBATIM[$type])) {
+                $c->escapeFollowingPipeAt = -1;
+            }
+            $c->lineCommentBefore = $text && self::followsLineComment($nodes, $at);
             $c->afterText = self::isText($visibleNode);
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
-            $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
-            $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
-            self::setFollowingTextLine($c, $nodes, $at, $type);
+            // The first character behind the node, which `listed()` reads too; past a braced comment it is searched.
+            $firstFollowing = is_array($following) ? self::first($following, $c) : null;
+            $this->visibleNext = $firstFollowing !== null && !self::isBracedComment($following)
+                ? $firstFollowing : self::visibleNext($nodes, $at, $c, $next);
+            $c->lineTail = $text && is_array($following) ? self::spanLineTail($following) : null;
+            $c->lineAfterSpan = '';
+            $c->lineAfterSpanEnds = false;
+            $c->lineAfterSpanPipeSource = -1;
+            $c->lineAfterSpanPipeText = -1;
+            if (isset(self::VERBATIM[$type])) {
+                self::setFollowingTextLine($c, $nodes, $at, $type);
+            }
             if ($c->inCell) {
                 $this->loseGluedRun($nodes, $at, $path, $type);
             }
@@ -661,7 +681,8 @@ final class Inline
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
                 $this->spanAfterBang = $type === 'span' && $this->followsBareBang($node, $out);
-                $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
+                // A continuation row can move the line start, which the first of a hard break reads.
+                $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo, $c->inCell ? null : $firstFollowing);
             }
             // C2-W-125 case six: a reported braced opener in a paired node can take a trial beside it in the same
             // round. Force that trial at the closer mark which starts the following text, without giving it a kind.
@@ -680,8 +701,10 @@ final class Inline
                 $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
                 $dots = self::dotsAfter($node, $dots);
             }
-            self::advanceFollowingPipe($c, $node, $type);
-            if (!self::isBracedComment($node)) {
+            if ($text) {
+                self::advanceFollowingPipe($c, $node, $type);
+            }
+            if ($type !== 'comment' || ($node['form'] ?? '') !== 'braced') {
                 $visible = $c->lineStart ? -1 : $c->last;
                 $visibleNode = $node;
             }
@@ -889,13 +912,6 @@ final class Inline
         return [$first, $last];
     }
 
-    private static function resetFollowingPipe(Context $c, string $type): void
-    {
-        if ($type !== 'text' && !in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
-            $c->escapeFollowingPipeAt = -1;
-        }
-    }
-
     /**
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param array<mixed> $node
@@ -950,10 +966,6 @@ final class Inline
      */
     private static function setFollowingTextLine(Context $c, array $nodes, int $at, string $type): void
     {
-        $c->lineAfterSpan = '';
-        $c->lineAfterSpanEnds = false;
-        $c->lineAfterSpanPipeSource = -1;
-        $c->lineAfterSpanPipeText = -1;
         if (!self::multilineSpan($nodes[$at] ?? null, $type)) {
             return;
         }
@@ -1066,13 +1078,21 @@ final class Inline
      *
      * @return string
      */
-    private function listed(array $nodes, int $at, string $path, Context $c, int $next, string &$out, ?array &$redo): string
-    {
+    private function listed(
+        array $nodes,
+        int $at,
+        string $path,
+        Context $c,
+        int $next,
+        string &$out,
+        ?array &$redo,
+        ?int $first = null,
+    ): string {
         $node = (array)$nodes[$at];
         $following = $nodes[$at + 1] ?? null;
         $c->beforeSoftBreak = self::isSoftBreak($following);
         $c->beforeHardBreak = is_array($following) && ($following['type'] ?? '') === 'hard_break';
-        $after = is_array($following) ? self::first($following, $c) : $next;
+        $after = is_array($following) ? $first ?? self::first($following, $c) : $next;
         // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form. An empty span
         // writes nothing, so nothing glues to it.
         $type = self::str($node, 'type');
@@ -1124,17 +1144,6 @@ final class Inline
     }
 
     /**
-     * C2-W-099: the hyphens of the run a text node continues, and whether the next text node continues it.
-     */
-    private static function hyphenNeighbors(Context $c, string $type, mixed $following, int $hyphens): void
-    {
-        $c->hyphensBefore = $type === 'text' ? $hyphens : 0;
-        $c->hyphenAfter = $type === 'text' && is_array($following) && ($following['type'] ?? '') === 'text'
-            && str_starts_with(self::str($following, 'value'), '-');
-        $c->lastInContent = $type === 'text' && $following === null;
-    }
-
-    /**
      * The hyphens the written node ends a run with: a text value's, counting those before it when it is all hyphens,
      * and one for a dash node (C2-W-125 case four).
      *
@@ -1154,24 +1163,6 @@ final class Inline
         $run = strlen($value) - strlen(rtrim($value, '-'));
 
         return $run === strlen($value) ? $before + $run : $run;
-    }
-
-    /**
-     * C2-I-114: the dots of the run a text node continues, before and after it.
-     *
-     * @param \MarkupCarve\Carve\Writer\Context $c
-     * @param string $type
-     * @param int $dots
-     * @param array<int, int> $ahead
-     * @param int $at
-     *
-     * @return void
-     */
-    private static function dotNeighbors(Context $c, string $type, int $dots, array $ahead, int $at): void
-    {
-        $text = $type === 'text';
-        $c->dotsBefore = $text ? $dots : 0;
-        $c->dotsAfter = $text ? $ahead[$at + 1] ?? 0 : 0;
     }
 
     /**
