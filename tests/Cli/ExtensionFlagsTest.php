@@ -26,7 +26,7 @@ final class ExtensionFlagsTest extends TestCase
             4096,
             JSON_THROW_ON_ERROR,
         );
-        $ids = ['CC-533', 'CC-1717', 'CC-1718', 'CC-1719', 'CC-1720', 'CC-1721', 'CC-1722'];
+        $ids = ['CC-533', 'CC-1717', 'CC-1718', 'CC-1719', 'CC-1720', 'CC-1721', 'CC-1722', 'CC-2146', 'CC-2147', 'CC-2148'];
         $seen = [];
         foreach ($spec['cases'] as $case) {
             if (!in_array($case['id'], $ids, true)) {
