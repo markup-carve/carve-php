@@ -69,10 +69,20 @@ final class RepairTrace
      * @param int $next The code point written after the text, -1 at the end of its leaf.
      * @param int $from Where `$value` starts in the text node: a fragment of a continued cell starts later.
      * @param bool $inCell
+     * @param array<int, mixed> $pairs The C2-W-146 pair escapes of the text, by offset in `$value`.
+     * @param array<int, bool> $escaped Set to whether a backslash was written before each offset of `$value`.
      */
-    public function bareText(string $value, string $path, int $next = -1, int $from = 0, bool $inCell = false): string
-    {
+    public function bareText(
+        string $value,
+        string $path,
+        int $next = -1,
+        int $from = 0,
+        bool $inCell = false,
+        array $pairs = [],
+        array &$escaped = [],
+    ): string {
         $out = '';
+        $escaped = [];
         // Keep line endings after the final marker. The block writer decides whether a
         // terminal empty line is retained by looking at the last emitted byte.
         $bodyLength = strlen(rtrim($value, "\r\n"));
@@ -87,8 +97,9 @@ final class RepairTrace
         for ($at = 0; $at < $bodyLength; $at++) {
             $char = $value[$at];
             // C2-W-098: in a cell every pipe takes a backslash; that is its spelling, not an escape of the rounds.
-            if (isset($this->escapes[$path][$from + $at]) || ($inCell && $char === '|')) {
+            if (isset($this->escapes[$path][$from + $at]) || ($inCell && $char === '|') || isset($pairs[$at])) {
                 $out .= '\\';
+                $escaped[$at] = true;
             }
             // C2-W-097: a literal backslash is written as two before ASCII punctuation, a space or a line end, also where
             // the next character is another node's; that is its spelling, not an escape of the rounds.
@@ -96,6 +107,7 @@ final class RepairTrace
                 $after = $at + 1 < $bodyLength ? ord($value[$at + 1]) : ($bodyLength < strlen($value) ? 10 : $next);
                 if ($after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && Text::isPunct(chr($after)))) {
                     $out .= '\\';
+                    $escaped[$at] = true;
                 }
             }
             if ($this->mark && Text::isPunct($char)) {
