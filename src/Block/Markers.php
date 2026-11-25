@@ -179,8 +179,8 @@ final class Markers
         }
         $m->content = $content;
         $m->box = $k + $n;
-        // C2-B-046: the box stands directly after the required space.
-        $b = $k + 1;
+        // C2-B-046: the box stands directly after the required spaces, two behind `A.` (C2-B-040).
+        $b = $k + $spaces;
         if ($b + 4 < $le && $s[$b] === '[' && $s[$b + 2] === ']' && $s[$b + 3] === ' ' && isset(Tables::TASK_MARKS[$s[$b + 1]])) {
             $after = $b + 4 + strspn($s, " \t", $b + 4, $le - $b - 4);
             if ($after < $le) {

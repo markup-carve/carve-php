@@ -48,6 +48,19 @@ final class TaskColumnAndImgFenceAltTest extends TestCase
         }
     }
 
+    /**
+     * C2-B-040, C2-B-046: behind an uppercase marker with a dot the box stands after both required spaces.
+     */
+    public function testTaskBoxAfterAnUppercaseDotMarker(): void
+    {
+        $this->assertStringContainsString('data-task-state="x"', Carve::toHtml("A.  [x] y\n"));
+        $this->assertStringContainsString('class="task"', Carve::toHtml("II.  [ ] y\n"));
+        $this->assertStringNotContainsString('task', Carve::toHtml("A.   [x] y\n"));
+        $this->assertStringContainsString('data-task-state="x"', Carve::toHtml("A) [x] y\n"));
+        $this->assertStringNotContainsString('task', Carve::toHtml("A)  [x] y\n"));
+        $this->assertSame("A.  \\[x] y\n", Carve::format("A.  \\[x] y\n"));
+    }
+
     public function testOnlyAnAuthoredAltIsTheImageAlt(): void
     {
         $options = ['extensions' => ['carve.imgFence.img'], 'renderers' => ['carve.imgFence.img' => 'standard']];
