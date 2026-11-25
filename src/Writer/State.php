@@ -302,6 +302,11 @@ final class State
         }
     }
 
+    public function lostAt(string $path): bool
+    {
+        return isset($this->lost[$path]);
+    }
+
     private function lostUnder(string $path): bool
     {
         foreach (array_keys($this->lost) as $where) {

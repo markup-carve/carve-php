@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Generator;
+use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\TableBuilder;
+use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Json\TreeDecoder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\TableGrid;
@@ -483,16 +485,139 @@ final class TableWriter
 
             return;
         }
-        if (!$prewritten) {
-            $line = $this->attributeLine($node, $path);
-            if ($line !== '') {
-                $this->w->emit($prefix, $line);
-            }
+        $attributeLine = $this->attributeLine($node, $path);
+        if (!$prewritten && $attributeLine !== '') {
+            $this->w->emit($prefix, $attributeLine);
         }
         $lines = $this->lines($node, $path);
+        $written = [];
         foreach ($this->w->alignTables ? self::aligned($lines) : $lines as $line) {
-            $this->w->emit($prefix, is_array($line) ? self::joined($line) : $line);
+            $written[] = is_array($line) ? self::joined($line) : $line;
+            $this->w->emit($prefix, end($written));
         }
+        $this->loseUnreadGroup($node, $path, $attributeLine, $written);
+    }
+
+    /**
+     * C2-W-002, C2-W-117: a group the written rows read back as another group, or not at all, is reported, so no
+     * group is lost without a report (carve-js `reportUnread`).
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $attributeLine
+     * @param array<string> $written
+     *
+     * @return void
+     */
+    private function loseUnreadGroup(array $node, string $path, string $attributeLine, array $written): void
+    {
+        $groups = $this->writtenGroups($node, $path);
+        if ($groups === null || $groups === [] || self::plainGroups($groups)) {
+            return;
+        }
+        $source = ($attributeLine === '' ? '' : $attributeLine . "\n") . implode("\n", $written) . "\n";
+        // The groups are decided by the block parse (C2-B-178, C2-B-187), so the inlines are not read.
+        $sink = new TreeSink($source);
+        (new BlockParser($sink))->parse($source, true);
+        $table = null;
+        foreach ($sink->root->children ?? [] as $block) {
+            // A comment before the first row reads back before the table.
+            if ($block->type !== 'comment') {
+                $table = $block;
+
+                break;
+            }
+        }
+        $read = self::readGroups($table);
+        foreach ($groups as $k => [$type, $rows, $at]) {
+            if (($read[$k] ?? null) !== [$type, $rows]) {
+                $this->w->lose($path . '/children/' . $at, $type, null);
+
+                return;
+            }
+        }
+        if (count($read) > count($groups)) {
+            [$type, , $at] = $groups[count($groups) - 1];
+            $this->w->lose($path . '/children/' . $at, $type, null);
+        }
+    }
+
+    /**
+     * The groups of the table with their rows, or null where a row with no cell (C2-W-057) is reported already: the
+     * row it is written as moves the groups.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return array<array{0: string, 1: int, 2: int|string, 3: array<mixed>}>|null
+     */
+    private function writtenGroups(array $node, string $path): ?array
+    {
+        $groups = [];
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $at => $group) {
+            if (!is_array($group) || !in_array($group['type'] ?? '', self::GROUPS, true)) {
+                continue;
+            }
+            $rows = [];
+            foreach (is_array($group['children'] ?? null) ? $group['children'] : [] as $r => $row) {
+                if (!is_array($row) || ($row['type'] ?? '') !== 'table_row') {
+                    continue;
+                }
+                if ($this->w->lostAt("$path/children/$at/children/$r")) {
+                    return null;
+                }
+                $rows[] = $row;
+            }
+            $groups[] = [(string)$group['type'], count($rows), $at, $rows];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @return array<array{0: string, 1: int}>
+     */
+    private static function readGroups(?Node $table): array
+    {
+        $read = [];
+        if ($table === null || $table->type !== 'table') {
+            return $read;
+        }
+        foreach ($table->children ?? [] as $group) {
+            if (in_array($group->type, self::GROUPS, true)) {
+                $rows = array_filter($group->children ?? [], static fn (Node $row): bool => $row->type === 'table_row');
+                $read[] = [$group->type, count($rows)];
+            }
+        }
+
+        return $read;
+    }
+
+    /**
+     * A body, or a head of header rows above one body that does not lead with a header row, reads back unchanged.
+     *
+     * @param array<array{0: string, 1: int, 2: int|string, 3: array<mixed>}> $groups
+     */
+    private static function plainGroups(array $groups): bool
+    {
+        $body = $groups[count($groups) - 1];
+        if ($body[0] !== 'table_body' || $body[1] === 0 || count($groups) > 2 || self::leadingHeaderRows([$body[3][0]]) > 0) {
+            return false;
+        }
+        if (count($groups) === 1) {
+            return true;
+        }
+        $head = $groups[0];
+        if ($head[0] !== 'table_head' || $head[1] === 0) {
+            return false;
+        }
+        foreach ($head[3] as $row) {
+            if (self::leadingHeaderRows([$row]) !== 1) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
