@@ -658,7 +658,10 @@ final class Writer
         // Without the source, a braced opener in the text of its span goes to the rounds as a parse's tree does, and any
         // other tree is read back (C2-W-002).
         if ($unchecked && self::readsBackUnread($tree, $parsed, $result, $options)) {
-            return self::uncheckedPruned($result, $parsed, $tree, $layout, $options);
+            $procedure = $parsed === null
+                ? self::suppliedProcedure($tree, $layout, $options, $result, $localEscapes, $localOwn, $pairEscapes) : null;
+
+            return $procedure ?? self::uncheckedPruned($result, $parsed, $tree, $layout, $options);
         }
         // C2-W-151: the read-back never holds the spaces and tabs that end a line of text, so the round compares
         // and repairs the tree without them. The local write keeps the supplied tree, and with it the loss paths.
@@ -716,6 +719,12 @@ final class Writer
             unset($bareCompared, $bare);
         }
         if (!$needsKindRound && self::takesLocalForm($unchecked, $undecided, $localDecided)) {
+            $procedure = $parsed === null && $removed === []
+                ? self::suppliedProcedure($tree, $layout, $options, $result, $localEscapes, $localOwn, $pairEscapes, $treePrint)
+                : null;
+            if ($procedure !== null) {
+                return $procedure;
+            }
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
             // So are the bare read-back and its marked candidate.
             unset($localEscapes);
@@ -730,7 +739,11 @@ final class Writer
             // its backslash there, and the rounds below go on from that form.
             // The rounds read the bare form, which is this local form where the plan placed no escape.
             if ($pairsOnly || self::readsBack($result->source, $treePrint, $options, ($localEscapes ?? []) === [])) {
-                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
+                $procedure = $parsed === null && $removed === []
+                    ? self::suppliedProcedure($tree, $layout, $options, $result, $localEscapes ?? [], $localOwn, $pairEscapes, $treePrint)
+                    : null;
+
+                return $procedure ?? self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-088: the rounds decide the brackets the plan left open, as in carve-js; the conservative form, which
             // escapes every undecided bracket, stands only where they stop.
@@ -752,7 +765,12 @@ final class Writer
         if ($readPrint === $treePrint) {
             unset($read);
             if ($result->source === $bareSource || (!$unchecked && self::readsBack($result->source, $treePrint, $options))) {
-                return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
+                // `$localEscapes` is gone where the branch above already tried the procedure form.
+                $procedure = $parsed === null && $removed === [] && $result->source !== $bareSource
+                    ? self::suppliedProcedure($tree, $layout, $options, $result, $localEscapes ?? [], $localOwn, $pairEscapes, $treePrint)
+                    : null;
+
+                return $procedure ?? self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
             // C2-W-091: the escapes of the local write can change how the text reads, as an escaped bracket that no
             // longer counts toward the depth limit of C2-I-118. The rounds go on from the local form.
@@ -1030,16 +1048,95 @@ final class Writer
         if (!$holds || self::$bareRepaired) {
             return null;
         }
+        unset($read);
+
+        return self::pairRounds($tree, $layout, $options, $own, $wanted, $bare);
+    }
+
+    /**
+     * The planner from a bare form that reads back, which adds only the pair escapes of C2-W-146.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $own
+     * @param string $wanted
+     * @param string $bare
+     */
+    private static function pairRounds(
+        array $tree,
+        ?array $layout,
+        array $options,
+        array $own,
+        string $wanted,
+        string $bare,
+    ): ?WriteResult {
         $planner = new RepairPlanner($tree, $layout, $options, $own, $wanted);
         // The bare form was read already; the planner goes on from it to the pair rounds.
         $planner->startFrom(
             ['source' => $bare, 'text' => [], 'paths' => [], 'nodes' => [], 'ranges' => []],
             ['equal' => true, 'openers' => [], 'moved' => [], 'read' => []],
         );
-        unset($read);
         $procedure = $planner->repair();
 
         return $procedure === null ? null : new WriteResult($procedure, []);
+    }
+
+    /**
+     * C2-W-088: the procedure form of a supplied tree where the local form holds plan escapes. The bare form with the
+     * escapes every form carries is taken where it reads back, with the pair escapes of C2-W-146. Null where it does
+     * not read back, so the local form stands.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param array<string, array<int, true>> $localEscapes
+     * @param array<string, array<int, true>> $localOwn
+     * @param array<string, array<int, true>> $pairEscapes
+     * @param string|null $wanted
+     */
+    private static function suppliedProcedure(
+        array $tree,
+        ?array $layout,
+        array $options,
+        WriteResult $result,
+        array $localEscapes,
+        array $localOwn,
+        array $pairEscapes,
+        ?string $wanted = null,
+    ): ?WriteResult {
+        // A nested write, as of an extension body, reads back without the link keys of its document.
+        if (
+            $localEscapes === [] || $result->diagnostics !== [] || self::$lossReported
+            || isset($options['linkKeys'])
+        ) {
+            return null;
+        }
+        $wanted ??= self::trimmedPrint($tree, $layout, $options);
+        $asked = Text::treePairOpeners($tree, $localOwn);
+        // Where the pair rules ask the bare form for the pair escapes the local write placed, one write holds both.
+        $seed = $localOwn;
+        if ($asked !== [] && $asked == $pairEscapes) {
+            foreach ($pairEscapes as $path => $offsets) {
+                $seed[$path] = ($seed[$path] ?? []) + $offsets;
+            }
+        }
+        $bare = self::bareSource($tree, $layout, $options, $seed);
+        if ($bare === $result->source || self::$bareRepaired || !self::readsBack($bare, $wanted, $options)) {
+            return null;
+        }
+        if ($asked === [] || ($seed !== $localOwn && Text::treePairOpeners($tree, $seed) === [])) {
+            return new WriteResult($bare, []);
+        }
+        if ($seed !== $localOwn) {
+            $bare = self::bareSource($tree, $layout, $options, $localOwn);
+            if (!self::readsBack($bare, $wanted, $options)) {
+                return null;
+            }
+        }
+
+        return self::pairRounds($tree, $layout, $options, $localOwn, $wanted, $bare);
     }
 
     /**
