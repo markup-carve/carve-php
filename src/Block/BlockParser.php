@@ -1107,10 +1107,16 @@ final class BlockParser
                 }
             }
 
-            // C2-B-022 holds at the description list's column; left of it C2-B-015 nests in the body.
-            $leftOfList = $candidate->kind === Frame::DLIST && $c - $this->base < $candidate->markerCol;
-            if ($leftOfList && ($body !== null && $body->kind === Frame::DESC || $this->leaf?->kind === Frame::TERM)) {
-                return $inItem && $this->mayNest($marker);
+            // C2-B-022 holds at the description list's column; left of it C2-B-015 nests in the body. A term is a label
+            // (C2-B-234): a marker past the column ends it as it ends a heading (carve#6758).
+            if ($candidate->kind === Frame::DLIST) {
+                $col = $c - $this->base;
+                $nests = $this->leaf?->kind === Frame::TERM
+                    ? $col !== $candidate->markerCol
+                    : $col < $candidate->markerCol && $body !== null && $body->kind === Frame::DESC;
+                if ($nests) {
+                    return $inItem && $this->mayNest($marker);
+                }
             }
 
             // C2-B-021: a marker without the quote mark closes a quote inside an item, when it may open a nested list (C2-B-056).
