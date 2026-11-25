@@ -380,31 +380,38 @@ final class InlineRenderer
      */
     private function verseText(string $value): string
     {
-        $out = '';
-        $col = 0;
-        $lead = $this->verseLead;
         $len = strlen($value);
-        $i = 0;
-        while ($i < $len) {
-            $n = strcspn($value, " \t", $i);
-            if ($n > 0) {
-                $part = substr($value, $i, $n);
-                $out .= Escape::text($part);
-                // One column per code point: every byte but a UTF-8 continuation byte.
-                $col += $n - (int)preg_match_all('/[\x80-\xBF]/', $part);
-                $i += $n;
-                $lead = false;
+        $i = strcspn($value, " \t");
+        if ($i === $len) {
+            return Escape::text($value);
+        }
+        $lead = $this->verseLead && $i === 0;
+        if (strpos($value, "\t") === false) {
+            // Without a tab a run's width is its length: every space beside another space is a no-break space.
+            $out = (string)preg_replace('/ (?= )|(?<= ) /', '&nbsp;', Escape::text($value));
 
-                continue;
-            }
+            return $lead && $out[0] === ' ' ? '&nbsp;' . substr($out, 1) : $out;
+        }
+        $out = $i > 0 ? Escape::text(substr($value, 0, $i)) : '';
+        // One column per code point; plain ASCII skips the count.
+        $multibyte = preg_match('/[\x80-\xFF]/', $value) === 1;
+        $col = $multibyte ? $i - (int)preg_match_all('/[\x80-\xBF]/', substr($value, 0, $i)) : $i;
+        while ($i < $len) {
             $n = strspn($value, " \t", $i);
             $start = $col;
             for ($end = $i + $n; $i < $end; $i++) {
-                $col = $value[$i] === "\t" ? intdiv($col, 4) * 4 + 4 : $col + 1;
+                $col = $value[$i] === "\t" ? ($col & ~3) + 4 : $col + 1;
             }
             $width = $col - $start;
             $out .= $lead || $width > 1 ? str_repeat('&nbsp;', $width) : ' ';
             $lead = false;
+            $n = strcspn($value, " \t", $i);
+            if ($n > 0) {
+                $part = substr($value, $i, $n);
+                $out .= Escape::text($part);
+                $col += $multibyte ? $n - (int)preg_match_all('/[\x80-\xBF]/', $part) : $n;
+                $i += $n;
+            }
         }
 
         return $out;
