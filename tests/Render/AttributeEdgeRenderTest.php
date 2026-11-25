@@ -52,6 +52,7 @@ final class AttributeEdgeRenderTest extends RenderTestCase
             'a trailing vertical tab' => ["a\v", 'a; text-align: right;'],
             'only a vertical tab' => ["\v", 'text-align: right;'],
             'a plain declaration' => ['color: red ', 'color: red; text-align: right;'],
+            'a trailing next line is not trimmed' => ["a\u{0085}", "a\u{FFFD}; text-align: right;"],
         ];
     }
 
