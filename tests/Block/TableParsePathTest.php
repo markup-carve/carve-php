@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Block;
 
 use MarkupCarve\Carve\Carve;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class TableParsePathTest extends TestCase
@@ -41,5 +42,39 @@ final class TableParsePathTest extends TestCase
             static fn (array $w): array => ['line' => $w['line'], 'offset' => $w['offset']],
             $wraps[0],
         ));
+    }
+
+    /**
+     * C2-B-184 (carve#6691): a cell covering several grid positions joins its fragments position by position.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function spannedCellFragmentProvider(): array
+    {
+        return [
+            'two columns' => ["| a | < |\n+ b | c |\n+ d | e |\n", '<td colspan="2">a b d c e</td>'],
+            'three columns' => ["| a | < | < |\n+ b | c | d |\n+ e | f | g |\n", '<td colspan="3">a b e c f d g</td>'],
+            'span after a plain cell' => ["| p | a | < |\n+ q | b | c |\n+ r | d | e |\n", '<td colspan="2">a b d c e</td>'],
+            'empty fragment' => ["| a | < |\n+ | c |\n+ d | e |\n", '<td colspan="2">a d c e</td>'],
+            'row span' => ["| a | b |\n+ c | d |\n| ^ | e |\n+ f | g |\n", '<td rowspan="2">a c f</td>'],
+        ];
+    }
+
+    #[DataProvider('spannedCellFragmentProvider')]
+    public function testSpannedCellJoinsFragmentsColumnByColumn(string $source, string $cell): void
+    {
+        self::assertStringContainsString($cell, Carve::toHtml($source));
+    }
+
+    /**
+     * C2-L-013: a cell whose last joined fragment comes from an earlier line still ranges to its last source fragment.
+     */
+    public function testSpannedCellRangeEndsAtItsLastSourceFragment(): void
+    {
+        $source = "| a | < |\n+ b | c |\n+ d | |\n";
+        $layout = Carve::parseWithLayout($source)->layout;
+        $cells = array_values(array_filter($layout['nodes'], static fn (array $n): bool => isset($n['wraps'])));
+        self::assertCount(1, $cells);
+        self::assertSame(strpos($source, 'd') + 2, $cells[0]['endByte']);
     }
 }
