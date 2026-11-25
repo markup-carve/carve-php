@@ -443,12 +443,7 @@ final class TableReader
      */
     private function columns(array $groups, HtmlNode $node): array
     {
-        $width = 0;
-        foreach ($groups as $group) {
-            foreach (J::nodes($group) as $row) {
-                $width = max($width, array_sum(array_map(static fn (array $c): int => J::int($c, 'colspan') ?? 1, J::nodes($row))));
-            }
-        }
+        $width = Alignments::gridWidth($groups);
         $widths = [];
         $colgroup = $node->firstElement('colgroup');
         foreach ($colgroup === null ? [] : $colgroup->elements() as $col) {

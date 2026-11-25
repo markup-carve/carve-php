@@ -23,7 +23,7 @@ final class Alignments
                 $groups[$g][$r] = J::nodes($row);
             }
         }
-        $cells = self::placed($table, $groups);
+        $cells = self::placed(J::nodes($table), $groups);
         foreach (['align', 'valign'] as $axis) {
             $marks = [];
             $hasHead = false;
@@ -108,30 +108,54 @@ final class Alignments
     }
 
     /**
-     * The cells of the table with the column each starts in, as a render places them (C2-H-056).
+     * C2-M-039: the columns a parse counts (C2-B-172), with the slots that row spans from above take in each row.
      *
-     * @param array<string, mixed> $table
+     * @param array<array<string, mixed>> $groups
+     *
+     * @return int
+     */
+    public static function gridWidth(array $groups): int
+    {
+        $rows = [];
+        foreach ($groups as $g => $group) {
+            foreach (J::nodes($group) as $r => $row) {
+                $rows[$g][$r] = J::nodes($row);
+            }
+        }
+        $width = 0;
+        foreach (self::placed($groups, $rows) as [$g, $r, $c, $column]) {
+            $width = max($width, $column + (J::int($rows[$g][$r][$c], 'colspan') ?? 1));
+        }
+
+        return $width;
+    }
+
+    /**
+     * The cells of the table with the column each starts in, as a render places them (C2-H-056). `$freeAt` holds, per
+     * column, the first row of the group that a row span from above no longer covers.
+     *
+     * @param array<array<string, mixed>> $groupNodes
      * @param array<int, array<int, array<array<string, mixed>>>> $groups
      *
      * @return array<array{0: int, 1: int, 2: int, 3: int, 4: bool}>
      */
-    private static function placed(array $table, array $groups): array
+    private static function placed(array $groupNodes, array $groups): array
     {
         $out = [];
-        foreach (J::nodes($table) as $g => $group) {
-            $covered = [];
+        foreach ($groupNodes as $g => $group) {
+            $freeAt = [];
             $head = ($group['type'] ?? null) === 'table_head';
             foreach ($groups[$g] ?? [] as $r => $cells) {
                 $column = 0;
                 foreach ($cells as $c => $cell) {
-                    while (($covered[$column] ?? 0) > 0) {
-                        $covered[$column]--;
+                    while (($freeAt[$column] ?? 0) > $r) {
                         $column++;
                     }
                     $out[] = [$g, $r, $c, $column, $head];
                     $span = J::int($cell, 'colspan') ?? 1;
+                    $end = $r + (J::int($cell, 'rowspan') ?? 1);
                     for ($more = 0; $more < $span; $more++) {
-                        $covered[$column + $more] = (J::int($cell, 'rowspan') ?? 1) - 1;
+                        $freeAt[$column + $more] = max($freeAt[$column + $more] ?? 0, $end);
                     }
                     $column += $span;
                 }
