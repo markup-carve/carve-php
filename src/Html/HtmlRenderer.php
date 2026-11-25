@@ -1812,7 +1812,7 @@ final class HtmlRenderer
      * C2-H-133, C2-H-171: the directive as text.
      *
      * @param \MarkupCarve\Carve\Node $node
-     * @param array<string, mixed>|null $spelling C2-L-055: an option's source spelling, kept where it decodes to the value.
+     * @param array<mixed>|null $spelling C2-L-055: an option's source spelling, kept where it decodes to the value.
      *
      * @return string
      */
@@ -1829,19 +1829,10 @@ final class HtmlRenderer
             if (!array_key_exists($name, $options)) {
                 continue;
             }
-            $value = $options[$name];
             $spelled = $spelling[$name] ?? null;
-            if ($value !== true && is_string($spelled) && self::spells($name, $spelled, $value)) {
-                $parts[] = '@' . $name . ':' . $spelled;
-            } elseif ($value === true || ($value === '' && ($name === 'rows' || $name === 'cols'))) {
-                $parts[] = '@' . $name;
-            } elseif (is_array($value)) {
-                // C2-A-181: only a quoted `cols` value becomes a list, so a list is written quoted.
-                $names = array_map(static fn (mixed $v): string => addcslashes(PlainText::str($v), '\\",'), $value);
-                $parts[] = '@' . $name . ':"' . implode(',', $names) . '"';
-            } else {
-                $parts[] = '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
-            }
+            $value = $options[$name];
+            $parts[] = is_string($spelled) && $value !== true && self::spells($name, $spelled, $value)
+                ? '@' . $name . ':' . $spelled : self::includeOption($name, $value);
         }
         $invalidOptions = $node->f['invalid'] ?? null;
         foreach (is_array($invalidOptions) ? $invalidOptions : [] as $invalid) {
@@ -1852,6 +1843,29 @@ final class HtmlRenderer
         $parts[] = '}}';
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * C2-W-058: one option as the tree holds it.
+     *
+     * @param string $name
+     * @param mixed $value
+     *
+     * @return string
+     */
+    private static function includeOption(string $name, mixed $value): string
+    {
+        if ($value === true || ($value === '' && ($name === 'rows' || $name === 'cols'))) {
+            return '@' . $name;
+        }
+        if (is_array($value)) {
+            // C2-A-181: only a quoted `cols` value becomes a list, so a list is written quoted.
+            $names = array_map(static fn (mixed $v): string => addcslashes(PlainText::str($v), '\\",'), $value);
+
+            return '@' . $name . ':"' . implode(',', $names) . '"';
+        }
+
+        return '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
     }
 
     /**
