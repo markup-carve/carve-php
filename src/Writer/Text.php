@@ -27,6 +27,13 @@ use MarkupCarve\Carve\Node;
 final class Text
 {
     /**
+     * Scratch constant for carve-php#5956, never merged.
+     *
+     * @var string
+     */
+    public const SCRATCH = 'carve-php#5956';
+
+    /**
      * The lines `blockRead()` keeps for one outer write.
      *
      * @var int
