@@ -421,13 +421,11 @@ final class RepairPlanner
         }
         $expanded = $localEscapes;
         $order = [];
-        self::textOrder($tree, '', $order);
-        $leaves = [];
         $leafPaths = [];
-        foreach ($order as $text => $_) {
-            $leaf = self::leafOfTree($tree, $text);
+        self::textLeaves($tree, '', '', $order, $leafPaths);
+        $leaves = [];
+        foreach ($leafPaths as $text => $leaf) {
             $leaves[$leaf][] = $text;
-            $leafPaths[$text] = $leaf;
         }
         $done = [];
         $escapedHash = [];
@@ -1570,9 +1568,20 @@ final class RepairPlanner
         return $this->leafTexts;
     }
 
+    /**
+     * @var array<string, string>|null The leaf block of each text in `$textOrder`, by text path.
+     */
+    private ?array $textLeaf = null;
+
     private function leafOf(string $path): string
     {
-        return self::leafOfTree($this->tree, $path);
+        if ($this->textLeaf === null) {
+            $order = [];
+            $this->textLeaf = [];
+            self::textLeaves($this->tree, '', '', $order, $this->textLeaf);
+        }
+
+        return $this->textLeaf[$path] ?? self::leafOfTree($this->tree, $path);
     }
 
     /**
@@ -2961,6 +2970,31 @@ final class RepairPlanner
     private function parseOptions(): array
     {
         return isset($this->options['extensions']) ? ['extensions' => $this->options['extensions']] : [];
+    }
+
+    /**
+     * `textOrder()` with `leafOfTree()` of each text, found in the same walk: a lookup per text costs a deep tree its
+     * depth squared.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $leaf The leaf block `$node` stands in, or its own path where it is no inline container.
+     * @param array<string, int> $order
+     * @param array<string, string> $leaves
+     */
+    private static function textLeaves(array $node, string $path, string $leaf, array &$order, array &$leaves): void
+    {
+        $type = $node['type'] ?? null;
+        if ($type === 'text') {
+            $order[$path] = count($order);
+            $leaves[$path] = $leaf;
+        }
+        $inner = in_array($type, self::INLINE_CONTAINERS, true) ? $leaf : $path;
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $index => $child) {
+            if (is_array($child)) {
+                self::textLeaves($child, $path . '/children/' . $index, $inner, $order, $leaves);
+            }
+        }
     }
 
     /**

@@ -519,11 +519,12 @@ final class Writer
                     return $procedure;
                 }
             }
-            $bare = self::bareSource($tree, $layout, $options, []);
+            $firstRanges = null;
+            $bare = self::recordedBare($tree, $layout, $options, [], $firstRanges);
             $bareRepaired = self::$bareRepaired;
             $readBare = ReadbackRound::read($bare, $options);
             $wanted ??= self::trimmedPrint($tree, $layout, $options);
-            $firstBare = [$bare, $readBare, ...RepairPlanner::readPrints($readBare), $wanted];
+            $firstBare = [$bare, $readBare, ...RepairPlanner::readPrints($readBare), $wanted, $firstRanges];
             $bareHolds = $firstBare[2] === $wanted;
             if ($bareHolds && self::mayTakeBare($tree, $localEscapes, $parsed) && Text::treePairOpeners($tree, []) === []) {
                 return new WriteResult($bare, []);
@@ -611,16 +612,18 @@ final class Writer
         ) {
             // Without trimmed line-end blanks the tree is the one the first bare read-back was taken of.
             if ($removed === [] && $firstBare !== null) {
-                [$bareSource, $read, $readPrint, $readParts] = $firstBare;
+                [$bareSource, $read, $readPrint, $readParts, , $bareRanges] = $firstBare;
             } else {
                 $bareSource = self::recordedBare($tree, $layout, $options, [], $bareRanges);
                 $read = ReadbackRound::read($bareSource, $options);
                 [$readPrint, $readParts] = RepairPlanner::readPrints($read);
             }
         }
-        unset($firstBare);
         if ($read !== null && $readPrint !== $treePrint) {
-            $bare = self::markedCandidate($tree, $layout, $options, [], $bareSource);
+            // The kind check above marked this same bare form of the same tree.
+            $bare = $removed === [] && $markedBare !== null && $markedBare[0] === $bareSource
+                ? $markedBare[1]
+                : self::markedCandidate($tree, $layout, $options, [], $bareSource);
             $markedBare = [$bareSource, $bare];
             $bareCompared = ReadbackRound::compare($bare, $read, $tree, $treePrint, false);
             $reported = $bareCompared['openers'];
@@ -628,11 +631,14 @@ final class Writer
             // C2-W-088, C2-W-125: a span the parse reads on a node's own opener with another extent is that node, which
             // reports nothing; the rounds repair it, not the local heuristics.
             $needsKindRound = $needsKindRound || ($reported === [] && $bareCompared['moved'] !== []);
-            unset($bareCompared);
+            unset($bareCompared, $bare);
         }
         if (!$needsKindRound && self::takesLocalForm($unchecked, $undecided, $localDecided)) {
             // The record is rebuilt where the rounds need it, so the read-back does not hold it beside a second tree.
+            // So are the bare read-back and its marked candidate.
             unset($localEscapes);
+            $read = null;
+            $markedBare = null;
             if ($pairsOnly || self::readsBack($result->source, $treePrint, $options)) {
                 return self::withPrunedNoteCarets($result, $treePrint, $options, $parsed);
             }
@@ -649,11 +655,15 @@ final class Writer
             $conservativeLater = !$cellTicks;
         }
         $glued = RepairPlanner::gluedTicks($tree);
-        if ($read === null || $glued !== []) {
+        if ($read === null && $glued === [] && $removed === [] && $firstBare !== null) {
+            // The rounds start from the bare form the kind check above wrote and read.
+            [$bareSource, $read, $readPrint, $readParts, , $bareRanges] = $firstBare;
+        } elseif ($read === null || $glued !== []) {
             $bareSource = self::recordedBare($tree, $layout, $options, $glued, $bareRanges);
             $read = ReadbackRound::read($bareSource, $options);
             [$readPrint, $readParts] = RepairPlanner::readPrints($read);
         }
+        unset($firstBare);
         $seed = $glued;
         $planner = null;
         $scoped = null;
