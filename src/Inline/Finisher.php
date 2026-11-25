@@ -272,6 +272,12 @@ final class Finisher
 
                 return Chars::at($this->t, $item[2]);
             }
+            // A braced comment shows nothing, so the flow passes through it (C2-I-099).
+            if ($item[1] instanceof Node && $item[1]->type === 'comment') {
+                $k++;
+
+                continue;
+            }
             // An inline footnote shows a marker, not its content (C2-I-099).
             if (!$item[5] instanceof TokenList || ($item[1] instanceof Node && $item[1]->type === 'inline_footnote')) {
                 return -1;
@@ -336,9 +342,33 @@ final class Finisher
                 assert(is_int($te));
                 $k++;
             }
-            $this->segment($ts, $te, $first, $prev, $next, $pieces);
+            $after = $k < $count && $this->ctx->abbreviations !== [] ? $this->leading($run, $k, $next) : $next;
+            $this->segment($ts, $te, $first, $prev, $after, $pieces);
         }
         $this->emitPieces($pieces, $out);
+    }
+
+    /**
+     * C2-I-099: the first visible character of the run from item `$k`, so a word before a literal item
+     * reads that item's text, not the character after the whole run.
+     *
+     * @param array<int, array<mixed>> $run
+     * @param int $k
+     * @param int $next
+     *
+     * @return int
+     */
+    private function leading(array $run, int $k, int $next): int
+    {
+        $count = count($run);
+        for (; $k < $count; $k++) {
+            $value = $run[$k][1];
+            if (is_string($value) && $value !== '') {
+                return Chars::at($value, 0);
+            }
+        }
+
+        return $next;
     }
 
     /**
