@@ -2963,7 +2963,8 @@ final class Inline
         int &$deepest,
         array &$walk,
     ): void {
-        for ($i = 0, $n = strlen($value); $i < $n; $i++) {
+        // Only brackets act; the text between them is skipped whole.
+        for ($i = strcspn($value, '[]'), $n = strlen($value); $i < $n; $i += 1 + strcspn($value, '[]', $i + 1)) {
             if ($value[$i] === '[') {
                 $open[] = [$key, $i];
                 $nested[] = false;
