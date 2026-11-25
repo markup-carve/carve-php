@@ -216,10 +216,12 @@ final class Inline
             if (!is_array($node)) {
                 continue;
             }
-            $type = self::str($node, 'type');
+            $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             if ($type === 'text' && is_string($node['value'] ?? null)) {
-                $counts['/'] += substr_count($node['value'], '/');
-                $counts['*'] += substr_count($node['value'], '*');
+                if (strpbrk($node['value'], '/*') !== false) {
+                    $counts['/'] += substr_count($node['value'], '/');
+                    $counts['*'] += substr_count($node['value'], '*');
+                }
             } elseif ($type === 'smart_punctuation' && is_string($node['source'] ?? null)) {
                 $counts['/'] += substr_count($node['source'], '/');
             } elseif (isset(self::PAIRED[$type])) {
@@ -578,15 +580,21 @@ final class Inline
             return [];
         }
         $counts = [];
-        foreach ($escaped as $at => $on) {
-            if ($on) {
-                $counts[$value[$at] ?? ''] = ($counts[$value[$at] ?? ''] ?? 0) + 1;
-            }
+        foreach (array_filter($escaped) as $at => $_) {
+            $mark = $value[$at] ?? '';
+            $counts[$mark] = ($counts[$mark] ?? 0) + 1;
         }
+        // Each mark the text holds is counted once, found by skipping the runs without one.
         $bare = [];
-        foreach (str_split(count_chars($value, 3)) as $mark) {
-            if (str_contains(self::ASCII_PUNCT, $mark) && substr_count($value, $mark) > ($counts[$mark] ?? 0)) {
-                $bare[$mark] = true;
+        $seen = [];
+        $n = strlen($value);
+        for ($at = strcspn($value, self::ASCII_PUNCT); $at < $n; $at += 1 + strcspn($value, self::ASCII_PUNCT, $at + 1)) {
+            $mark = $value[$at];
+            if (!isset($seen[$mark])) {
+                $seen[$mark] = true;
+                if (substr_count($value, $mark) > ($counts[$mark] ?? 0)) {
+                    $bare[$mark] = true;
+                }
             }
         }
 
@@ -625,7 +633,16 @@ final class Inline
         $dots = 0;
         // The hyphen and dot runs feed only the escape decisions, and a traced write spells its texts bare.
         $traced = $c->writerState?->repairTrace !== null;
-        $dotsAhead = $traced ? [] : self::dotsAhead($nodes);
+        // C2-I-114: a list whose nodes hold no dot of their own has no dot runs.
+        $dotted = false;
+        foreach ($traced ? [] : $nodes as $node) {
+            if (is_array($node) && self::holds($node, '.', 'children')) {
+                $dotted = true;
+
+                break;
+            }
+        }
+        $dotsAhead = $dotted ? self::dotsAhead($nodes) : [];
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
             if (!is_array($node)) {
@@ -633,19 +650,40 @@ final class Inline
             }
             $type = is_string($node['type'] ?? null) ? $node['type'] : '';
             $following = $nodes[$at + 1] ?? null;
+            $text = $type === 'text';
+            // The neighbor fields are set here rather than by a call per node: this loop runs for every inline node.
+            // C2-W-099, C2-I-114: the hyphen and dot runs a text continues.
             if (!$traced) {
-                self::hyphenNeighbors($c, $type, $following, $hyphens);
-                self::dotNeighbors($c, $type, $dots, $dotsAhead, $at);
-                $this->loseLoneEmptyText($nodes, $at, $path);
+                $c->hyphensBefore = $text ? $hyphens : 0;
+                $c->hyphenAfter = $text && is_array($following) && ($following['type'] ?? '') === 'text'
+                    && str_starts_with(self::str($following, 'value'), '-');
+                $c->lastInContent = $text && $following === null;
+                $c->dotsBefore = $text ? $dots : 0;
+                $c->dotsAfter = $text ? $dotsAhead[$at + 1] ?? 0 : 0;
+                if ($text && ($node['value'] ?? null) === '') {
+                    $this->loseLoneEmptyText($nodes, $at, $path);
+                }
             }
-            self::resetFollowingPipe($c, $type);
-            $c->lineCommentBefore = $type === 'text' && self::followsLineComment($nodes, $at);
-            $c->afterText = self::isText($visibleNode);
+            if (!$text && !isset(self::VERBATIM[$type])) {
+                $c->escapeFollowingPipeAt = -1;
+            }
+            $c->lineCommentBefore = $text && $at > 1 && self::followsLineComment($nodes, $at);
+            $c->afterText = ($visibleNode['type'] ?? null) === 'text';
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
-            $this->visibleNext = self::visibleNext($nodes, $at, $c, $next);
-            $c->lineTail = $type === 'text' && is_array($following) ? self::spanLineTail($following) : null;
-            self::setFollowingTextLine($c, $nodes, $at, $type);
+            // The first character behind the node, which `listed()` reads too; past a braced comment it is searched.
+            $firstFollowing = is_array($following) ? self::first($following, $c) : null;
+            $this->visibleNext = $firstFollowing !== null && !self::isBracedComment($following)
+                ? $firstFollowing : self::visibleNext($nodes, $at, $c, $next);
+            $c->lineTail = $text && is_array($following) && is_string($following['type'] ?? null)
+                && isset(self::VERBATIM[$following['type']]) ? self::spanLineTail($following) : null;
+            $c->lineAfterSpan = '';
+            $c->lineAfterSpanEnds = false;
+            $c->lineAfterSpanPipeSource = -1;
+            $c->lineAfterSpanPipeText = -1;
+            if (isset(self::VERBATIM[$type])) {
+                self::setFollowingTextLine($c, $nodes, $at, $type);
+            }
             if ($c->inCell) {
                 $this->loseGluedRun($nodes, $at, $path, $type);
             }
@@ -660,7 +698,8 @@ final class Inline
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);
             } else {
                 $this->spanAfterBang = $type === 'span' && $this->followsBareBang($node, $out);
-                $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo);
+                // A continuation row can move the line start, which the first of a hard break reads.
+                $part = $this->listed($nodes, $at, $path, $c, $next, $out, $redo, $c->inCell ? null : $firstFollowing);
             }
             // C2-W-125 case six: a reported braced opener in a paired node can take a trial beside it in the same
             // round. Force that trial at the closer mark which starts the following text, without giving it a kind.
@@ -676,11 +715,21 @@ final class Inline
             $parts[2][] = $at;
             $out .= $part;
             if (!$traced) {
-                $hyphens = self::hyphensAfter($node, $type, $c, $hyphens);
-                $dots = self::dotsAfter($node, $dots);
+                // The hyphens the node ends a run with: a text's, with those before it when it is all hyphens, and one
+                // for a dash node (C2-W-125 case four).
+                if ($text) {
+                    $spelled = self::str($node, 'value');
+                    $run = strlen($spelled) - strlen(rtrim($spelled, '-'));
+                    $hyphens = $run === strlen($spelled) ? $hyphens + $run : $run;
+                } else {
+                    $hyphens = $c->last === 0x2D ? 1 : 0;
+                }
+                $dots = $dotted ? self::dotsAfter($node, $dots) : 0;
             }
-            self::advanceFollowingPipe($c, $node, $type);
-            if (!self::isBracedComment($node)) {
+            if ($text) {
+                self::advanceFollowingPipe($c, $node, $type);
+            }
+            if ($type !== 'comment' || ($node['form'] ?? '') !== 'braced') {
                 $visible = $c->lineStart ? -1 : $c->last;
                 $visibleNode = $node;
             }
@@ -888,13 +937,6 @@ final class Inline
         return [$first, $last];
     }
 
-    private static function resetFollowingPipe(Context $c, string $type): void
-    {
-        if ($type !== 'text' && !in_array($type, ['code', 'math', 'literal_inline', 'raw_inline'], true)) {
-            $c->escapeFollowingPipeAt = -1;
-        }
-    }
-
     /**
      * @param \MarkupCarve\Carve\Writer\Context $c
      * @param array<mixed> $node
@@ -949,10 +991,6 @@ final class Inline
      */
     private static function setFollowingTextLine(Context $c, array $nodes, int $at, string $type): void
     {
-        $c->lineAfterSpan = '';
-        $c->lineAfterSpanEnds = false;
-        $c->lineAfterSpanPipeSource = -1;
-        $c->lineAfterSpanPipeText = -1;
         if (!self::multilineSpan($nodes[$at] ?? null, $type)) {
             return;
         }
@@ -1062,27 +1100,33 @@ final class Inline
      * @param string $out What the list wrote so far.
      * @param array{0: int, 1: int, 2: \MarkupCarve\Carve\Writer\Context}|null $redo Where the text before stands in
      *   `$out`, and the context it was written in.
+     * @param int|null $first The first character of the following node, where the caller read it.
      *
      * @return string
      */
-    private function listed(array $nodes, int $at, string $path, Context $c, int $next, string &$out, ?array &$redo): string
-    {
+    private function listed(
+        array $nodes,
+        int $at,
+        string $path,
+        Context $c,
+        int $next,
+        string &$out,
+        ?array &$redo,
+        ?int $first = null,
+    ): string {
         $node = (array)$nodes[$at];
         $following = $nodes[$at + 1] ?? null;
-        $c->beforeSoftBreak = self::isSoftBreak($following);
-        $c->beforeHardBreak = is_array($following) && ($following['type'] ?? '') === 'hard_break';
-        $after = is_array($following) ? self::first($following, $c) : $next;
+        $followingType = is_array($following) && is_string($following['type'] ?? null) ? $following['type'] : '';
+        $c->beforeSoftBreak = $followingType === 'soft_break';
+        $c->beforeHardBreak = $followingType === 'hard_break';
+        $after = is_array($following) ? $first ?? self::first($following, $c) : $next;
         // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form. An empty span
         // writes nothing, so nothing glues to it.
-        $type = self::str($node, 'type');
-        if (
-            isset(self::PAIRED[$type]) && is_array($following) && self::str($following, 'type') === $type
-            && ($following['children'] ?? []) !== []
-        ) {
+        $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+        if (isset(self::PAIRED[$type]) && $followingType === $type && ($following['children'] ?? []) !== []) {
             $after = 0x7B;
         }
-        $retry = $type === 'text' && is_array($following) && isset(self::PAIRED[self::str($following, 'type')])
-            && str_ends_with(self::str($node, 'value'), '{');
+        $retry = $type === 'text' && isset(self::PAIRED[$followingType]) && str_ends_with(self::str($node, 'value'), '{');
         $snapshot = null;
         if ($retry) {
             // The replay never reads the run log; a shared one would be copied in full on the next append.
@@ -1105,11 +1149,6 @@ final class Inline
         return $part;
     }
 
-    private static function isSoftBreak(mixed $node): bool
-    {
-        return is_array($node) && ($node['type'] ?? '') === 'soft_break';
-    }
-
     /**
      * C2-A-069: inside a line of a line block every line ending ends the line, so a soft break, and a hard break before
      * more content, splits the line. The bare line ending is the nearest form (C2-W-117). A break before a soft break
@@ -1120,57 +1159,6 @@ final class Inline
         if ($c->inLineBlock && !$c->inCell && $next !== -1 && !$c->beforeSoftBreak) {
             $this->w->lose($path, $type, null);
         }
-    }
-
-    /**
-     * C2-W-099: the hyphens of the run a text node continues, and whether the next text node continues it.
-     */
-    private static function hyphenNeighbors(Context $c, string $type, mixed $following, int $hyphens): void
-    {
-        $c->hyphensBefore = $type === 'text' ? $hyphens : 0;
-        $c->hyphenAfter = $type === 'text' && is_array($following) && ($following['type'] ?? '') === 'text'
-            && str_starts_with(self::str($following, 'value'), '-');
-        $c->lastInContent = $type === 'text' && $following === null;
-    }
-
-    /**
-     * The hyphens the written node ends a run with: a text value's, counting those before it when it is all hyphens,
-     * and one for a dash node (C2-W-125 case four).
-     *
-     * @param array<mixed> $node
-     * @param string $type
-     * @param \MarkupCarve\Carve\Writer\Context $c
-     * @param int $before
-     *
-     * @return int
-     */
-    private static function hyphensAfter(array $node, string $type, Context $c, int $before): int
-    {
-        if ($type !== 'text') {
-            return $c->last === 0x2D ? 1 : 0;
-        }
-        $value = self::str($node, 'value');
-        $run = strlen($value) - strlen(rtrim($value, '-'));
-
-        return $run === strlen($value) ? $before + $run : $run;
-    }
-
-    /**
-     * C2-I-114: the dots of the run a text node continues, before and after it.
-     *
-     * @param \MarkupCarve\Carve\Writer\Context $c
-     * @param string $type
-     * @param int $dots
-     * @param array<int, int> $ahead
-     * @param int $at
-     *
-     * @return void
-     */
-    private static function dotNeighbors(Context $c, string $type, int $dots, array $ahead, int $at): void
-    {
-        $text = $type === 'text';
-        $c->dotsBefore = $text ? $dots : 0;
-        $c->dotsAfter = $text ? $ahead[$at + 1] ?? 0 : 0;
     }
 
     /**
@@ -1283,7 +1271,10 @@ final class Inline
         // Most lists hold no mark, and the keys below are as long as the path.
         $marks = false;
         foreach ($nodes as $node) {
-            if (is_array($node) && self::str($node, 'type') === 'text' && strpbrk(self::str($node, 'value'), '/*') !== false) {
+            if (
+                is_array($node) && ($node['type'] ?? null) === 'text' && is_string($node['value'] ?? null)
+                && strpbrk($node['value'], '/*') !== false
+            ) {
                 $marks = true;
 
                 break;
@@ -1391,6 +1382,29 @@ final class Inline
         });
 
         return $out;
+    }
+
+    /**
+     * Whether one of `strings()` of `$node` holds `$mark`, a single character, without building them.
+     *
+     * @param array<mixed> $node
+     * @param string $mark
+     * @param string|null $skip A field of `$node` itself left out.
+     *
+     * @return bool
+     */
+    public static function holds(array $node, string $mark, ?string $skip = null): bool
+    {
+        foreach ($node as $key => $value) {
+            if ($key === $skip) {
+                continue;
+            }
+            if (is_string($value) ? str_contains($value, $mark) : is_array($value) && self::holds($value, $mark)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1709,8 +1723,9 @@ final class Inline
         if ($out === '') {
             return;
         }
-        $c->last = Chars::before($out, strlen($out));
-        $c->lineStart = $c->blockLines && $out[strlen($out) - 1] === "\n";
+        $byte = ord($out[-1]);
+        $c->last = $byte < 0x80 ? $byte : Chars::before($out, strlen($out));
+        $c->lineStart = $c->blockLines && $byte === 10;
         if ($c->lineStart) {
             $c->prevOpenedLine = $c->openedLine;
             $c->openedLine = null;
@@ -1733,7 +1748,9 @@ final class Inline
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         if ($type === 'text') {
-            $this->loseTextFields($node, $path);
+            if (array_key_exists('dir', $node) || array_key_exists('metadata', $node)) {
+                $this->loseTextFields($node, $path);
+            }
             $points = $c->inCell ? ($this->w->wrapPoints[$path] ?? null) : null;
             $c->here = $points === null ? $c->flatAt[$path] ?? -1 : -1;
             $c->textPath = $path;
@@ -1768,7 +1785,7 @@ final class Inline
         }
         $this->moved($c, $out);
 
-        return $this->tracedNode($out, $path, $type);
+        return $this->w->repairTrace === null ? $out : $this->tracedNode($out, $path, $type);
     }
 
     // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
@@ -1789,9 +1806,20 @@ final class Inline
             return;
         }
         $children = array_values($children);
-        $slash = strrpos($path, '/');
-        $key = strlen($path) . '/' . substr($path, $slash === false ? 0 : $slash + 1);
-        if ($this->onlyEmptyAt($children, strlen($path), $key) || self::emptyTextRun($children, count($children) - 1) !== null) {
+        $lead = $children[0];
+        $leadType = is_array($lead) && is_string($lead['type'] ?? null) ? $lead['type'] : '';
+        // A first child that writes something of its own leaves the content nonempty (`emptyNested()`).
+        if (
+            !is_array($lead) || ($leadType === 'text' ? ($lead['value'] ?? '') !== ''
+                : !isset(self::PAIRED[$leadType]) && !isset(self::BRACED[$leadType]))
+        ) {
+            $this->forgetEmptyAt($children, strlen($path));
+            $only = false;
+        } else {
+            $slash = strrpos($path, '/');
+            $only = $this->onlyEmptyAt($children, strlen($path), strlen($path) . '/' . substr($path, $slash === false ? 0 : $slash + 1));
+        }
+        if ($only || self::emptyTextRun($children, count($children) - 1) !== null) {
             $this->w->lose($path, $type, null);
         }
     }
@@ -1828,13 +1856,26 @@ final class Inline
             }
         }
         $this->emptyContent[$key] = [$children, $only];
-        // Each answer is read once, by the level above; a kept one would hold its replaced content alive.
+        $this->forgetEmptyAt($children, $length);
+
+        return $only;
+    }
+
+    /**
+     * Each answer of `onlyEmptyAt()` is read once, by the level above; a kept one would hold its replaced content alive.
+     *
+     * @param array<mixed> $children
+     * @param int $length The length of the node's path.
+     */
+    private function forgetEmptyAt(array $children, int $length): void
+    {
+        if ($this->emptyContent === []) {
+            return;
+        }
         foreach ($children as $k => $child) {
             $childLength = $length + 10 + strlen((string)$k);
             unset($this->emptyContent[$childLength . '/' . $k]);
         }
-
-        return $only;
     }
 
     /**
@@ -2031,6 +2072,9 @@ final class Inline
         }
     }
 
+    // Runs for every text node; the cheap tests of its loss reports stay inline.
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     /**
      * @param array<mixed> $node
      * @param \MarkupCarve\Carve\Writer\Context $c
@@ -2042,8 +2086,13 @@ final class Inline
     private function text(array $node, Context $c, int $next, mixed $before): string
     {
         $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-        $this->reportLeadingValueLoss($value, $c, $next);
-        $this->loseLineFeed($value, $c);
+        if ($c->lineStart) {
+            $this->reportLeadingValueLoss($value, $c, $next);
+        }
+        // C2-W-117: outside a cell a line feed in text reads back as a soft break, so the value does not survive.
+        if (!$c->inCell && str_contains($value, "\n")) {
+            $this->w->lose($c->textPath, 'text', 'value');
+        }
         // C2-W-022: no space or tab of text stands at the end of a line.
         if ($next === 10 && !$c->bareBreaks) {
             $value = rtrim($value, " \t");
@@ -2080,12 +2129,16 @@ final class Inline
             $c->last = 0x28;
         }
 
-        self::traceGluedTick($prefix, $value, $before, $c);
+        if ($c->writerState?->repairTrace !== null) {
+            self::traceGluedTick($prefix, $value, $before, $c);
+        }
         $this->textPrefix = strlen($prefix);
         $this->textValue = $value;
 
         return $prefix . Text::escapePairs($value, $c, $next);
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * Whether a link tail can follow the closing bracket that ends the written form of `$before`.
@@ -2100,7 +2153,7 @@ final class Inline
             // C2-I-066: the bracket of an inline extension is no link text, so no tail follows it.
             'footnote_ref', 'inline_extension' => false,
             // Bare, a bracket inside the note pairs with its closer, and the tail makes a link of that pair.
-            'inline_footnote' => str_contains(self::strings($before), '['),
+            'inline_footnote' => self::holds($before, '['),
             'link', 'image' => !is_string($before['key'] ?? null) || ($before['refForm'] ?? 'full') === 'shortcut',
             default => true,
         };
@@ -2115,16 +2168,6 @@ final class Inline
     private static function tailCloses(Context $c): bool
     {
         return $c->flat === null || $c->here < 0 || AltSource::tailEnd($c->flat, $c->here) >= 0;
-    }
-
-    /**
-     * C2-W-117: outside a cell a line feed in text reads back as a soft break, so the value does not survive.
-     */
-    private function loseLineFeed(string $value, Context $c): void
-    {
-        if (!$c->inCell && str_contains($value, "\n")) {
-            $this->w->lose($c->textPath, 'text', 'value');
-        }
     }
 
     /**
@@ -2183,6 +2226,10 @@ final class Inline
         }
         if (isset(self::BRACED[$type])) {
             return $this->braced($node, self::BRACED[$type], $path, $c);
+        }
+        // The most common node with content, ahead of the field spellings it is none of.
+        if ($type === 'link') {
+            return $this->link($node, $path, $c);
         }
 
         return $this->spelledFromFields($node, $type, $path, $c, $next) ?? $this->spelledWithContent($node, $type, $path, $c, $next);
@@ -2789,6 +2836,10 @@ final class Inline
      */
     private static function pairedBrackets(array $nodes, string $path, array $labels, bool $notes, bool $braces = true): array
     {
+        // No pair forms without an opening bracket.
+        if (!self::holds($nodes, '[')) {
+            return [];
+        }
         $open = [];
         $nested = [];
         $paired = [];
@@ -2821,9 +2872,17 @@ final class Inline
                 continue;
             }
             $type = $node['type'] ?? '';
+            // A text of its value alone, as most are.
+            if ($type === 'text' && count($node) === 2 && is_string($node['value'] ?? null)) {
+                if (str_contains($node['value'], '}')) {
+                    return true;
+                }
+
+                continue;
+            }
             if (
                 !in_array($type, ['text', 'soft_break', 'hard_break', 'link', 'inline_footnote'], true)
-                || isset($node['attrs']) || str_contains(self::strings(array_diff_key($node, ['children' => true])), '}')
+                || isset($node['attrs']) || self::holds($node, '}', 'children')
                 || (is_array($node['children'] ?? null) && self::mayWriteBrace($node['children']))
             ) {
                 return true;
@@ -2915,7 +2974,8 @@ final class Inline
         int &$deepest,
         array &$walk,
     ): void {
-        for ($i = 0, $n = strlen($value); $i < $n; $i++) {
+        // Only brackets act; the text between them is skipped whole.
+        for ($i = strcspn($value, '[]'), $n = strlen($value); $i < $n; $i += 1 + strcspn($value, '[]', $i + 1)) {
             if ($value[$i] === '[') {
                 $open[] = [$key, $i];
                 $nested[] = false;
@@ -3018,7 +3078,12 @@ final class Inline
      */
     private function markCaseEightLinks(array $nodes, string $path): void
     {
-        $caretLinks = array_filter($nodes, static fn (mixed $node): bool => is_array($node) && self::caretText($node));
+        $caretLinks = [];
+        foreach ($nodes as $at => $node) {
+            if (is_array($node) && ($node['type'] ?? '') === 'link' && self::caretText($node)) {
+                $caretLinks[$at] = $node;
+            }
+        }
         if ($caretLinks === []) {
             return;
         }
@@ -3386,6 +3451,10 @@ final class Inline
      */
     public static function destination(string $value, bool $pipes = false): string
     {
+        // Only a parenthesis, a backslash or a pipe takes a backslash.
+        if (strpbrk($value, '()\\|') === false) {
+            return $value;
+        }
         $unmatched = [];
         $open = [];
         $n = strlen($value);

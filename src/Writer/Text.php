@@ -7,10 +7,12 @@ namespace MarkupCarve\Carve\Writer;
 use Closure;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\IncludeShape;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\Markers;
 use MarkupCarve\Carve\Block\TableBuilder;
+use MarkupCarve\Carve\Block\TreeSink;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
@@ -1032,8 +1034,8 @@ final class Text
         $shielded = [];
         $atoms = [];
         if (
-            $c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded, $atoms)
-            || $owners === []
+            $c->leafNodes === null || !Inline::holds($c->leafNodes, '`')
+            || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded, $atoms) || $owners === []
         ) {
             return null;
         }
@@ -1154,7 +1156,7 @@ final class Text
             } elseif ($type === 'soft_break' || $type === 'hard_break') {
                 $flat .= "\n";
             } elseif (is_string($type) && isset(self::PLAN_SPANS[$type]) && is_array($node['children'] ?? null)) {
-                if (str_contains(Inline::strings(array_diff_key($node, ['children' => true])), '`')) {
+                if (Inline::holds($node, '`', 'children')) {
                     return false;
                 }
                 $flat .= "\1";
@@ -1166,7 +1168,7 @@ final class Text
                 $spelled = (string)self::plannedAtom($node);
                 $atomSpans[] = [strlen($flat) + (int)strpos($spelled, '`'), strlen($flat) + (int)strrpos($spelled, '`') + 1];
                 $flat .= $spelled;
-            } elseif (in_array($type, self::TICK_ATOMS, true) || str_contains(Inline::strings($node), '`')) {
+            } elseif (in_array($type, self::TICK_ATOMS, true) || Inline::holds($node, '`')) {
                 return false;
             } else {
                 $flat .= "\1";
@@ -1544,7 +1546,7 @@ final class Text
     {
         foreach ($c->flatNodes as $node) {
             $type = $node['type'] ?? null;
-            if (is_string($type) && !isset(self::WHOLE[$type]) && str_contains(Inline::strings($node), '`')) {
+            if (is_string($type) && !isset(self::WHOLE[$type]) && Inline::holds($node, '`')) {
                 return true;
             }
         }
@@ -1759,6 +1761,10 @@ final class Text
      */
     public static function runPairOpeners(array $log): array
     {
+        // A run takes two entries.
+        if (count($log) < 2) {
+            return [];
+        }
         // The run of each entry by number, so a long paragraph of lone texts builds no array per entry (carve-php#5664).
         $runOf = [];
         $sizes = [];
@@ -2151,7 +2157,7 @@ final class Text
             $node = $c->flatNodes[$at] ?? null;
             if (
                 isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
-                && ((isset(self::SEALED[$type]) && !self::openComment($node)) || !str_contains(Inline::strings($node), ']')))
+                && ((isset(self::SEALED[$type]) && !self::openComment($node)) || !Inline::holds($node, ']')))
             ) {
                 $out[$at] = true;
             }
@@ -4075,8 +4081,15 @@ final class Text
         $flat = $c->flat;
         $n = strlen($flat);
         $rest = '';
-        for ($i = $c->here + strlen($value); $i < $n && $flat[$i] !== "\n"; $i++) {
-            $spelled = $flat[$i] !== "\0" ? $flat[$i] : $c->flatAtoms[$i] ?? self::nodeOnLine($i, $c);
+        for ($i = $c->here + strlen($value); $i < $n; $i++) {
+            // The text up to the next node or line end is taken whole.
+            $run = strcspn($flat, "\0\n", $i);
+            $rest .= substr($flat, $i, $run);
+            $i += $run;
+            if ($i >= $n || $flat[$i] === "\n") {
+                break;
+            }
+            $spelled = $c->flatAtoms[$i] ?? self::nodeOnLine($i, $c);
             if ($spelled === null) {
                 return null;
             }
@@ -4148,7 +4161,7 @@ final class Text
             return chr($first) . ($tick ? 'x`' : 'x');
         }
 
-        return str_contains(Inline::strings($node), '`') ? null : chr($first) . 'x';
+        return Inline::holds($node, '`') ? null : chr($first) . 'x';
     }
 
     /**
@@ -4179,7 +4192,7 @@ final class Text
             }
         }
 
-        return str_contains(Inline::strings(is_array($node['attrs'] ?? null) ? $node['attrs'] : []), '`') ? true : false;
+        return Inline::holds(is_array($node['attrs'] ?? null) ? $node['attrs'] : [], '`') ? true : false;
     }
 
     /**
@@ -4417,7 +4430,11 @@ final class Text
         if ($read !== null) {
             return $read;
         }
-        $children = Carve::parse($source)->children ?? [];
+        // The top blocks are the block pass's; the inline pass and resolution only fill and annotate them. An include
+        // is expanded after the block pass, so that line takes the whole parse.
+        $sink = new TreeSink($source);
+        (new BlockParser($sink))->parse($source);
+        $children = $sink->hasInclude ? Carve::parse($source)->children ?? [] : $sink->root->children ?? [];
         $read = [count($children), (string)($children[0]->type ?? '')];
         if (count(self::$blockReads) >= self::BLOCK_READS) {
             self::$blockReads = [];

@@ -110,7 +110,8 @@ final class Blocks
      */
     public bool $bareBreaks = false;
 
-    private TableWriter $tables;
+    // Made at the first table: a document without one does not load the table writer.
+    private ?TableWriter $tables = null;
 
     private string $bodyOwner = 'body';
 
@@ -126,7 +127,11 @@ final class Blocks
     public function __construct(private State $w)
     {
         $this->inline = new Inline($w);
-        $this->tables = new TableWriter($w, $this->inline);
+    }
+
+    private function tables(): TableWriter
+    {
+        return $this->tables ??= new TableWriter($this->w, $this->inline);
     }
 
     /**
@@ -814,7 +819,7 @@ final class Blocks
             return $block === '' && $name !== null ? BraceBlock::of($node) : $block;
         }
         if ($type === 'table') {
-            $line = $this->tables->attributeLine($node, $path);
+            $line = $this->tables()->attributeLine($node, $path);
 
             return $line !== '' ? $line : '{footer-rows=0}';
         }
@@ -2588,9 +2593,9 @@ final class Blocks
         $this->checkAttrs($node, $path);
         if ($this->w->prewritten === $path) {
             $this->w->prewritten = null;
-            $this->tables->write($node, $path, $prefix, true);
+            $this->tables()->write($node, $path, $prefix, true);
         } else {
-            $this->tables->write($node, $path, $prefix, false);
+            $this->tables()->write($node, $path, $prefix, false);
         }
         $this->caption($node['caption'] ?? null, $path . '/caption', $prefix);
     }

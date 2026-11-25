@@ -156,6 +156,9 @@ final class TreeEquality
      */
     private static function sameMaps(array $a, array $b, bool $marksA, bool $marksB): bool
     {
+        if (!isset($a['children']) && self::identicalLeaves($a, $b)) {
+            return true;
+        }
         $typeA = is_string($a['type'] ?? null) ? $a['type'] : null;
         $typeB = is_string($b['type'] ?? null) ? $b['type'] : null;
         if ($typeA === 'table') {
@@ -184,6 +187,28 @@ final class TreeEquality
         }
 
         return $count === 0;
+    }
+
+    /**
+     * Two leaves identical but for their positions are the same; with `children` the test could walk a subtree. Only a
+     * node's `pos` is a position: in an untyped map, such as extension props, it is data.
+     *
+     * @param array<mixed> $a
+     * @param array<mixed> $b
+     */
+    private static function identicalLeaves(array $a, array $b): bool
+    {
+        if (isset($a['children']) || isset($b['children'])) {
+            return false;
+        }
+        if (is_string($a['type'] ?? null)) {
+            unset($a['pos']);
+        }
+        if (is_string($b['type'] ?? null)) {
+            unset($b['pos']);
+        }
+
+        return $a === $b;
     }
 
     /**

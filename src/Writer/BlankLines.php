@@ -93,8 +93,8 @@ final class BlankLines
                 continue;
             }
             $type = $node['type'] ?? '';
-            $at = $path . '/' . $i;
             if ($type === 'soft_break') {
+                $at = $path . '/' . $i;
                 if ($this->blank) {
                     $this->w->lose($at, 'soft_break', null);
                 }
@@ -112,7 +112,7 @@ final class BlankLines
                 // The markers of a container or an atom fill the line they stand on.
                 $this->filled();
                 if (is_array($node['children'] ?? null) && array_is_list($node['children'])) {
-                    $this->inlines($node['children'], $at . '/children');
+                    $this->inlines($node['children'], $path . '/' . $i . '/children');
                     $this->filled();
                 }
             }
