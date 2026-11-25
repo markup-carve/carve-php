@@ -446,8 +446,21 @@ final class TableBuilder
                 }
                 $current[$c] = $target;
             }
+            $joins = [];
             foreach ($row->cont as $n => $fragments) {
-                self::join($row->cells, $current, [$r, $n + 1, $row->contSlots[$n] ?? []], $fragments);
+                self::join($row->cells, $current, [$r, $n + 1, $row->contSlots[$n] ?? []], $fragments, $joins);
+            }
+            ksort($joins);
+            foreach ($joins as $column) {
+                foreach ($column as [$target, $start, $end, $line]) {
+                    // The cell's own row starts its first fragment; wrapAt is only read for joined cells.
+                    if ($target->wrapAt === [] && $target->lines !== []) {
+                        $target->wrapAt[] = [0, 0];
+                    }
+                    $target->lines[] = $start;
+                    $target->lines[] = $end;
+                    $target->wrapAt[] = [$line, $r - $target->row];
+                }
             }
             $width = max($width, count($row->cells));
             $previous = $current;
@@ -492,15 +505,17 @@ final class TableBuilder
 
     /**
      * C2-B-176, C2-B-184: each fragment joins the cell that covers its column; one past the last column forms a new cell.
+     * The fragments are collected by column, so a cell covering several columns joins them column by column.
      *
      * @param array<int, \MarkupCarve\Carve\Block\TableCell> $cells
      * @param array<int, \MarkupCarve\Carve\Block\TableCell> $cover
      * @param array{0: int, 1: int, 2: array<int>} $at The row, the number of its continuation row and its slot starts.
      * @param array<int> $fragments
+     * @param array<int, array<array{0: \MarkupCarve\Carve\Block\TableCell, 1: int, 2: int, 3: int}>> $joins
      *
      * @return void
      */
-    private static function join(array &$cells, array &$cover, array $at, array $fragments): void
+    private static function join(array &$cells, array &$cover, array $at, array $fragments, array &$joins): void
     {
         [$r, $line, $slots] = $at;
         $header = self::continuationIsHeader($cells, $cover);
@@ -521,13 +536,7 @@ final class TableBuilder
             }
             $target = $cover[$c];
             $target->joined = true;
-            // The cell's own row starts its first fragment; wrapAt is only read for joined cells.
-            if ($target->wrapAt === [] && $target->lines !== []) {
-                $target->wrapAt[] = [0, 0];
-            }
-            $target->lines[] = $fragments[$k];
-            $target->lines[] = $fragments[$k + 1];
-            $target->wrapAt[] = [$line, $r - $target->row];
+            $joins[$c][] = [$target, $fragments[$k], $fragments[$k + 1], $line];
         }
     }
 
