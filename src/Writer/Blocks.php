@@ -1168,7 +1168,15 @@ final class Blocks
             $this->w->lose($path, Inline::str($node, 'type'), null);
         }
         if ($mark === '') {
-            $text = self::protectLead($text, $children, $this->w->lead, $path, $this->w->repairTrace === null);
+            $protected = FirstLine::lead($text, $children, $this->w->lead, $path, $this->w->repairTrace === null);
+            $kind = $this->w->repairTrace === null && $protected !== $text ? FirstLine::kind($text, $protected) : null;
+            if ($kind !== null) {
+                $c = $this->context($children, true, $prefix);
+                $c->kinds = [$kind => true];
+                $text = $this->inline->content($children, $path . '/children', $c, -1);
+                $protected = FirstLine::lead($text, $children, $this->w->lead, $path, true);
+            }
+            $text = $protected;
         }
         $text = self::endContent($text, $children, $c);
         if ($mark === '' && ($node['type'] ?? null) === 'paragraph' && self::metadataLead($children, $path, $text)) {
@@ -1311,49 +1319,6 @@ final class Blocks
         }
 
         return $paragraph ?? $text;
-    }
-
-    /**
-     * `protectParagraphLead()`, and for content that goes on its first line; a traced write leaves that to the rounds.
-     *
-     * @param string $text
-     * @param array<mixed> $children
-     * @param string|null $head
-     * @param string $path
-     * @param bool $lines
-     *
-     * @return string
-     */
-    private static function protectLead(string $text, array $children, ?string $head, string $path, bool $lines): string
-    {
-        $newline = strpos($text, "\n");
-        if ($newline === false) {
-            return self::protectParagraphLead($text, $children, $head, $path);
-        }
-
-        return $lines ? self::firstLine($text, $newline, $children, $head, $path) : $text;
-    }
-
-    /**
-     * C2-W-092: a first line that starts with text is tested as it is written (Text::firstLine), and only an attribute or
-     * include line starts with a brace, which the text writer tests too.
-     *
-     * @param string $text
-     * @param int $newline
-     * @param array<mixed> $children
-     * @param string|null $head
-     * @param string $path
-     *
-     * @return string
-     */
-    private static function firstLine(string $text, int $newline, array $children, ?string $head, string $path): string
-    {
-        $first = $children[0] ?? null;
-        if ($text[0] === '{' || (is_array($first) && ($first['type'] ?? null) === 'text')) {
-            return $text;
-        }
-
-        return FirstLine::protect($text, $newline, $children, $head, $path);
     }
 
     public static function mayOpenBlock(string $text): bool

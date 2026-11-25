@@ -296,7 +296,8 @@ final class Inline
         $out = $this->contentPairs($nodes, $path, $c, $next, clone $c, $kinds);
         $reported = $out;
         $afterReported = $kinds === [] ? null : clone $c;
-        $applied = [];
+        // A first-line escape of the block writer reports its kind to the leaf before the first write (FirstLine).
+        $applied = $c->kinds;
         $fastAdded = [];
         $hashOnlyText = false;
         if (

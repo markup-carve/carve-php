@@ -161,6 +161,7 @@ final class ReadbackRound
      * @param array<string, mixed> $expected
      * @param string|null $expectedPrint
      * @param bool|null $equal `equal()` of the read, when the caller has it.
+     * @param bool $lines Whether a round reports the plain lines of a container it opened (`notePlainLine()`).
      *
      * @return array{
      *     equal: bool,
@@ -175,10 +176,11 @@ final class ReadbackRound
         array $expected,
         ?string $expectedPrint = null,
         ?bool $equal = null,
+        bool $lines = false,
     ): array {
         $actual = [];
         $openers = [];
-        self::readNodes($read, $candidate, $actual, $openers, $expected);
+        self::readNodes($read, $candidate, $actual, $openers, $expected, $lines);
         $moved = [];
         foreach ($candidate['nodes'] as [$path, $type, $start, $end]) {
             $readEnd = $actual[$type . "\0" . $start] ?? null;
@@ -197,16 +199,24 @@ final class ReadbackRound
 
     /**
      * @param array<string, mixed> $root
-     * @param array{text: array<int, int>, paths: array<int, string>} $text
+     * @param array{source: string, text: array<int, int>, paths: array<int, string>} $text
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
      * @param array<string, mixed> $expected
+     * @param bool $lines
      */
-    private static function readNodes(array $root, array $text, array &$actual, array &$openers, array $expected): void
-    {
-        $pending = [$root];
+    private static function readNodes(
+        array $root,
+        array $text,
+        array &$actual,
+        array &$openers,
+        array $expected,
+        bool $lines,
+    ): void {
+        // Each node with the start of the innermost container the read opened on text of the tree, or null.
+        $pending = [[$root, null]];
         while ($pending !== []) {
-            $node = array_pop($pending);
+            [$node, $opened] = array_pop($pending);
             if (!is_array($node)) {
                 continue;
             }
@@ -216,11 +226,16 @@ final class ReadbackRound
                 // openers to the same kind round.
                 continue;
             }
+            if ($unexpected) {
+                $opened = TreeEncoder::offsets($node['pos'] ?? null)[0] ?? null;
+            } elseif ($lines && $opened !== null && ($node['type'] ?? '') === 'paragraph') {
+                self::notePlainLine($node, $opened, $text, $openers);
+            }
             foreach (array_reverse(is_array($node['children'] ?? null) ? $node['children'] : []) as $child) {
-                $pending[] = $child;
+                $pending[] = [$child, $opened];
             }
             if (is_array($node['caption'] ?? null)) {
-                $pending[] = $node['caption'];
+                $pending[] = [$node['caption'], $opened];
             }
         }
     }
@@ -259,6 +274,28 @@ final class ReadbackRound
         }
 
         return false;
+    }
+
+    /**
+     * C2-W-092: a paragraph that starts below the opener line of a container the read opened inside the text starts a
+     * block on its line too, so a punctuation mark that starts it is reported with the container's opener.
+     *
+     * @param array<mixed> $node
+     * @param int $opened
+     * @param array{source: string, text: array<int, int>, paths: array<int, string>} $text
+     * @param array<string, array<int, true>> $openers
+     */
+    private static function notePlainLine(array $node, int $opened, array $text, array &$openers): void
+    {
+        $start = TreeEncoder::offsets($node['pos'] ?? null)[0] ?? null;
+        $source = $text['source'];
+        if ($start === null || $start <= $opened || !str_contains(substr($source, $opened, $start - $opened), "\n")) {
+            return;
+        }
+        $owner = RepairTrace::owner($text, $start);
+        if ($owner !== null && Text::isPunct($source[$start] ?? '')) {
+            $openers[$owner[0]][$owner[1]] = true;
+        }
     }
 
     /**

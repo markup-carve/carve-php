@@ -349,7 +349,12 @@ final class Text
     public static function escape(string $value, Context $c, int $next): string
     {
         if ($c->writerState?->repairTrace !== null) {
-            return $c->writerState->repairTrace->bareText($value, $c->textPath, $next, $c->fragmentFrom, $c->inCell);
+            $escaped = [];
+            $trace = $c->writerState->repairTrace;
+            $out = $trace->bareText($value, $c->textPath, $next, $c->fragmentFrom, $c->inCell, $c->pairEscapes, $escaped);
+            $c->escapedAt = $escaped;
+
+            return $out;
         }
 
         return self::escapeText($value, $c, $next);
