@@ -6,10 +6,12 @@ namespace MarkupCarve\Carve\Import\Hub;
 
 use Djot\Node\Block\ListBlock;
 use Djot\Parser\Block\ListParser;
+use Djot\Parser\Utility\IndentationHelper;
 
 /**
  * The library list markers as djot.js 0.3.2 reads them: a marker ends at any white space, a task box is `[ ]`, `[x]` or
  * `[X]` one space after a bullet and before white space, and no attributes are glued to a marker (`-{.c}` is text).
+ * A single roman letter keeps both styles open until a later item of the list narrows them, and is roman at the end.
  */
 final class DjotListParser extends ListParser
 {
@@ -39,5 +41,55 @@ final class DjotListParser extends ListParser
         }
 
         return ($info['attrs'] ?? '') === '' ? $info : null;
+    }
+
+    /**
+     * @param array<string, mixed> $listInfo
+     * @param array<string> $lines
+     * @param int $start
+     *
+     * @return array<string, mixed>
+     */
+    public function disambiguateListStyle(array $listInfo, array $lines, int $start): array
+    {
+        $base = IndentationHelper::getLeadingSpaces($lines[$start]);
+        $blank = false;
+        $count = count($lines);
+        for ($i = $start + 1; $i < $count; $i++) {
+            $line = $lines[$i];
+            if (IndentationHelper::isBlankLine($line)) {
+                $blank = true;
+
+                continue;
+            }
+            // A line past the marker belongs to the item, and so does a lazy line.
+            $item = IndentationHelper::getLeadingSpaces($line) > $base ? null : $this->parseListItemMarker(ltrim($line, " \t"));
+            if ($item === null) {
+                if ($blank && IndentationHelper::getLeadingSpaces($line) <= $base) {
+                    break;
+                }
+                $blank = false;
+
+                continue;
+            }
+            $blank = false;
+            if ($item['type'] !== $listInfo['type'] || $item['marker'] !== $listInfo['marker']) {
+                break;
+            }
+            $roman = ($item['style'] ?? null) === $listInfo['style'];
+            $alpha = ($item['alpha_style'] ?? $item['style'] ?? null) === $listInfo['alpha_style'];
+            if ($roman && $alpha) {
+                continue;
+            }
+            if ($alpha) {
+                $listInfo['start'] = $listInfo['alpha_start'];
+                $listInfo['style'] = $listInfo['alpha_style'];
+            }
+
+            break;
+        }
+        unset($listInfo['ambiguous'], $listInfo['alpha_start'], $listInfo['alpha_style']);
+
+        return $listInfo;
     }
 }

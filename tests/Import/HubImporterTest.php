@@ -257,6 +257,31 @@ final class HubImporterTest extends TestCase
         ];
     }
 
+    /**
+     * djot.js keeps a single roman letter open as roman or alphabetic until a later item of the list narrows it, and
+     * reads it as roman at the end of the list (carve#6696). Sources as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotRomanOrAlphaProvider(): array
+    {
+        return [
+            'alpha after a continuation paragraph' => ["i. one\n\n   more\n\nj. two\n", "{start=9}\na. one\n\n   more\n\nb. two\n"],
+            'alpha after a nested list' => ["i. one\n\n   - sub\n\nj. two\n", "{start=9}\na. one\n   - sub\nb. two\n"],
+            'alpha after a lazy line' => ["i. one\nlazy\nj. two\n", "{start=9}\na. one\n   lazy\nb. two\n"],
+            'alpha after an ambiguous item' => ["i. one\nv. two\nj. three\n", "{start=9}\na. one\nb. two\nc. three\n"],
+            'roman before a decimal list' => ["(I) one\n\n(1) two\n", "I.  one\n. two\n"],
+            'roman before a lowercase item' => ["I. one\ni. two\n", "I.  one\ni. two\n"],
+            'roman by a later numeral' => ["i. one\nii. two\n", "i. one\nii. two\n"],
+        ];
+    }
+
+    #[DataProvider('djotRomanOrAlphaProvider')]
+    public function testSettlesARomanOrAlphaDjotMarkerAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
     #[DataProvider('djotListMarkerProvider')]
     public function testReadsADjotListMarkerAsDjotJsDoes(string $input, string $expected): void
     {
