@@ -118,10 +118,10 @@ final class LayoutReader
         if (str_contains($entry->path . '/', '/fallback/')) {
             throw new LayoutError('fallback-entry', $at . '/path');
         }
-        // C2-L-020, C2-L-048: sorted by line, those of one line by row.
-        $last = [0, -1];
+        // C2-L-020, C2-L-048: sorted by line, those of one line by row, those of one row by col.
+        $last = [0, -1, -1];
         foreach ($entry->wraps ?? [] as $k => $wrap) {
-            $key = [$wrap->line, $wrap->row ?? 0];
+            $key = [$wrap->line, $wrap->row ?? 0, $wrap->col ?? 0];
             if ($key < $last) {
                 throw new LayoutError('wraps-order', $at . '/wraps/' . $k);
             }

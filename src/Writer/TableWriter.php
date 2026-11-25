@@ -880,17 +880,23 @@ final class TableWriter
      * @param bool $bodyHeader
      * @param int $below
      * @param int $height
-     * @param array{array<int, true>, array<string>, array<int, array<int, string>>}|null $again The cells to write
+     * @param array{array<int, true>, array<string>, array<int, array<int, array<int, string>>>}|null $again The cells to write
      *   again, with the lines of the write before, whose other cells stand as they are.
      *
-     * @return array{array<string>, array<int, array<int, string>>, int}
+     * @return array{array<string>, array<int, array<int, array<int, string>>>, int}
      */
     private function cellLines(array $row, string $path, bool $head, bool $bodyHeader, int $below, int $height, ?array $again = null): array
     {
         $first = [];
         $continued = [];
-        foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as [$cell, $at]) {
-            $index = count($first);
+        // C2-L-020: the `<` marks that join the cell before them, which hold the `col` fragments of that cell.
+        $marks = [];
+        foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as $index => [$cell, $at]) {
+            if (($cell['span'] ?? null) === 'colspan' && !isset($this->blocked[$at])) {
+                $marks[$index] = true;
+            }
+        }
+        foreach ($this->spans->rows[$path] ?? self::rowCells($row, $path) as $index => [$cell, $at]) {
             if ($again !== null && !isset($again[0][$index])) {
                 $first[] = $again[1][$index];
                 if (isset($again[2][$index])) {
@@ -901,9 +907,13 @@ final class TableWriter
                 continue;
             }
             $this->tickedRow = isset($this->tickedCells[$index]);
-            [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader, $below);
+            $covers = 1;
+            while (isset($marks[$index + $covers])) {
+                $covers++;
+            }
+            [$prefix, $fragments] = $this->cell($cell, $at, $head, $bodyHeader, $below, $covers);
             $this->tickedRow = false;
-            $text = $fragments[0] ?? '';
+            $text = $fragments[0][0] ?? '';
             $first[] = $text === '' ? $prefix . ' ' : $prefix . ' ' . $text . ' ';
             if (count($fragments) > 1) {
                 $continued[$index] = $fragments;
@@ -918,7 +928,7 @@ final class TableWriter
      * The segments of each continuation row of a row.
      *
      * @param array<string> $first
-     * @param array<int, array<int, string>> $continued
+     * @param array<int, array<int, array<int, string>>> $continued By cell, line and covered column.
      * @param int $height
      *
      * @return array<array<string>>
@@ -929,9 +939,10 @@ final class TableWriter
         for ($line = 1; $line < $height; $line++) {
             $segments = array_fill(0, count($first), ' ');
             foreach ($continued as $at => $fragments) {
-                $text = $fragments[$line] ?? '';
-                if ($text !== '') {
-                    $segments[$at] = ' ' . $text . ' ';
+                foreach ($fragments[$line] ?? [] as $col => $text) {
+                    if ($text !== '') {
+                        $segments[$at + $col] = ' ' . $text . ' ';
+                    }
                 }
             }
             $lines[] = $segments;
@@ -1110,10 +1121,11 @@ final class TableWriter
      * @param bool $head
      * @param bool $bodyHeader
      * @param int $below The continuation rows recorded for the cell's row.
+     * @param int $covers The columns the cell covers in the written row.
      *
-     * @return array{0: string, 1: array<string>}
+     * @return array{0: string, 1: array<int, array<int, string>>}
      */
-    private function cell(array $cell, string $path, bool $head, bool $bodyHeader, int $below): array
+    private function cell(array $cell, string $path, bool $head, bool $bodyHeader, int $below, int $covers): array
     {
         if (isset($cell['span'])) {
             return $this->mark($cell, $path, $head, $bodyHeader);
@@ -1122,7 +1134,7 @@ final class TableWriter
         $this->unspellable($cell, $path);
         $prefix = $header . BraceBlock::of($cell, ['mark' => self::alignmentMark($cell), 'pipes' => true]);
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
-        $lines = $this->registerWraps($path, $below, $cell);
+        $lines = $this->registerWraps($path, $below, $cell, $covers);
         $content = $this->content($blocks, $path, $this->tickedRow);
         $visibleContent = $this->w->repairTrace?->decode($content)['source'] ?? $content;
         $this->loseLeadingBlank($visibleContent, $blocks, $path);
@@ -1139,16 +1151,16 @@ final class TableWriter
      * C2-W-063, C2-B-184: a cell whose first line holds only a span mark is written with an escape, since span marks
      * are read from the first line of the row.
      *
-     * @param array<int, string> $fragments
+     * @param array<int, array<int, string>> $fragments
      *
-     * @return array<int, string>
+     * @return array<int, array<int, string>>
      */
     private function escapedLead(array $fragments): array
     {
-        $lead = $fragments[0] ?? '';
+        $lead = $fragments[0][0] ?? '';
         $visible = $this->w->repairTrace?->decode($lead)['source'] ?? $lead;
         if ($visible === '^' || $visible === '<') {
-            $fragments[0] = '\\' . $lead;
+            $fragments[0][0] = '\\' . $lead;
         }
 
         return $fragments;
@@ -1241,13 +1253,13 @@ final class TableWriter
      * @param bool $head
      * @param bool $bodyHeader
      *
-     * @return array{0: string, 1: array<string>}
+     * @return array{0: string, 1: array<int, array<int, string>>}
      */
     private function mark(array $cell, string $path, bool $head, bool $bodyHeader): array
     {
         $this->markLoss($cell, $path, isset($this->blocked[$path]) ? $head || $bodyHeader : null);
 
-        return [$head ? '=' : '', [$cell['span'] === 'colspan' ? '<' : '^']];
+        return [$head ? '=' : '', [[$cell['span'] === 'colspan' ? '<' : '^']]];
     }
 
     /**
@@ -1450,19 +1462,22 @@ final class TableWriter
      * The fragments of a cell by continuation line (C2-L-020); without wraps a line break has no spelling (C2-W-067).
      *
      * @param string $content
-     * @param array<int> $lines
+     * @param array<array{0: int, 1: int}> $lines The continuation line and the covered column of each wrap.
      * @param string $path
      * @param bool $terminalHardBreak
      * @param array<mixed> $blocks
      *
-     * @return array<int, string>
+     * @return array<int, array<int, string>> By line and covered column.
      */
     private function fragments(string $content, array $lines, string $path, bool $terminalHardBreak, array $blocks): array
     {
         if ($lines !== []) {
+            // C2-B-184: the fragments join column by column, so the content holds them by covered column, then line.
+            usort($lines, static fn (array $x, array $y): int => [$x[1], $x[0]] <=> [$y[1], $y[0]]);
             $fragments = [];
             foreach (explode("\n", $content) as $k => $fragment) {
-                $fragments[$k === 0 ? 0 : ($lines[$k - 1] ?? $k)] = $fragment;
+                [$line, $col] = $k === 0 ? [0, 0] : ($lines[$k - 1] ?? [$k, 0]);
+                $fragments[$line][$col] = $fragment;
             }
 
             return $fragments;
@@ -1474,7 +1489,7 @@ final class TableWriter
             $content = str_replace("\n", ' ', $content);
         }
 
-        return [$content];
+        return [[$content]];
     }
 
     /**
@@ -1517,18 +1532,20 @@ final class TableWriter
     }
 
     /**
-     * C2-L-020: the wraps of a cell, as split points of its text nodes; returns the continuation line of each.
+     * C2-L-020: the wraps of a cell, as split points of its text nodes; returns the continuation line and the covered
+     * column of each.
      *
-     * C2-L-006: a wrap on a later row of a spanning cell, past the row's continuation rows or not behind the wrap
-     * before it contradicts the record, and the cell then keeps no wrap (C2-L-035).
+     * C2-L-006: a wrap on a later row of a spanning cell, past the row's continuation rows, in a column the cell does
+     * not cover or not behind the wrap before it contradicts the record, and the cell then keeps no wrap (C2-L-035).
      *
      * @param string $path
      * @param int $below
      * @param array<mixed> $cell
+     * @param int $covers
      *
-     * @return array<int>
+     * @return array<array{0: int, 1: int}>
      */
-    private function registerWraps(string $path, int $below, array $cell): array
+    private function registerWraps(string $path, int $below, array $cell, int $covers): array
     {
         $wraps = $this->w->fact($path, 'wraps');
         if (!is_array($wraps)) {
@@ -1545,7 +1562,11 @@ final class TableWriter
                 return [];
             }
             $line = $wrap['line'];
-            if (($wrap['row'] ?? 0) !== 0 || $line < 1 || $line > $below || $line <= (end($lines) ?: 0)) {
+            $col = $wrap['col'] ?? 0;
+            if (
+                ($wrap['row'] ?? 0) !== 0 || !is_int($col) || $col < 0 || $col >= $covers || $line < 1 || $line > $below
+                || [$line, $col] <= (end($lines) ?: [0, 0])
+            ) {
                 return [];
             }
             $target = self::nodeAt($cell, $path, $wrap['path']);
@@ -1559,7 +1580,7 @@ final class TableWriter
             } else {
                 $points[] = [$wrap['path'], $wrap['offset']];
             }
-            $lines[] = $line;
+            $lines[] = [$line, $col];
         }
         foreach ($points as [$at, $offset]) {
             $this->w->wrapPoints[$at][] = $offset;
