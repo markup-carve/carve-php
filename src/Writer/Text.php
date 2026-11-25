@@ -21,7 +21,7 @@ use MarkupCarve\Carve\Node;
 
 /**
  * The escapes of a text node (C2-W-088 to C2-W-099), decided from the contexts of `data/escape-contexts.json` before the
- * text is written: each character that a context can make an opener at its position takes a backslash, from the
+ * text is written, once per round: each character that a context can make an opener at its position takes a backslash, from the
  * characters around it in the written output, and from nothing that a later parse finds.
  */
 final class Text
