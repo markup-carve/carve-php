@@ -34,4 +34,10 @@ final class Fuzz5WriterRenderImportTest extends TestCase
         self::assertSame($source, Carve::write(Carve::parse($source)));
         self::assertSame(['a,b'], Carve::parse($source)->children[0]->f['options']['cols']);
     }
+
+    public function testContinuationCellThatStartsWithPunctuationStaysOnItsLine(): void
+    {
+        self::assertSame("| | |\n+ | ---JSON c |\n", Carve::format("||\n+|---JSON c |\n"));
+        self::assertSame("| a | |\n+ | x *b* c |\n", Carve::format("| a ||\n+| x *b* c |\n"));
+    }
 }
