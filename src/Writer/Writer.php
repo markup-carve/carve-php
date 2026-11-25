@@ -554,6 +554,23 @@ final class Writer
             $firstRanges = null;
             $bare = self::recordedBare($tree, $layout, $options, [], $firstRanges);
             $bareRepaired = self::$bareRepaired;
+            // The source the tree was parsed from reads back as that tree, so a bare form equal to it holds unread.
+            if ($bare === $parsed) {
+                // With no escape every form carries and no pair escape, the procedure form is this bare form too.
+                $noPairs = Text::treePairOpeners($tree, []) === [];
+                if (
+                    $noPairs && (self::mayTakeBare($tree, $localEscapes, $parsed)
+                    || (!$bareRepaired && $localOwn === [] && !self::hasExtensionNode($tree)))
+                ) {
+                    return new WriteResult($bare, []);
+                }
+                $wanted ??= self::trimmedPrint($tree, $layout, $options);
+                $procedure = $bareRepaired || $ownFirst ? null
+                    : self::procedureForm($tree, $layout, $options, $localOwn, $wanted, [$bare, [], true]);
+                if ($procedure !== null) {
+                    return $procedure;
+                }
+            }
             $readBare = ReadbackRound::read($bare, $options);
             $wanted ??= self::trimmedPrint($tree, $layout, $options);
             $firstBare = [$bare, $readBare, ...RepairPlanner::readPrints($readBare), $wanted, $firstRanges];
@@ -561,7 +578,7 @@ final class Writer
             if ($bareHolds && self::mayTakeBare($tree, $localEscapes, $parsed) && Text::treePairOpeners($tree, []) === []) {
                 return new WriteResult($bare, []);
             }
-            $procedure = $bareRepaired || $ownFirst ? null
+            $procedure = $bareRepaired || $ownFirst || $bare === $parsed ? null
                 : self::procedureForm($tree, $layout, $options, $localOwn, $wanted, [$bare, $readBare, $bareHolds]);
             if ($procedure !== null) {
                 return $procedure;
