@@ -667,15 +667,16 @@ final class Inline
             if (!$text && !isset(self::VERBATIM[$type])) {
                 $c->escapeFollowingPipeAt = -1;
             }
-            $c->lineCommentBefore = $text && self::followsLineComment($nodes, $at);
-            $c->afterText = self::isText($visibleNode);
+            $c->lineCommentBefore = $text && $at > 1 && self::followsLineComment($nodes, $at);
+            $c->afterText = ($visibleNode['type'] ?? null) === 'text';
             $this->before = $visibleNode;
             $this->visibleLast = $visible;
             // The first character behind the node, which `listed()` reads too; past a braced comment it is searched.
             $firstFollowing = is_array($following) ? self::first($following, $c) : null;
             $this->visibleNext = $firstFollowing !== null && !self::isBracedComment($following)
                 ? $firstFollowing : self::visibleNext($nodes, $at, $c, $next);
-            $c->lineTail = $text && is_array($following) ? self::spanLineTail($following) : null;
+            $c->lineTail = $text && is_array($following) && isset(self::VERBATIM[$following['type'] ?? ''])
+                ? self::spanLineTail($following) : null;
             $c->lineAfterSpan = '';
             $c->lineAfterSpanEnds = false;
             $c->lineAfterSpanPipeSource = -1;
@@ -1106,8 +1107,9 @@ final class Inline
     ): string {
         $node = (array)$nodes[$at];
         $following = $nodes[$at + 1] ?? null;
-        $c->beforeSoftBreak = self::isSoftBreak($following);
-        $c->beforeHardBreak = is_array($following) && ($following['type'] ?? '') === 'hard_break';
+        $followingType = is_array($following) ? $following['type'] ?? '' : '';
+        $c->beforeSoftBreak = $followingType === 'soft_break';
+        $c->beforeHardBreak = $followingType === 'hard_break';
         $after = is_array($following) ? $first ?? self::first($following, $c) : $next;
         // C2-W-069, left to right: of two glued spans of one kind, the later one takes the braced form. An empty span
         // writes nothing, so nothing glues to it.
@@ -1140,11 +1142,6 @@ final class Inline
         $redo = $snapshot === null ? null : [strlen($out), strlen($part), $snapshot];
 
         return $part;
-    }
-
-    private static function isSoftBreak(mixed $node): bool
-    {
-        return is_array($node) && ($node['type'] ?? '') === 'soft_break';
     }
 
     /**
