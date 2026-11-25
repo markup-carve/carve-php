@@ -580,16 +580,21 @@ final class Inline
             return [];
         }
         $counts = [];
-        foreach ($escaped as $at => $on) {
-            if ($on) {
-                $counts[$value[$at] ?? ''] = ($counts[$value[$at] ?? ''] ?? 0) + 1;
-            }
+        foreach (array_filter($escaped) as $at => $_) {
+            $mark = $value[$at] ?? '';
+            $counts[$mark] = ($counts[$mark] ?? 0) + 1;
         }
+        // Each mark the text holds is counted once, found by skipping the runs without one.
         $bare = [];
-        foreach (count_chars($value, 1) as $byte => $count) {
-            $mark = chr($byte);
-            if (str_contains(self::ASCII_PUNCT, $mark) && $count > ($counts[$mark] ?? 0)) {
-                $bare[$mark] = true;
+        $seen = [];
+        $n = strlen($value);
+        for ($at = strcspn($value, self::ASCII_PUNCT); $at < $n; $at += 1 + strcspn($value, self::ASCII_PUNCT, $at + 1)) {
+            $mark = $value[$at];
+            if (!isset($seen[$mark])) {
+                $seen[$mark] = true;
+                if (substr_count($value, $mark) > ($counts[$mark] ?? 0)) {
+                    $bare[$mark] = true;
+                }
             }
         }
 
