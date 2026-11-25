@@ -180,12 +180,17 @@ final class ReadbackRound
     ): array {
         $actual = [];
         $openers = [];
-        self::readNodes($read, $candidate, $actual, $openers, $expected, $lines);
+        $attached = [];
+        self::readNodes($read, $candidate, $actual, $openers, $expected, $lines, $attached);
         $moved = [];
         foreach ($candidate['nodes'] as [$path, $type, $start, $end]) {
-            $readEnd = $actual[$type . "\0" . $start] ?? null;
+            $key = $type . "\0" . $start;
+            $readEnd = $actual[$key] ?? null;
             if ($readEnd !== null && $readEnd !== $end) {
                 $moved[] = [RepairTrace::unpackPath($path), $type, $start, $end, $readEnd];
+                if ($readEnd > $end && isset($attached[$key])) {
+                    self::noteAttachedBlock($candidate, $expected, $end, $readEnd, $openers);
+                }
             }
         }
 
@@ -198,12 +203,44 @@ final class ReadbackRound
     }
 
     /**
+     * @param array<mixed> $node
+     * @param array<string, true> $attached
+     */
+    private static function noteAttached(array $node, array &$attached): void
+    {
+        $start = TreeEncoder::offsets($node['pos'] ?? null)[0] ?? null;
+        if ($start !== null && is_string($node['type'] ?? null)) {
+            $attached[$node['type'] . "\0" . $start] = true;
+        }
+    }
+
+    /**
+     * C2-W-088: an attribute block the read attaches behind a node's closer, made of one text of the tree, opens on that
+     * text (carve#6697).
+     *
+     * @param array{source: string, text: array<int, int>, paths: array<int, string>} $candidate
+     * @param array<string, mixed> $expected
+     * @param int $end Where the node's spelling ends in the candidate.
+     * @param int $readEnd Where the read node ends.
+     * @param array<string, array<int, true>> $openers
+     */
+    private static function noteAttachedBlock(array $candidate, array $expected, int $end, int $readEnd, array &$openers): void
+    {
+        $owner = ($candidate['source'][$end] ?? '') === '{' ? RepairTrace::owner($candidate, $end) : null;
+        $last = $owner !== null ? RepairTrace::owner($candidate, $readEnd - 1) : null;
+        if ($owner !== null && $last !== null && $last[0] === $owner[0] && !self::readsIntoCloser($expected, $owner[0], $owner[1])) {
+            $openers[$owner[0]][$owner[1]] = true;
+        }
+    }
+
+    /**
      * @param array<string, mixed> $root
      * @param array{source: string, text: array<int, int>, paths: array<int, string>} $text
      * @param array<string, int> $actual
      * @param array<string, array<int, true>> $openers
      * @param array<string, mixed> $expected
      * @param bool $lines
+     * @param array<string, true> $attached Set to the keys of `$actual` whose node holds attributes.
      */
     private static function readNodes(
         array $root,
@@ -212,6 +249,7 @@ final class ReadbackRound
         array &$openers,
         array $expected,
         bool $lines,
+        array &$attached = [],
     ): void {
         // Each node with the start of the innermost container the read opened on text of the tree, or null.
         $pending = [[$root, null]];
@@ -221,6 +259,9 @@ final class ReadbackRound
                 continue;
             }
             $unexpected = self::noteNode($node, $text, $actual, $openers, $expected);
+            if (($node['attrs'] ?? []) !== []) {
+                self::noteAttached($node, $attached);
+            }
             if ($unexpected && !in_array($node['type'] ?? '', ['div', 'admonition', 'block_quote', 'list', 'list_item'], true)) {
                 // An inline construct consumes its source. A block container still exposes its nested
                 // openers to the same kind round.
