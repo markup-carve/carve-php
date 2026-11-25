@@ -484,16 +484,16 @@ final class Writer
         // C2-W-088: the backslashes a row's pairing across a pipe gives were placed as the first round places them;
         // where that form reads back, the procedure ends there.
         if (self::$cellKinds && $result->diagnostics === []) {
-            $print = self::trimmedPrint($tree, $layout, $options);
-            if (self::readsBack($result->source, $print, $options)) {
-                return self::withPrunedNoteCarets($result, $print, $options, $parsed);
+            $read = self::readBackResult($result, $tree, $layout, $options, $parsed);
+            if ($read !== null) {
+                return $read;
             }
         }
         // C2-W-125 case five: the plan placed the escapes the rounds would add one link per round (carve-js#5592).
         if (self::$localCaseFive && !$undecided && $result->diagnostics === []) {
-            $print = self::trimmedPrint($tree, $layout, $options);
-            if (self::readsBack($result->source, $print, $options)) {
-                return self::withPrunedNoteCarets($result, $print, $options, $parsed);
+            $read = self::readBackResult($result, $tree, $layout, $options, $parsed);
+            if ($read !== null) {
+                return $read;
             }
         }
         // A local bracket decision is no reported kind when the write without it already reads back as the tree.
@@ -2147,6 +2147,34 @@ final class Writer
     private static function spans(array $ranges): array
     {
         return array_map(static fn (array $r): array => [$r[0], $r[1]], $ranges);
+    }
+
+    /**
+     * `withPrunedNoteCarets()` of a write that reads back as the trimmed tree, null where it does not.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param string|null $parsed
+     */
+    private static function readBackResult(WriteResult $result, array $tree, ?array $layout, array $options, ?string $parsed): ?WriteResult
+    {
+        if (self::notePrunable($result->source) || str_contains($result->source, '\\[^]')) {
+            $print = self::trimmedPrint($tree, $layout, $options);
+
+            return self::readsBack($result->source, $print, $options) ? self::withPrunedNoteCarets($result, $print, $options, $parsed) : null;
+        }
+        // Nothing to prune needs no fingerprint: the read-back and the trimmed tree are compared in one walk (carve-php#5965).
+        $removed = [];
+        $trimmed = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
+        if (ReadbackRound::memoActive() && !isset($options['extensions'])) {
+            $read = ReadbackRound::read($result->source, $options);
+        } else {
+            $read = TreeEncoder::decodedForWriter(Carve::parse($result->source, isset($options['extensions']) ? ['extensions' => $options['extensions']] : []));
+        }
+
+        return TreeEquality::same($read, $trimmed) ? $result : null;
     }
 
     /**
