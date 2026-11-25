@@ -412,7 +412,7 @@ final class BlockParser
         if ($ch === '>' && ($j + 1 === $this->le || $this->s[$j + 1] === ' ')) {
             return false;
         }
-        if ($ch === '#' && preg_match('/^#{1,6} /', substr($this->s, $j, $this->le - $j)) === 1) {
+        if (($ch === '#' || $ch === '=') && $this->headingContent($j) >= 0) {
             return false;
         }
         if ($ch === '{' && LineShapes::attributeLine($this->s, $j, $this->le, new Attrs())) {
@@ -1757,6 +1757,22 @@ final class BlockParser
     }
 
     /**
+     * C2-B-151: the offset of the text behind a heading marker run at `$j`, or -1 where the line is no heading.
+     */
+    private function headingContent(int $j): int
+    {
+        $s = $this->s;
+        $n = strspn($s, $s[$j], $j, $this->le - $j);
+        if ($n > 6 || $j + $n >= $this->le || $s[$j + $n] !== ' ') {
+            return -1;
+        }
+        $k = $j + $n + 1;
+        $k += strspn($s, " \t", $k, $this->le - $k);
+
+        return $k < $this->le ? $k : -1;
+    }
+
+    /**
      * C2-B-151 to C2-B-154.
      *
      * @param int $j
@@ -1766,18 +1782,12 @@ final class BlockParser
      */
     private function openHeading(int $j, int $c): bool
     {
-        $s = $this->s;
-        $n = strspn($s, $s[$j], $j, $this->le - $j);
-        if ($n > 6 || $j + $n >= $this->le || $s[$j + $n] !== ' ') {
-            return false;
-        }
-        $k = $j + $n + 1;
-        $k += strspn($s, " \t", $k, $this->le - $k);
-        if ($k >= $this->le) {
+        $k = $this->headingContent($j);
+        if ($k < 0) {
             return false;
         }
         $f = new Frame(Frame::HEADING, $j);
-        $f->level = $n;
+        $f->level = strspn($this->s, $this->s[$j], $j, $this->le - $j);
         $f->markerCol = $c - $this->base;
         $f->end = $this->le;
         $f->spans = [$k, $f->end];
