@@ -8,6 +8,7 @@ use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Utf8;
 
 /**
  * The first two steps of the scan (C2-I-004): atoms and the bracket stack. The result is a token list
@@ -926,6 +927,10 @@ final class Scanner
      */
     public static function isUrl(string $b): bool
     {
+        // C2-B-218: a NUL or a malformed byte reads as U+FFFD before the target is tested.
+        if (str_contains($b, "\0") || !mb_check_encoding($b, 'UTF-8')) {
+            $b = Utf8::repair($b);
+        }
         $len = strlen($b);
         if ($len < 3 || strspn($b[0], Tables::AUTOLINK_SCHEME_FIRST) === 0) {
             return false;
@@ -948,7 +953,7 @@ final class Scanner
                 $q++;
             }
             $chunk = substr($b, $p, $q - $p);
-            if (!mb_check_encoding($chunk, 'UTF-8') || Chars::hasNonUrlUnicode($chunk)) {
+            if (Chars::hasNonUrlUnicode($chunk)) {
                 return false;
             }
             $p = $q;
