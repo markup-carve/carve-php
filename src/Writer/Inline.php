@@ -633,8 +633,15 @@ final class Inline
         $dots = 0;
         // The hyphen and dot runs feed only the escape decisions, and a traced write spells its texts bare.
         $traced = $c->writerState?->repairTrace !== null;
-        // C2-I-114: content without a dot has no dot runs.
-        $dotted = !$traced && self::holds($nodes, '.');
+        // C2-I-114: a list whose nodes hold no dot of their own has no dot runs.
+        $dotted = false;
+        foreach ($traced ? [] : $nodes as $node) {
+            if (is_array($node) && self::holds($node, '.', 'children')) {
+                $dotted = true;
+
+                break;
+            }
+        }
         $dotsAhead = $dotted ? self::dotsAhead($nodes) : [];
         for ($at = 0; $at < $count; $at++) {
             $node = $nodes[$at];
