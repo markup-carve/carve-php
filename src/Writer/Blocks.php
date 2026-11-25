@@ -119,6 +119,8 @@ final class Blocks
 
     private int $fencedAncestors = 0;
 
+    private int $fenceRun = 0;
+
     /**
      * @var array<string, int>
      */
@@ -1012,6 +1014,7 @@ final class Blocks
         $c->lineStart = $lineStart;
         $c->blockDepth = $this->blockDepth - 1;
         $c->hasFencedAncestor = $this->fencedAncestors > 0;
+        $c->fenceRun = $this->fenceRun;
         $c->inQuote = str_contains($prefix, '>');
         $c->afterDescriptions = $this->w->afterDescriptions;
         $c->boxLead = $this->w->lead !== null && $this->w->lead === $this->w->boxLead;
@@ -2176,6 +2179,8 @@ final class Blocks
         $this->w->emit($prefix, $run . $opener);
         $mark = count($this->w->lines);
         $this->fencedAncestors++;
+        $priorRun = $this->fenceRun;
+        $this->fenceRun = strlen($run);
         // C2-B-015: a list marker interrupts a paragraph only where the paragraph's container is an open list's item.
         $priorOwner = $this->bodyOwner;
         $this->bodyOwner = 'fenced';
@@ -2183,6 +2188,7 @@ final class Blocks
             $write();
         } finally {
             $this->fencedAncestors--;
+            $this->fenceRun = $priorRun;
             $this->bodyOwner = $priorOwner;
         }
         if (count($this->w->lines) === $mark && $blankWhenEmpty) {

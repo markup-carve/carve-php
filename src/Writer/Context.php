@@ -32,6 +32,11 @@ final class Context
 
     public bool $hasFencedAncestor = false;
 
+    /**
+     * The length of the colon run of the innermost fenced block around this text leaf, 0 outside one.
+     */
+    public int $fenceRun = 0;
+
     public bool $inQuote = false;
 
     /**
