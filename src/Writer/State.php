@@ -93,6 +93,11 @@ final class State
     public array $wrapPoints = [];
 
     /**
+     * @var array<string, true> C2-L-021: the paths of the nodes other than text at whose start a continuation fragment starts.
+     */
+    public array $wrapStarts = [];
+
+    /**
      * Path of the node whose attribute line was written above a comment (C2-W-122).
      */
     public ?string $prewritten = null;

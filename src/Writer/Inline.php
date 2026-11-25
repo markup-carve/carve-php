@@ -637,6 +637,12 @@ final class Inline
             if ($c->inCell) {
                 $this->loseGluedRun($nodes, $at, $path, $type);
             }
+            if ($c->inCell && isset($this->w->wrapStarts[$path . '/' . $at])) {
+                // C2-L-021: a fragment of a continuation row starts at this node; the joining space is the line break.
+                $out = (str_ends_with($out, ' ') ? substr($out, 0, -1) : $out) . "\n";
+                $c->last = 10;
+                $c->lineStart = true;
+            }
             $first = $at;
             if ($type === 'code' && BraceBlock::of($node) === '' && is_array($following) && ($following['type'] ?? '') === 'code') {
                 [$part, $at] = $this->codeRun($nodes, $at, $path, $c);

@@ -677,6 +677,7 @@ final class TableWriter
         $below = is_int($below) ? max(0, $below) : PHP_INT_MAX;
         $height = $below === PHP_INT_MAX ? 1 : $below + 1;
         $points = $this->w->wrapPoints;
+        $starts = $this->w->wrapStarts;
         $start = $height;
         [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $start);
         // C2-B-169, C2-W-088: a bare run of a cell that pairs with a run of a later cell reads as a code span, whose
@@ -691,6 +692,7 @@ final class TableWriter
             $cells = array_fill_keys(array_keys($cells), true);
             $this->tickedCells += $cells;
             $this->w->wrapPoints = $points;
+            $this->w->wrapStarts = $starts;
             [$first, $continued, $height] = $this->cellLines($row, $path, $head, $bodyHeader, $below, $start, [$cells, $first, $continued]);
         }
         $this->tickedCells = [];
@@ -959,7 +961,7 @@ final class TableWriter
         $this->unspellable($cell, $path);
         $prefix = $header . BraceBlock::of($cell, ['mark' => self::alignmentMark($cell), 'pipes' => true]);
         $blocks = is_array($cell['children'] ?? null) ? $cell['children'] : [];
-        $lines = $this->registerWraps($path, $below);
+        $lines = $this->registerWraps($path, $below, $cell);
         $content = $this->content($blocks, $path, $this->tickedRow);
         $visibleContent = $this->w->repairTrace?->decode($content)['source'] ?? $content;
         $this->loseLeadingBlank($visibleContent, $blocks, $path);
@@ -1361,10 +1363,11 @@ final class TableWriter
      *
      * @param string $path
      * @param int $below
+     * @param array<mixed> $cell
      *
      * @return array<int>
      */
-    private function registerWraps(string $path, int $below): array
+    private function registerWraps(string $path, int $below, array $cell): array
     {
         $wraps = $this->w->fact($path, 'wraps');
         if (!is_array($wraps)) {
@@ -1372,6 +1375,7 @@ final class TableWriter
         }
         $lines = [];
         $points = [];
+        $starts = [];
         foreach ($wraps as $wrap) {
             if (
                 !is_array($wrap) || !is_int($wrap['line'] ?? null) || !is_string($wrap['path'] ?? null)
@@ -1383,14 +1387,73 @@ final class TableWriter
             if (($wrap['row'] ?? 0) !== 0 || $line < 1 || $line > $below || $line <= (end($lines) ?: 0)) {
                 return [];
             }
-            $points[] = [$wrap['path'], $wrap['offset']];
+            $target = self::nodeAt($cell, $path, $wrap['path']);
+            if ($target !== null && ($target['type'] ?? null) !== 'text') {
+                // C2-L-021: a wrap at the start of a node other than text, which stands first in the cell's content or
+                // behind text that ends in the joining space.
+                if ($wrap['offset'] !== 0 || isset($starts[$wrap['path']]) || !self::startsFragment($cell, $path, $wrap['path'])) {
+                    return [];
+                }
+                $starts[$wrap['path']] = true;
+            } else {
+                $points[] = [$wrap['path'], $wrap['offset']];
+            }
             $lines[] = $line;
         }
         foreach ($points as [$at, $offset]) {
             $this->w->wrapPoints[$at][] = $offset;
         }
+        $this->w->wrapStarts += $starts;
 
         return $lines;
+    }
+
+    /**
+     * The node of `$cell` at the absolute `$at`, or null where it names none.
+     *
+     * @param array<mixed> $cell
+     * @param string $path The path of the cell.
+     * @param string $at
+     *
+     * @return array<mixed>|null
+     */
+    private static function nodeAt(array $cell, string $path, string $at): ?array
+    {
+        if (!str_starts_with($at, $path . '/')) {
+            return null;
+        }
+        $node = $cell;
+        foreach (explode('/', substr($at, strlen($path) + 1)) as $step) {
+            $node = $node[$step] ?? null;
+            if (!is_array($node)) {
+                return null;
+            }
+        }
+
+        return $node;
+    }
+
+    /**
+     * @param array<mixed> $cell
+     * @param string $path
+     * @param string $at
+     *
+     * @return bool
+     */
+    private static function startsFragment(array $cell, string $path, string $at): bool
+    {
+        $lead = $path . '/children/0/children/';
+        if (!str_starts_with($at, $lead) || !ctype_digit(substr($at, strlen($lead)))) {
+            return false;
+        }
+        $index = (int)substr($at, strlen($lead));
+        if ($index === 0) {
+            return true;
+        }
+        $block = is_array($cell['children'] ?? null) ? $cell['children'][0] ?? null : null;
+        $before = is_array($block) && is_array($block['children'] ?? null) ? $block['children'][$index - 1] ?? null : null;
+
+        return is_array($before) && ($before['type'] ?? null) === 'text' && str_ends_with(Inline::str($before, 'value'), ' ');
     }
 
     /**

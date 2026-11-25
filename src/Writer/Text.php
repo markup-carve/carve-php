@@ -233,6 +233,12 @@ final class Text
     public static array $recordedPairs = [];
 
     /**
+     * @var array<string, true>|null C2-B-207: the top-level texts of the caption being written before its number mark,
+     *     null outside a caption.
+     */
+    public static ?array $captionTexts = null;
+
+    /**
      * While `$recorded` is set, the escapes of each text path that `Context::$ownAt` holds, by path.
      *
      * @var array<string, array<int, true>>
@@ -538,7 +544,8 @@ final class Text
                 }
             }
             $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i])
-                || isset($liveTicks[$i]) || ($i === 0 && $caretLine);
+                || isset($liveTicks[$i]) || ($i === 0 && $caretLine)
+                || ($ch === '#' && self::$captionTexts !== null && self::captionMark($c, $after));
             $c->gluedBrace = false;
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
                 || ($punctuation
@@ -1540,7 +1547,8 @@ final class Text
      */
     public static function escapePairs(string $value, Context $c, int $next): string
     {
-        if ($c->writerState?->repairTrace !== null) {
+        // A caption keeps its pair escapes in a traced write too: its group is written alone and kept where it reads back.
+        if ($c->writerState?->repairTrace !== null && self::$captionTexts === null) {
             return self::escape($value, $c, $next);
         }
         $start = clone $c;
@@ -2628,6 +2636,30 @@ final class Text
     private static function asWritten(string $text): string
     {
         return addcslashes(str_replace('\\', '\\\\', $text), self::ALWAYS);
+    }
+
+    /**
+     * A hard break ends the line with its backslash (C2-B-166, C2-B-167: such a line is no row), and with none in a
+     * hard-break block, which writes its breaks bare before more content (C2-A-068).
+     */
+    private static function hardBreakTail(string $value, Context $c): ?string
+    {
+        $flat = (string)$c->flat;
+        $at = $c->here + strlen($value);
+        if (($flat[$at] ?? '') !== "\n") {
+            return null;
+        }
+
+        return $c->bareBreaks && $at + 1 < strlen($flat) ? '' : '\\';
+    }
+
+    /**
+     * C2-B-207: a `#` of a top-level caption text before the number mark that no name follows would read as the mark.
+     */
+    private static function captionMark(Context $c, int $after): bool
+    {
+        return isset(self::$captionTexts[$c->textPath])
+            && ($after < 0 || $after >= 0x80 || strspn(chr($after), Tables::SIGIL_MENTION_CHARS) === 0);
     }
 
     private static function gluedSigil(string $ch, int $next): bool
@@ -3740,9 +3772,8 @@ final class Text
             return -1;
         }
         $tail = $c->lineTail ?? (in_array($next, [-1, 10], true) ? null : self::restOfLine($value, $c));
-        // A hard break ends the line with its backslash (C2-B-166, C2-B-167: such a line is no row).
-        if ($tail === null && $next === 92 && ($c->flat[$c->here + strlen($value)] ?? '') === "\n") {
-            $tail = '\\';
+        if ($tail === null && $next === 92) {
+            $tail = self::hardBreakTail($value, $c);
         }
         $eol = $tail !== null || in_array($next, [-1, 10], true);
         $line = $tail !== null ? $value . $tail : ($eol ? $value : $value . 'x');

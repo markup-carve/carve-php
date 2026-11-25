@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Html;
 
 use Generator;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\IncludeShape;
 use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Generated\Tables;
@@ -1049,18 +1050,24 @@ final class HtmlRenderer
             $attrs = $own;
         }
         $lang = $image->f['lang'] ?? $node->f['lang'] ?? null;
-        if (!isset($image->f['dir']) && isset($node->f['dir'])) {
-            $image = clone $image;
+        $fields = $image->f;
+        unset($image->f['attrs'], $image->f['lang']);
+        if ($attrs instanceof Attrs) {
+            $image->f['attrs'] = $attrs;
+        }
+        if (is_string($lang)) {
+            $image->f['lang'] = $lang;
+        }
+        if (!isset($fields['dir']) && isset($node->f['dir'])) {
             $image->f['dir'] = $node->f['dir'];
         }
-
-        return self::pad($depth) . $this->inline->image(
-            $image,
-            $attrs instanceof Attrs ? $attrs : null,
-            is_string($lang) ? $lang : null,
-            $depth,
-            null,
-        );
+        // The breaks and comments beside the image are written too (C2-H-069). The image itself stays the tree's node,
+        // so a loss on it keeps its path.
+        try {
+            return self::pad($depth) . $this->inline->inlines($node->children ?? [], $depth + 1);
+        } finally {
+            $image->f = $fields;
+        }
     }
 
     /**
@@ -1805,10 +1812,11 @@ final class HtmlRenderer
      * C2-H-133, C2-H-171: the directive as text.
      *
      * @param \MarkupCarve\Carve\Node $node
+     * @param array<mixed>|null $spelling C2-L-055: an option's source spelling, kept where it decodes to the value.
      *
      * @return string
      */
-    public static function includeText(Node $node): string
+    public static function includeText(Node $node, ?array $spelling = null): string
     {
         $parts = ['{{', self::includePath(PlainText::str($node->f['path'] ?? ''))];
         $section = $node->f['section'] ?? null;
@@ -1821,15 +1829,10 @@ final class HtmlRenderer
             if (!array_key_exists($name, $options)) {
                 continue;
             }
+            $spelled = $spelling[$name] ?? null;
             $value = $options[$name];
-            if ($value === true || ($value === '' && ($name === 'rows' || $name === 'cols'))) {
-                $parts[] = '@' . $name;
-            } elseif (is_array($value)) {
-                // C2-A-181: only a quoted `cols` value becomes a list, so a list is written quoted.
-                $parts[] = '@' . $name . ':"' . implode(',', array_map([PlainText::class, 'str'], $value)) . '"';
-            } else {
-                $parts[] = '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
-            }
+            $parts[] = is_string($spelled) && $value !== true && self::spells($name, $spelled, $value)
+                ? '@' . $name . ':' . $spelled : self::includeOption($name, $value);
         }
         $invalidOptions = $node->f['invalid'] ?? null;
         foreach (is_array($invalidOptions) ? $invalidOptions : [] as $invalid) {
@@ -1840,6 +1843,46 @@ final class HtmlRenderer
         $parts[] = '}}';
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * C2-W-058: one option as the tree holds it.
+     *
+     * @param string $name
+     * @param mixed $value
+     *
+     * @return string
+     */
+    private static function includeOption(string $name, mixed $value): string
+    {
+        if ($value === true || ($value === '' && ($name === 'rows' || $name === 'cols'))) {
+            return '@' . $name;
+        }
+        if (is_array($value)) {
+            // C2-A-181: only a quoted `cols` value becomes a list, so a list is written quoted.
+            $names = array_map(static fn (mixed $v): string => addcslashes(PlainText::str($v), '\\",'), $value);
+
+            return '@' . $name . ':"' . implode(',', $names) . '"';
+        }
+
+        return '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
+    }
+
+    /**
+     * C2-L-055: whether `$spelled` reads back as the option value `$value`.
+     *
+     * @param string $name
+     * @param string $spelled
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    private static function spells(string $name, string $spelled, mixed $value): bool
+    {
+        $line = '{{ x @' . $name . ':' . $spelled . ' }}';
+        $read = IncludeShape::parse($line, 0, strlen($line));
+
+        return is_array($read['options'] ?? null) && array_key_exists($name, $read['options']) && $read['options'][$name] === $value;
     }
 
     /**
