@@ -227,15 +227,36 @@ final class TreeEncoder
      */
     private static function decodedArray(array &$value): void
     {
-        foreach ($value as &$item) {
+        $changed = false;
+        $value = self::withArrays($value, $changed);
+    }
+
+    /**
+     * `$value` with every object as an array. It is written only where an object stands below it, so a tree without one
+     * is walked but not copied.
+     *
+     * @param array<mixed> $value
+     * @param bool $changed Set where an object was found.
+     *
+     * @return array<mixed>
+     */
+    private static function withArrays(array $value, bool &$changed): array
+    {
+        foreach ($value as $key => $item) {
+            $below = false;
             if ($item instanceof stdClass) {
-                $item = get_object_vars($item);
-            }
-            if (is_array($item)) {
-                self::decodedArray($item);
+                $value[$key] = self::withArrays(get_object_vars($item), $below);
+                $changed = true;
+            } elseif (is_array($item)) {
+                $item = self::withArrays($item, $below);
+                if ($below) {
+                    $value[$key] = $item;
+                    $changed = true;
+                }
             }
         }
-        unset($item);
+
+        return $value;
     }
 
     /**
