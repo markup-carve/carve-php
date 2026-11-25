@@ -15,7 +15,8 @@ use MarkupCarve\Carve\Node;
 final class RenderHost
 {
     /**
-     * @param \Closure(array<\MarkupCarve\Carve\Node>): string $blocks
+     * @param \Closure(array<\MarkupCarve\Carve\Node>, int=): string $blocks Renders blocks at a depth, each indented
+     *   as the core writes it there (a raw HTML line keeps its own column).
      * @param \Closure(array<\MarkupCarve\Carve\Node>): string $inlines
      * @param \Closure(array<\MarkupCarve\Carve\Node>): string $plainText
      * @param \Closure(string, bool=): string $nextId Reserve the id unless a renderer tests its own exact ids.

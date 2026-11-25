@@ -379,7 +379,7 @@ Class. Provisional. `::: details "Title"` as a native disclosure (`carve.details
 - `static bundle(): Bundle`
 - `static definition(string $name, string $source, Closure $render, Closure $static): ExtensionDefinition`: The definition of a titled div with the slots `summary` and `body`.
 - `static titledFallback(array $title, array $body): array`: C2-X-042 precedent: the title as a `strong` paragraph, then the body.
-- `static container(string $head, string $inner, array $body, string $tail, RenderHost $host): string`: Writes `head`, the body one level in, then `tail`, indented to the block depth like core containers.
+- `static container(string $head, string $inner, array $body, string $tail, RenderHost $host): string`: Writes `head`, `inner` and the body one level in, then `tail`; the body is rendered at its actual depth.
 - `static attrs(Node $node, RenderHost $host, ?string $base = null): string`
 - `static disclosure(Node $node, RenderHost $host, string $label, ?string $base = null): string`: The disclosure element of a titled div; `open` is added in static mode unless authored.
 
