@@ -216,10 +216,12 @@ final class Inline
             if (!is_array($node)) {
                 continue;
             }
-            $type = self::str($node, 'type');
+            $type = $node['type'] ?? '';
             if ($type === 'text' && is_string($node['value'] ?? null)) {
-                $counts['/'] += substr_count($node['value'], '/');
-                $counts['*'] += substr_count($node['value'], '*');
+                if (strpbrk($node['value'], '/*') !== false) {
+                    $counts['/'] += substr_count($node['value'], '/');
+                    $counts['*'] += substr_count($node['value'], '*');
+                }
             } elseif ($type === 'smart_punctuation' && is_string($node['source'] ?? null)) {
                 $counts['/'] += substr_count($node['source'], '/');
             } elseif (isset(self::PAIRED[$type])) {
