@@ -669,6 +669,7 @@ final class Writer
         if (
             $localEscapes !== [] && !$pairsOnly && !$gluedNodesOnly
             && (self::takesLocalForm($unchecked, $undecided, $localDecided) || $undecided)
+            && ($undecided || !RepairPlanner::settlesKinds($tree, $localEscapes))
         ) {
             // Without trimmed line-end blanks the tree is the one the first bare read-back was taken of.
             if ($removed === [] && $firstBare !== null) {

@@ -1819,6 +1819,72 @@ final class RepairPlanner
     }
 
     /**
+     * C2-W-088 (carve-js `leavesKindBare`): whether the escapes stand in leaf blocks of text and breaks alone, where no
+     * node has an extent the read could move, and leave no potential opener of their kinds bare there. Such a plan
+     * reports no kind round.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<string, array<int, true>> $escapes
+     */
+    public static function settlesKinds(array $tree, array $escapes): bool
+    {
+        $values = [];
+        $leaves = [];
+        $mixed = [];
+        self::kindTexts($tree, '', '', $values, $leaves, $mixed);
+        $kinds = [];
+        foreach ($escapes as $path => $offsets) {
+            if (!isset($values[$path]) || isset($mixed[$leaves[$path]])) {
+                return false;
+            }
+            foreach ($offsets as $at => $_) {
+                $kind = self::kindAt($values[$path], $at);
+                if ($kind !== null) {
+                    $kinds[$leaves[$path]][$kind] = true;
+                }
+            }
+        }
+        foreach ($leaves as $path => $leaf) {
+            foreach ($kinds[$leaf] ?? [] as $kind => $_) {
+                foreach (self::kindOffsets((string)$kind, $values[$path]) as $at) {
+                    if (!isset($escapes[$path][$at])) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The value and leaf block of each text, by path, and the leaf blocks that hold another node than text and breaks.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $leaf
+     * @param array<string, string> $values
+     * @param array<string, string> $leaves
+     * @param array<string, true> $mixed
+     */
+    private static function kindTexts(array $node, string $path, string $leaf, array &$values, array &$leaves, array &$mixed): void
+    {
+        $type = $node['type'] ?? null;
+        if ($type === 'text') {
+            $values[$path] = is_string($node['value'] ?? null) ? $node['value'] : '';
+            $leaves[$path] = $leaf;
+        } elseif ($leaf !== '' && $type !== 'soft_break' && $type !== 'hard_break') {
+            $mixed[$leaf] = true;
+        }
+        $inner = in_array($type, self::INLINE_CONTAINERS, true) ? $leaf : $path;
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $index => $child) {
+            if (is_array($child)) {
+                self::kindTexts($child, $path . '/children/' . $index, $inner, $values, $leaves, $mixed);
+            }
+        }
+    }
+
+    /**
      * C2-W-088: the potential openers of a kind in a text: the first character of each run of its characters, the
      * brace of a braced opener, the second hyphen of a hyphen run, and a `/` or `*` its neighbors let open.
      *
