@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Writer\Writer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -34,6 +35,13 @@ final class SuppliedTreeReadBackTest extends TestCase
             'shortcut link whose text is not its key' => [
                 self::document([['type' => 'paragraph', 'children' => [$link]], $definition]),
                 "[a]\n\n[b]: /u\n",
+            ],
+            'shortcut link without punctuation in its strings' => [
+                self::document([
+                    ['type' => 'paragraph', 'children' => [['href' => 'u'] + $link]],
+                    ['href' => 'u'] + $definition,
+                ]),
+                "[a]\n\n[b]: u\n",
             ],
             'shortcut link before a bracket a line comment closes' => [
                 self::document([
@@ -77,6 +85,29 @@ final class SuppliedTreeReadBackTest extends TestCase
         $this->assertSame($expected, $result->source);
         $this->assertFalse(TreeEquality::equal($tree, self::read($result->source)));
         $this->assertNotSame([], $result->codes());
+    }
+
+    public function testATreeWithARequiredExtensionTheWriteImplementsStillReportsALoss(): void
+    {
+        $tree = self::lossyTrees()['shortcut link whose text is not its key'][0];
+        $tree['extensions'] = [['name' => 'org.example.x', 'version' => '1', 'required' => true, 'slots' => []]];
+        $result = Writer::writeWithDiagnostics($tree, null, ['extensions' => [new ExtensionDefinition('org.example.x', '1')]]);
+
+        $this->assertNotSame([], $result->codes());
+    }
+
+    public function testAParagraphOfPlainWordsReadsBackWithoutAParse(): void
+    {
+        $tree = self::document([
+            [
+                'type' => 'paragraph',
+                'children' => [['type' => 'text', 'value' => 'a b'], ['type' => 'soft_break'], ['type' => 'text', 'value' => 'c 1']],
+            ],
+        ]);
+        $result = Writer::writeWithDiagnostics($tree);
+        $this->assertSame("a b\nc 1\n", $result->source);
+        $this->assertSame([], $result->codes());
+        $this->assertTrue(TreeEquality::equal($tree['children'], self::read($result->source)['children']));
     }
 
     public function testATreeThatReadsBackReportsNothing(): void

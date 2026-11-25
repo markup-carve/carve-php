@@ -12,7 +12,6 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Json\TreeError;
-use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Options;
 
@@ -68,6 +67,11 @@ final class Writer
      * @var string
      */
     private const PUNCTUATION = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+
+    /**
+     * @var string
+     */
+    private const PLAIN_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ';
 
     /**
      * The source while `formatWithDiagnostics` writes the tree of its parse, which a read-back can match field for
@@ -989,8 +993,8 @@ final class Writer
     /**
      * Whether a local write the heuristics call safe is taken without the rounds: it equals the source the tree was
      * parsed from, below that source's leading empty lines too, the tree has no ASCII punctuation in its strings, or the
-     * tree is supplied, holds no brace or pair mark that may pair with the bare spelling of a span, and has no ASCII
-     * punctuation or reads back as itself where C2-A-161 can compare it.
+     * tree is supplied, holds no brace or pair mark that may pair with the bare spelling of a span, and reads back as
+     * itself where C2-A-161 can compare it.
      *
      * @param array<string, mixed> $tree
      * @param string|null $parsed
@@ -1000,8 +1004,9 @@ final class Writer
     private static function readsBackUnread(array $tree, ?string $parsed, WriteResult $result, array $options): bool
     {
         if ($parsed === null && !self::hasBracedCloserRisk($tree) && !self::hasPairMarkRisk($tree)) {
-            return $result->diagnostics !== [] || self::$lossReported || !self::hasPunctuation($tree)
-                || !self::comparable($tree) || self::readsBackAsTree($tree, $result->source, $options);
+            // No punctuation in a supplied tree's strings proves nothing: a shortcut link whose text is not its key misreads.
+            return $result->diagnostics !== [] || self::$lossReported || !self::comparable($tree)
+                || self::readsBackAsTree($tree, $result->source, $options) || !self::readerAccepts($tree, $options);
         }
 
         return $parsed === $result->source
@@ -1190,7 +1195,10 @@ final class Writer
             return null;
         }
 
-        return !self::comparable($tree) || self::readsBack($result->source, $treePrint, $options) ? $result : null;
+        return !self::comparable($tree) || self::readsBack($result->source, $treePrint, $options)
+            || !self::readerAccepts($tree, $options)
+            ? $result
+            : null;
     }
 
     // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
@@ -2348,8 +2356,7 @@ final class Writer
 
     /**
      * Whether a supplied tree compares with its read-back by C2-A-161: a 2.0 document without the rewrites the writer
-     * may spell (carve-js `holdsRewrites`) or a span count it spells with marks (C2-W-145), that passes the reader's
-     * checks: a parse fills the fields a tree may lack, as the `alt` of an image.
+     * may spell (carve-js `holdsRewrites`) or a span count it spells with marks (C2-W-145).
      *
      * @param array<string, mixed> $tree
      */
@@ -2373,9 +2380,22 @@ final class Writer
                 }
             }
         }
-        $json = json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+        return true;
+    }
+
+    /**
+     * Whether the tree passes the reader's checks. A parse fills the fields a tree that fails them may lack, as the
+     * `alt` of an image, so its read-back is no proof of a misread. Asked only after a read-back differs: the check
+     * costs about as much as the parse. The write's extensions implement the ones the tree requires (C2-A-018).
+     *
+     * @param array<string, mixed> $tree
+     * @param array<string, mixed> $options
+     */
+    private static function readerAccepts(array $tree, array $options): bool
+    {
         try {
-            TreeReader::check($json === false ? '' : $json);
+            Carve::validateTree($tree, isset($options['extensions']) ? ['extensions' => $options['extensions']] : []);
         } catch (TreeError) {
             return false;
         }
@@ -2393,13 +2413,65 @@ final class Writer
      */
     private static function readsBackAsTree(array $tree, string $source, array $options): bool
     {
-        $print = TreeEquality::fingerprint($tree['children'] ?? []);
+        $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        if (!isset($options['extensions']) && self::plainParagraph($children, $source)) {
+            return true;
+        }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
         HeapPages::release();
-        $read = TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions));
+        $read = TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions))['children'] ?? [];
         HeapPages::release();
 
-        return TreeEquality::fingerprint($read['children'] ?? []) === $print;
+        return $read === $children || TreeEquality::same($read, $children);
+    }
+
+    /**
+     * carve-js `plainLeaf`: whether the blocks are one paragraph of texts of plain words between soft breaks, and the
+     * source is their values joined by line feeds. Such lines read back as that paragraph with no parse.
+     *
+     * @param array<mixed> $blocks
+     * @param string $source
+     */
+    private static function plainParagraph(array $blocks, string $source): bool
+    {
+        $paragraph = $blocks[0] ?? null;
+        if (
+            count($blocks) !== 1 || !is_array($paragraph) || count($paragraph) !== 2
+            || ($paragraph['type'] ?? null) !== 'paragraph' || !is_array($paragraph['children'] ?? null)
+            || !array_is_list($paragraph['children']) || count($paragraph['children']) % 2 !== 1
+        ) {
+            return false;
+        }
+        $at = 0;
+        foreach ($paragraph['children'] as $index => $node) {
+            if ($index % 2 === 1) {
+                if ($node !== ['type' => 'soft_break'] || ($source[$at] ?? '') !== "\n") {
+                    return false;
+                }
+                $at++;
+
+                continue;
+            }
+            $value = is_array($node) ? $node['value'] ?? null : null;
+            if (
+                !is_string($value) || count($node) !== 2 || ($node['type'] ?? null) !== 'text' || !self::plainWords($value)
+                || $at + strlen($value) >= strlen($source) || substr_compare($source, $value, $at, strlen($value)) !== 0
+            ) {
+                return false;
+            }
+            $at += strlen($value);
+        }
+
+        return strlen($source) === $at + 1 && $source[$at] === "\n";
+    }
+
+    /**
+     * ASCII letters and digits with single spaces between them (carve-js `PLAIN_WORDS`).
+     */
+    private static function plainWords(string $value): bool
+    {
+        return $value !== '' && strspn($value, self::PLAIN_CHARACTERS) === strlen($value) && $value[0] !== ' '
+            && $value[-1] !== ' ' && !str_contains($value, '  ');
     }
 
     /**
