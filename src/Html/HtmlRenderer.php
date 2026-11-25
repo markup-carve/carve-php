@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Html;
 
 use Generator;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\IncludeShape;
 use MarkupCarve\Carve\Extension\Extensions;
 use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Generated\Tables;
@@ -1811,10 +1812,11 @@ final class HtmlRenderer
      * C2-H-133, C2-H-171: the directive as text.
      *
      * @param \MarkupCarve\Carve\Node $node
+     * @param array<string, mixed>|null $spelling C2-L-055: an option's source spelling, kept where it decodes to the value.
      *
      * @return string
      */
-    public static function includeText(Node $node): string
+    public static function includeText(Node $node, ?array $spelling = null): string
     {
         $parts = ['{{', self::includePath(PlainText::str($node->f['path'] ?? ''))];
         $section = $node->f['section'] ?? null;
@@ -1828,11 +1830,15 @@ final class HtmlRenderer
                 continue;
             }
             $value = $options[$name];
-            if ($value === true || ($value === '' && ($name === 'rows' || $name === 'cols'))) {
+            $spelled = $spelling[$name] ?? null;
+            if ($value !== true && is_string($spelled) && self::spells($name, $spelled, $value)) {
+                $parts[] = '@' . $name . ':' . $spelled;
+            } elseif ($value === true || ($value === '' && ($name === 'rows' || $name === 'cols'))) {
                 $parts[] = '@' . $name;
             } elseif (is_array($value)) {
                 // C2-A-181: only a quoted `cols` value becomes a list, so a list is written quoted.
-                $parts[] = '@' . $name . ':"' . implode(',', array_map([PlainText::class, 'str'], $value)) . '"';
+                $names = array_map(static fn (mixed $v): string => addcslashes(PlainText::str($v), '\\",'), $value);
+                $parts[] = '@' . $name . ':"' . implode(',', $names) . '"';
             } else {
                 $parts[] = '@' . $name . ':' . self::includeValue(PlainText::str($value), $name === 'cols');
             }
@@ -1846,6 +1852,23 @@ final class HtmlRenderer
         $parts[] = '}}';
 
         return implode(' ', $parts);
+    }
+
+    /**
+     * C2-L-055: whether `$spelled` reads back as the option value `$value`.
+     *
+     * @param string $name
+     * @param string $spelled
+     * @param mixed $value
+     *
+     * @return bool
+     */
+    private static function spells(string $name, string $spelled, mixed $value): bool
+    {
+        $line = '{{ x @' . $name . ':' . $spelled . ' }}';
+        $read = IncludeShape::parse($line, 0, strlen($line));
+
+        return is_array($read['options'] ?? null) && array_key_exists($name, $read['options']) && $read['options'][$name] === $value;
     }
 
     /**

@@ -1787,7 +1787,8 @@ final class Blocks
         if (Inline::str($node, 'path') === '' || str_contains(Inline::str($node, 'path'), "\n")) {
             $this->w->lose($path, 'include', 'path');
         }
-        $this->w->emit($prefix, HtmlRenderer::includeText($include));
+        $spelling = $this->w->fact($path, 'optionSpelling');
+        $this->w->emit($prefix, HtmlRenderer::includeText($include, is_array($spelling) ? $spelling : null));
         $this->caption($node['caption'] ?? null, $path . '/caption', $prefix);
     }
 
