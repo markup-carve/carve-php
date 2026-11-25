@@ -177,8 +177,13 @@ final class DjotListParser extends ListParser
         if (preg_match('/\A#{1,6}(?:[ \t]|\z)/', $text) === 1) {
             return $this->heading = true;
         }
-        if (preg_match('/\A>(?:[ \t]|\z)/', $text) === 1 || $this->parseListItemMarker($text) !== null) {
+        if (preg_match('/\A>(?:[ \t]|\z)/', $text) === 1) {
             return true;
+        }
+        // A nested item leaves open what its own content opens.
+        $item = $this->parseListItemMarker($text);
+        if ($item !== null) {
+            return $this->opensParagraph(self::content($item), false, $fence);
         }
 
         return !($this->opensBlock)($text);
