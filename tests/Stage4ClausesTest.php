@@ -358,10 +358,16 @@ final class Stage4ClausesTest extends TestCase
         }
         $this->assertSame(200, $depth);
         $this->assertSame('> x', $node['children'][0]['children'][0]['value'] ?? null);
-        $source = str_repeat('> ', 198) . "- one\n" . str_repeat('> ', 198) . '- two';
+        $source = str_repeat('> ', 197) . "- one\n" . str_repeat('> ', 197) . '- two';
         $tree = json_decode(Carve::toJson($source), true);
         $list = $this->findType($tree, 'list');
         $this->assertCount(2, $list['children'] ?? []);
+        // carve#6610 (ruled B): the sibling item would be block 201, so the marker is text of a lazy line.
+        $source = str_repeat('> ', 198) . "- one\n" . str_repeat('> ', 198) . '- two';
+        $tree = json_decode(Carve::toJson($source), true);
+        $list = $this->findType($tree, 'list');
+        $this->assertCount(1, $list['children'] ?? []);
+        $this->assertStringContainsString('- two', Carve::toHtml($source));
     }
 
     public function testC2B209DeclaredHeadRowsClampToAvailableRows(): void
