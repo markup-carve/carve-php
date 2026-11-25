@@ -60,6 +60,16 @@ final class WriterReadbackTest extends TestCase
                 "[x](/u \"a\nb\")\n",
                 ['structure-unspellable /children/0/children/0'],
             ],
+            'C2-I-067 a destination with a space' => [
+                $p(['type' => 'link', 'href' => 'hello *ab*', 'children' => [$t('closed')]]),
+                "[closed](hello *ab*)\n",
+                ['structure-unspellable /children/0/children/0'],
+            ],
+            'C2-I-067 a destination with a line break' => [
+                $p(['type' => 'image', 'src' => "a\nb", 'alt' => 'x', 'children' => [$t('x')]]),
+                "![x](a\nb)\n",
+                ['structure-unspellable /children/0/children/0'],
+            ],
             'C2-I-002 spaces before a line break in a code span' => [
                 $p($code("a  \nb")),
                 "`a  \nb`\n",

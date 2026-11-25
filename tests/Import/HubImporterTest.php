@@ -203,6 +203,22 @@ final class HubImporterTest extends TestCase
     }
 
     /**
+     * carve#6638: a destination with whitespace is written as is and reported (C2-I-067, C2-W-117).
+     */
+    public function testKeepsTheLinkTailAndReportsWhatCarveCannotSpell(): void
+    {
+        $djot = Carve::importDocument("[closed](hello *a\nb*)\n", ['from' => 'djot']);
+        $this->assertSame("[closed](hello *ab*)\n", $djot->source);
+        $this->assertSame(['structure-unspellable'], array_map(static fn ($d): string => $d->code, $djot->diagnostics));
+    }
+
+    public function testBracesAnEmphasisAroundALinkWhoseTailReadsAsText(): void
+    {
+        $result = Carve::importDocument('<p><em><a href="/u(r)l x">txt</a></em></p>');
+        $this->assertSame("{/[txt](/u(r)l x)/}\n", $result->source);
+    }
+
+    /**
      * @return array<string, array{string, string, string}>
      */
     public static function entries(): array

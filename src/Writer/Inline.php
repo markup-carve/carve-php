@@ -2572,6 +2572,8 @@ final class Inline
                         return true;
                     }
                 }
+            } elseif (self::tailHoldsMark($node, $mark, $words)) {
+                return true;
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                 $at = $path . '/' . $k . '/children';
                 $wordsInside = $words && !isset(self::BRACED[$type]) && !isset($braced[$path . '/' . $k]);
@@ -3232,6 +3234,10 @@ final class Inline
                 default => '[' . (str_starts_with($key, '^') || str_starts_with($key, '@') ? ' ' : '') . self::labelText($key, $c) . ']',
             };
         }
+        // C2-I-067: a destination holds no whitespace, so the bracket pair reads back as text.
+        if (strpbrk($href, " \t\n\r") !== false) {
+            $this->w->lose($path, self::str($node, 'type'), null);
+        }
         $tooltip = $node['tooltip'] ?? null;
         // C2-W-117: the tail stays on one line, so a title with a line break leaves the bracket pair as text.
         if (is_string($tooltip) && str_contains($tooltip, "\n")) {
@@ -3310,10 +3316,40 @@ final class Inline
             if (isset($unmatched[$i]) || ($ch === '\\' && str_contains('()\\', $next)) || $barePipe) {
                 $out .= '\\';
             }
-            $out .= $ch === ' ' || $ch === "\n" ? '' : $ch;
+            $out .= $ch;
         }
 
         return $out;
+    }
+
+    /**
+     * @param array<mixed> $node
+     * @param string $mark
+     * @param bool $words
+     */
+    private static function tailHoldsMark(array $node, string $mark, bool $words): bool
+    {
+        $tail = self::textTail($node);
+
+        return $tail !== null && self::holdsMark([['type' => 'text', 'value' => $tail]], $mark, $words);
+    }
+
+    /**
+     * C2-I-067: the tail of a link or image whose destination holds whitespace, which reads back as text.
+     *
+     * @param array<mixed> $node
+     *
+     * @return string|null
+     */
+    private static function textTail(array $node): ?string
+    {
+        $type = $node['type'] ?? '';
+        $href = $type === 'image' ? ($node['src'] ?? null) : ($type === 'link' ? ($node['href'] ?? null) : null);
+        if (!is_string($href) || is_string($node['key'] ?? null) || strpbrk($href, " \t\n\r") === false) {
+            return null;
+        }
+
+        return '(' . $href . (is_string($node['tooltip'] ?? null) ? ' "' . $node['tooltip'] . '"' : '') . ')';
     }
 
     /**
