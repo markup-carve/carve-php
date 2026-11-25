@@ -2163,7 +2163,9 @@ final class Writer
         if (self::notePrunable($result->source) || str_contains($result->source, '\\[^]')) {
             $print = self::trimmedPrint($tree, $layout, $options);
 
-            return self::readsBack($result->source, $print, $options) ? self::withPrunedNoteCarets($result, $print, $options, $parsed) : null;
+            return self::readsBack($result->source, $print, $options)
+                ? self::withPrunedNoteCarets($result, $print, $options, $parsed)
+                : null;
         }
         // Nothing to prune needs no fingerprint: the read-back and the trimmed tree are compared in one walk (carve-php#5965).
         $removed = [];
@@ -2171,7 +2173,8 @@ final class Writer
         if (ReadbackRound::memoActive() && !isset($options['extensions'])) {
             $read = ReadbackRound::read($result->source, $options);
         } else {
-            $read = TreeEncoder::decodedForWriter(Carve::parse($result->source, isset($options['extensions']) ? ['extensions' => $options['extensions']] : []));
+            $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+            $read = TreeEncoder::decodedForWriter(Carve::parse($result->source, $parseOptions));
         }
 
         return TreeEquality::same($read, $trimmed) ? $result : null;

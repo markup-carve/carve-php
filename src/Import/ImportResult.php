@@ -53,6 +53,8 @@ final class ImportResult
      * @param int $suppressedDiagnostics The losses `maxLosses` held back (C2-H-205).
      * @param string|null $documentJson Internal: the JSON text of the document, decoded in place of `$document` when
      *   `document` is first read (carve-php#5627).
+     *
+     * @throws \InvalidArgumentException
      */
     public function __construct(
         ?Node $tree,
