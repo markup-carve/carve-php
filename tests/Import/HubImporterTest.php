@@ -196,6 +196,7 @@ final class HubImporterTest extends TestCase
             'span inside link text' => ["[a [b]{.k} c](x)\n", "<p><a href=\"x\">a <span class=\"k\">b</span> c</a></p>\n"],
             'bracket inside emphasis' => ["[a _[b]_ c](x)\n", "<p><a href=\"x\">a <em>[b]</em> c</a></p>\n"],
             'bracket inside quotes' => ["[a \"[b]\" c](x)\n", "<p><a href=\"x\">a “[b]” c</a></p>\n"],
+            'opener after a closed delimiter' => ["[a [*b*~](x)\n", "<p>[a <a href=\"x\"><strong>b</strong>~</a></p>\n"],
             'lone bracket before a link closer' => ["[a] b](x)\n", "<p><a href=\"x\">a] b</a></p>\n"],
         ];
     }

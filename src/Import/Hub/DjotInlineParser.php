@@ -64,22 +64,41 @@ final class DjotInlineParser extends InlineParser
      * The `]` that closes the `[` at `$open`, found the way djot.js matches openers: a `]` closes the last open `[`
      * only when `(`, `[` or `{` follows it, any other `]` is text (carve#6665), and a closing emphasis or quote drops
      * the openers inside it. A footnote reference and the label after `][` open no bracket.
+     *
+     * One scan from the start of the text decides every `[` in it, so openers before `$open` take part as in djot.js.
+     * A `[` that scan does not see as an opener gets a scan of its own.
      */
     protected function findBalancedBracketEnd(string $text, int $open): ?int
     {
         if ($text !== $this->bracketScanText) {
             $this->bracketScanText = $text;
             $this->bracketScanEnds = [];
+            $this->scanBrackets($text, null);
         }
         if (array_key_exists($open, $this->bracketScanEnds)) {
             return $this->bracketScanEnds[$open];
         }
+
+        return $this->scanBrackets($text, $open);
+    }
+
+    /**
+     * @param string $text
+     * @param int|null $own The `[` the scan starts at, or null to scan the whole text.
+     *
+     * @return int|null The `]` that closes `$own`.
+     */
+    private function scanBrackets(string $text, ?int $own): ?int
+    {
         /** @var array<int, array{0: string, 1: int, 2: int}> $openers kind, start and end of each open opener */
-        $openers = [['[', $open, $open]];
+        $openers = [];
         /** @var array<string, array<int, int>> $byKind the index in `$openers` of each open opener, by kind */
-        $byKind = ['[' => [0]];
+        $byKind = ['[' => []];
+        if ($own !== null) {
+            self::pushOpener($openers, $byKind, '[', $own, $own);
+        }
         $length = strlen($text);
-        $at = $open + 1;
+        $at = $own === null ? 0 : $own + 1;
         while ($at < $length) {
             $at += strcspn($text, self::BRACKET_SCAN_STOPS, $at);
             if ($at >= $length) {
@@ -99,7 +118,7 @@ final class DjotInlineParser extends InlineParser
                 continue;
             }
             if ($char === ']') {
-                $resume = $this->closeBracket($text, $at, $openers, $byKind);
+                $resume = $this->closeBracket($text, $at, $openers, $byKind, $own);
                 if ($resume === null) {
                     return $at;
                 }
@@ -109,11 +128,7 @@ final class DjotInlineParser extends InlineParser
             }
             $at = $this->matchDelimiter($text, $at, $openers, $byKind);
         }
-        foreach ($openers as [$kind, $start]) {
-            if ($kind === '[') {
-                $this->bracketScanEnds[$start] = null;
-            }
-        }
+        $this->dropOpeners($openers, $byKind, 0);
 
         return null;
     }
@@ -139,21 +154,23 @@ final class DjotInlineParser extends InlineParser
      * @param int $at
      * @param array<int, array{0: string, 1: int, 2: int}> $openers
      * @param array<string, array<int, int>> $byKind
+     * @param int|null $own
      *
      * @return int|null Where the scan goes on, or null once the scan's own `[` has closed.
      */
-    private function closeBracket(string $text, int $at, array &$openers, array &$byKind): ?int
+    private function closeBracket(string $text, int $at, array &$openers, array &$byKind, ?int $own): ?int
     {
         $next = $text[$at + 1] ?? '';
-        if ($next !== '(' && $next !== '[' && $next !== '{') {
+        if ($byKind['['] === [] || ($next !== '(' && $next !== '[' && $next !== '{')) {
             return $at + 1;
         }
         $index = (int)end($byKind['[']);
-        $this->bracketScanEnds[$openers[$index][1]] = $at;
-        if ($index === 0) {
+        $start = $openers[$index][1];
+        $this->bracketScanEnds[$start] = $at;
+        if ($start === $own) {
             return null;
         }
-        self::dropOpeners($openers, $byKind, $index);
+        $this->dropOpeners($openers, $byKind, $index);
         if ($next === '(') {
             return $this->findLinkDestinationEnd($text, $at + 1) ?? $at + 1;
         }
@@ -197,7 +214,7 @@ final class DjotInlineParser extends InlineParser
             $kind = $braced ? '{' . $char : $char;
             $index = ($byKind[$kind] ?? []) === [] ? null : end($byKind[$kind]);
             if ($index !== null && $openers[$index][2] !== $at - 1) {
-                self::dropOpeners($openers, $byKind, $index);
+                $this->dropOpeners($openers, $byKind, $index);
 
                 return $at + ($braced ? 2 : 1);
             }
@@ -227,17 +244,22 @@ final class DjotInlineParser extends InlineParser
     }
 
     /**
-     * Drops the opener at `$index` and every opener after it, as djot.js `clearOpeners` does.
+     * Drops the opener at `$index` and every opener after it, as djot.js `clearOpeners` does; a dropped `[` closes
+     * nowhere.
      *
      * @param array<int, array{0: string, 1: int, 2: int}> $openers
      * @param array<string, array<int, int>> $byKind
      * @param int $index
      */
-    private static function dropOpeners(array &$openers, array &$byKind, int $index): void
+    private function dropOpeners(array &$openers, array &$byKind, int $index): void
     {
         for ($last = count($openers) - 1; $last >= $index; $last--) {
-            array_pop($byKind[$openers[$last][0]]);
-            unset($openers[$last]);
+            [$kind, $start] = $openers[$last];
+            if ($kind === '[' && !array_key_exists($start, $this->bracketScanEnds)) {
+                $this->bracketScanEnds[$start] = null;
+            }
+            array_pop($byKind[$kind]);
+            array_pop($openers);
         }
     }
 
