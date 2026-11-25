@@ -252,6 +252,8 @@ final class HubImporterTest extends TestCase
             'tab after a task box' => ["- [ ]\ta\n", "- [ ] a\n"],
             'tab before a task box' => ["-\t[ ] a\n", "- \\[ ] a\n"],
             'tab after an ordered marker' => ["1)\tb\n", ". b\n"],
+            'box text after an uppercase marker' => ["A. [x] y\n", "A.  \\[x] y\n"],
+            'box text after a roman marker' => ["- a\n\nII. [ ] y\n", "- a\n\nII.  \\[ ] y\n"],
         ];
     }
 
