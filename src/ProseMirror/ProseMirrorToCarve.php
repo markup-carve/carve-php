@@ -178,18 +178,22 @@ final class ProseMirrorToCarve
      * tree leaves `role` as the editor kit does; the source must not lose it.
      *
      * @param array<mixed> $node
+     * @param bool $add False to only recompute a role the paragraph already carries.
      *
      * @return array<mixed>
      */
-    private static function withRoles(array $node): array
+    private static function withRoles(array $node, bool $add = true): array
     {
         foreach ($node as $key => $value) {
             if (is_array($value)) {
-                $node[$key] = self::withRoles($value);
+                $node[$key] = self::withRoles($value, $add);
             }
         }
+        if (($node['type'] ?? null) !== 'paragraph' || (!$add && !array_key_exists('role', $node))) {
+            return $node;
+        }
 
-        return ($node['type'] ?? null) === 'paragraph' ? self::withRole($node) : $node;
+        return self::withRole($node);
     }
 
     /**
@@ -242,6 +246,8 @@ final class ProseMirrorToCarve
         }
         $tree['children'] = $children;
         $tree['$pointer'] = '';
+        // A loaded role stays in `carve` after an edit; the content decides it. A paragraph without one stays as the kit saves it.
+        $tree = self::withRoles($tree, false);
         $this->pointers = [];
         $tree = $this->strip($tree, '');
         $this->ignored = [];
@@ -652,7 +658,9 @@ final class ProseMirrorToCarve
         $only = count($kept) === 1 && is_array($kept[0]) ? $kept[0] : [];
         $type = $only['type'] ?? null;
         if ($type === 'image' || ($type === 'math' && ($only['display'] ?? false) === true)) {
+            // The role paragraph's source cannot hold the blank text beside its one image or math.
             $node = ['type' => 'paragraph', 'role' => $type] + $node;
+            $node['children'] = $kept;
         }
 
         return $node;
@@ -1356,6 +1364,10 @@ final class ProseMirrorToCarve
             if (is_string($attrs[$attr] ?? null)) {
                 $node[$key] = $attrs[$attr];
             }
+        }
+        // An editor image with no alt text is what `![](src)` parses to; the schema wants `alt` unless decorative.
+        if (!isset($node['alt']) && ($node['decorative'] ?? null) !== true) {
+            $node['alt'] = '';
         }
 
         return $node;
