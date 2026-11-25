@@ -3041,7 +3041,12 @@ final class Inline
      */
     private function markCaseEightLinks(array $nodes, string $path): void
     {
-        $caretLinks = array_filter($nodes, static fn (mixed $node): bool => is_array($node) && self::caretText($node));
+        $caretLinks = [];
+        foreach ($nodes as $at => $node) {
+            if (is_array($node) && ($node['type'] ?? '') === 'link' && self::caretText($node)) {
+                $caretLinks[$at] = $node;
+            }
+        }
         if ($caretLinks === []) {
             return;
         }
