@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Import;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Node;
 
 /**
@@ -38,7 +40,13 @@ final class ImportResult
     private ?string $documentJson = null;
 
     /**
-     * @param \MarkupCarve\Carve\Node $tree The document, read back by the tree reader (C2-A-188).
+     * The JSON text `tree` is read from on its first read, for a result whose import skipped the tree check.
+     */
+    private ?string $treeJson = null;
+
+    /**
+     * @param \MarkupCarve\Carve\Node|null $tree The document, read back by the tree reader (C2-A-188). Internal: null reads
+     *   it from `$documentJson` on the first read of `tree` (carve-php#5965).
      * @param array<string, mixed> $document The document in JSON form, without positions.
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics The importer's entries, then the writer's.
      * @param string $source The canonical source (C2-M-074).
@@ -47,14 +55,21 @@ final class ImportResult
      *   `document` is first read (carve-php#5627).
      */
     public function __construct(
-        Node $tree,
+        ?Node $tree,
         array $document,
         public readonly array $diagnostics,
         public readonly string $source,
         public readonly int $suppressedDiagnostics = 0,
         ?string $documentJson = null,
     ) {
-        $this->tree = $tree;
+        if ($tree !== null) {
+            $this->tree = $tree;
+        } elseif ($documentJson !== null) {
+            $this->treeJson = $documentJson;
+            unset($this->tree);
+        } else {
+            throw new InvalidArgumentException('An import result without a tree needs its JSON text');
+        }
         if ($documentJson === null) {
             $this->document = $document;
 
@@ -76,10 +91,18 @@ final class ImportResult
     /**
      * @param string $name
      *
-     * @return array<string, mixed>|null
+     * @throws \MarkupCarve\Carve\Json\TreeError ! A lazily read tree the reader refuses: an engine defect.
+     *
+     * @return \MarkupCarve\Carve\Node|array<string, mixed>|null
      */
-    public function __get(string $name): ?array
+    public function __get(string $name): Node|array|null
     {
+        if ($name === 'tree' && $this->treeJson !== null) {
+            $this->tree = TreeReader::read($this->treeJson);
+            $this->treeJson = null;
+
+            return $this->tree;
+        }
         if ($name !== 'document' || $this->documentJson === null) {
             // As PHP reports a read of an undeclared property.
             trigger_error('Undefined property: ' . self::class . '::$' . $name, E_USER_WARNING);
@@ -95,7 +118,7 @@ final class ImportResult
 
     public function __isset(string $name): bool
     {
-        return $name === 'document' && $this->documentJson !== null;
+        return ($name === 'document' && $this->documentJson !== null) || ($name === 'tree' && $this->treeJson !== null);
     }
 
     /**
