@@ -604,6 +604,7 @@ final class Options
             throw new OptionError('option extensions: not a list');
         }
         $expanded = [];
+        $fromCatalog = [];
         $this->semanticKeys = self::SEMANTIC_KEYS;
         $this->quotes = null;
         foreach ($value as $item) {
@@ -612,7 +613,13 @@ final class Options
                 if ($standard === null) {
                     throw new OptionError('option extensions: an invalid extension registration');
                 }
-                array_push($expanded, ...$standard);
+                // A catalog name enables its definitions once, so `carve.tabs` and `carve.tab` may both be listed.
+                foreach ($standard as $definition) {
+                    if (!isset($fromCatalog[$definition->name])) {
+                        $fromCatalog[$definition->name] = true;
+                        $expanded[] = $definition;
+                    }
+                }
             } else {
                 $expanded[] = $item;
             }

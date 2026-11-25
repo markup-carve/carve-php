@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\PlainText;
+use SplObjectStorage;
 
 /**
  * Provisional. `:cite[key]` (`carve.cite`, C2-X-058) resolved against the entries of a `bibliography` or `references`
@@ -109,12 +110,15 @@ final class Citations
      */
     public static function transform(Node $view, string $mode, ?array $bibliography): Node
     {
-        $entries = self::collect($view, $bibliography ?? []);
-        [$order, $refIds, $useIds] = self::number($view, $entries, $mode, $bibliography !== null);
-        $placed = $order === [];
+        [$entries, $directives] = self::collect($view, $bibliography ?? []);
+        $backlinked = $bibliography !== null;
+        [$order, $numbers, $refIds, $useIds, $sourceKeys] = self::number($view, $entries, $directives, $mode, $backlinked);
+        $placed = false;
         $claimed = false;
-        $list = static fn (): Node => self::list($order, $entries, $refIds, $useIds, $mode);
-        Apparatus::walk($view, static function (Node $node) use (&$placed, &$claimed, $list): ?Node {
+        // C2-X-058 (carve#6123): each claimed directive lists every entry it defines, in source order.
+        $cited = array_values(array_filter($order, static fn (string $key): bool => !isset($sourceKeys[$key])));
+        $list = static fn (array $keys): Node => self::list($keys, $entries, $refIds, $useIds, $mode, true, $numbers[$keys[0] ?? ''] ?? 1);
+        Apparatus::walk($view, static function (Node $node) use (&$placed, &$claimed, $directives, $cited, $list): ?Node {
             if (!self::isReferences($node)) {
                 return null;
             }
@@ -122,20 +126,23 @@ final class Citations
             // The directive's blocks without the description lists the entries came from.
             $kept = static fn (Node $child): bool => !self::isEntryList($child);
             $body->children = array_values(array_filter($body->children ?? [], $kept));
+            $keys = $directives[$node] ?? [];
             if (!$placed) {
-                $body->children[] = $list();
-                $placed = true;
+                // The first directive also lists the pool entries the document cites.
+                $keys = [...$keys, ...$cited];
             }
+            $body->children[] = $list($keys);
+            $placed = true;
             $claimed = true;
 
             return Apparatus::claimDirective(self::REFERENCES, $node, [$body]);
         });
-        if (!$placed) {
+        if (!$placed && $order !== []) {
             // No directive places the list: it goes at the end of the document, as in 0.1.
             $node = new Node('block_extension', []);
             $node->f['name'] = self::REFERENCES;
             $node->f['version'] = '1';
-            $node->f['slots'] = ['body' => [$list()]];
+            $node->f['slots'] = ['body' => [self::list($order, $entries, $refIds, $useIds, $mode)]];
             $node->f['fallback'] = [];
             $view->children = [...($view->children ?? []), $node];
             $claimed = true;
@@ -164,19 +171,39 @@ final class Citations
     /**
      * Numbers the keys in order of first use and writes the resolved references on each citation.
      *
+     * The document's entries take the first numbers in source order; a cited pool entry takes the next one.
+     *
      * @param \MarkupCarve\Carve\Node $view
      * @param array<string, array{blocks: array<\MarkupCarve\Carve\Node>, author?: string, year?: string}> $entries
+     * @param \SplObjectStorage<\MarkupCarve\Carve\Node, array<string>> $directives
      * @param string $mode
      * @param bool $backlinked
      *
-     * @return array{0: array<string>, 1: array<string, string>, 2: array<string, array<string>>}
+     * @return array{
+     *   0: array<string>,
+     *   1: array<string, int>,
+     *   2: array<string, string>,
+     *   3: array<string, array<string>>,
+     *   4: array<string, true>,
+     * }
      */
-    private static function number(Node $view, array $entries, string $mode, bool $backlinked): array
+    private static function number(Node $view, array $entries, SplObjectStorage $directives, string $mode, bool $backlinked): array
     {
         $taken = Apparatus::viewIds($view);
         $numbers = [];
+        $order = [];
         $refIds = [];
         $useIds = [];
+        $sourceKeys = [];
+        foreach ($directives as $directive) {
+            foreach ($directives[$directive] as $key) {
+                $sourceKeys[$key] = true;
+                if (!isset($numbers[$key])) {
+                    $numbers[$key] = count($numbers) + 1;
+                    $refIds[$key] = Apparatus::freshId('ref-' . $key, $taken);
+                }
+            }
+        }
         foreach (self::uses($view) as [$node, $keys]) {
             // A citation with an undefined key keeps its text, as in 0.1: it is no use and takes no number.
             if (array_diff($keys, array_map('strval', array_keys($entries))) !== []) {
@@ -187,6 +214,7 @@ final class Citations
             foreach ($keys as $key) {
                 if (!isset($numbers[$key])) {
                     $numbers[$key] = count($numbers) + 1;
+                    $order[] = $key;
                     $refIds[$key] = Apparatus::freshId('ref-' . $key, $taken);
                 }
                 $ref = ['key' => $key, 'href' => '#' . $refIds[$key]];
@@ -202,7 +230,7 @@ final class Citations
             $node->f['props'] = [...$props, 'refs' => $refs];
         }
 
-        return [array_map('strval', array_keys($numbers)), $refIds, $useIds];
+        return [$order, $numbers, $refIds, $useIds, $sourceKeys];
     }
 
     /**
@@ -212,20 +240,27 @@ final class Citations
      * @param \MarkupCarve\Carve\Node $view
      * @param array<mixed> $pool
      *
-     * @return array<string, array{blocks: array<\MarkupCarve\Carve\Node>, author?: string, year?: string}>
+     * @return array{
+     *   0: array<string, array{blocks: array<\MarkupCarve\Carve\Node>, author?: string, year?: string}>,
+     *   1: \SplObjectStorage<\MarkupCarve\Carve\Node, array<string>>,
+     * }
      */
     private static function collect(Node $view, array $pool): array
     {
         $entries = [];
-        Apparatus::walk($view, static function (Node $node) use (&$entries): ?bool {
+        /** @var \SplObjectStorage<\MarkupCarve\Carve\Node, array<string>> $directives */
+        $directives = new SplObjectStorage();
+        Apparatus::walk($view, static function (Node $node) use (&$entries, $directives): ?bool {
             if (!self::isReferences($node)) {
                 return null;
             }
+            $keys = [];
             foreach ($node->children ?? [] as $list) {
                 if ($list->type === 'definition_list') {
-                    self::listEntries($list, $entries);
+                    self::listEntries($list, $entries, $keys);
                 }
             }
+            $directives[$node] = $keys;
 
             return false;
         });
@@ -234,8 +269,24 @@ final class Citations
                 $entries[$csl['id']] = self::cslEntry($csl);
             }
         }
+        // A duplicate key resolves to its last definition and has one list item, as in the 0.1 catalog.
+        $last = [];
+        foreach ($directives as $at => $directive) {
+            foreach ($directives[$directive] as $key) {
+                $last[$key] = $at;
+            }
+        }
+        foreach ($directives as $at => $directive) {
+            $kept = [];
+            foreach (array_reverse($directives[$directive]) as $key) {
+                if ($last[$key] === $at && !isset($kept[$key])) {
+                    $kept[$key] = true;
+                }
+            }
+            $directives[$directive] = array_reverse(array_map('strval', array_keys($kept)));
+        }
 
-        return $entries;
+        return [$entries, $directives];
     }
 
     /**
@@ -243,10 +294,11 @@ final class Citations
      *
      * @param \MarkupCarve\Carve\Node $list
      * @param array<string, array{blocks: array<\MarkupCarve\Carve\Node>, author?: string, year?: string}> $entries
+     * @param array<string> $keys The keys in source order, duplicates included.
      *
      * @return void
      */
-    private static function listEntries(Node $list, array &$entries): void
+    private static function listEntries(Node $list, array &$entries, array &$keys): void
     {
         $terms = [];
         $facts = [];
@@ -265,6 +317,7 @@ final class Citations
                 foreach ($terms as $key) {
                     if ($key !== '') {
                         $entries[$key] = ['blocks' => $item->children ?? [], ...$facts];
+                        $keys[] = $key;
                     }
                 }
             }
@@ -436,13 +489,22 @@ final class Citations
      * @param array<string, string> $refIds
      * @param array<string, array<string>> $useIds
      * @param string $mode
+     * @param bool $sourceOrder
+     * @param int $start
      *
      * @return \MarkupCarve\Carve\Node
      */
-    private static function list(array $order, array $entries, array $refIds, array $useIds, string $mode): Node
-    {
+    private static function list(
+        array $order,
+        array $entries,
+        array $refIds,
+        array $useIds,
+        string $mode,
+        bool $sourceOrder = false,
+        int $start = 1,
+    ): Node {
         $keys = $order;
-        if ($mode === 'author-date') {
+        if ($mode === 'author-date' && !$sourceOrder) {
             // Code point order, so every host sorts alike.
             usort($keys, static fn (string $a, string $b): int => strcmp(
                 $entries[$a]['author'] ?? $a,
@@ -455,7 +517,8 @@ final class Citations
         );
         $list = new Node('list', $items);
         $list->f['marker'] = $mode === 'author-date'
-            ? ['kind' => 'bullet', 'char' => '-'] : ['kind' => 'ordered', 'style' => '1', 'delimiter' => '.'];
+            ? ['kind' => 'bullet', 'char' => '-']
+            : ['kind' => 'ordered', 'style' => '1', 'delimiter' => '.', ...($start === 1 ? [] : ['start' => $start])];
         $list->f['spacing'] = 'tight';
         $list->f['attrs'] = Apparatus::attrs(classes: ['references']);
 

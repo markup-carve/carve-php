@@ -108,6 +108,43 @@ final class ExtensionFlagsTest extends TestCase
         self::assertSame("Display\n", $stdout);
     }
 
+    public function testWikiAndCiteRenderTheirExtensions(): void
+    {
+        $source = "See :wiki[Home Page] and :cite[roe].\n\n::: references\n:: doe\n: Doe.\n\n:: roe\n: Roe.\n:::\n";
+        $args = ['render', '--extensions', '["carve.wiki","carve.cite","carve.cite"]', 'a.crv'];
+        [$status, $stdout, $stderr] = self::runCommand($args, $source);
+        self::assertSame(0, $status);
+        self::assertSame('', $stderr);
+        self::assertSame(
+            '<p>See <a href="home-page" class="wikilink" data-wikilink="Home Page">Home Page</a> and '
+            . "[<a href=\"#ref-roe\" data-cite-key=\"roe\">2</a>].</p>\n"
+            . "<div class=\"references\">\n  <ol class=\"references\">\n    <li id=\"ref-doe\">Doe.</li>\n"
+            . "    <li id=\"ref-roe\">Roe.</li>\n  </ol>\n</div>\n",
+            $stdout,
+        );
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function tabLists(): array
+    {
+        return [
+            'tabs then tab' => ['["carve.tabs","carve.tab"]'],
+            'tab then tabs' => ['["carve.tab","carve.tabs"]'],
+            'tabs twice' => ['["carve.tabs","carve.tabs"]'],
+        ];
+    }
+
+    #[DataProvider('tabLists')]
+    public function testOverlappingCatalogNamesAreAccepted(string $list): void
+    {
+        [$expectedStatus, $expected] = self::runCommand(['render', '--extensions', '["carve.tabs"]', 'a.crv'], self::TABS);
+        [$status, $stdout, $stderr] = self::runCommand(['render', '--extensions', $list, 'a.crv'], self::TABS);
+        self::assertSame([0, 0, ''], [$expectedStatus, $status, $stderr]);
+        self::assertSame($expected, $stdout);
+    }
+
     /**
      * @param array<string> $args
      * @param string $source The text of `a.crv`.

@@ -10,6 +10,8 @@ use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Export\AnsiExporter;
 use MarkupCarve\Carve\Export\MarkdownExporter;
 use MarkupCarve\Carve\Export\PlainTextExporter;
+use MarkupCarve\Carve\Extension\Bundle;
+use MarkupCarve\Carve\Extension\Citations;
 use MarkupCarve\Carve\Extension\Standard;
 use MarkupCarve\Carve\Include\FileResolver;
 use MarkupCarve\Carve\InputError as CoreInputError;
@@ -536,15 +538,18 @@ HELP;
         if (!is_string($list) && !is_string($settings)) {
             return;
         }
-        $names = self::extensionNames(is_string($list) ? $list : '[]');
+        $names = array_values(array_unique(self::extensionNames(is_string($list) ? $list : '[]')));
         $byName = is_string($settings) ? self::extensionSettings($settings, $names) : [];
         $parsed['options']['extensions'] = $names;
         if ($parsed['command'] !== 'render') {
             return;
         }
         $renderers = [];
-        foreach ($names as $name) {
-            if (($byName[$name] ?? []) !== []) {
+        foreach ($names as $i => $name) {
+            if ($name === Citations::CITE) {
+                // C2-X-058: the citation renderer needs the bundle's references directive and its transform.
+                $parsed['options']['extensions'][$i] = Citations::bundle();
+            } elseif (($byName[$name] ?? []) !== []) {
                 $renderers[$name] = ['standard' => $byName[$name]];
             } elseif (Standard::renderer($name, 'interactive') !== null) {
                 $renderers[$name] = 'standard';
@@ -757,7 +762,14 @@ HELP;
                         isset($parsed['values']['report-includes']) ? ['file' => $display, 'dependencies' => $dependencies] : null,
                     ];
                 }
-                $result = Carve::renderWithDiagnostics($input, $options);
+                $transforms = [];
+                $extensions = $options['extensions'] ?? [];
+                foreach (is_array($extensions) ? $extensions : [] as $extension) {
+                    if ($extension instanceof Bundle) {
+                        array_push($transforms, ...$extension->transforms());
+                    }
+                }
+                $result = Carve::renderWithDocumentTransforms($input, $transforms, $options);
                 $losses = array_values(array_filter(
                     $result->diagnostics,
                     static fn (Diagnostic $d): bool => $d->channel === 'render-loss',
