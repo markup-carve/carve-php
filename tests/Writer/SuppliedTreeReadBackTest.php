@@ -96,6 +96,20 @@ final class SuppliedTreeReadBackTest extends TestCase
         $this->assertNotSame([], $result->codes());
     }
 
+    public function testAParagraphOfPlainWordsReadsBackWithoutAParse(): void
+    {
+        $tree = self::document([
+            [
+                'type' => 'paragraph',
+                'children' => [['type' => 'text', 'value' => 'a b'], ['type' => 'soft_break'], ['type' => 'text', 'value' => 'c 1']],
+            ],
+        ]);
+        $result = Writer::writeWithDiagnostics($tree);
+        $this->assertSame("a b\nc 1\n", $result->source);
+        $this->assertSame([], $result->codes());
+        $this->assertTrue(TreeEquality::equal($tree['children'], self::read($result->source)['children']));
+    }
+
     public function testATreeThatReadsBackReportsNothing(): void
     {
         $tree = self::document([
