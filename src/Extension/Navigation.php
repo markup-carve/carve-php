@@ -79,7 +79,7 @@ final class Navigation
             return $view;
         };
 
-        return new ExtensionDefinition(self::PERMALINKS, '1', documentTransform: $run);
+        return new ExtensionDefinition(self::PERMALINKS, '1', documentTransform: CopyLedger::certify($run));
     }
 
     private static function anchor(string $symbol, string $cssClass, string $ariaLabel, bool $showOnHover, bool $copyToClipboard): Node
@@ -118,39 +118,43 @@ final class Navigation
         $run = static function (Node $view) use ($minLevel, $label, $crossref): Node {
             NavTree::declare($view, self::NUMBERS);
             NavTree::freezeReferences($view, self::NUMBERS);
-            $texts = NavTree::headingTexts($view);
-            $byId = self::number($view, $minLevel);
+            $sources = [];
+            $texts = NavTree::headingTexts($view, $sources);
+            $byId = self::number($view, $minLevel, $crossref === 'number-title' ? [$texts, $sources] : null);
+            $numbered = null;
+            $titles = NavTree::titleCopies($texts);
             if ($crossref !== 'title' && $byId !== []) {
-                NavTree::rewrite($view, static function (Node $node) use ($byId, $label, $crossref, $texts): ?array {
-                    if (!NavTree::isTitleXref($node)) {
-                        return null;
-                    }
-                    $key = PlainText::str($node->f['key'] ?? '');
+                $numbered = static function (Node $node, string $key) use ($byId, $label, $crossref, $titles): ?array {
                     $target = $byId[$key] ?? null;
                     if ($target === null) {
                         return null;
                     }
                     $children = $crossref === 'number'
                         ? [NavTree::text($label . ' ' . $target['number'])]
-                        : [NavTree::text($label . ' ' . $target['number'] . ' - '), ...NavTree::copiedTitle($target['title'], $texts)];
+                        : [NavTree::text($label . ' ' . $target['number'] . ' - '), ...$titles('n:' . $key, $target['title'])];
 
                     return [NavTree::link('#' . $key, $children, NavTree::attrs($node))];
-                }, true, visitReplacements: false);
+                };
             }
-            NavTree::freezeCrossReferences($view, $texts);
+            NavTree::freezeCrossReferences($view, $texts, $numbered, $titles);
 
             return $view;
         };
 
-        return new ExtensionDefinition(self::NUMBERS, '1', documentTransform: $run);
+        return new ExtensionDefinition(self::NUMBERS, '1', documentTransform: CopyLedger::certify($run));
     }
 
     /**
      * Writes the section numbers and returns the number and title of each heading id.
      *
+     * @param \MarkupCarve\Carve\Node $view
+     * @param int $minLevel
+     * @param array{array<string, array<\MarkupCarve\Carve\Node>>, array<string, int>}|null $texts The heading texts and
+     *   the heading each was read from, which a title of the same heading reuses; null derives no titles.
+     *
      * @return array<string, array{number: string, title: array<\MarkupCarve\Carve\Node>}>
      */
-    private static function number(Node $view, int $minLevel): array
+    private static function number(Node $view, int $minLevel, ?array $texts): array
     {
         $levels = [];
         $numbers = [];
@@ -179,7 +183,7 @@ final class Navigation
             $number = implode('.', $numbers);
             $id = NavTree::headingId($node);
             if ($id !== null && !isset($byId[$id])) {
-                $byId[$id] = ['number' => $number, 'title' => NavTree::derivedInlines($node->children ?? [])];
+                $byId[$id] = ['number' => $number, 'title' => $texts === null ? [] : self::title($node, $id, $texts)];
             }
             NavTree::pinId($node);
             $span = new Node('span', [NavTree::text($number)]);
@@ -189,6 +193,24 @@ final class Navigation
         }
 
         return $byId;
+    }
+
+    /**
+     * The title of a heading, taken from the heading texts when they were read from this heading.
+     *
+     * @param \MarkupCarve\Carve\Node $heading
+     * @param string $id
+     * @param array{array<string, array<\MarkupCarve\Carve\Node>>, array<string, int>} $texts
+     *
+     * @return array<\MarkupCarve\Carve\Node>
+     */
+    private static function title(Node $heading, string $id, array $texts): array
+    {
+        if (($texts[1][$id] ?? null) === spl_object_id($heading)) {
+            return $texts[0][$id];
+        }
+
+        return NavTree::derivedInlines($heading->children ?? []);
     }
 
     /**
