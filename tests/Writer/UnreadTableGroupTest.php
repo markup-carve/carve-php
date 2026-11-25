@@ -19,10 +19,6 @@ final class UnreadTableGroupTest extends TestCase
     public static function lostGroups(): array
     {
         return [
-            'head of data cells' => [
-                '<table><thead><tr><td>H</td></tr></thead></table>',
-                "| H |\n",
-            ],
             'foot only, led by header cells' => [
                 '<table><tfoot><tr><th>F</th></tr></tfoot></table>',
                 "{footer-rows=1}\n|= F |\n",
@@ -56,6 +52,33 @@ final class UnreadTableGroupTest extends TestCase
     public function testGroupsThatReadBackReportNothing(string $html): void
     {
         self::assertSame([], Carve::importHtml($html)->diagnostics);
+    }
+
+    public function testAHeadOfDataCellsIsReported(): void
+    {
+        $cell = [
+            'type' => 'table_cell',
+            'header' => false,
+            'children' => [
+                ['type' => 'cell_paragraph', 'children' => [['type' => 'text', 'value' => 'H']]],
+            ],
+        ];
+        $result = Carve::writeWithDiagnostics([
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'table',
+                    'columns' => [['type' => 'table_column']],
+                    'children' => [
+                        ['type' => 'table_head', 'children' => [['type' => 'table_row', 'children' => [$cell]]]],
+                    ],
+                ],
+            ],
+        ]);
+        self::assertSame("| H |\n", $result->source);
+        $losses = array_map(static fn ($entry): array => [$entry->code, $entry->path], $result->diagnostics);
+        self::assertSame([['structure-unspellable', '/children/0/children/0']], $losses);
     }
 
     public function testAnEmptyHeadIsReported(): void
