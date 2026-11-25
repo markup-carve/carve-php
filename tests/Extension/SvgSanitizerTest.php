@@ -91,6 +91,26 @@ final class SvgSanitizerTest extends TestCase
         self::assertSame('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', $valueless);
     }
 
+    public function testStyleWithACssImageFunctionIsDropped(): void
+    {
+        // carve#6760: C2-H-162 blanks these in the core renderer; carve-js kept them.
+        $styles = [
+            'cursor:image-set("https://e.example/p.png" 1x),auto',
+            'background:-webkit-image-set("https://e.example/p.png" 1x)',
+            "background:image('https://e.example/p.png')",
+            'background:src("https://e.example/p.png")',
+            'background:IMAGE\\2d set("https://e.example/p.png" 1x)',
+        ];
+        foreach ($styles as $style) {
+            $result = SvgSanitizer::sanitize("<svg style='" . $style . "'/>", ['allowStyle' => true]);
+            self::assertSame('<svg xmlns="http://www.w3.org/2000/svg"/>', $result['svg'], $style);
+        }
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" style="fill:red;cursor:pointer"/>',
+            SvgSanitizer::sanitize('<svg style="fill:red;cursor:pointer"/>', ['allowStyle' => true])['svg'],
+        );
+    }
+
     public function testOptionsObjectAndArrayAgree(): void
     {
         $source = '<svg><a href="https://example.com/"><text>x</text></a><a href="mailto:a@b.c"><text>y</text></a></svg>';

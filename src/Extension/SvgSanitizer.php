@@ -13,7 +13,7 @@ use MarkupCarve\Carve\Html\UrlPolicy;
  * A tokenizer, not a regex scrub: an element off the allowlist is dropped with its subtree, an attribute off the
  * allowlist and every `on*` handler is dropped, URL and style values are checked, and only the survivors are written
  * again. The output holds no `<script>`, `<foreignObject>`, `<style>`, event handler, dangerous or external URL, or
- * active CSS. Output bytes equal carve-js on the same input, except for the root `xmlns` fix of carve#6755.
+ * active CSS. Output bytes equal carve-js on the same input, except for the fixes of carve#6755 and carve#6760.
  */
 final class SvgSanitizer
 {
@@ -136,11 +136,6 @@ final class SvgSanitizer
         'apos' => "'",
         'nbsp' => "\u{A0}",
     ];
-
-    /**
-     * @var array<string>
-     */
-    private const STYLE_NEEDLES = ['expression(', 'url(', '@import', 'behavior:', '-moz-binding', 'javascript:'];
 
     /**
      * @var array<string>
@@ -622,7 +617,8 @@ final class SvgSanitizer
     {
         $compact = (string)preg_replace('~/\*.*?\*/~s', '', $value);
         $compact = (string)preg_replace('~' . self::WS . '+~u', '', mb_strtolower(self::normalizeForCheck($compact), 'UTF-8'));
-        foreach (self::STYLE_NEEDLES as $needle) {
+        // carve#6760: the core list of C2-H-162 (CSS image functions fetch from a bare string) plus `javascript:`.
+        foreach ([...Tables::URL_STYLE_PATTERNS, 'javascript:'] as $needle) {
             if (str_contains($compact, $needle)) {
                 return true;
             }
