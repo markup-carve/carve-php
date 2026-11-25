@@ -37,6 +37,7 @@ use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeMigration;
 use MarkupCarve\Carve\Json\TreePatch;
 use MarkupCarve\Carve\Json\TreeReader;
+use MarkupCarve\Carve\Json\ViewCheck;
 use MarkupCarve\Carve\Layout\LayoutBuilder;
 use MarkupCarve\Carve\Layout\LayoutReader;
 use MarkupCarve\Carve\Lint\Linter;
@@ -333,7 +334,10 @@ final class Carve
                         throw new UnexpectedValueException('document transform duplicated an authored id');
                     }
                 }
-                TreeReader::checkTreeOf($changed, self::readerExtensions($opts->extensions));
+                $reader = self::readerExtensions($opts->extensions);
+                if (!ViewCheck::passes($changed, $reader)) {
+                    TreeReader::checkTreeOf($changed, $reader);
+                }
                 $view = $changed;
                 $changedView = true;
                 $beforeIds = $afterIds;

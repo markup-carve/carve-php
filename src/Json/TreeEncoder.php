@@ -43,7 +43,7 @@ final class TreeEncoder
      *
      * @var array<string, true>
      */
-    private const OMIT_EMPTY = ['props' => true, 'slots' => true, 'payload' => true, 'resourceIds' => true];
+    public const OMIT_EMPTY = ['props' => true, 'slots' => true, 'payload' => true, 'resourceIds' => true];
 
     /**
      * @var array<int>
