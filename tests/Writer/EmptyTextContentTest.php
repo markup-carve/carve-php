@@ -34,7 +34,7 @@ final class EmptyTextContentTest extends TestCase
             'emphasis of an empty strong' => [
                 $span('emphasis', $span('strong')),
                 "a{//}b\n",
-                ['structure-unspellable /children/0/children/1/children/0', 'structure-unspellable /children/0/children/1'],
+                ['structure-unspellable /children/0/children/1', 'structure-unspellable /children/0/children/1/children/0'],
             ],
             'emphasis of an empty link keeps it' => [
                 $span('emphasis', ['type' => 'link', 'href' => '/u', 'children' => []]),

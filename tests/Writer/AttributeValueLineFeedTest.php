@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\Writer;
 use MarkupCarve\Carve\Import\HtmlImporter;
 use MarkupCarve\Carve\Writer\CarveWriteError;
 use MarkupCarve\Carve\Writer\Writer;
+use MarkupCarve\Carve\Writer\WriteResult;
 use PHPUnit\Framework\TestCase;
 
 final class AttributeValueLineFeedTest extends TestCase
@@ -197,5 +198,105 @@ final class AttributeValueLineFeedTest extends TestCase
         self::assertSame("safe\n", $result->source);
         self::assertSame(['structure-unspellable'], $result->codes());
         self::assertSame('/children/0', $result->diagnostics[0]->path);
+    }
+
+    /**
+     * C2-W-158: the line-feed losses stand in path order among the other entries of the record.
+     */
+    public function testLineFeedLossesStandInPathOrder(): void
+    {
+        $text = static fn (string $value): array => ['type' => 'text', 'value' => $value];
+        $cell = static fn (array $children): array => ['type' => 'table_cell', 'header' => false, 'children' => $children];
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                ['type' => 'paragraph', 'attrs' => ['keyValues' => [['title', "a\nb"]]], 'children' => [$text('p')]],
+                [
+                    'type' => 'table',
+                    'columns' => [['type' => 'table_column'], ['type' => 'table_column']],
+                    'children' => [
+                        [
+                            'type' => 'table_body',
+                            'children' => [
+                                [
+                                    'type' => 'table_row',
+                                    'children' => [
+                                        $cell([['type' => 'cell_paragraph', 'children' => [$text('x')]]]),
+                                        $cell([
+                                            ['type' => 'paragraph', 'children' => [$text('a')]],
+                                            ['type' => 'paragraph', 'children' => [$text('b')]],
+                                        ]),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        self::assertSame(
+            [
+                'field-unspellable /children/0/attrs/keyValues/0/1',
+                'structure-unspellable /children/1/children/0/children/0/children/1',
+            ],
+            self::entries(Writer::writeWithDiagnostics($tree)),
+        );
+    }
+
+    /**
+     * C2-L-011: a node's fields before its children, its caption after them; root fields before every node.
+     */
+    public function testFieldsChildrenAndCaptionInDocumentOrder(): void
+    {
+        $span = static fn (string $value): array => [
+            'type' => 'span',
+            'attrs' => ['keyValues' => [['title', "a\nb"]]],
+            'children' => [['type' => 'text', 'value' => $value]],
+        ];
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'lang' => 'de',
+            'children' => [
+                [
+                    'type' => 'admonition',
+                    'kind' => 'note',
+                    'attrs' => ['keyValues' => [['title', "x\ny"]]],
+                    'title' => [['type' => 'text', 'value' => 't']],
+                    'children' => [['type' => 'paragraph', 'children' => [$span('c')]]],
+                ],
+                [
+                    'type' => 'block_quote',
+                    'children' => [['type' => 'paragraph', 'children' => [$span('q')]]],
+                    'caption' => [
+                        'type' => 'caption',
+                        'children' => [['type' => 'paragraph', 'children' => [$span('k')]]],
+                    ],
+                ],
+            ],
+        ];
+
+        self::assertSame(
+            [
+                'field-unspellable /lang',
+                'field-unspellable /children/0/attrs/keyValues/0/1',
+                'field-unspellable /children/0/children/0/children/0/attrs/keyValues/0/1',
+                'field-unspellable /children/1/children/0/children/0/attrs/keyValues/0/1',
+                'field-unspellable /children/1/caption/children/0/children/0/attrs/keyValues/0/1',
+            ],
+            self::entries(Writer::writeWithDiagnostics($tree)),
+        );
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     *
+     * @return array<string>
+     */
+    private static function entries(WriteResult $result): array
+    {
+        return array_map(static fn ($d): string => $d->code . ' ' . $d->path, $result->diagnostics);
     }
 }

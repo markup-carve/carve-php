@@ -38,7 +38,7 @@ final class ParagraphRoleLossTest extends TestCase
             'a space and an image' => [
                 $paragraph([['type' => 'text', 'value' => ' '], $image]),
                 " ![a](i.png)\n",
-                ['field-unspellable /children/0/children/0/value', 'field-unspellable /children/0'],
+                ['field-unspellable /children/0', 'field-unspellable /children/0/children/0/value'],
             ],
             'display math in a quote' => [
                 ['type' => 'block_quote', 'children' => [$paragraph([$math])]],

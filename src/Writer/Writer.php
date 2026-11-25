@@ -212,7 +212,10 @@ final class Writer
                 $written = self::withPrunedNoteCarets($written, $print, $options, $parsedSource);
             }
 
-            return self::withAttributeValueLosses($written, $losses, $fallbackNodes);
+            $written = self::withAttributeValueLosses($written, $losses, $fallbackNodes);
+
+            return count($written->diagnostics) < 2 ? $written
+                : new WriteResult($written->source, EntryOrder::sort($tree, $written->diagnostics));
         } finally {
             self::$captured = $captured;
             self::$inGroups = $inGroups;
