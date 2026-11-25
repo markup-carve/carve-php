@@ -133,7 +133,7 @@ final class Scanner
 
     private bool $hardBreaks;
 
-    private bool $caption;
+    public bool $caption;
 
     /**
      * @var string
