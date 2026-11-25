@@ -2221,6 +2221,10 @@ final class Inline
         if (isset(self::BRACED[$type])) {
             return $this->braced($node, self::BRACED[$type], $path, $c);
         }
+        // The most common node with content, ahead of the field spellings it is none of.
+        if ($type === 'link') {
+            return $this->link($node, $path, $c);
+        }
 
         return $this->spelledFromFields($node, $type, $path, $c, $next) ?? $this->spelledWithContent($node, $type, $path, $c, $next);
     }
