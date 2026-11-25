@@ -26,7 +26,7 @@ final class NavigationTest extends TestCase
     private const DOC = "= Intro\n\nText.\n\n== Usage\n\n=== Deep\n\n== Next\n";
 
     /**
-     * The pinned 0.2 extension conformance rows EXT-104 through EXT-106.
+     * The 0.2 extension conformance rows EXT-104 through EXT-106 (EXT-105 and EXT-106 as carve next2 697d37a66 checks them).
      *
      * @return array<string, array{string, string}>
      */
@@ -39,9 +39,13 @@ final class NavigationTest extends TestCase
             ],
             'EXT-105' => [
                 "{#h0}\n= T0 </#h1> </#h2>\n\n{#h1}\n= T1 </#h2> </#h3>\n\n{#h2}\n= T2 </#h3> </#h4>\n",
-                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2',
+                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2   &lt;/#h3&gt;</a> '
+                    . '<a href="#h2">Section 3 - T2 &lt;/#h3&gt; &lt;/#h4&gt;</a></h1>',
             ],
-            'EXT-106' => ["{#a}\n= Ref </#a>\n", '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref'],
+            'EXT-106' => [
+                "{#a}\n= Ref </#a>\n",
+                '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref </a></h1>',
+            ],
         ];
     }
 
@@ -66,8 +70,8 @@ final class NavigationTest extends TestCase
     }
 
     /**
-     * carve#6540 ruling A, whole headings as carve-js next2 writes them: a cross-reference inside a copied title is a
-     * link with its target's plain title, never a second copy.
+     * carve#6540 ruling A: a cross-reference inside a copied title is a link with its target's untrimmed plain title
+     * (carve#6701), never a second copy.
      *
      * @return array<string, array{string, string}>
      */
@@ -77,16 +81,16 @@ final class NavigationTest extends TestCase
             'next two headings' => [
                 "{#h0}\n= T0 </#h1> </#h2>\n\n{#h1}\n= T1 </#h2> </#h3>\n\n{#h2}\n= T2 </#h3> </#h4>\n\n"
                     . "{#h3}\n= T3 </#h4> </#h5>\n",
-                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2 T3</a> '
-                    . '<a href="#h2">Section 3 - T2 T3 &lt;/#h4&gt;</a></h1>',
+                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2   T3  </a> '
+                    . '<a href="#h2">Section 3 - T2 T3   &lt;/#h4&gt;</a></h1>',
             ],
             'self reference' => [
                 "{#a}\n= Ref </#a>\n",
-                '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref</a></h1>',
+                '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref </a></h1>',
             ],
             'paragraph reference' => [
                 "{#a}\n= A </#b>\n\n{#b}\n= B _</#a>_\n\nSee </#b>.\n",
-                '<p>See <a href="#b">Section 2 - B _A_</a>.</p>',
+                '<p>See <a href="#b">Section 2 - B _A _</a>.</p>',
             ],
         ];
     }

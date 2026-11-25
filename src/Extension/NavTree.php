@@ -34,13 +34,6 @@ final class NavTree
     private const HEADING_REFERENCE = 'heading-reference';
 
     /**
-     * The white space of JavaScript `String.prototype.trim`, as carve-js trims a copied title.
-     *
-     * @var string
-     */
-    private const JS_SPACE = '[\t\n\v\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]';
-
-    /**
      * Visits every node below `$root` in document order, slots included, and splices in what `$rewrite` returns: null
      * keeps the node and visits its children, a list replaces it. Fallbacks are visited only with `$fallbacks`.
      *
@@ -444,9 +437,8 @@ final class NavTree
             if (!isset($texts[$key])) {
                 return null;
             }
-            $text = preg_replace('/^' . self::JS_SPACE . '+|' . self::JS_SPACE . '+$/u', '', PlainText::of($texts[$key])) ?? '';
 
-            return [self::link('#' . $key, [self::text($text)], self::attrs($node))];
+            return [self::link('#' . $key, [self::text(PlainText::of($texts[$key]))], self::attrs($node))];
         }, true, visitReplacements: false);
 
         return $holder->children ?? [];
