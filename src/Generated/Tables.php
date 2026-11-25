@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => 'd948907f697ec1700071f6992d2aa935b1c5eff1',
+        'commit' => '307e80eb8363281b58ce7382d1f6d53782b41570',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6452,6 +6452,13 @@ final class Tables
                 'admonitionExample' => 'Example',
                 'admonitionQuote' => 'Quote',
             ],
+        ],
+        'listTable' => [
+            'kind' => 'import',
+            'readBy' => 'import',
+            'type' => 'boolean',
+            'values' => null,
+            'default' => false,
         ],
         'maxLosses' => [
             'kind' => 'render',

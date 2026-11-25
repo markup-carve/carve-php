@@ -25,7 +25,14 @@ final class ImportClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [];
+    private const KNOWN_FAIL = [
+        'CC-2156' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
+        'CC-2159' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
+        'CC-2160' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
+        'CC-2161' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
+        'CC-2162' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
+        'CC-2163' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
+    ];
 
     /**
      * Cases the libxml fallback (PHP below 8.4) imports differently, as `ImportCorpusTest::LEGACY_DIFFERS`.
