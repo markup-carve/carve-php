@@ -142,6 +142,12 @@ final class Inline
     private int $noteDepth = 0;
 
     /**
+     * @var array<string, true> C2-W-125 case eight: the paths of the links whose caret stays bare behind the escaped
+     *   closers of a text note.
+     */
+    private array $caseEightLinks = [];
+
+    /**
      * Whether the span being written follows a bare `!`, behind which its bracket reads as span text (C2-W-125).
      */
     private bool $spanAfterBang = false;
@@ -606,6 +612,7 @@ final class Inline
             self::startLeaf($nodes, $path, $c);
             self::flatten($nodes, $path, $c);
         }
+        $this->markCaseEightLinks($nodes, $path);
         $out = '';
         $count = count($nodes);
         $visible = $c->lineStart ? -1 : $c->last;
@@ -2987,7 +2994,7 @@ final class Inline
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of link text would read as a footnote reference.
         if (
-            $this->noteDepth === 0 && self::leadsWithCaretText($children)
+            $this->noteDepth === 0 && !isset($this->caseEightLinks[$path]) && self::leadsWithCaretText($children)
             && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')
         ) {
             $inner = '\\' . $inner;
@@ -2998,6 +3005,78 @@ final class Inline
         }
 
         return '[' . $inner . ']' . $this->target($node, self::str($node, 'href'), $c, $path);
+    }
+
+    /**
+     * C2-W-125 case eight: a text `^[` stays bare before a later link whose text is a lone caret, so the `]` that closed
+     * it early takes the backslash. Only the first such link behind the closers keeps its caret bare, since a later bare
+     * caret could pair with it; not a collapsed or shortcut reference, which spells its caret through its key. Another
+     * node between leaves the case to the rounds.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     */
+    private function markCaseEightLinks(array $nodes, string $path): void
+    {
+        $caretLinks = array_filter($nodes, static fn (mixed $node): bool => is_array($node) && self::caretText($node));
+        if ($caretLinks === []) {
+            return;
+        }
+        $depth = 0;
+        $closers = false;
+        foreach ($nodes as $at => $node) {
+            $type = is_array($node) ? ($node['type'] ?? '') : '';
+            if ($type === 'text' && is_string($node['value'] ?? null)) {
+                self::scanTextNote($node['value'], $depth, $closers);
+            } elseif (isset($caretLinks[$at]) && $closers) {
+                if (!in_array($caretLinks[$at]['refForm'] ?? '', ['collapsed', 'shortcut'], true)) {
+                    $this->caseEightLinks[$path . '/' . $at] = true;
+                }
+                $depth = 0;
+                $closers = false;
+            } elseif ($type !== 'soft_break' && $type !== 'hard_break') {
+                $depth = 0;
+                $closers = false;
+            }
+        }
+    }
+
+    /**
+     * With its closers escaped a text `^[` stays open, so each `]` at its own depth closes it early.
+     *
+     * @param string $value
+     * @param int $depth
+     * @param bool $closers
+     */
+    private static function scanTextNote(string $value, int &$depth, bool &$closers): void
+    {
+        $n = strlen($value);
+        for ($i = strcspn($value, '^[]'); $i < $n; $i += 1 + strcspn($value, '^[]', $i + 1)) {
+            if ($depth === 0 && $value[$i] === '^' && ($value[$i + 1] ?? '') === '[') {
+                $depth = 1;
+                $closers = false;
+                $i++;
+            } elseif ($depth > 0 && $value[$i] === '[') {
+                $depth++;
+            } elseif ($depth === 1 && $value[$i] === ']') {
+                $closers = true;
+            } elseif ($depth > 1 && $value[$i] === ']') {
+                $depth--;
+            }
+        }
+    }
+
+    /**
+     * A link whose text is a lone caret: `^a` or `^ a` would read as a footnote key, and the rounds decide those.
+     *
+     * @param array<mixed> $node
+     */
+    private static function caretText(array $node): bool
+    {
+        $children = $node['children'] ?? null;
+
+        return ($node['type'] ?? '') === 'link' && is_array($children) && count($children) === 1
+            && is_array($children[0] ?? null) && ($children[0]['type'] ?? '') === 'text' && ($children[0]['value'] ?? null) === '^';
     }
 
     /**
