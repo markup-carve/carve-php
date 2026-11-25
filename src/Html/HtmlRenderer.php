@@ -429,7 +429,10 @@ final class HtmlRenderer
         $structural = $this->idCarriers($heading);
         $id = $this->headingId($heading);
 
-        return self::pad($depth) . '<section' . $this->aw->build($structural, $id ?? '', null) . '>';
+        // An authored empty id is written as `id=""` (C2-A-032); build() reads an explicit '' as no id.
+        $attr = $this->aw->build($structural, $id === '' ? null : $id ?? '', null) . ($id === '' ? ' id=""' : '');
+
+        return self::pad($depth) . '<section' . $attr . '>';
     }
 
     /**
@@ -458,6 +461,20 @@ final class HtmlRenderer
     private function headingId(Node $heading): ?string
     {
         return Resolver::idOf($heading);
+    }
+
+    /**
+     * The id argument of a heading's own element: an authored empty id is left to the attrs, which write it (C2-A-032).
+     *
+     * @param \MarkupCarve\Carve\Node $heading
+     *
+     * @return string|null
+     */
+    private function headingElementId(Node $heading): ?string
+    {
+        $id = $this->headingId($heading);
+
+        return $id === '' ? null : $id ?? '';
     }
 
     /**
@@ -1126,7 +1143,7 @@ final class HtmlRenderer
         $attrs = $node->f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? $attrs : null;
         $lang = is_string($node->f['lang'] ?? null) ? $node->f['lang'] : null;
-        $id = $inSection ? '' : $this->headingId($node) ?? '';
+        $id = $inSection ? '' : $this->headingElementId($node);
         $structural = $inSection ? [] : $this->idCarriers($node);
         $tag = 'h' . $level;
         $element = $level > 6 ? [['role', 'heading'], ['aria-level', (string)$level]] : [];
@@ -1795,9 +1812,16 @@ final class HtmlRenderer
         }
         $blocks = [];
         foreach ($visible as $block) {
-            $blocks[] = (string)($block->type === 'paragraph' && !self::hasFigureCaption($block)
+            $html = $block->type === 'paragraph' && !self::hasFigureCaption($block)
                 ? $this->paragraph($block, $depth + 1, false)
-                : $this->block($block, $depth + 1));
+                : $this->block($block, $depth + 1);
+            if ($html !== null && $html !== '') {
+                $blocks[] = $html;
+            }
+        }
+        if ($blocks === []) {
+            // C2-H-069: a caption whose blocks write nothing holds no empty line.
+            return self::pad($depth) . $open . "\n" . self::pad($depth) . '</' . $tag . '>';
         }
 
         return $this->container($open, '</' . $tag . '>', $blocks, $depth);
