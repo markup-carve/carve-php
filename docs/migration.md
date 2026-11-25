@@ -93,7 +93,7 @@ The bridge keeps its class names and moves to the schema of the 0.2 Tiptap kit i
 | `new FilesystemIncludeResolver($root)` | `Include\FileResolver::forRoot($root)` (absolute root) |
 | `$expander->getDependencies()` | `Carve::includeDependencies($tree)` |
 | `$expander->getWarnings()` | the `include-*` entries of `parseWithDiagnostics()` |
-| `$expander->getSuppressedWarnings()` | not exposed yet |
+| `$expander->getSuppressedWarnings()` | `suppressedDiagnostics` on the result of `Carve::parseWithDiagnostics()`: the include failures past the cap of 100 (C2-T-024); on `renderWithDiagnostics()` it also counts capped render losses |
 | `$converter->toHtmlWithIncludes(...)`, `renderIncluded(...)` (host helpers) | `Carve::render($source, ['includes' => $resolver])` |
 | `IncludeExpander::includeSitesForPosition()` | gone: a node from an included file carries `pos.file` |
 | `IncludeExpander::selectIncludeRegion($source, $name, $mode)` | `Carve::selectIncludeRegion($source, $name, $mode)`, same arguments and result |
@@ -148,10 +148,14 @@ The 0.2 extension host is provisional (see the [guide](README.md#extensions-prov
 | `TableOfContentsExtension`, `HeadingPermalinksExtension`, `HeadingNumbersExtension`, `HeadingReferenceExtension`, `ExternalLinksExtension`, `LinkPolicy`, `AutolinkExtension` | `Extension\Navigation::tableOfContents()`, `::tocPlacement()`, `::headingPermalinks()`, `::headingNumbers()`, `::headingReference()`, `::externalLinks()`, `::linkPolicy()`, `::autolink()` |
 | `HeadingLevelShiftExtension` | the render option `headingShift` (0 to 5) and `--heading-shift`; a level above 6 is no longer merged into 6 (C2-H-208) |
 | `GlossaryExtension`, `IndexExtension`, `CitationsExtension(mode:, bibliography:)` | `Extension\Glossary::bundle()`, `Extension\IndexTerms::bundle()`, `Extension\Citations::bundle(mode:, bibliography:)` with their transforms |
-| `DefaultAttributesExtension`, `TabNormalizeExtension`, `InlineFootnotesExtension` | `Extension\Transforms::defaultAttributes()`, `::tabNormalize()`, `::inlineFootnotesToParentheses()` |
+| `DefaultAttributesExtension`, `TabNormalizeExtension` | `Extension\Transforms::defaultAttributes()`, `::tabNormalize()` |
+| `InlineFootnotesExtension` (`[note]{.fn}`) | core syntax: write `^[note]` (C2-I-089); it shares the numbering of labeled footnotes |
+| `InlineFootnotesToParenthesesTransform` | `Extension\Transforms::inlineFootnotesToParentheses()` |
 | `InlineExtension` nodes | inline extensions; a registered renderer writes them, else their fallback |
 | `TabsExtension` | `Extension\Tabs::extensions(true)` |
 | `SvgSanitizer::sanitize($svg, $options)` | the same call: `Extension\SvgSanitizer::sanitize()` with `SvgSanitizeOptions` (adds `urlPolicy`); the img fence sanitizes on its own |
+| `PlusBulletExtension` | dropped: in 0.2 a line that starts with `+` is text unless it is a table continuation row (C2-B-059, C2-B-175). Write `-` or `*`; `carve lint --upgrade` reports each `+` bullet (`djot-plus-bullet`) and `carve fix --upgrade` rewrites it where `-` opens a list; a `+` line directly after paragraph text stays as it is |
+| `AdmonitionExtension(icons: ...)` | dropped: the core admonition renders `<aside class="admonition note">` (C2-H-154), so a stylesheet adds the icon, for example with `.admonition.note::before` |
 | `FrontmatterExtension`, `MentionsExtension`, `AdmonitionExtension`, and the other 0.1 extensions | not ported; several are core syntax in 0.2 (admonitions, mentions, citations, autolinks), the rest wait for the extension catalog |
 | `LowercaseHeadingIdsExtension`, `AsciiHeadingIdsExtension` | option `headingIds` for the id forms |
 
