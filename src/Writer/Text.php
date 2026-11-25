@@ -2075,7 +2075,8 @@ final class Text
             if (
                 isset($c->flatAtoms[$at]) || (is_array($node) && !isset($node['attrs'])
                 && ((isset(self::SEALED[$type]) && !self::openComment($node)
-                && !BracketKind::closesEarly($type, $node, self::SEALED))
+                && !(($type === 'link' || $type === 'image' || $type === 'inline_footnote')
+                && BracketKind::closesEarly($node, self::SEALED)))
                 || !str_contains(Inline::strings($node), ']')))
             ) {
                 $out[$at] = true;
