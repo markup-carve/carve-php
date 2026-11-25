@@ -51,8 +51,8 @@ final class Text
     private const DEFINITIONS = ['link_reference_definition' => true, 'footnote' => true, 'abbreviation_def' => true];
 
     /**
-     * Inline nodes whose spelling holds no bracket that an outer bracket pairs with, as the reader takes an atom whole.
-     * Any other node, a link too (carve#6656), holds no such bracket when no string in it holds `]`.
+     * Inline nodes whose spelling holds no bracket that an outer bracket pairs with: the reader takes an atom whole, and
+     * a link is sealed only by its strings (carve#6656). Any other node holds no such bracket when no string in it holds `]`.
      *
      * @var array<string, true>
      */
