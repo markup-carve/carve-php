@@ -624,6 +624,7 @@ final class RepairPlanner
         $settled = null;
         $this->settledEscapes = null;
         $pairRounds = 0;
+        $run = null;
         for ($round = 0; $round < 8192; $round++) {
             $escapes = $this->escapes;
             $first = $this->first;
@@ -673,11 +674,120 @@ final class RepairPlanner
             if (!$this->appliedRound($escapes, $candidate, $comparison)) {
                 return $settled;
             }
+            $run = $this->followedRun($escapes, $run);
             // The next round's write and parse do not need this round's candidate and read-back.
             unset($candidate, $comparison);
         }
 
         return $settled;
+    }
+
+    /**
+     * C2-I-118: past the depth cap each round frees one entry, so two rounds that each escape the same character at
+     * the same offset of successive sibling texts would go on one sibling per round. The run is placed at once and cut
+     * to the shortest prefix that reads back, the escapes the rounds would have placed (carve-js `trimCappedRuns`).
+     *
+     * @param array<string, array<int, true>> $before The escapes of the round.
+     * @param array{string, int, string}|null $run The single escape of the round before: parent, index and offset.
+     *
+     * @return array{string, int, int}|null
+     */
+    private function followedRun(array $before, ?array $run): ?array
+    {
+        $added = null;
+        foreach ($this->escapes as $path => $offsets) {
+            foreach ($offsets as $offset => $_) {
+                if (!isset($before[$path][$offset])) {
+                    if ($added !== null) {
+                        return null;
+                    }
+                    $added = [$path, $offset];
+                }
+            }
+        }
+        if ($added === null) {
+            return null;
+        }
+        $cut = strrpos($added[0], '/');
+        $index = substr($added[0], $cut + 1);
+        if ($cut === false || !ctype_digit($index)) {
+            return null;
+        }
+        $here = [substr($added[0], 0, $cut), (int)$index, $added[1]];
+        if ($run === null || $run[0] !== $here[0] || $run[2] !== $here[2] || $run[1] >= $here[1]) {
+            return $here;
+        }
+        $siblings = self::nodeAt($this->tree, $here[0]);
+        $value = self::leafValue($this->tree, $added[0]);
+        if ($siblings === null || $value === null || !isset($value[$here[2]])) {
+            return $here;
+        }
+        $char = $value[$here[2]];
+        $placed = [];
+        foreach ($siblings as $at => $sibling) {
+            $path = $here[0] . '/' . $at;
+            if (
+                is_int($at) && $at > $here[1] && is_array($sibling) && ($sibling['type'] ?? null) === 'text'
+                && is_string($sibling['value'] ?? null) && ($sibling['value'][$here[2]] ?? '') === $char
+                && !isset($this->escapes[$path][$here[2]])
+            ) {
+                $placed[] = $path;
+            }
+        }
+        $this->escapeRun($placed, $here[2]);
+
+        return null;
+    }
+
+    /**
+     * @param array<string> $placed
+     * @param int $offset
+     */
+    private function escapeRun(array $placed, int $offset): void
+    {
+        $readsBack = function (int $keep) use ($placed, $offset): ?bool {
+            $escapes = $this->escapes;
+            foreach (array_slice($placed, 0, $keep) as $path) {
+                $escapes[$path][$offset] = true;
+            }
+            $source = Writer::bareSource($this->tree, $this->layout, $this->options, $escapes);
+
+            return $this->charge($source) ? self::readPrints(ReadbackRound::read($source, $this->options))[0] === $this->treePrint : null;
+        };
+        $low = 0;
+        $high = count($placed);
+        if ($high === 0 || $readsBack($high) !== true) {
+            return;
+        }
+        // The rounds stop a few escapes short of the end of the run at most, so the search starts there and widens.
+        for ($step = 1; $low < $high; $step *= 2) {
+            $keep = max($low, $high - $step);
+            $read = $readsBack($keep);
+            if ($read === null) {
+                return;
+            }
+            if (!$read) {
+                $low = $keep + 1;
+
+                break;
+            }
+            $high = $keep;
+        }
+        while ($low < $high) {
+            $middle = ($low + $high) >> 1;
+            $read = $readsBack($middle);
+            if ($read === null) {
+                return;
+            }
+            if ($read) {
+                $high = $middle;
+            } else {
+                $low = $middle + 1;
+            }
+        }
+        foreach (array_slice($placed, 0, $high) as $path) {
+            $this->addEscape($path, $offset);
+        }
     }
 
     /**
