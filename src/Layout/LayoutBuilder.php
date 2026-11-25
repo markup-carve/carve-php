@@ -199,7 +199,7 @@ final class LayoutBuilder
         if (is_int($facts['refEnd'] ?? null)) {
             $facts = ['rawRef' => $this->rawRef($node, $facts['refEnd'], $quotes)] + $facts;
         }
-        unset($facts['refEnd'], $facts['wrapAt'], $facts['spansRows'], $facts['cellWraps']);
+        unset($facts['refEnd'], $facts['wrapAt'], $facts['spansRows'], $facts['spansCols'], $facts['cellWraps']);
         $facts += $this->sourceFacts($node, $path, $quotes);
         if ($node->type === 'table_cell') {
             $facts += $this->wraps($node, $path);
@@ -396,7 +396,8 @@ final class LayoutBuilder
     }
 
     /**
-     * C2-L-020, C2-L-048: the wraps of a cell, sorted by line and then by row; `row` only on a cell that spans rows.
+     * C2-L-020, C2-L-048: the wraps of a cell, sorted by line, row and col; `row` only on a cell that spans rows, `col`
+     * only on a cell that covers more than one column.
      *
      * @param \MarkupCarve\Carve\Node $cell
      * @param string $path
@@ -410,7 +411,11 @@ final class LayoutBuilder
         if ($found === []) {
             return [];
         }
-        $rows = ($para->layout['spansRows'] ?? false) === true;
+        // The fields a wrap keeps besides line, path and offset.
+        $kept = array_filter([
+            'row' => ($para->layout['spansRows'] ?? false) === true,
+            'col' => ($para->layout['spansCols'] ?? false) === true,
+        ]);
         $wraps = [];
         foreach ($found as $wrap) {
             if (!is_array($wrap) || !is_int($wrap['line'] ?? null) || !is_int($wrap['child'] ?? null)) {
@@ -418,11 +423,21 @@ final class LayoutBuilder
             }
             $child = $path . '/children/0/children/' . $wrap['child'];
             $entry = ['line' => $wrap['line'], 'path' => $child, 'offset' => $wrap['offset'] ?? 0];
-            $wraps[] = $rows ? $entry + ['row' => $wrap['row'] ?? 0] : $entry;
+            $wraps[] = $entry + array_intersect_key($wrap + ['row' => 0, 'col' => 0], $kept);
         }
-        usort($wraps, static fn (array $a, array $b): int => [$a['line'], $a['row'] ?? 0] <=> [$b['line'], $b['row'] ?? 0]);
+        usort($wraps, static fn (array $a, array $b): int => self::wrapKey($a) <=> self::wrapKey($b));
 
         return ['wraps' => $wraps];
+    }
+
+    /**
+     * @param array<string, mixed> $wrap
+     *
+     * @return array<mixed>
+     */
+    private static function wrapKey(array $wrap): array
+    {
+        return [$wrap['line'], $wrap['row'] ?? 0, $wrap['col'] ?? 0];
     }
 
     private function rawRef(Node $node, int $stop, int $quotes): string

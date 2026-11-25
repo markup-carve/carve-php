@@ -467,8 +467,9 @@ final class InlineRunner
             $place = $at[$pair] ?? null;
             $line = is_array($place) && is_int($place[0] ?? null) ? $place[0] : 0;
             $row = is_array($place) && is_int($place[1] ?? null) ? $place[1] : 0;
+            $col = is_array($place) && is_int($place[2] ?? null) ? $place[2] : 0;
             if ($line > 0) {
-                $wraps[] = ['line' => $line, 'child' => $child, 'offset' => $offset, 'row' => $row];
+                $wraps[] = ['line' => $line, 'child' => $child, 'offset' => $offset, 'row' => $row, 'col' => $col];
             }
         }
         $node->layout['cellWraps'] = $wraps;

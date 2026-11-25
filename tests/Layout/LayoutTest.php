@@ -51,7 +51,14 @@ final class LayoutTest extends TestCase
         $this->assertSame($entry['layout']['nodes'], $record['nodes']);
         $input = isset($entry['input']) ? (string)hex2bin(str_replace(' ', '', $entry['input'])) : $entry['layout']['source'];
         $produced = Carve::parseWithLayout($input)->layout;
-        $this->assertEquals($entry['layout'], $produced, 'the producer writes the record of this input');
+        // A fixture may show only the entries under discussion (C2-L-047, layout-wrap-columns): each must be produced.
+        $byPath = array_column($produced['nodes'], null, 'path');
+        $nodes = array_map(static fn (array $node): mixed => $byPath[$node['path']] ?? null, $entry['layout']['nodes']);
+        $this->assertEquals(
+            ['nodes' => $entry['layout']['nodes']] + $entry['layout'],
+            ['nodes' => $nodes] + $produced,
+            'the producer writes the record of this input',
+        );
     }
 
     /**

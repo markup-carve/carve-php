@@ -451,15 +451,15 @@ final class TableBuilder
                 self::join($row->cells, $current, [$r, $n + 1, $row->contSlots[$n] ?? []], $fragments, $joins);
             }
             ksort($joins);
-            foreach ($joins as $column) {
-                foreach ($column as [$target, $start, $end, $line]) {
+            foreach ($joins as $column => $fragmentsOf) {
+                foreach ($fragmentsOf as [$target, $start, $end, $line]) {
                     // The cell's own row starts its first fragment; wrapAt is only read for joined cells.
                     if ($target->wrapAt === [] && $target->lines !== []) {
                         $target->wrapAt[] = [0, 0];
                     }
                     $target->lines[] = $start;
                     $target->lines[] = $end;
-                    $target->wrapAt[] = [$line, $r - $target->row];
+                    $target->wrapAt[] = [$line, $r - $target->row, $column - $target->col];
                 }
             }
             $width = max($width, count($row->cells));
@@ -626,6 +626,7 @@ final class TableBuilder
         if ($cell->joined) {
             $para->layout['wrapAt'] = $cell->wrapAt;
             $para->layout['spansRows'] = $cell->rowspan > 1;
+            $para->layout['spansCols'] = $cell->colspan > 1;
             // C2-L-013: the range of a joined cell, from its own row to the end of the fragment that ends last in the source.
             $node->layout['startByte'] = $cell->start;
             $node->layout['contentEnd'] = $lines === [] ? $cell->end : max($lines);

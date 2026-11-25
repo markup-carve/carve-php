@@ -45,10 +45,10 @@ final class TableCell
     public array $lines = [];
 
     /**
-     * C2-L-020: for each pair of `$lines`, its continuation line, 0 for the cell's own row, and the rows below the cell's
-     * own row it stands in.
+     * C2-L-020: for each pair of `$lines`, its continuation line, 0 for the cell's own row, the rows below the cell's
+     * own row it stands in, and the covered column it stands in, counted from the cell's own column.
      *
-     * @var array<array{0: int, 1: int}>
+     * @var array<array{0: int, 1: int, 2?: int}>
      */
     public array $wrapAt = [];
 
