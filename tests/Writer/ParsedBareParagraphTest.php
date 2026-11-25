@@ -17,6 +17,14 @@ final class ParsedBareParagraphTest extends TestCase
         $this->assertSame($source, Carve::format($source));
     }
 
+    public function testBracedParagraphPastTheLocalPlanReadsAsItsSource(): void
+    {
+        // #5878: at 32 KB the local plan adds brace escapes; the bare form equals the source and holds unread.
+        $source = rtrim(str_repeat('{^a \\\\{^ b^} ', 2520)) . "\n";
+
+        $this->assertSame($source, Carve::format($source));
+    }
+
     public function testAnAuthoredEscapeStillTakesTheNormalCanonicalWrite(): void
     {
         $this->assertSame("a*b\n", Carve::format("a\\*b\n"));
