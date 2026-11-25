@@ -70,6 +70,35 @@ final class Extensions
     }
 
     /**
+     * Whether two trees hold the same values node for node. A value this cannot compare, such as a shared object, counts
+     * as different.
+     *
+     * @param \MarkupCarve\Carve\Node $a
+     * @param \MarkupCarve\Carve\Node $b
+     *
+     * @return bool
+     */
+    public static function same(Node $a, Node $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+        if ($a->type !== $b->type || array_keys($a->f) !== array_keys($b->f) || !self::sameValue($a->children, $b->children)) {
+            return false;
+        }
+        foreach ($a->f as $key => $value) {
+            if (!self::sameValue($value, $b->f[$key])) {
+                return false;
+            }
+        }
+        $own = get_object_vars($a);
+        $other = get_object_vars($b);
+        unset($own['children'], $own['f'], $other['children'], $other['f']);
+
+        return $own === $other;
+    }
+
+    /**
      * C2-X-024: the attributes of the claimed div without its name class.
      *
      * @param \MarkupCarve\Carve\Node $div
@@ -86,6 +115,30 @@ final class Extensions
         $out->classes = array_slice($attrs->classes, 1);
 
         return $out->id === null && $out->classes === [] && $out->pairs === [] ? null : $out;
+    }
+
+    private static function sameValue(mixed $a, mixed $b): bool
+    {
+        if ($a instanceof Node) {
+            return $b instanceof Node && self::same($a, $b);
+        }
+        if ($a instanceof Attrs) {
+            return $b instanceof Attrs && get_object_vars($a) === get_object_vars($b);
+        }
+        if (is_array($a)) {
+            if (!is_array($b) || array_keys($a) !== array_keys($b)) {
+                return false;
+            }
+            foreach ($a as $key => $item) {
+                if (!self::sameValue($item, $b[$key])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return !is_object($a) && $a === $b;
     }
 
     private static function copyValue(mixed $value): mixed

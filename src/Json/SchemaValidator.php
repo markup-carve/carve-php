@@ -74,6 +74,13 @@ final class SchemaValidator
      */
     private function run(CompiledSchema $c, mixed $value, string $path): bool
     {
+        // The other keyword checks of a one-keyword schema pass for every value.
+        if ($c->kind === CompiledSchema::CONST_ONLY) {
+            return self::same($value, $c->const) || $this->fail($path, $c->constError);
+        }
+        if ($c->kind === CompiledSchema::TYPE_ONLY) {
+            return self::typeOk($value, $c->type) || $this->fail($path, $c->typeError);
+        }
         if ($c->ref !== null && !$this->valid($value, $this->resolve($c->ref), $path)) {
             return false;
         }
@@ -350,7 +357,8 @@ final class SchemaValidator
                 return 0;
             }
             if (str_ends_with((string)$sub->{'$ref'}, '/' . $value->type)) {
-                return $this->valid($value, $sub, $path) ? 1 : 0;
+                // `$sub` is a bare `$ref`, so its target decides alone.
+                return $this->valid($value, $this->resolve((string)$sub->{'$ref'}), $path) ? 1 : 0;
             }
 
             return $this->quiet($value, $sub, $path) ? 1 : 0;

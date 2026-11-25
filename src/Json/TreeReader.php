@@ -260,6 +260,28 @@ final class TreeReader
     }
 
     /**
+     * `check(TreeEncoder::json($tree, null))` without the canonical spelling, which `json_decode` does not see: key order
+     * and string escapes. A float (whose spelling can decide between an integer and a float), an object or invalid
+     * UTF-8 takes the canonical path.
+     *
+     * @param \MarkupCarve\Carve\Node $tree
+     * @param array<string, mixed> $options
+     */
+    public static function checkTreeOf(Node $tree, array $options = []): void
+    {
+        $encoded = (new TreeEncoder())->encode($tree, null);
+        $plain = true;
+        array_walk_recursive($encoded, static function (mixed $value) use (&$plain): void {
+            if (is_float($value) || is_object($value)) {
+                $plain = false;
+            }
+        });
+        $json = $plain ? json_encode($encoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : false;
+        unset($encoded);
+        self::check($json === false ? TreeEncoder::json($tree, null) : $json, $options);
+    }
+
+    /**
      * @param mixed $decoded
      * @param array<string, mixed> $options
      *
