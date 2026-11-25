@@ -102,8 +102,8 @@ final class LineBlockLazyCommentTest extends TestCase
         $this->assertSame("- ::: |\n  a\n%% x y\n  :::\n", $result->source);
         $this->assertSame(
             [
-                'field-unspellable /children/0/children/0/children/0/children/0/children/2/value',
                 'field-unspellable /children/0/children/0/children/0/children/0/children/1/value',
+                'field-unspellable /children/0/children/0/children/0/children/0/children/2/value',
             ],
             array_map(static fn ($d): string => $d->code . ' ' . $d->path, $result->diagnostics),
         );
