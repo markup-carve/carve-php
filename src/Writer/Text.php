@@ -495,6 +495,7 @@ final class Text
         }
         $marks = self::lineStartMark($value, $c, $next);
         $caretLine = $c->caretLine;
+        $braceLines = $marks === 0 && $value[0] === '{' && self::attributeLinesBeforeComment($c);
         $c->escapedAt = [];
         $c->gluedBraces = [];
         $out = '';
@@ -551,7 +552,7 @@ final class Text
                 }
             }
             $own = ($i === $c->escapeFollowingPipeAt && $ch === '|') || isset($c->pairEscapes[$i]) || isset($c->behindMarker[$i])
-                || isset($liveTicks[$i]) || ($i === 0 && $caretLine)
+                || isset($liveTicks[$i]) || ($i === 0 && ($caretLine || $braceLines))
                 || ($ch === '#' && self::$captionTexts !== null && self::captionMark($c, $after));
             $c->gluedBrace = false;
             $repair = !$own && (($i === 0 && self::atomRunGoesOn($value, $c, $next)) || $i === $marks
@@ -4480,6 +4481,72 @@ final class Text
             $display = $type === 'math'
                 && (($c->flatNodes[$k]['display'] ?? false) === true || str_starts_with($c->flatAtoms[$k] ?? '', '$$'));
             if (!$display && !in_array($type, ['image', 'comment', 'soft_break', 'hard_break'], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * C2-I-028: where every line of the leaf above a line comment is a whole attribute block, they read as attribute
+     * lines and the comment starts a block of its own; the bare parse holds the same text, so the first brace takes the
+     * backslash without a kind (C2-W-125 case one). Only line comments may follow.
+     */
+    private static function attributeLinesBeforeComment(Context $c): bool
+    {
+        return $c->leafNodes !== null && $c->textPath === $c->leafPath . '/0' && self::attributeLinesAboveComment($c->leafNodes);
+    }
+
+    /**
+     * `attributeLinesBeforeComment()` for the inline nodes of a leaf.
+     *
+     * @param array<mixed> $nodes
+     */
+    public static function attributeLinesAboveComment(array $nodes): bool
+    {
+        $line = '';
+        $lines = 0;
+        $count = count($nodes);
+        for ($at = 0; $at < $count; $at++) {
+            $node = $nodes[$at];
+            $type = is_array($node) ? ($node['type'] ?? '') : '';
+            if ($type === 'text' && is_string($node['value'] ?? null)) {
+                $line .= $node['value'];
+            } elseif ($type === 'soft_break' || $type === 'hard_break') {
+                $text = rtrim($line, " \t");
+                if ($text === '' || $text[0] !== '{' || !LineShapes::attributeLine($text, 0, strlen($text), new Attrs())) {
+                    return false;
+                }
+                $lines++;
+                $line = '';
+            } elseif ($type === 'comment' && ($node['form'] ?? '') === 'line' && $line === '' && $lines > 0) {
+                return self::onlyLineComments($nodes, $at);
+            } else {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the leaf nodes from `$at` on are line comments, each at the start of a line.
+     *
+     * @param array<mixed> $nodes
+     * @param int $at
+     */
+    private static function onlyLineComments(array $nodes, int $at): bool
+    {
+        $count = count($nodes);
+        for ($start = true; $at < $count; $at++) {
+            $node = $nodes[$at];
+            $type = is_array($node) ? ($node['type'] ?? '') : '';
+            if ($type === 'soft_break' || $type === 'hard_break') {
+                $start = true;
+            } elseif ($start && $type === 'comment' && ($node['form'] ?? '') === 'line') {
+                $start = false;
+            } else {
                 return false;
             }
         }

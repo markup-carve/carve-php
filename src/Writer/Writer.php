@@ -1726,7 +1726,12 @@ final class Writer
             } elseif ($ch === '[') {
                 $note = $before === '^' || ($before === '\\' && $at > 1 && $source[$at - 2] === '^');
                 $pruneAcrossLine = !$crossedLine || substr($source, $at + 3, 2) === '](';
-                if (!$note && $notes > 0 && $pruneAcrossLine && substr($source, $at + 1, 2) === '\\^') {
+                // C2-W-125 case eight across a line is decided on the tree (`Inline::markCaseEightLinks()`), and a
+                // reference written as authored keeps its spelling (C2-W-075).
+                if (
+                    !$note && $notes > 0 && !$crossedLine && substr($source, $at + 1, 2) === '\\^'
+                    && substr($source, $at + 3, 2) !== ']['
+                ) {
                     $pruned .= substr($source, $from, $at + 1 - $from);
                     $from = $at + 2;
                     $starts[] = $at;
