@@ -27,6 +27,13 @@ final class Citations
     public const REFERENCES = 'carve.references';
 
     /**
+     * C2-X-068: the values of the host option `mode`; the first is the default.
+     *
+     * @var array<string>
+     */
+    public const MODES = ['numbered', 'author-date'];
+
+    /**
      * The attributes the citation reads as its own options; they are not written on the element.
      *
      * @var array<string>
@@ -45,7 +52,7 @@ final class Citations
      */
     public static function bundle(string $mode = 'numbered', ?array $bibliography = null): Bundle
     {
-        if ($mode !== 'numbered' && $mode !== 'author-date') {
+        if (!in_array($mode, self::MODES, true)) {
             throw new InvalidArgumentException('citations: unknown mode ' . $mode);
         }
         $render = static fn (Node $node, RenderHost $host): string => self::render($node, $host, $mode);

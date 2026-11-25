@@ -69,8 +69,17 @@ final class ExtensionFlagsTest extends TestCase
                 ['render', '--extensions', '["carve.tabs"]', '--extension-options', '{"carve.tabs":{"mode":"x"}}', 'a.crv'],
             ],
             'a command without the flag' => [['diagnostics', '--extensions', '[]', 'a.crv']],
-            'an option of carve.cite' => [
-                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":"author-date"}}', 'a.crv'],
+            'an unknown option of carve.cite' => [
+                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"style":"apa"}}', 'a.crv'],
+            ],
+            'an unknown cite mode' => [
+                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":"other"}}', 'a.crv'],
+            ],
+            'a null cite mode' => [
+                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":null}}', 'a.crv'],
+            ],
+            'a cite mode that is no string' => [
+                ['render', '--extensions', '["carve.cite"]', '--extension-options', '{"carve.cite":{"mode":true}}', 'a.crv'],
             ],
         ];
     }
@@ -125,6 +134,42 @@ final class ExtensionFlagsTest extends TestCase
             . "    <li id=\"ref-roe\">Roe.</li>\n  </ol>\n</div>\n",
             $stdout,
         );
+    }
+
+    /**
+     * C2-X-068 (carve#6752): the cite renderer takes `mode`, `numbered` by default; CC-2127 and CC-2128.
+     *
+     * @return array<string, array{0: array<string>, 1: string}>
+     */
+    public static function citeModes(): array
+    {
+        $numbered = "<p>See [<a href=\"#ref-doe\" data-cite-key=\"doe\">1</a>].</p>\n"
+            . "<div class=\"bibliography\">\n  <ol class=\"references\">\n    <li id=\"ref-doe\">Doe, J. A book.</li>\n"
+            . "  </ol>\n</div>\n";
+        $authorDate = "<p>See (<a href=\"#ref-doe\" data-cite-key=\"doe\">Doe 2020</a>).</p>\n"
+            . "<div class=\"bibliography\">\n  <ul class=\"references\">\n    <li id=\"ref-doe\">Doe, J. A book.</li>\n"
+            . "  </ul>\n</div>\n";
+
+        return [
+            'default' => [[], $numbered],
+            'numbered' => [['--extension-options', '{"carve.cite":{"mode":"numbered"}}'], $numbered],
+            'author-date' => [['--extension-options', '{"carve.cite":{"mode":"author-date"}}'], $authorDate],
+        ];
+    }
+
+    /**
+     * @param array<string> $flags
+     * @param string $expected
+     */
+    #[DataProvider('citeModes')]
+    public function testCiteMode(array $flags, string $expected): void
+    {
+        $source = "See :cite[doe].\n\n::: bibliography\n:: [doe]{author=\"Doe\" year=\"2020\"}\n: Doe, J. A book.\n:::\n";
+        $args = ['render', '--extensions', '["carve.cite"]', ...$flags, 'a.crv'];
+        [$status, $stdout, $stderr] = self::runCommand($args, $source);
+        self::assertSame(0, $status);
+        self::assertSame('', $stderr);
+        self::assertSame($expected, $stdout);
     }
 
     /**
