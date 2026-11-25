@@ -568,14 +568,18 @@ final class Inline
      */
     private static function bareMarks(string $value, array $escaped): array
     {
-        $counts = [];
-        foreach (array_filter($escaped) as $at => $_) {
-            $counts[$value[$at] ?? ''] = ($counts[$value[$at] ?? ''] ?? 0) + 1;
+        if (strpbrk($value, self::ASCII_PUNCT) === false) {
+            return [];
         }
-        $present = count_chars($value, 1);
+        $counts = [];
+        foreach ($escaped as $at => $on) {
+            if ($on) {
+                $counts[$value[$at] ?? ''] = ($counts[$value[$at] ?? ''] ?? 0) + 1;
+            }
+        }
         $bare = [];
-        foreach (str_split(self::ASCII_PUNCT) as $mark) {
-            if (($present[ord($mark)] ?? 0) > ($counts[$mark] ?? 0)) {
+        foreach (str_split(count_chars($value, 3)) as $mark) {
+            if (str_contains(self::ASCII_PUNCT, $mark) && substr_count($value, $mark) > ($counts[$mark] ?? 0)) {
                 $bare[$mark] = true;
             }
         }
