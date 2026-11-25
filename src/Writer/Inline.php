@@ -3239,9 +3239,10 @@ final class Inline
             $this->w->lose($path, self::str($node, 'type'), null);
         }
         $tooltip = $node['tooltip'] ?? null;
-        // C2-W-117: the tail stays on one line, so a title with a line break leaves the bracket pair as text.
-        if (is_string($tooltip) && str_contains($tooltip, "\n")) {
-            $this->w->lose($path, self::str($node, 'type'), null);
+        // C2-I-069: the tail stays on one line; a title with a line break folds to spaces and only that field is lost.
+        if (is_string($tooltip) && preg_match('/\r\n?|\n/', $tooltip)) {
+            $this->w->lose($path, self::str($node, 'type'), 'tooltip');
+            $tooltip = (string)preg_replace('/\r\n?|\n/', ' ', $tooltip);
         }
         $title = is_string($tooltip) ? ' ' . BraceBlock::quoted($tooltip, $c->inCell) : '';
 
