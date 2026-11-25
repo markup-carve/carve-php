@@ -220,15 +220,15 @@ final class BlockParser
         $this->i = $ls;
         $this->col = 0;
         $this->base = 0;
-        if ($this->commentCloserLine($ls, $le)) {
-            return;
-        }
         $top = count($this->stack) - 1;
         if ($top === 0) {
             $this->stripI = -1;
             $owner = 0;
         } else {
             $owner = $this->matchContainers();
+        }
+        if ($this->commentCloserLine($le)) {
+            return;
         }
         $leaf = $this->leaf;
         $forced = false;
@@ -309,11 +309,13 @@ final class BlockParser
     }
 
     /**
-     * C2-B-109, C2-B-137: a bare `%` run closes an open comment block, also one in a line block, before ownership is
-     * tested, and closes no container.
+     * C2-B-109, C2-B-137: a bare `%` run behind the prefixes of the containers that own the line closes an open
+     * comment block, also one in a line block, also where the comment's container does not own the line, and closes
+     * no container.
      */
-    private function commentCloserLine(int $ls, int $le): bool
+    private function commentCloserLine(int $le): bool
     {
+        $ls = $this->i;
         $leaf = $this->leaf;
         if ($leaf !== null && $leaf->kind === Frame::COMMENT_BLOCK && $this->bareCommentCloser($ls, $le, $leaf->level)) {
             $this->closeOpaque($leaf, $le);
@@ -355,20 +357,6 @@ final class BlockParser
     {
         $j = $ls + strspn($this->s, " \t", $ls, $le - $ls);
         $end = LineShapes::trimEnd($this->s, $j, $le);
-        $quoteDepth = 0;
-        foreach ($this->stack as $frame) {
-            if ($frame->kind === Frame::QUOTE) {
-                $quoteDepth++;
-            }
-        }
-        while (
-            $quoteDepth > 0 && $j < $end && $this->s[$j] === '>'
-            && ($j + 1 === $end || $this->s[$j + 1] === ' ')
-        ) {
-            $j++;
-            $j += strspn($this->s, " \t", $j, $end - $j);
-            $quoteDepth--;
-        }
 
         return $j < $end && strspn($this->s, '%', $j, $end - $j) === $end - $j && $end - $j >= $level;
     }
