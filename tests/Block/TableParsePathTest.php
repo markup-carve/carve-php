@@ -65,4 +65,16 @@ final class TableParsePathTest extends TestCase
     {
         self::assertStringContainsString($cell, Carve::toHtml($source));
     }
+
+    /**
+     * C2-L-013: a cell whose last joined fragment comes from an earlier line still ranges to its last source fragment.
+     */
+    public function testSpannedCellRangeEndsAtItsLastSourceFragment(): void
+    {
+        $source = "| a | < |\n+ b | c |\n+ d | |\n";
+        $layout = Carve::parseWithLayout($source)->layout;
+        $cells = array_values(array_filter($layout['nodes'], static fn (array $n): bool => isset($n['wraps'])));
+        self::assertCount(1, $cells);
+        self::assertSame(strpos($source, 'd') + 2, $cells[0]['endByte']);
+    }
 }

@@ -626,9 +626,9 @@ final class TableBuilder
         if ($cell->joined) {
             $para->layout['wrapAt'] = $cell->wrapAt;
             $para->layout['spansRows'] = $cell->rowspan > 1;
-            // C2-L-013: the range of a joined cell, from its own row to the end of its last fragment.
+            // C2-L-013: the range of a joined cell, from its own row to the end of the fragment that ends last in the source.
             $node->layout['startByte'] = $cell->start;
-            $node->layout['contentEnd'] = $lines[count($lines) - 1];
+            $node->layout['contentEnd'] = $lines === [] ? $cell->end : max($lines);
         }
         $node->children = [$para];
         $cell->attrs?->applyTo($node);
