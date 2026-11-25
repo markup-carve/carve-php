@@ -40,6 +40,18 @@ final class Blocks
     private const ENTRIES = 2;
 
     /**
+     * A definition key or text of these characters reads back as written, so its line needs no read-back.
+     *
+     * @var string
+     */
+    private const PLAIN_KEY = '~^[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*$~';
+
+    /**
+     * @var string
+     */
+    private const PLAIN_TEXT = '~^[A-Za-z0-9 ._,:;!?-]*$~';
+
+    /**
      * @var array<string>
      */
     private const LAZY = ['list', 'list_item', 'block_quote', 'definition_list', 'definition_description', 'footnote'];
@@ -1838,7 +1850,7 @@ final class Blocks
     private function linkDefinition(array $node, string $path, string $prefix): void
     {
         $this->attributeLine($node, $path, $prefix);
-        $this->blankKey($node, $path);
+        $lost = $this->blankKey($node, $path);
         $href = Inline::str($node, 'href');
         $written = '';
         $n = strlen($href);
@@ -1849,11 +1861,57 @@ final class Blocks
             $written .= $href[$i];
         }
         if ($href === '') {
+            $lost = true;
             $this->w->lose($path, 'link_reference_definition', 'href');
         }
         $title = is_string($node['tooltip'] ?? null) ? ' ' . BraceBlock::quoted($node['tooltip']) : '';
         $sep = $written === '' && $title === '' ? '' : ' ';
-        $this->w->emit($prefix, '[' . Inline::str($node, 'key') . ']:' . $sep . $written . $title);
+        $line = '[' . Inline::str($node, 'key') . ']:' . $sep . $written . $title;
+        $tooltip = $node['tooltip'] ?? null;
+        $plain = preg_match(self::PLAIN_KEY, Inline::str($node, 'key')) === 1
+            && preg_match('~^[A-Za-z0-9/._:?#@!$&+,;=-]+$~', $href) === 1
+            && ($tooltip === null || (is_string($tooltip) && preg_match(self::PLAIN_TEXT, $tooltip) === 1));
+        if (!$lost && !$plain) {
+            $this->readDefinitionBack($node, $path, $line);
+        }
+        $this->w->emit($prefix, $line);
+    }
+
+    /**
+     * C2-W-011, C2-W-117: a definition line that reads back as another tree is reported as the read-back of carve-js
+     * reports it: at the first differing field, or at the node where the line is no such definition.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $line The definition line; a footnote's has a stand-in body.
+     *
+     * @return void
+     */
+    private function readDefinitionBack(array $node, string $path, string $line): void
+    {
+        $type = Inline::str($node, 'type');
+        $read = ReadbackRound::read($line . "\n")['children'] ?? [];
+        $block = is_array($read) && count($read) === 1 && is_array($read[0] ?? null) ? $read[0] : null;
+        if ($block === null || ($block['type'] ?? null) !== $type) {
+            $this->w->lose($path, $type, null);
+
+            return;
+        }
+        $skip = ['type' => true, 'attrs' => true, 'pos' => true, 'children' => true];
+        foreach ($node as $name => $value) {
+            if (!isset($skip[$name]) && ($block[$name] ?? null) !== $value) {
+                $this->w->lose($path, $type, (string)$name);
+
+                return;
+            }
+        }
+        foreach (array_keys($block) as $name) {
+            if (!isset($skip[$name]) && !array_key_exists($name, $node)) {
+                $this->w->lose($path, $type, (string)$name);
+
+                return;
+            }
+        }
     }
 
     /**
@@ -1862,14 +1920,16 @@ final class Blocks
      * @param array<mixed> $node
      * @param string $path
      *
-     * @return void
+     * @return bool Whether the key is lost.
      */
-    private function blankKey(array $node, string $path): void
+    private function blankKey(array $node, string $path): bool
     {
-        $key = Inline::str($node, 'key');
-        if (trim($key, " \t\n") === '' || preg_match('/(?<!\\\\)\]/', $key) === 1) {
-            $this->w->lose($path, Inline::str($node, 'type'), 'key');
+        if (trim(Inline::str($node, 'key'), " \t\n") !== '') {
+            return false;
         }
+        $this->w->lose($path, Inline::str($node, 'type'), 'key');
+
+        return true;
     }
 
     /**
@@ -1887,10 +1947,13 @@ final class Blocks
         $raw = Inline::str($node, 'expansion');
         $expansion = rtrim(str_replace("\n", ' ', $raw), " \t");
         $key = Inline::str($node, 'key');
-        if ($expansion !== $raw || $expansion === '' || preg_match('/^[A-Za-z0-9]+$/', $key) !== 1) {
-            $this->w->lose($path, 'abbreviation_def', $expansion !== $raw || $expansion === '' ? 'expansion' : 'key');
+        $line = '*[' . $key . ']: ' . $expansion;
+        if ($expansion !== $raw || $expansion === '') {
+            $this->w->lose($path, 'abbreviation_def', 'expansion');
+        } elseif (preg_match('/^[A-Za-z0-9]+$/', $key) !== 1 || preg_match(self::PLAIN_TEXT, $expansion) !== 1) {
+            $this->readDefinitionBack($node, $path, $line);
         }
-        $this->w->emit($prefix, '*[' . $key . ']: ' . $expansion);
+        $this->w->emit($prefix, $line);
     }
 
     /**
@@ -1940,8 +2003,11 @@ final class Blocks
     private function footnote(array $node, string $path, string $prefix): void
     {
         $this->attributeLine($node, $path, $prefix);
-        $this->blankKey($node, $path);
-        $this->body($node, $path, $prefix, '[^' . Inline::str($node, 'key') . ']: ', 2, false);
+        $key = Inline::str($node, 'key');
+        if (!$this->blankKey($node, $path) && preg_match(self::PLAIN_KEY, $key) !== 1) {
+            $this->readDefinitionBack($node, $path, '[^' . $key . ']: x');
+        }
+        $this->body($node, $path, $prefix, '[^' . $key . ']: ', 2, false);
     }
 
     /**
