@@ -153,7 +153,7 @@ The 0.2 extension host is provisional (see the [guide](README.md#extensions-prov
 | `InlineExtension` nodes | inline extensions; a registered renderer writes them, else their fallback |
 | `TabsExtension` | `Extension\Tabs::extensions(true)` |
 | `SvgSanitizer::sanitize($svg, $options)` | the same call: `Extension\SvgSanitizer::sanitize()` with `SvgSanitizeOptions` (adds `urlPolicy`); the img fence sanitizes on its own |
-| `PlusBulletExtension` | dropped: in 0.2 a line that starts with `+` is text unless it is a table continuation row (C2-B-059, C2-B-175). Write `-` or `*`; `carve lint --upgrade` reports each `+` bullet (`djot-plus-bullet`) and `carve fix --upgrade` rewrites it |
+| `PlusBulletExtension` | dropped: in 0.2 a line that starts with `+` is text unless it is a table continuation row (C2-B-059, C2-B-175). Write `-` or `*`; `carve lint --upgrade` reports each `+` bullet (`djot-plus-bullet`) and `carve fix --upgrade` rewrites it where `-` opens a list; a `+` line directly after paragraph text stays as it is |
 | `AdmonitionExtension(icons: ...)` | dropped: the core admonition renders `<aside class="admonition note">` (C2-H-154), so a stylesheet adds the icon, for example with `.admonition.note::before` |
 | `FrontmatterExtension`, `MentionsExtension`, `AdmonitionExtension`, and the other 0.1 extensions | not ported; several are core syntax in 0.2 (admonitions, mentions, citations, autolinks), the rest wait for the extension catalog |
 | `LowercaseHeadingIdsExtension`, `AsciiHeadingIdsExtension` | option `headingIds` for the id forms |
