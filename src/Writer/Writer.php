@@ -975,7 +975,26 @@ final class Writer
             return true;
         }
 
-        return $parsed === $source || !self::hasPunctuation($tree);
+        return $parsed === $source || ($parsed !== null && self::sameBelowLeadingBlankLines($parsed, $source))
+            || !self::hasPunctuation($tree);
+    }
+
+    /**
+     * Empty lines before the first line of a document read as nothing; with no container open they only move the line
+     * a frontmatter opener has to stand on (C2-B-161, C2-B-232), so a source that starts so keeps its read-back.
+     */
+    private static function sameBelowLeadingBlankLines(string $parsed, string $source): bool
+    {
+        $blank = strspn($parsed, "\n");
+        // A byte-order mark is skipped only at the start of the source (C2-B-165).
+        if (
+            $blank === 0 || strlen($parsed) - $blank !== strlen($source) || ($source[0] ?? '-') === '-'
+            || str_starts_with($source, "\u{FEFF}")
+        ) {
+            return false;
+        }
+
+        return substr_compare($parsed, $source, $blank) === 0;
     }
 
     /**

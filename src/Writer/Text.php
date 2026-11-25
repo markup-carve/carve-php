@@ -3900,13 +3900,32 @@ final class Text
         if ($line[0] !== '^') {
             return null;
         }
-        if (($line[1] ?? '') === ' ' && trim(substr($line, 2), " \t") !== '') {
+        if (($line[1] ?? '') === ' ' && trim(substr($line, 2), " \t") !== '' && !self::onlyLineCommentBehind($c)) {
             $c->caretLine = true;
 
             return 0;
         }
 
         return $c->inLineBlock ? -1 : null;
+    }
+
+    /**
+     * C2-W-146: `unattached-caption` reads a line without its line comment, so a comment alone behind the caret and its
+     * blanks is no content the rule reports (carve-js#5201).
+     *
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     *
+     * @return bool
+     */
+    private static function onlyLineCommentBehind(Context $c): bool
+    {
+        if ($c->flat === null || $c->here < 0) {
+            return false;
+        }
+        $at = $c->here + 1 + strspn($c->flat, " \t", $c->here + 1);
+        $node = ($c->flat[$at] ?? '') === "\0" && ($c->flatTypes[$at] ?? '') === 'comment' ? $c->flatNodes[$at] ?? null : null;
+
+        return is_array($node) && ($node['form'] ?? null) === 'line';
     }
 
     private static function canOpenBlockAtLineStart(string $value, Context $c): bool
