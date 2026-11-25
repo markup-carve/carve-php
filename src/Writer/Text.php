@@ -1034,7 +1034,7 @@ final class Text
         $shielded = [];
         $atoms = [];
         if (
-            $c->leafNodes === null || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded, $atoms)
+            $c->leafNodes === null || !Inline::holds($c->leafNodes, '`') || !self::planNodes($c->leafNodes, $c->leafPath, $flat, $owners, true, $shielded, $atoms)
             || $owners === []
         ) {
             return null;

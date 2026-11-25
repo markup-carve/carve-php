@@ -2873,6 +2873,14 @@ final class Inline
                 continue;
             }
             $type = $node['type'] ?? '';
+            // A text of its value alone, as most are.
+            if ($type === 'text' && count($node) === 2 && is_string($node['value'] ?? null)) {
+                if (str_contains($node['value'], '}')) {
+                    return true;
+                }
+
+                continue;
+            }
             if (
                 !in_array($type, ['text', 'soft_break', 'hard_break', 'link', 'inline_footnote'], true)
                 || isset($node['attrs']) || self::holds($node, '}', 'children')
