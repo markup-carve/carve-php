@@ -142,6 +142,10 @@ final class TableWriter
             $keys[] = ['footer-rows', (string)$counts['table_foot']];
         }
         $bodies = self::bodyFacts($node);
+        // C2-W-136, C2-B-187: an empty `body-rows` ends the head above a foot that leads with a row of header cells.
+        if ($bodies === [] && self::headEndsAboveFoot($groups)) {
+            $keys[] = ['body-rows', ''];
+        }
         $partitioned = $bodies !== [] && (
             count($bodies) > 1 || $bodies[0]['dataRows'] === 0 || $bodies[0]['headerRows'] > 0
             || $bodies[0]['rowHeadColumns'] !== null
@@ -161,6 +165,38 @@ final class TableWriter
         }
 
         return $keys;
+    }
+
+    /**
+     * @param array<array{0: string, 1: array<array<string, mixed>>}> $groups
+     *
+     * @return bool
+     */
+    private static function headEndsAboveFoot(array $groups): bool
+    {
+        $head = [];
+        $foot = [];
+        foreach ($groups as [$type, $rows]) {
+            if ($type === 'table_head') {
+                $head = array_merge($head, $rows);
+            } elseif ($type === 'table_foot') {
+                $foot = array_merge($foot, $rows);
+            }
+        }
+        if ($head === [] || $foot === [] || self::leadingHeaderRows([$foot[0]]) !== 1) {
+            return false;
+        }
+        // C2-B-178: a head row is written with header marks only; a row of span marks continues the head.
+        foreach ($head as $row) {
+            foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
+                $isCell = is_array($cell) && ($cell['type'] ?? '') === 'table_cell';
+                if ($isCell && ($cell['header'] ?? false) !== true && !isset($cell['span'])) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
