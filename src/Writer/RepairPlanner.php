@@ -39,6 +39,21 @@ final class RepairPlanner
     private int $read = 0;
 
     /**
+     * @var array<string, array<array{string, int}>>|null The escapes a C2-W-125 retesting pass placed, by leaf block
+     *   and in order; null in other passes.
+     */
+    private ?array $trialLog = null;
+
+    private bool $trialsRetested = false;
+
+    /**
+     * The logged escapes a pass retests together at most: the subsets grow as 2^n (carve-js `MAX_RETESTED_TRIALS`).
+     *
+     * @var int
+     */
+    private const MAX_RETESTED_TRIALS = 8;
+
+    /**
      * C2-W-088: whether a round escapes every potential opener of a reported kind, or the reported openers only.
      */
     private bool $kindRounds = true;
@@ -394,6 +409,173 @@ final class RepairPlanner
     }
 
     /**
+     * C2-W-125: the pass after every other form lost a node logs the escapes it places and, where it loses the node
+     * too, retests them (carve-js `wholeTrials`). The log of an earlier such pass carries over, as do its characters.
+     */
+    public function retestingAfter(?self $previous): self
+    {
+        $this->trialLog = $previous->trialLog ?? [];
+        $this->read = $previous->read ?? $this->read;
+
+        return $this;
+    }
+
+    /**
+     * The characters `$other` read are charged to this planner too, so the passes after it share one budget.
+     */
+    public function chargedAfter(self $other): self
+    {
+        $this->read = max($this->read, $other->read);
+
+        return $this;
+    }
+
+    /**
+     * Adds the escapes the round placed beyond `$before` to the trial log of their leaf block, each once, up to its cap.
+     *
+     * @param array<string, array<int, true>> $before
+     */
+    private function logTrials(array $before): void
+    {
+        if ($this->trialLog === null) {
+            return;
+        }
+        foreach ($this->escapes as $path => $offsets) {
+            foreach ($offsets as $at => $_) {
+                if (isset($before[$path][$at])) {
+                    continue;
+                }
+                $leaf = $this->leafOf($path);
+                $log = $this->trialLog[$leaf] ?? [];
+                // Past the cap the leaf is not retested, so its log stops growing.
+                if (count($log) <= self::MAX_RETESTED_TRIALS && !in_array([$path, $at], $log, true)) {
+                    $this->trialLog[$leaf][] = [$path, $at];
+                }
+            }
+        }
+    }
+
+    /**
+     * C2-W-125: each escape was tested with only the escapes placed before it, so one a later escape makes needless
+     * or harmful stays. Where the pass loses a node, the logged escapes of each leaf block that does not read back are
+     * tested again together, fewest first, and the first set that gives that block is taken (carve-js `retestTrials`,
+     * which runs per block group as its rounds do). Each trial reads the top-level block of the leaf alone, so the
+     * retest stays linear in the document; the next round reads the whole again.
+     */
+    private function retestedTrials(): bool
+    {
+        if ($this->trialLog === null || $this->trialLog === [] || $this->trialsRetested) {
+            return false;
+        }
+        $this->trialsRetested = true;
+        $index = Writer::layoutIndex($this->layout);
+        $byChild = [];
+        foreach ($this->trialLog as $leaf => $log) {
+            if (preg_match('~^/children/(\d+)~', $leaf, $m) === 1 && count($log) <= self::MAX_RETESTED_TRIALS) {
+                $byChild[(int)$m[1]][$leaf] = $log;
+            }
+        }
+        $changed = false;
+        foreach ($byChild as $child => $leaves) {
+            [$tree, $layout] = Writer::isolatedBlock($this->tree, $this->layout, $index, $child);
+            $prefix = '/children/' . $child;
+            $local = static fn (string $path): string => '/children/0' . substr($path, strlen($prefix));
+            $escapes = [];
+            foreach ($this->escapes as $path => $offsets) {
+                if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+                    $escapes[$local($path)] = $offsets;
+                }
+            }
+            $wanted = self::readPrints($tree)[1];
+            foreach ($leaves as $leaf => $log) {
+                $want = $wanted[$local($leaf)] ?? null;
+                if ($want === null) {
+                    continue;
+                }
+                $log = array_map(static fn (array $entry): array => [$local($entry[0]), $entry[1]], $log);
+                $found = $this->retestedLeaf($tree, $layout, $escapes, $log, $local($leaf), $want);
+                if ($found === null) {
+                    break 2;
+                }
+                if ($found !== $escapes) {
+                    $escapes = $found;
+                    $changed = true;
+                }
+            }
+            foreach (array_keys($this->escapes) as $path) {
+                if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+                    unset($this->escapes[$path]);
+                }
+            }
+            foreach ($escapes as $path => $offsets) {
+                $this->escapes[$prefix . substr($path, strlen('/children/0'))] = $offsets;
+            }
+        }
+
+        return $changed;
+    }
+
+    /**
+     * The escapes of an isolated block with the first subset of a leaf's logged escapes, fewest first, with which the
+     * leaf reads back in place of the logged ones; unchanged where none does, null where the budget ran out.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, array<int, true>> $escapes
+     * @param array<array{string, int}> $log
+     * @param string $leaf
+     * @param string $want The fingerprint of the leaf in the tree.
+     *
+     * @return array<string, array<int, true>>|null
+     */
+    private function retestedLeaf(array $tree, ?array $layout, array $escapes, array $log, string $leaf, string $want): ?array
+    {
+        $current = Writer::bareSource($tree, $layout, $this->options, $escapes);
+        if (!$this->charge($current)) {
+            return null;
+        }
+        if ((self::readPrints(ReadbackRound::read($current, $this->options))[1][$leaf] ?? null) === $want) {
+            return $escapes;
+        }
+        $base = $escapes;
+        foreach ($log as [$path, $at]) {
+            unset($base[$path][$at]);
+            if (($base[$path] ?? null) === []) {
+                unset($base[$path]);
+            }
+        }
+        $subsets = range(0, (1 << count($log)) - 1);
+        usort($subsets, static fn (int $x, int $y): int => [self::bitCount($x), $x] <=> [self::bitCount($y), $y]);
+        foreach ($subsets as $subset) {
+            $trial = $base;
+            foreach ($log as $bit => [$path, $at]) {
+                if (($subset & (1 << $bit)) !== 0) {
+                    $trial[$path][$at] = true;
+                }
+            }
+            $source = Writer::bareSource($tree, $layout, $this->options, $trial);
+            if (!$this->charge($source)) {
+                return null;
+            }
+            if ((self::readPrints(ReadbackRound::read($source, $this->options))[1][$leaf] ?? null) === $want) {
+                return $trial;
+            }
+        }
+
+        return $escapes;
+    }
+
+    private static function bitCount(int $value): int
+    {
+        $count = 0;
+        for ($rest = $value; $rest !== 0; $rest &= $rest - 1) {
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
      * The candidate of the starting escapes and its `ReadbackRound::inspect()`, when the caller already has them.
      *
      * @param array{
@@ -639,7 +821,10 @@ final class RepairPlanner
         $this->settledEscapes = null;
         $pairRounds = 0;
         $run = null;
+        $logged = $this->escapes;
         for ($round = 0; $round < 8192; $round++) {
+            $this->logTrials($logged);
+            $logged = $this->escapes;
             $escapes = $this->escapes;
             $first = $this->first;
             $this->first = null;
@@ -686,6 +871,13 @@ final class RepairPlanner
             [$candidate, $comparison] = $compared;
             unset($compared);
             if (!$this->appliedRound($escapes, $candidate, $comparison)) {
+                $this->logTrials($logged);
+                if ($this->retestedTrials()) {
+                    unset($candidate, $comparison);
+
+                    continue;
+                }
+
                 return $settled;
             }
             $run = $this->followedRun($escapes, $run);
