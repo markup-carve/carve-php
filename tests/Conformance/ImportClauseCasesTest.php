@@ -26,7 +26,6 @@ final class ImportClauseCasesTest extends TestCase
      * @var array<string, string>
      */
     public const KNOWN_FAIL = [
-        'CC-1425' => 'markup-carve/carve#6850: Word conditional comments of a dropped note wrapper are reported (C2-M-109)',
         'CC-2393' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2394' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2395' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
