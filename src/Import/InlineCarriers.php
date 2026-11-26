@@ -514,7 +514,8 @@ final class InlineCarriers
     }
 
     /**
-     * An element whose content gives no inline of its own: it is dropped, kept whole as raw, or a comment's text.
+     * An element whose content gives no inline of its own: it is dropped, kept whole as raw, a comment's text, or
+     * a code or math leaf whose content is its value.
      */
     private static function isOpaque(HtmlNode $node): bool
     {
@@ -523,7 +524,8 @@ final class InlineCarriers
         }
         $kind = Elements::treatment($node);
 
-        return $kind === 'drop' || $kind === 'raw' || $node->name === 'input' || self::isRangeStart($node);
+        return $kind === 'drop' || $kind === 'raw' || $node->name === 'input' || $node->name === 'code' || $node->name === 'math'
+            || self::isRangeStart($node);
     }
 
     private static function isRangeStart(HtmlNode $node): bool
