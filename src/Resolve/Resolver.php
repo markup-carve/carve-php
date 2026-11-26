@@ -237,7 +237,7 @@ final class Resolver
                 $doc->f['srcByteLength'] = strlen($s);
             }
             $r->collectDefinitions();
-            if ($findings !== null && ($s === null || str_contains($s, '{$') || $doc->includeSources !== [])) {
+            if ($findings !== null && ($s === null || $doc->includeSources !== [] || $r->mayHoldDefinition($s))) {
                 $r->duplicateSnippets();
             }
             $r->prepare();
@@ -317,6 +317,20 @@ final class Resolver
         if ($this->doc->includeSources !== []) {
             $this->collectIncludedDefinitions();
         }
+    }
+
+    /**
+     * Whether the parsed document may hold a snippet definition: the parse says so unless an extension may have added one.
+     *
+     * @param string $s
+     *
+     * @return bool
+     */
+    private function mayHoldDefinition(string $s): bool
+    {
+        $parsed = $this->o->extensions === [] ? $this->doc->layout['parsedSnippetDefinition'] ?? null : null;
+
+        return is_bool($parsed) ? $parsed : str_contains($s, '{$');
     }
 
     /**

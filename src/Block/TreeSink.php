@@ -25,6 +25,16 @@ final class TreeSink implements Sink
     public bool $hasDefinition = false;
 
     /**
+     * Whether a block snippet use was made (C2-B-237).
+     */
+    public bool $hasSnippetUse = false;
+
+    /**
+     * Whether a snippet definition was made (C2-B-236).
+     */
+    public bool $hasSnippetDefinition = false;
+
+    /**
      * C2-B-111, C2-B-163: the leaves that report a missing closer.
      *
      * @var array<int, string>
@@ -80,6 +90,11 @@ final class TreeSink implements Sink
         }
         if (isset($node->f['key'])) {
             $this->hasDefinition = true;
+        }
+        if ($frame->kind === Frame::SNIPPET_USE) {
+            $this->hasSnippetUse = true;
+        } elseif ($frame->kind === Frame::SNIPPET_DEF) {
+            $this->hasSnippetDefinition = true;
         }
         $frame->handle = $node;
         $this->note($frame, $node);

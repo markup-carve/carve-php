@@ -34,6 +34,11 @@ final class InlineContext
     public array $abbreviations = [];
 
     /**
+     * Whether the inline pass read a snippet use (C2-I-128).
+     */
+    public bool $snippetUse = false;
+
+    /**
      * Collects the definitions of the whole document before the inline pass (C2-B-088, C2-I-125).
      *
      * @param \MarkupCarve\Carve\Node $doc
