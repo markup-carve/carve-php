@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Import;
 use MarkupCarve\Carve\Html\UrlPolicy;
 use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Options;
+use SplObjectStorage;
 
 /**
  * The inline elements a render writes for a node of its own: links and images (C2-M-050, C2-M-051), footnote
@@ -24,13 +25,45 @@ final class InlineCarriers
      */
     private const NOTE_PREFIXES = ['user-content-fn-', 'fn-', 'fn'];
 
+    /**
+     * C2-M-044: the revision keys of an editorial comment span.
+     *
+     * @var array<string, string>
+     */
+    private const COMMENT_KEYS = ['data-author' => 'author', 'data-datetime' => 'datetime'];
+
+    /**
+     * C2-M-113: the keys of a ranged comment as Pandoc writes them.
+     *
+     * @var array<string, string>
+     */
+    private const RANGED_COMMENT_KEYS = ['data-author' => 'author', 'data-date' => 'datetime'];
+
     private ImportContext $context;
 
     private ?Options $policy = null;
 
+    /**
+     * The `comment-end` spans that close a ranged comment read before them (C2-M-113).
+     *
+     * @var \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, true>
+     */
+    private SplObjectStorage $commentEnds;
+
+    /**
+     * @var \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, array{0: int, 1: int}>|null
+     */
+    private ?SplObjectStorage $order = null;
+
+    /**
+     * @var array<string, array<array{0: int, 1: \MarkupCarve\Carve\Import\HtmlNode}>>
+     */
+    private array $ends = [];
+
     public function __construct(private InlineReader $reader)
     {
         $this->context = $reader->context;
+        $this->commentEnds = new SplObjectStorage();
     }
 
     /**
@@ -319,7 +352,15 @@ final class InlineCarriers
             return $this->mathSpan($node, $classes[1]);
         }
         if ($first === 'critic-comment') {
-            return [['type' => 'critic_comment', 'value' => $node->plain()] + Attrs::withoutClasses(Attrs::of($node), [$first])];
+            $mapped = Attrs::withoutClasses(Attrs::of($node), [$first]);
+
+            return [['type' => 'critic_comment', 'value' => $node->plain()] + Attrs::renamedKeys($mapped, self::COMMENT_KEYS)];
+        }
+        if ($first === 'comment-start') {
+            return $this->rangedComment($node);
+        }
+        if ($first === 'comment-end' && isset($this->commentEnds[$node])) {
+            return [];
         }
         if ($first === 'mention' || $first === 'tag') {
             return $this->social($node, $first);
@@ -332,6 +373,84 @@ final class InlineCarriers
         }
 
         return null;
+    }
+
+    /**
+     * C2-M-113: a ranged comment is a point comment at its start; its end is dropped, and a range with a node in
+     * it is reported as lost. A start with no text gives no comment.
+     *
+     * @return array<array<string, mixed>>
+     */
+    private function rangedComment(HtmlNode $node): array
+    {
+        $order = $this->indexDocument($node);
+        $last = $order[$node][1];
+        $ends = $this->ends[$node->attr('data-comment-id') ?? "\0"] ?? [];
+        [$low, $high] = [0, count($ends)];
+        while ($low < $high) {
+            $mid = ($low + $high) >> 1;
+            if ($ends[$mid][0] > $last) {
+                $high = $mid;
+            } else {
+                $low = $mid + 1;
+            }
+        }
+        $end = $ends[$low][1] ?? null;
+        if ($end !== null) {
+            $this->commentEnds[$end] = true;
+        }
+        $value = $node->plain();
+        if ($value === '') {
+            $this->context->report($node, 'import-element-dropped', 'Ranged comment with no text dropped');
+
+            return [];
+        }
+        if ($end !== null && $order[$end][0] > $last + 1) {
+            $this->context->report($node, 'import-structure-repaired', 'Ranged comment read as a point: its range is lost');
+        }
+        $mapped = Attrs::withoutKeys(Attrs::withoutClasses(Attrs::of($node), ['comment-start']), ['data-comment-id']);
+
+        return [['type' => 'critic_comment', 'value' => $value] + Attrs::renamedKeys($mapped, self::RANGED_COMMENT_KEYS)];
+    }
+
+    /**
+     * One walk of the document for every ranged comment: each node's place in document order and the last place
+     * of its descendants, and the `comment-end` spans by `data-comment-id` in that order.
+     *
+     * @return \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, array{0: int, 1: int}>
+     */
+    private function indexDocument(HtmlNode $node): SplObjectStorage
+    {
+        if ($this->order !== null) {
+            return $this->order;
+        }
+        $root = $node;
+        while ($root->parent !== null) {
+            $root = $root->parent;
+        }
+        $this->order = new SplObjectStorage();
+        $this->ends = [];
+        $count = 0;
+        $stack = [[$root, false]];
+        while ($stack !== []) {
+            [$at, $closing] = array_pop($stack);
+            if ($closing) {
+                $this->order[$at] = [$this->order[$at][0], $count - 1];
+
+                continue;
+            }
+            $this->order[$at] = [$count, $count];
+            if ($at->isElement('span') && ($at->classes()[0] ?? '') === 'comment-end') {
+                $this->ends[$at->attr('data-comment-id') ?? "\0"][] = [$count, $at];
+            }
+            $count++;
+            $stack[] = [$at, true];
+            for ($i = count($at->children) - 1; $i >= 0; $i--) {
+                $stack[] = [$at->children[$i], false];
+            }
+        }
+
+        return $this->order;
     }
 
     /**

@@ -79,7 +79,6 @@ final class Text
         'smart_punctuation' => true,
         'abbreviation' => true,
         'comment' => true,
-        'critic_comment' => true,
     ];
 
     /**
@@ -99,6 +98,7 @@ final class Text
         'inline_footnote' => true,
         'symbol' => true,
         'inline_extension' => true,
+        'critic_comment' => true,
         'emphasis' => true,
         'strong' => true,
         'delete' => true,
