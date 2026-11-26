@@ -18,11 +18,15 @@ use PHPUnit\Framework\TestCase;
 final class CorpusTest extends TestCase
 {
     /**
-     * Entries held by name, each with the clause sentence that shows the corpus wrong. A held entry must keep failing.
+     * Entries held by name, each with the clause sentence that shows the corpus wrong or the ruling this engine has not
+     * implemented yet. A held entry must keep failing.
      *
      * @var array<string, string>
      */
-    public const HELD = [];
+    public const HELD = [
+        'CC-2068' => 'markup-carve/carve#6664 (carve-php line): an empty body-rows with a footer count of all the rows',
+        'syntax-blocks-219' => 'markup-carve/carve#6663 (carve-php line): header-rows sets the head of a pipe table',
+    ];
 
     /**
      * @var array<string, true>

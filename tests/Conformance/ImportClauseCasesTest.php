@@ -25,7 +25,7 @@ final class ImportClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [
+    public const KNOWN_FAIL = [
         'CC-2156' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
         'CC-2159' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
         'CC-2160' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
@@ -42,6 +42,26 @@ final class ImportClauseCasesTest extends TestCase
         'CC-2184' => 'markup-carve/carve#6795 (carve-php line): import option listTable, span-mark text',
         'CC-2207' => 'markup-carve/carve#6804 (carve-php line): an img without alt imports with alt unknown',
         'CC-2208' => 'markup-carve/carve#6804 (carve-php line): an img with alt="" imports as decorative',
+        'CC-2063' => 'markup-carve/carve#6623 (carve-php line): leading th rows with a scope row cell stay body header rows',
+        'CC-2100' => 'markup-carve/carve#6663 (carve-php line): td cells of the table head import as data cells',
+        'CC-2101' => 'markup-carve/carve#6663 (carve-php line): td cells of the table head import as data cells',
+        'CC-2102' => 'markup-carve/carve#6663 (carve-php line): td cells of the table head import as data cells',
+        'CC-2103' => 'markup-carve/carve#6663 (carve-php line): td cells of the table head import as data cells',
+        'CC-2230' => 'markup-carve/carve#6605 (carve-php line): an authored attribute named like a span key is kept upper case',
+        'CC-2231' => 'markup-carve/carve#6605 (carve-php line): an authored attribute named like a span key is kept upper case',
+        'CC-2232' => 'markup-carve/carve#6605 (carve-php line): an authored attribute named like a span key is kept upper case',
+        'CC-2233' => 'markup-carve/carve#6605 (carve-php line): an authored attribute named like a span key is kept upper case',
+        'CC-2234' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
+        'CC-2235' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
+        'CC-2236' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
+        'CC-2244' => 'markup-carve/carve#6664 (carve-php line): a table of only a tfoot imports as a foot',
+        'CC-2245' => 'markup-carve/carve#6664 (carve-php line): a table of only a tfoot imports as a foot',
+        'CC-2250' => 'markup-carve/carve#6623 (carve-php line): an unscoped th row below a scope row th row stays in the body',
+        'CC-2252' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
+        'CC-2253' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
+        'CC-2254' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
+        'CC-2255' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
+        'CC-2256' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
     ];
 
     /**

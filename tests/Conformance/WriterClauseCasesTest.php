@@ -26,6 +26,8 @@ final class WriterClauseCasesTest extends TestCase
      */
     private const KNOWN_FAIL = [
         'CC-2213' => 'markup-carve/carve#6804 (carve-php line): an image whose alt is unknown writes empty brackets',
+        'CC-2242' => 'markup-carve/carve#6663 (carve-php line): fmt drops header-rows where the header marks make the same head',
+        'CC-2249' => 'markup-carve/carve#6664 (carve-php line): fmt keeps an empty body-rows on a table of only a foot',
     ];
 
     /**

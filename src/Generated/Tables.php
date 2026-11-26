@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '20c78abe3d9a4971b94419acd4e92aa613afe6f2',
+        'commit' => '40aff1ce0ec13e5c8c5fa01c6d8c3fe5f70ee065',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6842,7 +6842,7 @@ final class Tables
             'The substitution arrow was removed in 0.2; this is a strike span. Write a deletion directly followed by an insertion.',
         ],
         'deprecated-table-attribute' => [
-            '`header-rows` does not apply to a pipe table in 0.2. Mark header cells with the header mark and write alignment on the cells.',
+            '`header-rows` on a pipe table no longer makes the cells of its rows header cells in 0.2: they keep the kind they are written with. Mark header cells with the header mark.',
         ],
         'derived-text-budget' => [
             'Wrote an abbreviation or a cross-reference in its plain form: the derived text of this render reached its budget of ${budget} bytes',
