@@ -169,6 +169,7 @@ final class ImportTables
         'data-carve-inline-footnote' => true,
         'data-carve-label' => true,
         'data-carve-line-block' => true,
+        'data-carve-loose' => true,
         'data-carve-raw' => true,
         'data-carve-ref' => true,
         'data-carve-ref-collapsed' => true,

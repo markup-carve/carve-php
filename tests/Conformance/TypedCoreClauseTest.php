@@ -30,12 +30,13 @@ final class TypedCoreClauseTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_FAIL = [
-        'CC-2246' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
-        'CC-2248' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
-        'CC-2237' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
-        'CC-2238' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
-        'CC-2239' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
-        'CC-2240' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
+        'CC-2414' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
+        'CC-2440' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
+        'CC-2442' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
+        'CC-2444' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
+        'CC-2445' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
+        'CC-2447' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
+        'CC-2454' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
         'CC-2270' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2271' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',

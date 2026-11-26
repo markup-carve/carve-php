@@ -19,9 +19,7 @@ final class LintClauseTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [
-        'CC-2241' => 'markup-carve/carve#6838: lint-model.json still excludes pipe tables from the header-rows clamp',
-    ];
+    private const KNOWN_FAIL = [];
 
     /**
      * @return array<string, array{0: array<string, mixed>}>

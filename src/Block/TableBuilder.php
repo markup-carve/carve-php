@@ -688,7 +688,7 @@ final class TableBuilder
      *
      * @return bool
      */
-    private static function validList(?string $value, bool $width): bool
+    public static function validList(?string $value, bool $width): bool
     {
         if ($value === null || $value === '') {
             return false;
@@ -708,7 +708,7 @@ final class TableBuilder
         return true;
     }
 
-    private static function validValigns(?string $value): bool
+    public static function validValigns(?string $value): bool
     {
         if ($value === null || $value === '') {
             return false;

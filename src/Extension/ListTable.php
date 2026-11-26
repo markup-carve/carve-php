@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\PlainText;
 
@@ -172,7 +173,16 @@ final class ListTable
         if ($host->sourceLines) {
             $consumed[] = 'data-source-line';
         }
-        $table = new ListTableData($rows, $rowHeads, $attrs, $head, $headCols, $width);
+        $table = new ListTableData(
+            $rows,
+            $rowHeads,
+            $attrs,
+            $head,
+            $headCols,
+            $width,
+            self::entries($attrs, 'aligns'),
+            self::entries($attrs, 'valigns'),
+        );
         $bodies = '';
         $last = count($boundaries) - 1;
         for ($i = 0; $i < $last; $i++) {
@@ -338,7 +348,7 @@ final class ListTable
         $scope = $heading ? ' scope="' . ($row < $table->head || $rowHead ? 'col' : 'row') . '"' : '';
         $spans = ($cell->rowspan > 1 ? ' rowspan="' . $cell->rowspan . '"' : '')
             . ($cell->colspan > 1 ? ' colspan="' . $cell->colspan . '"' : '');
-        $style = self::style($cell, $col, $table->attrs);
+        $style = self::style($cell, $col, $table);
         if ($style !== '') {
             $attrs = $attrs instanceof Attrs ? clone $attrs : new Attrs();
             $authored = AuthorAttrs::value($attrs, 'style');
@@ -362,23 +372,38 @@ final class ListTable
     }
 
     /**
+     * C2-X-078: a cell key is read as C2-H-015 reads `align`; another value is no mark.
+     *
      * @param string|null $value
      * @param array<string> $allowed
      */
     private static function alignment(?string $value, array $allowed): ?string
     {
-        $folded = $value === null ? null : strtolower(trim($value));
+        $folded = $value === null ? null : strtolower(trim($value, " \t\n\f\r"));
 
         return $folded !== null && in_array($folded, $allowed, true) ? $folded : null;
     }
 
-    private static function style(ListTableCell $cell, int $col, ?Attrs $table): string
+    /**
+     * C2-X-078: the column lists follow C2-B-211, so a list with one malformed entry sets no column.
+     *
+     * @return array<string>
+     */
+    private static function entries(?Attrs $table, string $key): array
+    {
+        $value = AuthorAttrs::value($table, $key);
+        $valid = $key === 'valigns' ? TableBuilder::validValigns($value) : TableBuilder::validList($value, false);
+
+        return $valid ? array_map(static fn (string $e): string => trim($e, " \t"), explode(',', (string)$value)) : [];
+    }
+
+    private static function style(ListTableCell $cell, int $col, ListTableData $table): string
     {
         $own = self::attrs($cell->item);
-        $aligns = explode(',', AuthorAttrs::value($table, 'aligns') ?? '');
-        $valigns = explode(',', AuthorAttrs::value($table, 'valigns') ?? '');
-        $h = self::alignment(AuthorAttrs::value($own, 'align') ?? $aligns[$col] ?? null, ['left', 'right', 'center']);
-        $v = self::alignment(AuthorAttrs::value($own, 'valign') ?? $valigns[$col] ?? null, ['top', 'middle', 'bottom']);
+        $h = self::alignment(AuthorAttrs::value($own, 'align'), ['left', 'right', 'center'])
+            ?? $table->aligns[$col] ?? null;
+        $v = self::alignment(AuthorAttrs::value($own, 'valign'), ['top', 'middle', 'bottom', 'baseline'])
+            ?? $table->valigns[$col] ?? null;
 
         return ($h === null ? '' : 'text-align: ' . $h . ';') . ($h !== null && $v !== null ? ' ' : '')
             . ($v === null ? '' : 'vertical-align: ' . $v . ';');
@@ -387,15 +412,10 @@ final class ListTable
     private static function columns(?Attrs $attrs): string
     {
         $value = AuthorAttrs::value($attrs, 'widths');
-        if ($value === null) {
+        if (!TableBuilder::validList($value, true)) {
             return '';
         }
-        $values = explode(',', $value);
-        foreach ($values as $width) {
-            if (preg_match('/^\d+(?:\.\d+)?$/', trim($width)) !== 1) {
-                return '';
-            }
-        }
+        $values = explode(',', (string)$value);
         $columns = array_map(
             static fn (string $w): string => '    <col style="width: ' . RenderHost::escapeAttribute(trim($w)) . '%;">',
             $values,
