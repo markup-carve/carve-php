@@ -101,6 +101,16 @@ final class TreeEncoder
     private bool $packedPos = false;
 
     /**
+     * @var int Entries `$keyJson` holds before it is emptied; object keys a document writes itself can be many.
+     */
+    private const KEY_JSON_LIMIT = 4096;
+
+    /**
+     * @var array<string|int, string> The JSON of each object key written so far.
+     */
+    private static array $keyJson = [];
+
+    /**
      * @var array<int, array<bool>>
      */
     private array $omittedAbbreviationExpansions = [];
@@ -292,10 +302,7 @@ final class TreeEncoder
 
             return;
         }
-        uksort($value, static fn (string|int $a, string|int $b): int => strcmp(
-            mb_convert_encoding((string)$a, 'UTF-16BE', 'UTF-8'),
-            mb_convert_encoding((string)$b, 'UTF-16BE', 'UTF-8'),
-        ));
+        self::sortKeys($value);
         $out .= '{';
         $first = true;
         foreach ($value as $key => $item) {
@@ -303,10 +310,40 @@ final class TreeEncoder
                 $out .= ',';
             }
             $first = false;
-            $out .= self::jsonScalar((string)$key) . ':';
+            $out .= self::$keyJson[$key] ??= self::jsonScalar((string)$key);
+            $out .= ':';
             self::canonicalJson($item, $out);
         }
         $out .= '}';
+        if (count(self::$keyJson) > self::KEY_JSON_LIMIT) {
+            self::$keyJson = [];
+        }
+    }
+
+    /**
+     * Orders keys by UTF-16 code units. On ASCII keys that is byte order; otherwise each key is converted once, not
+     * once per comparison.
+     *
+     * @param array<mixed> $value
+     */
+    private static function sortKeys(array &$value): void
+    {
+        $keys = array_keys($value);
+        if (preg_match('/[\x80-\xFF]/', implode('', $keys)) !== 1) {
+            ksort($value, SORT_STRING);
+
+            return;
+        }
+        $units = [];
+        foreach ($keys as $key) {
+            $units[$key] = mb_convert_encoding((string)$key, 'UTF-16BE', 'UTF-8');
+        }
+        asort($units, SORT_STRING);
+        $sorted = [];
+        foreach ($units as $key => $_) {
+            $sorted[$key] = $value[$key];
+        }
+        $value = $sorted;
     }
 
     /**
