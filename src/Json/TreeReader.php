@@ -70,8 +70,10 @@ final class TreeReader
         } catch (JsonException $e) {
             throw new TreeError($e->getCode() === JSON_ERROR_DEPTH ? 'depth' : 'schema', '', $e);
         }
+        TreeNumbers::check($json);
 
-        // Decoded JSON holds no invalid UTF-8 or non-finite number, so the tree is built from it directly.
+        // Decoded JSON holds no invalid UTF-8, and TreeNumbers refused every number binary64 does not keep, so the tree is
+        // built from it directly.
         $root = self::checked($value, $options);
         unset($value);
         $node = TreeDecoder::consume($root);
@@ -115,7 +117,12 @@ final class TreeReader
     public static function readValue(mixed $decoded, array $options = []): Node
     {
         $root = self::checked($decoded, $options);
-        $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
+        try {
+            $json = json_encode($root, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR, self::JSON_DEPTH);
+        } catch (JsonException $e) {
+            throw new TreeError($e->getCode() === JSON_ERROR_INF_OR_NAN ? 'number' : 'schema', '', $e);
+        }
+        TreeNumbers::check($json);
         $node = TreeDecoder::json($json, self::JSON_DEPTH);
         if ($node === null) {
             throw new TreeError('schema', '');
@@ -150,6 +157,7 @@ final class TreeReader
         } catch (JsonException $e) {
             throw new TreeError($e->getCode() === JSON_ERROR_DEPTH ? 'depth' : 'schema', '', $e);
         }
+        TreeNumbers::check($json);
         self::checked($value, $options);
     }
 

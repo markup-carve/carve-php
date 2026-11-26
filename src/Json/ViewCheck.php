@@ -41,6 +41,13 @@ final class ViewCheck
     ];
 
     /**
+     * C2-A-219: 2^53, beyond which an integer may have no binary64 value of its own; the full check decides it.
+     *
+     * @var int
+     */
+    private const EXACT_INTEGER = 9007199254740992;
+
+    /**
      * @var array<int, \Closure(mixed, self): bool>
      */
     private static array $compiled = [];
@@ -433,7 +440,7 @@ final class ViewCheck
                 continue;
             }
             $out[$key !== '' && ctype_alpha($key[0]) && mb_check_encoding($key, 'UTF-8') ? $key : self::key($key)]
-                = is_int($value) || is_bool($value) || $value instanceof Node ? $value : self::plain($value);
+                = is_bool($value) || $value instanceof Node ? $value : self::plain($value);
         }
         if ($node->children !== null) {
             $children = self::plain($node->children);
@@ -470,6 +477,9 @@ final class ViewCheck
             }
 
             return $value;
+        }
+        if (is_int($value) && ($value > self::EXACT_INTEGER || $value < -self::EXACT_INTEGER)) {
+            throw new Unmirrored();
         }
         if ($value === null || is_int($value) || is_bool($value) || $value instanceof Node) {
             return $value;
