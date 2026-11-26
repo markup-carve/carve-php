@@ -219,7 +219,8 @@ final class TableWriter
             $stripped = $bodyHeaders && $type === 'table_body' ? self::leadingHeaderRows($rows) : 0;
             foreach ($rows as $index => $row) {
                 $total++;
-                if ($open && $index >= $stripped && self::leadingHeaderRows([$row]) === 1) {
+                // A mark in the head is written with a header mark (C2-W-063), so a row of marks reads as a header row.
+                if ($open && $index >= $stripped && self::leadingHeaderRows([$row], $type === 'table_head') === 1) {
                     $head++;
                 } else {
                     $open = false;
@@ -364,8 +365,9 @@ final class TableWriter
 
     /**
      * @param array<mixed> $rows
+     * @param bool $marksAreHeaders A row of span marks alone counts as a header row.
      */
-    private static function leadingHeaderRows(array $rows): int
+    private static function leadingHeaderRows(array $rows, bool $marksAreHeaders = false): int
     {
         $count = 0;
         foreach ($rows as $row) {
@@ -380,7 +382,7 @@ final class TableWriter
             $isHeader = static fn (array $cell): bool => ($cell['header'] ?? false) === true;
             $headerOrMark = static fn (array $cell): bool => $isHeader($cell) || isset($cell['span']);
             if (
-                array_filter($cells, $isHeader) === []
+                (!$marksAreHeaders && array_filter($cells, $isHeader) === [])
                 || count(array_filter($cells, $headerOrMark)) !== count($cells)
             ) {
                 break;

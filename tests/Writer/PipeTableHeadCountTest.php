@@ -74,6 +74,15 @@ final class PipeTableHeadCountTest extends TestCase
         self::assertSame(self::shape(Carve::parse($source)), self::shape(Carve::parse($result->source)));
     }
 
+    public function testHeadRowOfSpanMarksNeedsNoCount(): void
+    {
+        $source = "|= a |\n|= ^ |\n| 1 |\n";
+        $result = Carve::formatWithDiagnostics($source);
+
+        self::assertSame($source, $result->source);
+        self::assertSame([], $result->diagnostics);
+    }
+
     /**
      * @return array<string, array{0: string, 1: string, 2: string}>
      */
