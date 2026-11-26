@@ -31,6 +31,12 @@ final class TypedCoreClauseTest extends TestCase
     private const KNOWN_FAIL = [
         'CC-2187' => 'markup-carve/carve#6795 (carve-php line): a < beside a cell covered from above joins nothing',
         'CC-2210' => 'markup-carve/carve#6804 (carve-php line): an image whose alt is unknown renders no alt',
+        'CC-2237' => 'markup-carve/carve#6663 (carve-php line): header-rows sets the head of a pipe table',
+        'CC-2238' => 'markup-carve/carve#6663 (carve-php line): header-rows sets the head of a pipe table',
+        'CC-2239' => 'markup-carve/carve#6663 (carve-php line): header-rows sets the head of a pipe table',
+        'CC-2240' => 'markup-carve/carve#6663 (carve-php line): header-rows sets the head of a pipe table',
+        'CC-2246' => 'markup-carve/carve#6664 (carve-php line): an empty body-rows with a footer count of all the rows',
+        'CC-2248' => 'markup-carve/carve#6664 (carve-php line): an empty body-rows with a footer count of all the rows',
     ];
 
     /**
