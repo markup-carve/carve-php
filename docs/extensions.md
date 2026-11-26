@@ -123,9 +123,10 @@ Without a renderer, a titled div falls back to its title as a strong paragraph a
 
 ## List table
 
-`ListTable::bundle()` claims a `::: list-table` div whose body is one list of rows, each row a list of cells. A cell
-of only `<` spans from the left, `^` from above. The div attributes `header-rows`, `header-cols`, `footer-rows`,
-`aligns`, `valigns` and `widths` shape the table; a cell takes `header`, `header-row`, `align` and `valign`. The
+`ListTable::bundle()` claims a `::: list-table` div whose body is one list of rows, each row item holding one list of cells and
+nothing else; another such div stays a core div. A cell of only `<` spans from the left, `^` from above. The div
+attributes `header-rows`, `header-cols`, `footer-rows` (a decimal integer above 0; another value, or none, has no
+effect), `aligns`, `valigns` and `widths` shape the table; a cell takes `header`, `header-row`, `align` and `valign`. The
 quoted title is the caption, a bracket label a `<p class="div-label">` before the table.
 
 ## Color swatch
