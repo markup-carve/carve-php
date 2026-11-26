@@ -99,7 +99,7 @@ final class ListReader
     }
 
     /**
-     * C2-M-033, C2-H-186 `data-carve-tight`.
+     * C2-M-033, C2-H-185, C2-H-186: `data-carve-tight` and `data-carve-loose`.
      *
      * @param \MarkupCarve\Carve\Import\HtmlNode $node
      * @param array<array<string, mixed>> $items
@@ -108,6 +108,25 @@ final class ListReader
      */
     private function spacing(HtmlNode $node, array $items): string
     {
+        if ($node->has('data-carve-tight') && $node->has('data-carve-loose')) {
+            $this->context->ignoredCarrier($node, 'data-carve-tight and data-carve-loose', 'they contradict each other');
+
+            return $this->measuredSpacing($node, $items);
+        }
+        if ($node->has('data-carve-loose')) {
+            if (count($items) <= 1) {
+                $this->context->ignoredCarrier($node, 'data-carve-loose', 'a list with one item is tight');
+
+                return 'tight';
+            }
+            if (self::hasBareRun($node)) {
+                $this->context->ignoredCarrier($node, 'data-carve-loose', 'an item writes a paragraph bare');
+
+                return $this->measuredSpacing($node, $items);
+            }
+
+            return 'loose';
+        }
         if ($node->has('data-carve-tight')) {
             $loose = self::hasLooseItem($node, true);
             if (!$loose) {
@@ -117,6 +136,20 @@ final class ListReader
 
             return count($items) > 1 ? 'loose' : 'tight';
         }
+
+        return $this->measuredSpacing($node, $items);
+    }
+
+    /**
+     * C2-M-033: the spacing of a list on which no spacing carrier was accepted.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param array<array<string, mixed>> $items
+     *
+     * @return string
+     */
+    private function measuredSpacing(HtmlNode $node, array $items): string
+    {
         if (count($items) <= 1) {
             return 'tight';
         }
@@ -130,6 +163,26 @@ final class ListReader
         }
 
         return 'tight';
+    }
+
+    /**
+     * C2-H-186: an item of the list holds a run that C2-M-012 reads as a paragraph, which a loose list writes in `<p>`.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     *
+     * @return bool
+     */
+    private static function hasBareRun(HtmlNode $node): bool
+    {
+        foreach ($node->elements() as $item) {
+            $children = array_filter($item->children, static fn (HtmlNode $c): bool => !($c->isElement('input')
+                && $c->attr('type') === 'checkbox'));
+            if ($item->name === 'li' && BlockReader::hasParagraphRun($children)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -48,6 +48,7 @@ final class AttrWriter
         'data-carve-abbreviations' => true,
         'data-carve-label' => true,
         'data-carve-tight' => true,
+        'data-carve-loose' => true,
         'data-carve-xref' => true,
         'data-carve-caption-number' => true,
         'data-carve-div' => true,

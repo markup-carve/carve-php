@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * C2-H-043, C2-H-195 row 18 (carve#6786, carve#6785): a line-block `<br>` with only whitespace after it is the hard
+ * C2-H-043, C2-H-195 row 17 (carve#6786, carve#6785): a line-block `<br>` with only whitespace after it is the hard
  * break of the stanza's last line, and a line that is empty or ends in a space or tab keeps its hard break.
  */
 final class LineBlockHardBreakImportTest extends TestCase
