@@ -40,7 +40,8 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
       - name: The image still has the HTML4 parser
-        run: php -r '$d = new DOMDocument(); @$d->loadHTML("<p>a<wbr>b</p>"); if ($d->getElementsByTagName("wbr")->item(0)->childNodes->length === 0) { fwrite(STDERR, "this image has libxml 2.14 or later: pin an older one\n"); exit(1); } echo "libxml ", LIBXML_DOTTED_VERSION, PHP_EOL;'
+        run: |
+          php -r '$d = new DOMDocument(); @$d->loadHTML("<p>a<wbr>b</p>"); if ($d->getElementsByTagName("wbr")->item(0)->childNodes->length === 0) { fwrite(STDERR, "this image has libxml 2.14 or later: pin an older one\n"); exit(1); } echo "libxml ", LIBXML_DOTTED_VERSION, PHP_EOL;'
       - name: Run import tests
         run: php -d memory_limit=1G vendor/bin/phpunit tests/Import tests/Conformance/ImportClauseCasesTest.php
 
