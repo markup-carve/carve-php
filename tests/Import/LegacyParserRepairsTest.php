@@ -43,6 +43,11 @@ final class LegacyParserRepairsTest extends TestCase
                 'svg[title[b[#a]]],textarea[#b</i>]',
             ],
             'MathML text integration point' => ['<math><mi><textarea>a</b></textarea></mi></math>', 'math[mi[textarea[#a</b>]]]'],
+            'MathML closed by an ancestor end tag' => ['<i><math></i><title><!x></title>', 'i[math[]],title[#<!x>]'],
+            'MathML glyph stays foreign' => [
+                '<math><mi><mglyph><textarea>a</b></textarea></mglyph></mi></math>',
+                'math[mi[mglyph[textarea[#a]]]]',
+            ],
             'marker name in an attribute value' => ['<script data-id="carve-import-raw">a</b></script>', 'script[#a</b>]'],
         ];
     }

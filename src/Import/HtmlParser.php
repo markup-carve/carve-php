@@ -54,9 +54,18 @@ final class HtmlParser
     private const LEGACY_RAW = 'carve-import-raw';
 
     /**
+     * Start tags that end SVG and MathML content (the HTML Standard's breakout list, without `font`).
+     *
      * @var array<string>
      */
-    private const INTEGRATION_POINTS = ['foreignobject', 'desc', 'title', 'mi', 'mo', 'mn', 'ms', 'mtext'];
+    private const BREAKOUT = [
+        'b', 'big', 'blockquote', 'body', 'br', 'center', 'code', 'dd', 'div', 'dl',
+        'dt', 'em', 'embed', 'h1', 'h2', 'h3',
+        'h4', 'h5', 'h6', 'head', 'hr', 'i', 'img', 'li', 'listing', 'menu',
+        'meta', 'nobr', 'ol', 'p', 'pre', 'ruby', 's',
+        'small', 'span', 'strike', 'strong', 'sub', 'sup', 'table', 'tt', 'u', 'ul',
+        'var',
+    ];
 
     private static ?bool $tagsInRawText = null;
 
@@ -277,8 +286,8 @@ final class HtmlParser
             }
             $at = $lt + strlen($tag[0]);
             $name = strtolower($tag[2]);
-            $inForeign = in_array(end($foreign), ['svg', 'math', 'glyph'], true);
-            $foreign = self::foreignScopes($foreign, $tag[1] === '/', $name, $tag[0]);
+            $inForeign = self::foreign($foreign);
+            self::foreignScopes($foreign, $tag[1] === '/', $name, $tag[0]);
             // In SVG and MathML `title`, `style` and `script` are not raw text.
             if ($inForeign || $tag[1] === '/' || !in_array($name, self::RAW_TEXT, true)) {
                 continue;
@@ -316,44 +325,86 @@ final class HtmlParser
     }
 
     /**
-     * The open SVG and MathML elements and the HTML integration points in them, after a tag. Breakout tags and
-     * `annotation-xml` are not tracked: raw text inside them keeps the unrepaired reading.
+     * Whether the innermost tracked element is SVG or MathML content, where `title`, `style` and `script` are not
+     * raw text.
      *
-     * @param array<string> $scopes
+     * @param array<array{0: string, 1: string}> $scopes
+     *
+     * @return bool
+     */
+    private static function foreign(array $scopes): bool
+    {
+        // Not end(): it takes the array by reference and would copy the shared stack on every tag.
+        $top = $scopes[count($scopes) - 1] ?? null;
+
+        return $top !== null && $top[0] !== 'html';
+    }
+
+    /**
+     * The open SVG and MathML elements, each with its mode (`svg`, `math`, or `html` for an HTML integration point),
+     * updated for a tag. An approximation of the tree builder for the scan only: font breakout and `annotation-xml` are
+     * not tracked, and an end tag that closes no foreign element leaves foreign content. Updated in place, so a deep
+     * stack costs no copy per tag.
+     *
+     * @param array<array{0: string, 1: string}> $scopes
      * @param bool $end
      * @param string $name
      * @param string $tag
      *
-     * @return array<string>
+     * @return void
      */
-    private static function foreignScopes(array $scopes, bool $end, string $name, string $tag): array
+    private static function foreignScopes(array &$scopes, bool $end, string $name, string $tag): void
     {
-        $top = end($scopes);
-        $scope = match (true) {
-            $name === 'svg', $name === 'math' => $name,
-            $top === 'svg' && in_array($name, ['foreignobject', 'desc', 'title'], true) => 'html',
-            $top === 'math' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true) => 'mathtext',
-            // `mglyph` and `malignmark` in a MathML text integration point stay foreign.
-            $top === 'mathtext' && !$end && in_array($name, ['mglyph', 'malignmark'], true) => 'glyph',
-            $top === 'glyph' && $end && in_array($name, ['mglyph', 'malignmark'], true) => 'glyph',
-            in_array($top, ['html', 'mathtext'], true) && $end && in_array($name, self::INTEGRATION_POINTS, true) => $top,
-            default => null,
-        };
-        if ($scope === null) {
-            return $scopes;
-        }
         if ($end) {
-            if ($top === $scope) {
+            self::closeForeign($scopes, $name);
+
+            return;
+        }
+        $top = $scopes[count($scopes) - 1] ?? null;
+        $mode = match (true) {
+            $name === 'svg', $name === 'math' => $name,
+            $top === null => null,
+            $top[0] === 'html' => $top[1] !== 'mathtext' || !in_array($name, ['mglyph', 'malignmark'], true) ? null : 'math',
+            in_array($name, self::BREAKOUT, true) => 'breakout',
+            $top[0] === 'svg' && in_array($name, ['foreignobject', 'desc', 'title'], true) => 'html',
+            $top[0] === 'math' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true) => 'mathtext',
+            default => $top[0],
+        };
+        if ($mode === 'breakout') {
+            while (self::foreign($scopes)) {
                 array_pop($scopes);
             }
 
-            return $scopes;
+            return;
         }
-        if (!str_ends_with($tag, '/>')) {
-            $scopes[] = $scope;
+        if ($mode !== null && !str_ends_with($tag, '/>')) {
+            $scopes[] = $mode === 'mathtext' ? ['html', 'mathtext'] : [$mode, $name];
         }
+    }
 
-        return $scopes;
+    /**
+     * An end tag pops the element it names, or else the foreign elements above the innermost integration point. Each
+     * entry it passes is popped, so the scan stays linear.
+     *
+     * @param array<array{0: string, 1: string}> $scopes
+     * @param string $name
+     *
+     * @return void
+     */
+    private static function closeForeign(array &$scopes, string $name): void
+    {
+        while (($top = $scopes[count($scopes) - 1] ?? null) !== null) {
+            if ($top[1] === $name || ($top[1] === 'mathtext' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true))) {
+                array_pop($scopes);
+
+                return;
+            }
+            if ($top[0] === 'html') {
+                // An end tag inside an integration point closes HTML elements the scan does not track.
+                return;
+            }
+            array_pop($scopes);
+        }
     }
 
     /**
