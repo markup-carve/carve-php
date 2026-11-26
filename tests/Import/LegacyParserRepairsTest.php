@@ -55,6 +55,13 @@ final class LegacyParserRepairsTest extends TestCase
         $this->assertSame('<!x>', $paragraph->attr('title'));
     }
 
+    public function testAnEndTagPrefixDoesNotEndRawText(): void
+    {
+        $textarea = HtmlParser::parse('<textarea>a</textareas><!x></textarea>', true)->children[0];
+        $this->assertCount(1, $textarea->children);
+        $this->assertStringEndsWith('<!x>', $textarea->children[0]->name);
+    }
+
     private static function shape(HtmlNode $node): string
     {
         $parts = [];

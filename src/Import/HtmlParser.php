@@ -249,8 +249,8 @@ final class HtmlParser
             }
             $at = $lt + strlen($tag[0]);
             if (in_array(strtolower($tag[1]), self::RAW_TEXT, true)) {
-                $end = stripos($html, '</' . $tag[1], $at);
-                $at = $end === false ? $length : $end;
+                $found = preg_match('~</' . preg_quote($tag[1], '~') . '[\s/>]~i', $html, $end, PREG_OFFSET_CAPTURE, $at);
+                $at = $found === 1 ? $end[0][1] : $length;
             }
         }
 
