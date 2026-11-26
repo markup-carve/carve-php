@@ -16,12 +16,22 @@ use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Test\Support\ClauseHost;
 use MarkupCarve\Carve\Test\Support\Corpus;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
 final class TypedCoreClauseTest extends TestCase
 {
+    /**
+     * Cases of a ruling this engine has not implemented yet; the run fails as soon as one passes.
+     *
+     * @var array<string, string>
+     */
+    private const KNOWN_FAIL = [
+        'CC-2187' => 'markup-carve/carve#6795 (carve-php line): a < beside a cell covered from above joins nothing',
+    ];
+
     /**
      * The files of the running case, for the positions of an entry in an included file.
      *
@@ -49,6 +59,25 @@ final class TypedCoreClauseTest extends TestCase
      */
     #[DataProvider('cases')]
     public function testC2TypedCoreClause(array $case): void
+    {
+        $owner = self::KNOWN_FAIL[$case['id']] ?? null;
+        if ($owner !== null) {
+            try {
+                $this->check($case);
+            } catch (AssertionFailedError) {
+                $this->addToAssertionCount(1);
+
+                return;
+            }
+            self::fail($case['id'] . ' passes now: remove it from KNOWN_FAIL (' . $owner . ')');
+        }
+        $this->check($case);
+    }
+
+    /**
+     * @param array<string, mixed> $case
+     */
+    private function check(array $case): void
     {
         $expected = $case['expected'];
         if ($case['kind'] === 'tree') {

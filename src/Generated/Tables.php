@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '307e80eb8363281b58ce7382d1f6d53782b41570',
+        'commit' => '8046b1454c4215d3f3f3898d52b6ee439925e3ac',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -7220,7 +7220,7 @@ final class Tables
                 'text' => 'This "${text}" is reserved for an include from the same document in a later 0.2 release and renders as literal text. Write \\{{ to keep the text.',
             ],
             [
-                'when' => 'a line that starts with an id in braces and a colon',
+                'when' => 'a line that starts with an id in braces, optional attributes and a colon',
                 'text' => 'A line that starts with "${text}" is reserved for a definition in a later 0.2 release and renders as literal text. Write \\{# to keep the text.',
             ],
         ],
