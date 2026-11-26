@@ -179,25 +179,76 @@ final class Expander
         $pass = new self($doc, $roundtrip);
         $pass->walkNode($doc);
         $doc->layout['snippetBudget'] = [$pass->budget, $pass->left, $pass->reported];
-        $doc->layout['snippetLosses'] = [...$doc->layout['snippetLosses'] ?? [], ...$pass->losses];
+        $doc->layout['snippetLosses'] = [...self::losses($doc), ...$pass->losses];
     }
 
     /**
-     * C2-H-215: the carriers of an expanded use, from the `snippetCarrier` the pass left on its element.
+     * The findings the pass left on `$doc`: code, node and message.
      *
-     * @param mixed $carrier
+     * @param \MarkupCarve\Carve\Node $doc
+     *
+     * @return array<array{0: string, 1: \MarkupCarve\Carve\Node, 2: string}>
+     */
+    public static function losses(Node $doc): array
+    {
+        $entries = $doc->layout['snippetLosses'] ?? null;
+        $out = [];
+        foreach (is_array($entries) ? $entries : [] as $entry) {
+            if (is_array($entry) && is_string($entry[0] ?? null) && ($entry[1] ?? null) instanceof Node && is_string($entry[2] ?? null)) {
+                $out[] = [$entry[0], $entry[1], $entry[2]];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * C2-N-094: the derived-text budget the pass left on `$doc`, its remainder and whether it was reported, or null.
+     *
+     * @param \MarkupCarve\Carve\Node $doc
+     *
+     * @return array{0: int, 1: int, 2: bool}|null
+     */
+    public static function budgetLeft(Node $doc): ?array
+    {
+        $state = $doc->layout['snippetBudget'] ?? null;
+        if (!is_array($state) || !is_int($state[0] ?? null) || !is_int($state[1] ?? null) || !is_bool($state[2] ?? null)) {
+            return null;
+        }
+
+        return [$state[0], $state[1], $state[2]];
+    }
+
+    /**
+     * C2-H-215: the carriers of the expanded use whose element `$node` is, or ''.
+     *
+     * @param \MarkupCarve\Carve\Node $node
      *
      * @return string
      */
-    public static function carrierText(mixed $carrier): string
+    public static function carrierText(Node $node): string
     {
-        if (!is_array($carrier)) {
+        $carrier = $node->layout['snippetCarrier'] ?? null;
+        if (!is_array($carrier) || !is_int($carrier[0] ?? null) || !is_string($carrier[1] ?? null) || !is_string($carrier[2] ?? null)) {
             return '';
         }
-        [$n, $mode, $name, $include] = $carrier;
 
-        return ' data-carve-snippet="' . $n . ':' . $mode . ':$' . $name . '"'
-            . ($include ? ' data-carve-snippet-scope="include"' : '');
+        return ' data-carve-snippet="' . $carrier[0] . ':' . $carrier[1] . ':$' . $carrier[2] . '"'
+            . (($carrier[3] ?? false) === true ? ' data-carve-snippet-scope="include"' : '');
+    }
+
+    /**
+     * C2-H-215: the `N` of the innermost expanded use around a copied note reference or link, or null.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return int|null
+     */
+    public static function mark(Node $node): ?int
+    {
+        $mark = $node->layout['snippetMark'] ?? null;
+
+        return is_int($mark) ? $mark : null;
     }
 
     /**
@@ -297,9 +348,7 @@ final class Expander
             if ($value instanceof Node) {
                 $list = [$value];
                 $visit($list);
-                if (count($list) === 1) {
-                    $node->f[$key] = $list[0];
-                }
+                $node->f[$key] = $list[0];
 
                 continue;
             }
@@ -307,16 +356,19 @@ final class Expander
                 continue;
             }
             if (array_is_list($value) && $value[0] instanceof Node) {
-                $visit($node->f[$key]);
+                $visit($value);
+                $node->f[$key] = $value;
 
                 continue;
             }
             if ($key === 'slots' || $key === 'metadata') {
                 foreach ($value as $name => $item) {
                     if (is_array($item) && $item !== [] && array_is_list($item) && $item[0] instanceof Node) {
-                        $visit($node->f[$key][$name]);
+                        $visit($item);
+                        $value[$name] = $item;
                     }
                 }
+                $node->f[$key] = $value;
             }
         }
     }
@@ -335,7 +387,7 @@ final class Expander
         if (!self::holds($view, true)) {
             return;
         }
-        $losses = $view->layout['snippetLosses'] ?? [];
+        $losses = self::losses($view);
         $visit = static function (array &$list, bool $top) use (&$visit, &$losses): void {
             foreach ($list as $at => $node) {
                 if ($node->type === 'snippet_use') {
@@ -473,82 +525,156 @@ final class Expander
     private function expandUse(array &$list, int $at, Node $use): int
     {
         $name = is_string($use->f['name'] ?? null) ? $use->f['name'] : '';
-        $authored = $use->layout['snippetAuthoredUse'] ?? $use;
-        assert($authored instanceof Node);
+        $authored = $use->layout['snippetAuthoredUse'] ?? null;
+        $authored = $authored instanceof Node ? $authored : $use;
         $entry = $this->registry[$name] ?? null;
-        $code = match (true) {
+        $code = $this->refusal($entry);
+        if ($code !== null || $entry === null) {
+            $this->refuse($list, $at, $use, $authored, $code ?? 'snippet-unresolved', ['name' => $name, 'limit' => $this->depth]);
+
+            return 1;
+        }
+        [$definition, $include] = $entry;
+        $inline = ($use->f['mode'] ?? null) !== 'block';
+        [$copy, $attrs, $single, $wraps, $count, $bytes] = $this->shape($definition, $inline);
+        if (!$this->admits($list, $at, $use, $authored, $name, $count, $bytes)) {
+            return 1;
+        }
+        $n = ++$this->admitted;
+        $wrapper = $wraps ? self::wrapper($copy, $attrs, $definition, $inline) : null;
+        $holder = $wrapper ?? $single;
+        if ($this->roundtrip && $holder !== null) {
+            $holder->layout['snippetCarrier'] = [$n, $inline ? 'inline' : 'block', $name, $include !== null];
+        }
+        array_splice($list, $at, 1, $wrapper === null ? $copy : [$wrapper]);
+
+        return $this->walkCopy($list, $at, $copy, $wrapper, $definition, $n);
+    }
+
+    /**
+     * C2-H-214: the span of an inline copy or the paragraph of a block copy, with the definition's attributes.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $copy
+     * @param \MarkupCarve\Carve\Attrs|null $attrs
+     * @param \MarkupCarve\Carve\Node $definition
+     * @param bool $inline
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    private static function wrapper(array $copy, ?Attrs $attrs, Node $definition, bool $inline): Node
+    {
+        $wrapper = new Node($inline ? 'span' : 'paragraph', $copy);
+        if ($attrs !== null) {
+            $wrapper->f['attrs'] = $attrs;
+        }
+        $wrapper->includeChain = $definition->includeChain;
+        $wrapper->file = $definition->file;
+
+        return $wrapper;
+    }
+
+    /**
+     * C2-N-093: the code of a use that is not expanded, or null where its definition exists, closes no cycle and stays
+     * within the depth limit.
+     *
+     * @param array{0: \MarkupCarve\Carve\Node, 1: \MarkupCarve\Carve\Node|null}|null $entry
+     *
+     * @return string|null
+     */
+    private function refusal(?array $entry): ?string
+    {
+        return match (true) {
             $entry === null => 'snippet-unresolved',
             isset($this->stack[spl_object_id($entry[0])]) => 'snippet-cycle',
             count($this->stack) + 1 > $this->depth => 'snippet-depth',
             default => null,
         };
-        if ($code !== null) {
-            $this->refuse($list, $at, $use, $authored, $code, ['name' => $name, 'limit' => $this->depth]);
+    }
 
-            return 1;
-        }
-        assert($entry !== null);
-        [$definition, $include] = $entry;
+    /**
+     * How the copy of `$definition` stands at a use: the copy, the attributes of its wrapper, the one copy node that
+     * carries the carriers itself, whether a wrapper holds the copy, and its node count and bytes (C2-N-094).
+     *
+     * @param \MarkupCarve\Carve\Node $definition
+     * @param bool $inline
+     *
+     * @return array{0: array<\MarkupCarve\Carve\Node>, 1: \MarkupCarve\Carve\Attrs|null, 2: \MarkupCarve\Carve\Node|null,
+     *     3: bool, 4: int, 5: int}
+     */
+    private function shape(Node $definition, bool $inline): array
+    {
         $this->copyCount = 0;
         $this->copyBytes = 0;
         $copy = [];
         foreach ($definition->children ?? [] as $child) {
             $copy[] = $this->copy($child);
         }
-        $inline = ($use->f['mode'] ?? null) !== 'block';
         $attrs = $definition->f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? clone $attrs : null;
-        $hasAttrs = $attrs !== null;
         // C2-H-215: under roundtrip a copy that renders as one element carries the carriers itself; any other gets a span.
-        $single = $inline && !$hasAttrs && $this->roundtrip && count($copy) === 1 && $this->rendersAsOne($copy[0]) ? $copy[0] : null;
-        $wraps = !$inline || $hasAttrs || ($this->roundtrip && $single === null);
-        $count = $this->copyCount + ($wraps ? 1 : 0);
+        $single = $inline && $attrs === null && $this->roundtrip && count($copy) === 1 && $this->rendersAsOne($copy[0])
+            ? $copy[0] : null;
+        $wraps = !$inline || $attrs !== null || ($this->roundtrip && $single === null);
         $bytes = $this->copyBytes;
         if ($wraps) {
-            $bytes += strlen($inline ? 'span' : 'paragraph');
-            if ($attrs !== null) {
-                $bytes += self::attrsBytes($attrs);
-            }
+            $bytes += strlen($inline ? 'span' : 'paragraph') + ($attrs !== null ? self::attrsBytes($attrs) : 0);
         }
+
+        return [$copy, $attrs, $single, $wraps, $this->copyCount + ($wraps ? 1 : 0), $bytes];
+    }
+
+    /**
+     * Whether the node and text budgets admit the copy; where not, the use is refused in place (C2-N-094, C2-H-201).
+     *
+     * @param array<\MarkupCarve\Carve\Node> $list
+     * @param int $at
+     * @param \MarkupCarve\Carve\Node $use
+     * @param \MarkupCarve\Carve\Node $authored
+     * @param string $name
+     * @param int $count
+     * @param int $bytes
+     *
+     * @return bool
+     */
+    private function admits(array &$list, int $at, Node $use, Node $authored, string $name, int $count, int $bytes): bool
+    {
         if ($this->total + $count > $this->limit) {
             $this->refuse($list, $at, $use, $authored, 'snippet-node-budget', ['name' => $name, 'limit' => $this->limit]);
 
-            return 1;
+            return false;
         }
         $cost = self::NODE_COST * $count + $bytes;
-        if ($cost > $this->left) {
-            if ($this->reported) {
-                $list[$at] = self::spelled($use);
-            } else {
-                $this->reported = true;
-                $this->refuse($list, $at, $use, $authored, 'derived-text-budget', [], 'Wrote a snippet use as its source text: '
-                    . 'the derived text of this render reached its budget of ' . $this->budget . ' bytes');
-            }
+        if ($cost <= $this->left) {
+            $this->total += $count;
+            $this->left -= $cost;
 
-            return 1;
+            return true;
         }
-        $this->total += $count;
-        $this->left -= $cost;
-        $n = ++$this->admitted;
-        $carrier = [$n, $inline ? 'inline' : 'block', $name, $include !== null];
-        if ($wraps) {
-            $wrapper = new Node($inline ? 'span' : 'paragraph', $copy);
-            if ($attrs !== null) {
-                $wrapper->f['attrs'] = $attrs;
-            }
-            $wrapper->includeChain = $definition->includeChain;
-            $wrapper->file = $definition->file;
-            if ($this->roundtrip) {
-                $wrapper->layout['snippetCarrier'] = $carrier;
-            }
-            $placed = [$wrapper];
+        if ($this->reported) {
+            $list[$at] = self::spelled($use);
         } else {
-            if ($single !== null) {
-                $single->layout['snippetCarrier'] = $carrier;
-            }
-            $placed = $copy;
+            $this->reported = true;
+            $this->refuse($list, $at, $use, $authored, 'derived-text-budget', [], 'Wrote a snippet use as its source text: '
+                . 'the derived text of this render reached its budget of ' . $this->budget . ' bytes');
         }
-        array_splice($list, $at, 1, $placed);
+
+        return false;
+    }
+
+    /**
+     * Expands the uses of a placed copy and returns how many nodes stand in place of the use.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $list
+     * @param int $at
+     * @param array<\MarkupCarve\Carve\Node> $copy
+     * @param \MarkupCarve\Carve\Node|null $wrapper
+     * @param \MarkupCarve\Carve\Node $definition
+     * @param int $n
+     *
+     * @return int
+     */
+    private function walkCopy(array &$list, int $at, array $copy, ?Node $wrapper, Node $definition, int $n): int
+    {
         $id = spl_object_id($definition);
         $this->stack[$id] = true;
         $outer = $this->current;
@@ -557,8 +683,9 @@ final class Expander
             $this->markNotes($node);
         }
         $length = 1;
-        if ($wraps) {
-            $this->walkRange($placed[0]->children, 0, count($copy));
+        if ($wrapper !== null) {
+            $this->walkRange($copy, 0, count($copy));
+            $wrapper->children = $copy;
         } else {
             $length = $this->walkRange($list, $at, count($copy));
         }

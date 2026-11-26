@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
-use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\BlockParser;
@@ -21,6 +20,7 @@ use MarkupCarve\Carve\Inline\Scanner;
 use MarkupCarve\Carve\Lint\DataModel;
 use MarkupCarve\Carve\Lint\NodeRulesA;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Snippet\Syntax;
 
 /**
  * The escapes of a text node (C2-W-088 to C2-W-099), decided from the contexts of `data/escape-contexts.json` before the
@@ -1943,7 +1943,7 @@ final class Text
 
         return match ($ch) {
             '[' => self::bracket($value, $i, $c),
-            '{' => self::brace($value, $i, $c, $after, self::markEscaped($value, $i, $c, $next)),
+            '{' => self::braceOrUse($value, $i, $c, $after, self::markEscaped($value, $i, $c, $next)),
             // C2-W-097: a backslash before ASCII punctuation, a space or a line end.
             '\\' => $after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && self::isPunct(chr($after))),
             ']' => $c->inBracket,
@@ -2256,12 +2256,18 @@ final class Text
      *
      * @return bool
      */
+
+    /**
+     * C2-I-128: text that reads as a snippet use takes the backslash on its first `{`; any other brace is `brace()`'s.
+     */
+    private static function braceOrUse(string $value, int $i, Context $c, int $after, bool $markEscaped): bool
+    {
+        return ($after === 0x7B && Syntax::useEnd($value, $i, strlen($value)) > 0)
+            || self::brace($value, $i, $c, $after, $markEscaped);
+    }
+
     private static function brace(string $value, int $i, Context $c, int $after, bool $markEscaped): bool
     {
-        // C2-I-128: text that reads as a snippet use; its first `{` takes the backslash.
-        if ($after === 0x7B && Syntax::useEnd($value, $i, strlen($value)) > 0) {
-            return true;
-        }
         $flat = (string)$c->flat;
         $at = $c->here + $i;
         if ($c->here < 0) {

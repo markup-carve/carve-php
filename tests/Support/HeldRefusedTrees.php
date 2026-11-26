@@ -17,8 +17,7 @@ final class HeldRefusedTrees
     /**
      * @var array
      */
-    public const IDS = [
-    ];
+    public const IDS = [];
 
     /**
      * @param string $id

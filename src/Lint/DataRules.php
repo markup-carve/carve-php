@@ -1530,7 +1530,10 @@ final class DataRules
                     if ($rule['id'] === 'region-marker-renders-as-text' && stripos($record->text, 'region') === false) {
                         continue;
                     }
-                    if ($rule['id'] === 'definition-in-container' && !str_contains($record->text, '[') && !str_contains($record->text, '{$')) {
+                    if (
+                        $rule['id'] === 'definition-in-container' && !str_contains($record->text, '[')
+                        && !str_contains($record->text, '{$')
+                    ) {
                         continue;
                     }
                 }

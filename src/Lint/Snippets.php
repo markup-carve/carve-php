@@ -33,7 +33,8 @@ final class Snippets
             if ($child->type === 'snippet_definition') {
                 $name = is_string($child->f['name'] ?? null) ? $child->f['name'] : '';
                 if ($child->start >= 0 && !isset($used[$name]) && ($registry[$name][0] ?? null) === $child) {
-                    $out[] = ['unused-snippet', $child->start + 1, $child->start + 2 + strlen($name), '/children/' . $index, ['name' => $name]];
+                    $end = $child->start + 2 + strlen($name);
+                    $out[] = ['unused-snippet', $child->start + 1, $end, '/children/' . $index, ['name' => $name]];
                 }
 
                 continue;

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
-use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
@@ -13,6 +12,7 @@ use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Inline\Scanner;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Snippet\Syntax;
 
 /**
  * The inline nodes as Carve source (C2-W-069 to C2-W-080, C2-W-116). A line break of the content is a line feed in the
@@ -2265,10 +2265,9 @@ final class Inline
             // C2-W-116: the mark of a caption number (C2-B-150); its number is a resolution result.
             'caption_number' => '#',
             'mention' => $this->sigil($type, $path, $next, $this->mention($node, $path)),
-            'snippet_use' => Syntax::spelling(self::str($node, 'name')),
             'xref' => $this->xref($node, $path),
             'abbreviation' => $this->abbreviation($node, $path),
-            default => null,
+            default => self::atom($node),
         };
     }
 

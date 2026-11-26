@@ -124,7 +124,7 @@ final class HtmlRenderer
     private function __construct(private Node $doc, public Options $o, ?string $source, ?Facts $facts)
     {
         $this->log = new RenderLog();
-        foreach ($doc->layout['snippetLosses'] ?? [] as [$code, $node, $message]) {
+        foreach (SnippetExpander::losses($doc) as [$code, $node, $message]) {
             $this->log->loss($code, 'warning', [], $node->file, node: $node);
             $this->log->entries[array_key_last($this->log->entries)]['message'] = $message;
         }
@@ -1228,8 +1228,7 @@ final class HtmlRenderer
             return $this->unexpandedInclude($node, $depth, $bare);
         }
         $f = $node->f;
-        $carrier = $this->o->roundtrip && isset($node->layout['snippetCarrier'])
-            ? SnippetExpander::carrierText($node->layout['snippetCarrier']) : '';
+        $carrier = $this->o->roundtrip ? SnippetExpander::carrierText($node) : '';
         if (
             $append === '' && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['dir'])
             && !isset($f['role']) && $carrier === ''

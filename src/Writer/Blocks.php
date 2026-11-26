@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
-use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\Markers;
@@ -18,6 +17,7 @@ use MarkupCarve\Carve\Html\HtmlRenderer;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Snippet\Syntax;
 
 /**
  * The block nodes as Carve source: the layout of C2-W-017 to C2-W-034 and the canonical forms of C2-W-035 to C2-W-060.
@@ -2045,9 +2045,10 @@ final class Blocks
             }
             foreach ($node as $key => $value) {
                 if ($key !== 'attrs' && $key !== 'data' && is_array($value) && array_is_list($value) && is_array($value[0] ?? null)) {
-                    $nodes[$at][$key] = self::spacedBreaks($value, $broken);
+                    $node[$key] = self::spacedBreaks($value, $broken);
                 }
             }
+            $nodes[$at] = $node;
         }
 
         return $nodes;

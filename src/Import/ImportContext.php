@@ -47,7 +47,7 @@ final class ImportContext
     /**
      * C2-H-217: the ordinals of the accepted snippet carriers.
      *
-     * @var array<string, true>
+     * @var array<int|string, true>
      */
     public array $snippetOrdinals = [];
 

@@ -56,9 +56,20 @@ final class TreeReader
      * @var array<string, true>
      */
     private const BLOCK_CHILDREN = [
-        'document' => true, 'include' => true, 'admonition' => true, 'block_extension' => true, 'block_quote' => true,
-        'caption' => true, 'definition_description' => true, 'directive' => true, 'div' => true, 'figure_group' => true,
-        'footnote' => true, 'list_item' => true, 'section' => true, 'table_cell' => true,
+        'document' => true,
+        'include' => true,
+        'admonition' => true,
+        'block_extension' => true,
+        'block_quote' => true,
+        'caption' => true,
+        'definition_description' => true,
+        'directive' => true,
+        'div' => true,
+        'figure_group' => true,
+        'footnote' => true,
+        'list_item' => true,
+        'section' => true,
+        'table_cell' => true,
     ];
 
     /**
@@ -518,7 +529,8 @@ final class TreeReader
     private static function useModes(array $list, string $path, bool $blocks): void
     {
         foreach ($list as $i => $child) {
-            if ($child instanceof stdClass && ($child->type ?? null) === 'snippet_use' && ($child->mode ?? null) !== ($blocks ? 'block' : 'inline')) {
+            $mode = $child instanceof stdClass && ($child->type ?? null) === 'snippet_use' ? $child->mode ?? null : false;
+            if ($mode !== false && $mode !== ($blocks ? 'block' : 'inline')) {
                 throw new TreeError('snippet-use-mode-mismatch', $path . '/' . $i . '/mode');
             }
         }

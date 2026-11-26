@@ -391,9 +391,7 @@ final class InlineRenderer
      */
     private static function withCarrier(Node $node, string $html): string
     {
-        $carrier = $node->layout['snippetCarrier'];
-        assert(is_array($carrier));
-        $text = SnippetExpander::carrierText($carrier);
+        $text = SnippetExpander::carrierText($node);
         $opens = $node->type === 'link' ? str_starts_with($html, '<a ') || str_starts_with($html, '<a>')
             : str_starts_with($html, '<') && !str_starts_with($html, '</');
         $close = $opens ? strpos($html, '>') : false;
@@ -751,7 +749,7 @@ final class InlineRenderer
         $saved = $this->moved;
         $this->moved = '';
         $outerSnippet = $this->linkSnippet;
-        $this->linkSnippet = $node->layout['snippetMark'] ?? null;
+        $this->linkSnippet = SnippetExpander::mark($node);
         $inner = $this->inlines($node->children ?? [], $depth + 1, true);
         $this->linkSnippet = $outerSnippet;
         $moved = $this->moved;
@@ -1035,8 +1033,8 @@ final class InlineRenderer
             $structural[] = ['data-carve-footnote-label', PlainText::str($node->f['key'] ?? '')];
         }
         // C2-H-215: a mark that moves out of the copy of a use behind a link outside it names that use.
-        $use = $this->o->roundtrip && $this->linkDepth > 0 ? $node->layout['snippetMark'] ?? null : null;
-        if (is_int($use) && $use !== $this->linkSnippet) {
+        $use = $this->o->roundtrip && $this->linkDepth > 0 ? SnippetExpander::mark($node) : null;
+        if ($use !== null && $use !== $this->linkSnippet) {
             $structural[] = ['data-carve-snippet-mark', (string)$use];
         }
         $attrs = $node->f['attrs'] ?? null;

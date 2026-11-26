@@ -197,8 +197,9 @@ final class RenderState
         $this->derivedBudget = SnippetExpander::budgetOf($doc);
         $this->derivedRemaining = $this->derivedBudget;
         // C2-N-094: the snippet copies drew on the budget first; the render goes on from what they left.
-        if (isset($doc->layout['snippetBudget'])) {
-            [$this->derivedBudget, $this->derivedRemaining, $this->budgetReported] = $doc->layout['snippetBudget'];
+        $left = SnippetExpander::budgetLeft($doc);
+        if ($left !== null) {
+            [$this->derivedBudget, $this->derivedRemaining, $this->budgetReported] = $left;
         }
         $this->definitions();
         if ($facts !== null && $facts->doc === $doc) {
