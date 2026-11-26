@@ -26,6 +26,7 @@ final class ImportClauseCasesTest extends TestCase
      * @var array<string, string>
      */
     public const KNOWN_FAIL = [
+        'CC-1425' => 'markup-carve/carve#6850: Word conditional comments of a dropped note wrapper are reported (C2-M-109)',
         'CC-2156' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
         'CC-2159' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
         'CC-2160' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
@@ -40,9 +41,6 @@ final class ImportClauseCasesTest extends TestCase
         'CC-2182' => 'markup-carve/carve#6795 (carve-php line): import option listTable, span-mark text',
         'CC-2183' => 'markup-carve/carve#6795 (carve-php line): import option listTable, span-mark text',
         'CC-2184' => 'markup-carve/carve#6795 (carve-php line): import option listTable, span-mark text',
-        'CC-2234' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
-        'CC-2235' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
-        'CC-2236' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
         'CC-2393' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2394' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2395' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
