@@ -53,20 +53,6 @@ final class HtmlParser
      */
     private const LEGACY_RAW = 'carve-import-raw';
 
-    /**
-     * Start tags that end SVG and MathML content (the HTML Standard's breakout list, without `font`).
-     *
-     * @var array<string>
-     */
-    private const BREAKOUT = [
-        'b', 'big', 'blockquote', 'body', 'br', 'center', 'code', 'dd', 'div', 'dl',
-        'dt', 'em', 'embed', 'h1', 'h2', 'h3',
-        'h4', 'h5', 'h6', 'head', 'hr', 'i', 'img', 'li', 'listing', 'menu',
-        'meta', 'nobr', 'ol', 'p', 'pre', 'ruby', 's',
-        'small', 'span', 'strike', 'strong', 'sub', 'sup', 'table', 'tt', 'u', 'ul',
-        'var',
-    ];
-
     private static ?bool $tagsInRawText = null;
 
     /**
@@ -256,7 +242,7 @@ final class HtmlParser
         $out = '';
         $from = 0;
         $at = 0;
-        $foreign = [];
+        $foreign = new LegacyForeignContent();
         $length = strlen($html);
         while (($lt = strpos($html, '<', $at)) !== false) {
             $next = $html[$lt + 1] ?? '';
@@ -286,8 +272,8 @@ final class HtmlParser
             }
             $at = $lt + strlen($tag[0]);
             $name = strtolower($tag[2]);
-            $inForeign = self::foreign($foreign);
-            self::foreignScopes($foreign, $tag[1] === '/', $name, $tag[0]);
+            $inForeign = $foreign->foreign();
+            $foreign->tag($name, $tag[1] === '/', str_ends_with($tag[0], '/>'));
             // In SVG and MathML `title`, `style` and `script` are not raw text.
             if ($inForeign || $tag[1] === '/' || !in_array($name, self::RAW_TEXT, true)) {
                 continue;
@@ -322,100 +308,6 @@ final class HtmlParser
         self::$rawNonce ??= bin2hex(random_bytes(8));
 
         return ' ' . self::LEGACY_RAW . '="' . self::$rawNonce . '"';
-    }
-
-    /**
-     * Whether the innermost tracked element is SVG or MathML content, where `title`, `style` and `script` are not
-     * raw text.
-     *
-     * @param array<array{0: string, 1: string}> $scopes
-     *
-     * @return bool
-     */
-    private static function foreign(array $scopes): bool
-    {
-        $top = self::top($scopes);
-
-        return $top !== null && $top[0] !== 'html';
-    }
-
-    /**
-     * Not end(): it takes the array by reference and would copy the shared stack on every tag.
-     *
-     * @param array<array{0: string, 1: string}> $scopes
-     *
-     * @return array{0: string, 1: string}|null
-     */
-    private static function top(array $scopes): ?array
-    {
-        return $scopes[count($scopes) - 1] ?? null;
-    }
-
-    /**
-     * The open SVG and MathML elements, each with its mode (`svg`, `math`, or `html` for an HTML integration point),
-     * updated for a tag. An approximation of the tree builder for the scan only: font breakout and `annotation-xml` are
-     * not tracked, and an end tag that closes no foreign element leaves foreign content. Updated in place, so a deep
-     * stack costs no copy per tag.
-     *
-     * @param array<array{0: string, 1: string}> $scopes
-     * @param bool $end
-     * @param string $name
-     * @param string $tag
-     *
-     * @return void
-     */
-    private static function foreignScopes(array &$scopes, bool $end, string $name, string $tag): void
-    {
-        if ($end) {
-            self::closeForeign($scopes, $name);
-
-            return;
-        }
-        $top = self::top($scopes);
-        $mode = match (true) {
-            $name === 'svg', $name === 'math' => $name,
-            $top === null => null,
-            $top[0] === 'html' => $top[1] !== 'mathtext' || !in_array($name, ['mglyph', 'malignmark'], true) ? null : 'math',
-            in_array($name, self::BREAKOUT, true) => 'breakout',
-            $top[0] === 'svg' && in_array($name, ['foreignobject', 'desc', 'title'], true) => 'html',
-            $top[0] === 'math' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true) => 'mathtext',
-            default => $top[0],
-        };
-        if ($mode === 'breakout') {
-            while (self::foreign($scopes)) {
-                array_pop($scopes);
-            }
-
-            return;
-        }
-        if ($mode !== null && !str_ends_with($tag, '/>')) {
-            $scopes[] = $mode === 'mathtext' ? ['html', 'mathtext'] : [$mode, $name];
-        }
-    }
-
-    /**
-     * An end tag pops the element it names, or else the foreign elements above the innermost integration point. Each
-     * entry it passes is popped, so the scan stays linear.
-     *
-     * @param array<array{0: string, 1: string}> $scopes
-     * @param string $name
-     *
-     * @return void
-     */
-    private static function closeForeign(array &$scopes, string $name): void
-    {
-        while (($top = self::top($scopes)) !== null) {
-            if ($top[1] === $name || ($top[1] === 'mathtext' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true))) {
-                array_pop($scopes);
-
-                return;
-            }
-            if ($top[0] === 'html') {
-                // An end tag inside an integration point closes HTML elements the scan does not track.
-                return;
-            }
-            array_pop($scopes);
-        }
     }
 
     /**

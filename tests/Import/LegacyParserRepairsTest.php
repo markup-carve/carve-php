@@ -44,6 +44,7 @@ final class LegacyParserRepairsTest extends TestCase
             ],
             'MathML text integration point' => ['<math><mi><textarea>a</b></textarea></mi></math>', 'math[mi[textarea[#a</b>]]]'],
             'MathML closed by an ancestor end tag' => ['<i><math></i><title><!x></title>', 'i[math[]],title[#<!x>]'],
+            'stray end tag in SVG' => ['<svg><g></x><title><b>a</b></title></svg>', 'svg[g[title[b[#a]]]]'],
             'MathML glyph stays foreign' => [
                 '<math><mi><mglyph><textarea>a</b></textarea></mglyph></mi></math>',
                 'math[mi[mglyph[textarea[#a]]]]',
