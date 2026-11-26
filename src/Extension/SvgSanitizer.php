@@ -24,6 +24,27 @@ final class SvgSanitizer
     private const SVG_NS = 'http://www.w3.org/2000/svg';
 
     /**
+     * @var string
+     */
+    private const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+    /**
+     * The only prefixed names written, each exactly in this spelling: prefixes are case-sensitive and the root binds
+     * `xlink` when needed (carve#6782, carve#6783).
+     *
+     * @var array<string, true>
+     */
+    private const PREFIXED_NAMES = ['xlink:href' => true, 'xmlns:xlink' => true, 'xml:space' => true];
+
+    /**
+     * A namespace name that is empty or holds XML whitespace or U+00A0 once its references are read is no URI
+     * reference libxml2 accepts (carve#6779, carve#6783, carve#6811).
+     *
+     * @var string
+     */
+    private const UNWRITABLE_NAMESPACE = '~^\z|[ \t\n\r\x{A0}]~u';
+
+    /**
      * JavaScript's `\s` and `String.prototype.trim()` set; `\s` in PCRE is ASCII only.
      *
      * @var string
@@ -236,9 +257,27 @@ final class SvgSanitizer
     private array $dropStack = [];
 
     /**
-     * @var array<array{string, int}> Name and the output index where its content starts.
+     * @var array<array{string, int, bool}> Name, the output index where its content starts, and whether it wrote
+     *   `xmlns:xlink`.
      */
     private array $kept = [];
+
+    /**
+     * An `xlink:href` was written with no `xmlns:xlink` in scope (carve#6782).
+     */
+    private bool $bindXlink = false;
+
+    /**
+     * The tag being opened wrote `xlink:href` or `xmlns:xlink`.
+     */
+    private bool $xlinkUsed = false;
+
+    private bool $xlinkDeclared = false;
+
+    /**
+     * The kept open elements that wrote `xmlns:xlink`.
+     */
+    private int $xlinkScopes = 0;
 
     private bool $sawRoot = false;
 
@@ -322,6 +361,10 @@ final class SvgSanitizer
         $rest = (string)substr($src, $cursor);
         if (str_contains($rest, '<') || !$this->consumeText($rest) || !$this->sawRoot || $this->kept || $this->dropStack) {
             return $fail;
+        }
+        if ($this->bindXlink) {
+            $rootOpen = strlen('<svg xmlns="' . self::SVG_NS . '"');
+            $this->out[0] = substr_replace($this->out[0], ' xmlns:xlink="' . self::XLINK_NS . '"', $rootOpen, 0);
         }
         $svg = implode('', $this->out);
         $tail = $this->rootSelfClosed ? self::SELF_CLOSED_TAIL : self::CLOSED_TAIL;
@@ -479,6 +522,7 @@ final class SvgSanitizer
         if ($frame === null || $frame[0] !== $name) {
             return false;
         }
+        $this->xlinkScopes -= (int)$frame[2];
         if (count($this->out) === $frame[1]) {
             $opener = (string)array_pop($this->out);
             $this->out[] = substr($opener, 0, -1) . '/>';
@@ -514,9 +558,13 @@ final class SvgSanitizer
         if ($isRoot) {
             $attrs = ' xmlns="' . self::SVG_NS . '"' . $attrs;
         }
+        if ($this->xlinkUsed && !$this->xlinkDeclared && $this->xlinkScopes === 0) {
+            $this->bindXlink = true;
+        }
         $this->out[] = '<' . $name . $attrs . ($selfClose ? '/>' : '>');
         if (!$selfClose) {
-            $this->kept[] = [$name, count($this->out)];
+            $this->kept[] = [$name, count($this->out), $this->xlinkDeclared];
+            $this->xlinkScopes += (int)$this->xlinkDeclared;
         }
 
         return true;
@@ -536,6 +584,7 @@ final class SvgSanitizer
 
     private function sanitizeAttrs(string $raw, string $tag, bool $isRoot): string
     {
+        $this->xlinkUsed = $this->xlinkDeclared = false;
         if ($raw === '') {
             return '';
         }
@@ -629,22 +678,36 @@ final class SvgSanitizer
             return '';
         }
         if ($lower === 'href' || $lower === 'xlink:href') {
-            return $this->sanitizeUrlAttribute($name, $value, $externalHref);
+            if ($lower === $name || $lower === 'href') {
+                $written = $this->sanitizeUrlAttribute($name, $value, $externalHref);
+                $this->xlinkUsed = $this->xlinkUsed || ($written !== '' && $name === 'xlink:href');
+
+                return $written;
+            }
+
+            return '';
         }
         if ($lower === 'style') {
             return $this->opts->allowStyle && $value !== null && !self::styleIsDangerous($value)
                 ? ' ' . $name . '="' . self::escapeAttr($value) . '"' : '';
         }
-        if (!str_starts_with($lower, 'aria-') && !str_starts_with($lower, 'data-') && !isset(self::$sets['attrs'][$lower])) {
+        // Prefixed names only in the spellings of PREFIXED_NAMES (carve#6783).
+        if (!isset(self::$sets['attrs'][$lower])) {
+            if ((!str_starts_with($lower, 'aria-') && !str_starts_with($lower, 'data-')) || str_contains($name, ':')) {
+                return '';
+            }
+        } elseif ($name !== $lower && isset(self::PREFIXED_NAMES[$lower])) {
             return '';
         }
+        $declares = $name === 'xmlns:xlink';
         // carve#6779: an empty prefixed namespace declaration undeclares the prefix, which XML forbids.
-        if ($value === null || ($value === '' && str_starts_with($lower, 'xmlns:'))) {
+        if ($value === null || ($declares && preg_match(self::UNWRITABLE_NAMESPACE, self::decodeEntities($value)) === 1)) {
             return '';
         }
         if (isset(self::$sets['refValueAttrs'][$lower]) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value)) {
             return '';
         }
+        $this->xlinkDeclared = $this->xlinkDeclared || $declares;
 
         return ' ' . $name . '="' . self::escapeAttr($value) . '"';
     }
