@@ -60,6 +60,10 @@ final class ImportClauseCasesTest extends TestCase
         'CC-2254' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
         'CC-2255' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
         'CC-2256' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
+        'CC-2393' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2394' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2395' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2396' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
     ];
 
     /**
