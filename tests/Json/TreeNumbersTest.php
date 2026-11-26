@@ -156,4 +156,40 @@ final class TreeNumbersTest extends TestCase
         $failed = array_filter($result->diagnostics, static fn ($d): bool => $d->code === 'extension-transform-failed');
         $this->assertSame($fails, $failed !== []);
     }
+
+    /**
+     * CC-2313 to CC-2322 of carve 342206891 (carve#6819), copied verbatim until the spec pin carries them.
+     *
+     * @return array<string, array{0: string, 1: string|null, 2: string|null}>
+     */
+    public static function clauseCases(): array
+    {
+        /** @var array{cases: array<array{id: string, json: string, expected: array{refusal?: array{path: string}, fingerprint?: string}}>} $file */
+        $file = json_decode((string)file_get_contents(__DIR__ . '/../fixtures/c2-a-219-cases.json'), true, 64, JSON_THROW_ON_ERROR);
+        $out = [];
+        foreach ($file['cases'] as $case) {
+            $out[$case['id']] = [$case['json'], $case['expected']['refusal']['path'] ?? null, $case['expected']['fingerprint'] ?? null];
+        }
+
+        return $out;
+    }
+
+    /**
+     * A refusal at `$path`, or the tree fingerprint `$fingerprint`.
+     */
+    #[DataProvider('clauseCases')]
+    public function testClauseCase(string $json, ?string $path, ?string $fingerprint): void
+    {
+        if ($path !== null) {
+            try {
+                Carve::decodeTree($json);
+            } catch (TreeError $e) {
+                $this->assertSame($path, $e->pointer);
+
+                return;
+            }
+            $this->fail('accepted');
+        }
+        $this->assertSame($fingerprint, Carve::treeFingerprint(Carve::decodeTree($json)));
+    }
 }
