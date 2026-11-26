@@ -329,10 +329,15 @@ final class TableBuilder
                 $rows[] = $item;
             }
         }
-        $head = self::headRows($rows);
+        // C2-B-186: a valid `header-rows` count sets the head whatever its cells.
+        $declared = self::count($f->attrs, 'header-rows');
+        $head = $declared === null ? self::headRows($rows) : min($declared, count($rows));
         $foot = self::count($f->attrs, 'footer-rows');
         // C2-B-187: an empty `body-rows` ends the head above a footer count smaller than the rows.
-        if ($foot !== null && $foot > 0 && $foot < count($rows) && $head > count($rows) - $foot && self::bodyPlan($f->attrs, 0) === []) {
+        if (
+            $declared === null && $foot !== null && $foot > 0 && $foot < count($rows) && $head > count($rows) - $foot
+            && self::bodyPlan($f->attrs, 0) === []
+        ) {
             $head = count($rows) - $foot;
         }
         $footStart = $foot === null || $foot <= 0 ? count($rows) : max($head, count($rows) - $foot);
@@ -344,7 +349,7 @@ final class TableBuilder
         $table->f['columns'] = self::columns($width, $attrs);
         $table->children = self::partitionBodies(self::groups($f->rows, $rowNodes, $head, $foot), $plan);
         if ($attrs !== null) {
-            self::consumeKeys($attrs, false, $plan);
+            self::consumeKeys($attrs, $plan);
             $attrs->applyTo($table);
         }
 
@@ -721,12 +726,11 @@ final class TableBuilder
      * C2-B-227: only valid and applicable keys are consumed.
      *
      * @param \MarkupCarve\Carve\Attrs $attrs
-     * @param bool $delimited
      * @param array<array{rows: int, headers: int, columns: int|null}>|null $plan
      *
      * @return void
      */
-    private static function consumeKeys(Attrs $attrs, bool $delimited, ?array $plan): void
+    private static function consumeKeys(Attrs $attrs, ?array $plan): void
     {
         foreach (['aligns', 'widths'] as $key) {
             if (self::validList($attrs->exact($key), $key === 'widths')) {
@@ -739,7 +743,7 @@ final class TableBuilder
         if (self::count($attrs, 'footer-rows') !== null) {
             $attrs->removeExact('footer-rows');
         }
-        if ($delimited && self::count($attrs, 'header-rows') !== null) {
+        if (self::count($attrs, 'header-rows') !== null) {
             $attrs->removeExact('header-rows');
         }
         if ($plan !== null) {
@@ -1063,7 +1067,7 @@ final class TableBuilder
         }
         if ($attrs !== null) {
             $attrs->removeExact('table');
-            self::consumeKeys($attrs, true, $plan);
+            self::consumeKeys($attrs, $plan);
             $attrs->applyTo($table);
         }
 

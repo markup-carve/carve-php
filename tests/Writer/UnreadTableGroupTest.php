@@ -54,7 +54,7 @@ final class UnreadTableGroupTest extends TestCase
         self::assertSame([], Carve::importHtml($html)->diagnostics);
     }
 
-    public function testAHeadOfDataCellsIsReported(): void
+    public function testAHeadOfDataCellsIsSpelledByTheCount(): void
     {
         $cell = [
             'type' => 'table_cell',
@@ -76,9 +76,9 @@ final class UnreadTableGroupTest extends TestCase
                 ],
             ],
         ]);
-        self::assertSame("| H |\n", $result->source);
-        $losses = array_map(static fn ($entry): array => [$entry->code, $entry->path], $result->diagnostics);
-        self::assertSame([['structure-unspellable', '/children/0/children/0']], $losses);
+        // carve#6663: `header-rows` spells a head that holds data cells (C2-B-186, C2-W-066).
+        self::assertSame("{header-rows=1}\n| H |\n", $result->source);
+        self::assertSame([], $result->diagnostics);
     }
 
     public function testAnEmptyHeadIsReported(): void

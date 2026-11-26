@@ -139,6 +139,9 @@ final class TableWriter
             if ($head !== min(1, array_sum($counts)) || ($fact === $head)) {
                 $keys[] = ['header-rows', (string)$head];
             }
+        } elseif (self::headHoldsDataCell($groups)) {
+            // C2-W-066, C2-B-186: only the count spells a head that holds a data cell.
+            $keys[] = ['header-rows', (string)$counts['table_head']];
         }
         if (in_array('table_foot', array_column($groups, 0), true)) {
             $keys[] = ['footer-rows', (string)$counts['table_foot']];
@@ -199,6 +202,31 @@ final class TableWriter
         }
 
         return true;
+    }
+
+    /**
+     * @param array<array{0: string, 1: array<array<string, mixed>>}> $groups
+     *
+     * @return bool
+     */
+    private static function headHoldsDataCell(array $groups): bool
+    {
+        foreach ($groups as [$type, $rows]) {
+            if ($type !== 'table_head') {
+                continue;
+            }
+            foreach ($rows as $row) {
+                foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
+                    $isCell = is_array($cell) && ($cell['type'] ?? '') === 'table_cell';
+                    // C2-B-178: a span mark continues the cell it joins.
+                    if ($isCell && ($cell['header'] ?? false) !== true && !isset($cell['span'])) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
