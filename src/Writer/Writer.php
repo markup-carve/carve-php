@@ -278,9 +278,12 @@ final class Writer
     private static function withAuthoredBlock(WriteResult $written, array $tree, ?array $layout, array $options): WriteResult
     {
         $authored = $layout['source'] ?? null;
+        if (is_string($authored) && ($layout['encoding'] ?? null) === 'base64') {
+            $authored = base64_decode($authored, true);
+        }
         $codes = array_map(static fn (Diagnostic $d): string => $d->code, $written->diagnostics);
-        // Only the repair's own stop: a loss another clause reports (C2-W-016) stays.
-        if (!is_string($authored) || array_unique($codes) !== ['writer-refused']) {
+        // Only the repair's own stop: a loss another clause reports (C2-W-016) stays. `normalize` reads no sidecar.
+        if (!is_string($authored) || array_unique($codes) !== ['writer-refused'] || ($options['normalize'] ?? false) === true) {
             return $written;
         }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];

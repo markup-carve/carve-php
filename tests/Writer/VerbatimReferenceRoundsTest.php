@@ -70,6 +70,33 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * A source that is not UTF-8 has its sidecar `source` in base64, and the fallback reads the bytes it encodes.
+     *
+     * @return void
+     */
+    public function testAuthoredBlockOfABase64Source(): void
+    {
+        $source = str_repeat("[a *[a][]*[x]: /u\n", 122) . "\n\xFF\n";
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertNotContains('writer-refused', array_map(static fn ($d): string => $d->code, $result->diagnostics));
+        $this->assertStringStartsWith(str_repeat("[a *[a][]*[x]: /u\n", 122), $result->source);
+    }
+
+    /**
+     * Under `normalize` the writer reads no sidecar (C2-W-127), so there is no authored source either.
+     *
+     * @return void
+     */
+    public function testNoAuthoredBlockUnderNormalize(): void
+    {
+        $result = Writer::formatWithDiagnostics(str_repeat("[a *[a][]*[x]: /u\n", 122), ['normalize' => true]);
+
+        $this->assertSame(['writer-refused'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+    }
+
+    /**
      * A supplied tree without a sidecar has no authored source to fall back to, and keeps the refusal (C2-W-117).
      *
      * @return void
