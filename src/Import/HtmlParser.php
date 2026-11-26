@@ -60,6 +60,13 @@ final class HtmlParser
      */
     private static ?string $rawNonce = null;
 
+    /**
+     * Placeholder names of raw text elements in foreign content, by placeholder.
+     *
+     * @var array<string, string>
+     */
+    private static array $foreignNames = [];
+
     public static function available(): bool
     {
         return class_exists(DOMDocument::class);
@@ -223,11 +230,13 @@ final class HtmlParser
     }
 
     /**
-     * Repairs what libxml below 2.14 tokenizes differently. The HTML tokenizer reads `<!` that opens no comment,
-     * doctype or CDATA as a bogus comment up to the next `>`; libxml keeps it as text (Word's
-     * `<![if !supportFootnotes]>`). The content of a raw text or RCDATA element is text up to its own end tag;
+     * Repairs what libxml tokenizes or builds differently. The HTML tokenizer reads `<!` that opens no comment or
+     * doctype, and `</` without a letter, as a bogus comment up to the next `>`; libxml below 2.14 keeps it as text
+     * (Word's `<![if !supportFootnotes]>`). The content of a raw text or RCDATA element is text up to its own end tag;
      * libxml below 2.14 parses tags and drops end tags in it, and decodes entities in all but `script` and `style`,
-     * so there the content is escaped to give the same text (carve-php#6061).
+     * so there the content is escaped to give the same text (carve-php#6061). libxml has no foreign content: in SVG
+     * and MathML raw text element names get a placeholder, CDATA becomes text, and a breakout gets the end tags of
+     * the foreign elements it closes (carve-php#6068).
      *
      * @param string $html
      *
@@ -236,62 +245,169 @@ final class HtmlParser
     private static function legacyTokens(string $html): string
     {
         $rawText = self::tagsInRawText();
-        $pattern = '/<!(?!--|(?i:doctype)|\[CDATA\[)' . ($rawText ? '|<(?i:' . implode('|', self::RAW_TEXT) . ')[\s\/>]/' : '/');
-        if (!preg_match($pattern, $html)) {
+        $pattern = '/<!(?!--|(?i:doctype))|<\/(?![a-zA-Z])|<\/(?i:br)[\s\/>]|<(?i:svg|math)[\s\/>]'
+            . ($rawText ? '|<(?i:' . implode('|', self::RAW_TEXT) . ')[\s\/>]/' : '/');
+        $comment = strrpos($html, '<!--');
+        $unclosed = $comment !== false && strpos($html, '-->', $comment + 2) === false;
+        if (!$unclosed && !preg_match($pattern, $html)) {
             return $html;
         }
         $out = '';
         $from = 0;
         $at = 0;
         $foreign = new LegacyForeignContent();
-        $length = strlen($html);
         while (($lt = strpos($html, '<', $at)) !== false) {
             $next = $html[$lt + 1] ?? '';
             if ($next === '!') {
-                if (substr($html, $lt + 2, 2) === '--') {
-                    $end = strpos($html, '-->', $lt + 2);
-                    $at = $end === false ? $length : $end + 3;
-
-                    continue;
-                }
-                if (strncasecmp(substr($html, $lt + 2, 7), 'doctype', 7) === 0 || substr($html, $lt + 2, 7) === '[CDATA[') {
-                    $at = $lt + 2;
-
-                    continue;
-                }
-                $end = strpos($html, '>', $lt + 2);
-                $close = $end === false ? $length : $end;
-                $out .= substr($html, $from, $lt - $from) . '<!--' . substr($html, $lt + 2, $close - $lt - 2) . '-->';
-                $from = $at = $end === false ? $length : $end + 1;
-
-                continue;
-            }
-            if (!preg_match('/\G<(\/?)([a-zA-Z][^\s\/>]*)(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/', $html, $tag, 0, $lt)) {
+                [$token, $end, $at] = self::markupDeclaration($html, $lt, $foreign);
+            } elseif ($next === '/' && !ctype_alpha($html[$lt + 2] ?? '')) {
+                [$token, $end, $at] = self::endTagWithoutName($html, $lt);
+            } elseif (preg_match('/\G<(\/?)([a-zA-Z][^\s\/>]*)(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/', $html, $tag, 0, $lt)) {
+                [$token, $end, $at] = self::scannedTag($html, $lt, $tag, $foreign, $rawText);
+            } else {
                 $at = $lt + 1;
 
                 continue;
             }
-            $at = $lt + strlen($tag[0]);
-            $name = strtolower($tag[2]);
-            $inForeign = $foreign->foreign();
-            $foreign->tag($name, $tag[1] === '/', str_ends_with($tag[0], '/>'));
-            // In SVG and MathML `title`, `style` and `script` are not raw text.
-            if ($inForeign || $tag[1] === '/' || !in_array($name, self::RAW_TEXT, true)) {
-                continue;
+            if ($token !== null) {
+                $out .= substr($html, $from, $lt - $from) . $token;
+                $from = $end;
             }
-            $close = self::rawTextEnd($html, $tag[2], $at);
-            $content = substr($html, $at, $close - $at);
-            $escaped = $rawText ? self::escapeRawText($name, $content, $tag[0]) : $content;
-            if ($escaped !== $content) {
-                $nameEnd = $lt + 1 + strlen($tag[2]);
-                $out .= substr($html, $from, $nameEnd - $from) . self::rawMarker($name);
-                $out .= substr($html, $nameEnd, $at - $nameEnd) . $escaped;
-                $from = $close;
-            }
-            $at = $close;
         }
 
         return $out . substr($html, $from);
+    }
+
+    /**
+     * A token starting `<!`: what replaces it up to where, and where the scan goes on.
+     *
+     * @param string $html
+     * @param int $lt
+     * @param \MarkupCarve\Carve\Import\LegacyForeignContent $foreign
+     *
+     * @return array{0: string|null, 1: int, 2: int}
+     */
+    private static function markupDeclaration(string $html, int $lt, LegacyForeignContent $foreign): array
+    {
+        $length = strlen($html);
+        if (substr($html, $lt + 2, 2) === '--') {
+            $end = strpos($html, '-->', $lt + 2);
+
+            // A comment open at the end of the input ends there; libxml 2.13 drops it.
+            return $end === false ? [substr($html, $lt) . '-->', $length, $length] : [null, $end + 3, $end + 3];
+        }
+        if (substr($html, $lt + 2, 7) === '[CDATA[' && $foreign->cdata()) {
+            // In foreign content a CDATA section is text.
+            $end = strpos($html, ']]>', $lt + 9);
+            $close = $end === false ? $length : $end;
+            $resume = $end === false ? $length : $end + 3;
+
+            return [strtr(substr($html, $lt + 9, $close - $lt - 9), ['&' => '&amp;', '<' => '&lt;']), $resume, $resume];
+        }
+        if (strncasecmp(substr($html, $lt + 2, 7), 'doctype', 7) === 0) {
+            return [null, $lt + 2, $lt + 2];
+        }
+        $end = strpos($html, '>', $lt + 2);
+        $close = $end === false ? $length : $end;
+        $resume = $end === false ? $length : $end + 1;
+
+        return ['<!--' . substr($html, $lt + 2, $close - $lt - 2) . '-->', $resume, $resume];
+    }
+
+    /**
+     * `</` and no letter: `</>` is dropped, `</` at the end is text, anything else up to the next `>` is a bogus
+     * comment.
+     *
+     * @param string $html
+     * @param int $lt
+     *
+     * @return array{0: string, 1: int, 2: int}
+     */
+    private static function endTagWithoutName(string $html, int $lt): array
+    {
+        $length = strlen($html);
+        $end = strpos($html, '>', $lt + 2);
+        $close = $end === false ? $length : $end;
+        $resume = $end === false ? $length : $end + 1;
+        $token = match (true) {
+            $lt + 2 === $length => '&lt;/',
+            $close === $lt + 2 => '',
+            default => '<!--' . substr($html, $lt + 2, $close - $lt - 2) . '-->',
+        };
+
+        return [$token, $resume, $resume];
+    }
+
+    /**
+     * A start or end tag, and for a raw text element its content.
+     *
+     * @param string $html
+     * @param int $lt
+     * @param array<string> $tag
+     * @param \MarkupCarve\Carve\Import\LegacyForeignContent $foreign
+     * @param bool $rawText
+     *
+     * @return array{0: string|null, 1: int, 2: int}
+     */
+    private static function scannedTag(string $html, int $lt, array $tag, LegacyForeignContent $foreign, bool $rawText): array
+    {
+        $at = $lt + strlen($tag[0]);
+        $name = strtolower($tag[2]);
+        $end = $tag[1] === '/';
+        $inForeign = $foreign->foreign();
+        $raw = in_array($name, self::RAW_TEXT, true);
+        // In SVG and MathML raw text element names are ordinary elements: libxml gets a placeholder name for them.
+        $renamed = $raw && ($end ? $foreign->closesForeign($name) : $inForeign);
+        $token = '';
+        // libxml has no foreign content: the end tags close what a breakout closes.
+        foreach ($foreign->tag($name, $end, str_ends_with($tag[0], '/>'), $tag[0]) as $closedName) {
+            $token .= '</' . self::foreignName($closedName) . '>';
+        }
+        if ($end && $name === 'br') {
+            // The tree builder reads `</br>` as `<br>`; libxml drops it.
+            return [$token . '<br>', $at, $at];
+        }
+        if ($renamed) {
+            return [$token . '<' . $tag[1] . self::foreignName($name) . substr($tag[0], 1 + strlen($tag[1]) + strlen($tag[2])), $at, $at];
+        }
+        if ($inForeign || $end || !$raw) {
+            return [$token === '' ? null : $token . $tag[0], $at, $at];
+        }
+        $close = self::rawTextEnd($html, $tag[2], $at);
+        $content = substr($html, $at, $close - $at);
+        $escaped = $rawText ? self::escapeRawText($name, $content, $tag[0]) : $content;
+        // The end tag closes the raw text element, never a foreign element of the same name.
+        $endTag = '/\G<\/[^\s\/>]*(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/';
+        $resume = preg_match($endTag, $html, $match, 0, $close) === 1 ? $close + strlen($match[0]) : $close;
+        if ($escaped === $content) {
+            return [null, $close, $resume];
+        }
+        $nameEnd = 1 + strlen($tag[2]);
+
+        return [substr($tag[0], 0, $nameEnd) . self::rawMarker($name) . substr($tag[0], $nameEnd) . $escaped, $close, $resume];
+    }
+
+    /**
+     * The name libxml gets for an element in foreign content: a placeholder for a raw text element name.
+     *
+     * @param string $name
+     *
+     * @return string
+     */
+    private static function foreignName(string $name): string
+    {
+        if (!in_array($name, self::RAW_TEXT, true)) {
+            return $name;
+        }
+        $placeholder = 'carve-raw-' . self::nonce() . '-' . $name;
+        self::$foreignNames[$placeholder] = $name;
+
+        return $placeholder;
+    }
+
+    private static function nonce(): string
+    {
+        return self::$rawNonce ??= bin2hex(random_bytes(8));
     }
 
     /**
@@ -306,9 +422,8 @@ final class HtmlParser
         if (!in_array($name, ['script', 'style'], true)) {
             return '';
         }
-        self::$rawNonce ??= bin2hex(random_bytes(8));
 
-        return ' ' . self::LEGACY_RAW . '="' . self::$rawNonce . '"';
+        return ' ' . self::LEGACY_RAW . '="' . self::nonce() . '"';
     }
 
     /**
@@ -478,16 +593,16 @@ final class HtmlParser
      */
     private static function copyLegacy(DOMNode $source, HtmlNode $target, bool $fragment = false, ?DOMComment $synthetic = null): void
     {
-        $pending = [[$source, $target]];
+        $pending = [[$source, $target, '']];
         while ($pending !== []) {
-            [$from, $to] = array_pop($pending);
+            [$from, $to, $space] = array_pop($pending);
             foreach ($from->childNodes as $child) {
                 if ($child === $synthetic) {
                     continue;
                 }
                 // HTML: in a body fragment an `<html>` or `<body>` start tag is ignored, its content stays in place.
                 if ($fragment && $child instanceof DOMElement && in_array(strtolower($child->tagName), ['html', 'body'], true)) {
-                    $pending[] = [$child, $to];
+                    $pending[] = [$child, $to, $space];
 
                     continue;
                 }
@@ -495,6 +610,9 @@ final class HtmlParser
                 if ($node === null) {
                     continue;
                 }
+                $childSpace = $node->kind === HtmlNode::ELEMENT && ($space !== '' || $node->name === 'svg' || $node->name === 'math')
+                    ? LegacyForeignContent::place($space, $to, $node)
+                    : '';
                 $to->append($node);
                 if ($child instanceof DOMElement && $node->name === 'template') {
                     // libxml has no template contents: the children stand in for them.
@@ -514,7 +632,7 @@ final class HtmlParser
                         }
                     }
                 } elseif ($child instanceof DOMElement) {
-                    $pending[] = [$child, $node];
+                    $pending[] = [$child, $node, $childSpace];
                 }
             }
         }
@@ -528,7 +646,9 @@ final class HtmlParser
                 $attrs[strtolower($attribute->name)] = (string)$attribute->value;
             }
 
-            return new HtmlNode(HtmlNode::ELEMENT, strtolower($child->localName ?? $child->tagName), $attrs);
+            $name = strtolower($child->localName ?? $child->tagName);
+
+            return new HtmlNode(HtmlNode::ELEMENT, self::$foreignNames[$name] ?? $name, $attrs);
         }
         if ($child instanceof DOMText) {
             return new HtmlNode(HtmlNode::TEXT, str_replace("\0", "\u{FFFD}", $child->data));

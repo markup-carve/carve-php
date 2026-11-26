@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Import;
 
-use DOMDocument;
 use MarkupCarve\Carve\Import\HtmlNode;
 use MarkupCarve\Carve\Import\HtmlParser;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -42,17 +41,7 @@ final class LegacyParserRepairsTest extends TestCase
             'MathML closed by an ancestor end tag' => ['<i><math></i><title><!x></title>', 'i[math[]],title[#<!x>]'],
             'marker name in an attribute value' => ['<script data-id="carve-import-raw">a</b></script>', 'script[#a</b>]'],
             'unclosed textarea' => ['<p>a</p><textarea>b</p>c', 'p[#a],textarea[#b</p>c]'],
-        ];
-    }
-
-    /**
-     * Shapes the raw text repair gets right that libxml 2.14 and later, which needs no repair, reads its own way.
-     *
-     * @return array<string, array{0: string, 1: string}>
-     */
-    public static function oldLibxmlInputs(): array
-    {
-        return [
+            'unclosed comment' => ['<p>a</p><!--b', 'p[#a],!b'],
             'SVG title is not RCDATA' => [
                 '<svg><title><b>a</b></title></svg><textarea>b</i></textarea>',
                 'svg[title[b[#a]]],textarea[#b</i>]',
@@ -62,24 +51,30 @@ final class LegacyParserRepairsTest extends TestCase
                 '<math><mi><mglyph><textarea>a</b></textarea></mglyph></mi></math>',
                 'math[mi[mglyph[textarea[#a]]]]',
             ],
+            'SVG style holds markup' => ['<svg><style>a<i>b</i>&amp;</style></svg>', 'svg[style[#a]],i[#b],#&'],
+            'SVG script decodes entities' => ['<svg><script>a&lt;b</script>c</svg>', 'svg[script[#a<b],#c]'],
+            'raw text names in SVG' => [
+                '<svg><g><textarea>a<!--c--></textarea><xmp>&amp;</xmp><iframe>i</iframe></g></svg>',
+                'svg[g[textarea[#a,!c],xmp[#&],iframe[#i]]]',
+            ],
+            'HTML title in an SVG title' => ['<svg><title>a<title>b</title>c</title></svg>', 'svg[title[#a,title[#b],#c]]'],
+            'breakout closes SVG' => ['<svg><g><title>t</title><p>a</p></g></svg>b', 'svg[g[title[#t]]],p[#a],#b'],
+            'end tag br breaks out' => [
+                '<math><mi>a</mi><mo></br>b</mo></math><svg></br x="1">c',
+                'math[mi[#a],mo[br[],#b]],svg[],br[],#c',
+            ],
+            'nested math in SVG stays SVG' => ['<svg><math><desc><b>a</b></desc></math></svg>', 'svg[math[desc[b[#a]]]]'],
+            'CDATA in an SVG title' => ['<svg><title><![CDATA[a<b]]><i><![CDATA[c]]></i></title></svg>', 'svg[title[#a<b,i[![CDATA[c]]]]]'],
+            'end tag br is a br' => ['<p>a</br>b</BR >c</p>', 'p[#a,br[],#b,br[],#c]'],
+            'font with color breaks out' => ['<svg><font color="red">a</font><font x="color">b</font></svg>', 'svg[],font[#a],font[#b]'],
+            'CDATA in SVG is text' => ['<svg>a<![CDATA[<b>&amp;]]>c</svg><p><![CDATA[x]]></p>', 'svg[#a<b>&amp;c],p[![CDATA[x]]]'],
+            'HTML in annotation-xml' => [
+                '<math><annotation-xml encoding="text/html"><p>a</p></annotation-xml></math>',
+                'math[annotation-xml[p[#a]]]',
+            ],
+            'end tag without a name' => ['<p>a</ b>c</>d</</p>e</', 'p[#a,! b,#cd,!</p,#e</]'],
+            'bogus comment hides an end tag in SVG' => ['<svg><title>a</</title>b</svg>', 'svg[title[#a,!</title,#b]]'],
         ];
-    }
-
-    #[DataProvider('oldLibxmlInputs')]
-    public function testLegacyTreeOnOldLibxml(string $html, string $expected): void
-    {
-        $probe = new DOMDocument();
-        @$probe->loadHTML('<xmp>&amp;</xmp>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        if ($probe->textContent !== '&') {
-            $this->markTestSkipped('libxml 2.14 or later tokenizes raw text itself');
-        }
-        $this->assertSame($expected, self::shape(HtmlParser::parse($html, true)));
-    }
-
-    #[DataProvider('oldLibxmlInputs')]
-    public function testHtml5TreeAgreesOnOldLibxmlShapes(string $html, string $expected): void
-    {
-        $this->testHtml5TreeAgrees($html, $expected);
     }
 
     #[DataProvider('inputs')]
@@ -95,6 +90,27 @@ final class LegacyParserRepairsTest extends TestCase
             $this->markTestSkipped('only the libxml parser exists on this PHP');
         }
         $this->assertSame($expected, self::shape(HtmlParser::parse($html)));
+    }
+
+    /**
+     * The libxml tree gets the namespace and the SVG and MathML names the HTML tree builder gives.
+     */
+    public function testForeignElementsKeepTheirNames(): void
+    {
+        $html = '<svg viewbox="0 0 1 1"><clippath/><foreignobject><b>a</b></foreignobject></svg><math definitionurl="u"><mi>x</mi></math>';
+        foreach ([true, false] as $legacy) {
+            if (!$legacy && !HtmlParser::html5()) {
+                continue;
+            }
+            [$svg, $math] = HtmlParser::parse($html, $legacy)->children;
+            [$clipPath, $foreignObject] = $svg->children;
+            $this->assertSame(['viewBox' => '0 0 1 1'], $svg->attrs);
+            $this->assertSame(['clipPath', true], [$clipPath->name, $clipPath->foreign]);
+            $this->assertSame(['foreignObject', true], [$foreignObject->name, $foreignObject->foreign]);
+            $this->assertFalse($foreignObject->children[0]->foreign);
+            $this->assertSame(['definitionURL' => 'u'], $math->attrs);
+            $this->assertTrue($math->children[0]->foreign);
+        }
     }
 
     public function testAttributeKeepsTheMarkupDeclaration(): void
