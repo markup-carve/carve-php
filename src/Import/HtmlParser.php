@@ -334,10 +334,21 @@ final class HtmlParser
      */
     private static function foreign(array $scopes): bool
     {
-        // Not end(): it takes the array by reference and would copy the shared stack on every tag.
-        $top = $scopes[count($scopes) - 1] ?? null;
+        $top = self::top($scopes);
 
         return $top !== null && $top[0] !== 'html';
+    }
+
+    /**
+     * Not end(): it takes the array by reference and would copy the shared stack on every tag.
+     *
+     * @param array<array{0: string, 1: string}> $scopes
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private static function top(array $scopes): ?array
+    {
+        return $scopes[count($scopes) - 1] ?? null;
     }
 
     /**
@@ -360,7 +371,7 @@ final class HtmlParser
 
             return;
         }
-        $top = $scopes[count($scopes) - 1] ?? null;
+        $top = self::top($scopes);
         $mode = match (true) {
             $name === 'svg', $name === 'math' => $name,
             $top === null => null,
@@ -393,7 +404,7 @@ final class HtmlParser
      */
     private static function closeForeign(array &$scopes, string $name): void
     {
-        while (($top = $scopes[count($scopes) - 1] ?? null) !== null) {
+        while (($top = self::top($scopes)) !== null) {
             if ($top[1] === $name || ($top[1] === 'mathtext' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true))) {
                 array_pop($scopes);
 
