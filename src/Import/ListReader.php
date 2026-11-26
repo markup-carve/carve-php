@@ -108,8 +108,8 @@ final class ListReader
      */
     private function spacing(HtmlNode $node, array $items): string
     {
-        $loose = self::hasLooseItem($node);
         if ($node->has('data-carve-tight')) {
+            $loose = self::hasLooseItem($node, true);
             if (!$loose) {
                 return 'tight';
             }
@@ -120,7 +120,7 @@ final class ListReader
         if (count($items) <= 1) {
             return 'tight';
         }
-        if ($loose) {
+        if (self::hasLooseItem($node, false)) {
             return 'loose';
         }
         foreach ($items as $item) {
@@ -134,16 +134,21 @@ final class ListReader
 
     /**
      * C2-H-034: a loose list writes the first paragraph of an item as `<p>`, which a tight list leaves bare.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param bool $carrier Under `data-carve-tight`, a `<p>` that C2-H-018 keeps for its run is no loose sign (C2-H-186).
+     *
+     * @return bool
      */
-    private static function hasLooseItem(HtmlNode $node): bool
+    private static function hasLooseItem(HtmlNode $node, bool $carrier): bool
     {
         foreach ($node->elements() as $item) {
             if ($item->name !== 'li') {
                 continue;
             }
-            foreach ($item->children as $child) {
+            foreach ($item->children as $at => $child) {
                 if ($child->isElement('p')) {
-                    if ($child->attrs === []) {
+                    if ($child->attrs === [] && !($carrier && self::keptForRun($child, array_slice($item->children, $at + 1)))) {
                         return true;
                     }
 
@@ -156,6 +161,39 @@ final class ListReader
         }
 
         return false;
+    }
+
+    /**
+     * C2-H-018: a tight item keeps its first `<p>` when the bare run would not read back as that paragraph: the
+     * content is only `<img>` elements, whitespace and comments (C2-M-013), or a bare `<img>` follows (C2-M-012).
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $p
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $after The later children of the item.
+     *
+     * @return bool
+     */
+    private static function keptForRun(HtmlNode $p, array $after): bool
+    {
+        foreach ($after as $next) {
+            if ($next->isBlank() || $next->isComment()) {
+                continue;
+            }
+            if ($next->isElement('img')) {
+                return true;
+            }
+
+            break;
+        }
+        $image = false;
+        foreach ($p->children as $kid) {
+            if ($kid->isElement('img')) {
+                $image = true;
+            } elseif (!$kid->isBlank() && !$kid->isComment()) {
+                return false;
+            }
+        }
+
+        return $image;
     }
 
     /**
