@@ -529,16 +529,25 @@ final class Writer
         }
         // A local bracket decision is no reported kind when the write without it already reads back as the tree.
         // Check only leaves whose local spelling actually contains an escaped bracket.
+        // The bare form without escapes, its group ranges and `$bareRepaired`: the checks below write it once.
+        $plainBare = null;
+        $wanted = null;
         if (
             $result->diagnostics === [] && !self::$inGroups && !isset($options['linkKeys'])
             && str_contains($result->source, '\\[') && !self::hasExtensionNode($tree)
         ) {
-            $bare = self::bareSource($tree, $layout, $options, $localOwn);
-            if (
-                $bare !== $result->source && !self::$bareRepaired && Text::treePairOpeners($tree, $localOwn) === []
-                && self::readsBack($bare, self::trimmedPrint($tree, $layout, $options), $options)
-            ) {
-                return new WriteResult(self::prunedNoteCarets($bare, self::trimmedPrint($tree, $layout, $options), $options, $parsed), []);
+            if ($localOwn === []) {
+                $plainRanges = null;
+                $bare = self::recordedBare($tree, $layout, $options, [], $plainRanges);
+                $plainBare = [$bare, $plainRanges, self::$bareRepaired];
+            } else {
+                $bare = self::bareSource($tree, $layout, $options, $localOwn);
+            }
+            if ($bare !== $result->source && !self::$bareRepaired && Text::treePairOpeners($tree, $localOwn) === []) {
+                $wanted = self::trimmedPrint($tree, $layout, $options);
+                if (self::readsBack($bare, $wanted, $options)) {
+                    return new WriteResult(self::prunedNoteCarets($bare, $wanted, $options, $parsed), []);
+                }
             }
         }
         if (
@@ -564,7 +573,7 @@ final class Writer
             && Text::treePairOpeners($tree, []) == $localEscapes;
         $pairPrint = null;
         if ($pairsOnly) {
-            $pairPrint = self::trimmedPrint($tree, $layout, $options);
+            $pairPrint = $wanted ??= self::trimmedPrint($tree, $layout, $options);
             $pairsOnly = self::readsBack($result->source, $pairPrint, $options);
         }
         if (
@@ -573,18 +582,21 @@ final class Writer
         ) {
             // C2-W-088: with escapes every form carries, the form without escapes is taken only through `mayTakeBare()`.
             // Elsewhere the procedure form is tried first, and the form without escapes is written only where it fails.
-            $wanted = null;
             $ownFirst = $localOwn !== [] && !self::mayTakeBare($tree, $localEscapes, $parsed);
             if ($ownFirst) {
-                $wanted = self::trimmedPrint($tree, $layout, $options);
+                $wanted ??= self::trimmedPrint($tree, $layout, $options);
                 $procedure = self::procedureForm($tree, $layout, $options, $localOwn, $wanted, null);
                 if ($procedure !== null) {
                     return $procedure;
                 }
             }
             $firstRanges = null;
-            $bare = self::recordedBare($tree, $layout, $options, [], $firstRanges);
-            $bareRepaired = self::$bareRepaired;
+            if ($plainBare !== null) {
+                [$bare, $firstRanges, $bareRepaired] = $plainBare;
+            } else {
+                $bare = self::recordedBare($tree, $layout, $options, [], $firstRanges);
+                $bareRepaired = self::$bareRepaired;
+            }
             // The source the tree was parsed from reads back as that tree, so a bare form equal to it holds unread.
             if ($bare === $parsed) {
                 // With no escape every form carries and no pair escape, the procedure form is this bare form too.
@@ -679,7 +691,11 @@ final class Writer
         }
         // A nested link does not split the bracket pairs of the text around it. At the inline depth cap, the local
         // plan can still propose escapes for those pairs; C2-W-088 ends after round one if its bare form reads back.
-        $bareNestedLink = self::bareNestedLink($tree, $layout, $options, $treePrint, $result->source);
+        $knownBare = null;
+        if ($removed === [] && $plainBare !== null) {
+            $knownBare = [$plainBare[0], $firstBare !== null && $firstBare[0] === $plainBare[0] ? $firstBare[2] === $treePrint : null];
+        }
+        $bareNestedLink = self::bareNestedLink($tree, $layout, $options, $treePrint, $result->source, $knownBare);
         if ($bareNestedLink !== null) {
             return $bareNestedLink;
         }
@@ -2824,6 +2840,7 @@ final class Writer
      * @param array<string, mixed> $options
      * @param string $treePrint
      * @param string $localSource
+     * @param array{string, bool|null}|null $known The bare form already written, and whether it reads back where known.
      */
     private static function bareNestedLink(
         array $tree,
@@ -2831,13 +2848,15 @@ final class Writer
         array $options,
         string $treePrint,
         string $localSource,
+        ?array $known = null,
     ): ?WriteResult {
         if (!str_contains($localSource, '\\[') || !self::hasNestedLink($tree)) {
             return null;
         }
-        $bareSource = self::bareSource($tree, $layout, $options, []);
+        $bareSource = $known[0] ?? self::bareSource($tree, $layout, $options, []);
+        $holds = $known[1] ?? self::readsBack($bareSource, $treePrint, $options);
 
-        return self::readsBack($bareSource, $treePrint, $options) ? new WriteResult($bareSource, []) : null;
+        return $holds ? new WriteResult($bareSource, []) : null;
     }
 
     /**
