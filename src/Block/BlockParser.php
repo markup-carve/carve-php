@@ -2028,13 +2028,13 @@ final class BlockParser
 
                 return;
             case Frame::LINE_BLOCK:
-                $this->lineBlockBodyLine($f, $j, $end);
+                $this->lineBlockBodyLine($f, $j, $c, $end);
 
                 return;
         }
     }
 
-    private function lineBlockBodyLine(Frame $f, int $j, int $end): void
+    private function lineBlockBodyLine(Frame $f, int $j, int $c, int $end): void
     {
         $s = $this->s;
         if ($j < $end && $s[$j] === ':' && strspn($s, ':', $j, $end - $j) === $end - $j && $end - $j >= $f->level) {
@@ -2065,6 +2065,10 @@ final class BlockParser
                 $f->hiddenComments[] = $comment;
                 $f->lineComment = null;
             } else {
+                // C2-B-029, C2-B-123: the comment body is stripped by at most its opener's indent.
+                if ($comment->indent > 0) {
+                    $this->stripTo($this->col - $this->base + $comment->indent);
+                }
                 $comment->spans[] = $this->i;
                 $comment->spans[] = $this->le;
                 $comment->end = $this->le;
@@ -2077,6 +2081,7 @@ final class BlockParser
         if ($run >= 3) {
             $comment = new Frame(Frame::COMMENT_BLOCK, $j);
             $comment->level = $run;
+            $comment->indent = $c - $this->col;
             $comment->end = $this->le;
             $text = $j + $run + strspn($s, " \t", $j + $run, $end - $j - $run);
             if ($text < $end) {
