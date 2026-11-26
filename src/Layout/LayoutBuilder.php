@@ -200,6 +200,7 @@ final class LayoutBuilder
             $facts = ['rawRef' => $this->rawRef($node, $facts['refEnd'], $quotes)] + $facts;
         }
         unset($facts['refEnd'], $facts['wrapAt'], $facts['spansRows'], $facts['spansCols'], $facts['cellWraps']);
+        unset($facts['parsedSnippetUse'], $facts['parsedSnippetDefinition']);
         $facts += $this->sourceFacts($node, $path, $quotes);
         if ($node->type === 'table_cell') {
             $facts += $this->wraps($node, $path);

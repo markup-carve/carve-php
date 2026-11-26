@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Extension\DocumentTransform;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Snippet\Expander;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -53,6 +54,35 @@ final class SnippetsTest extends TestCase
             '<span data-carve-snippet="1:inline:$v">[x][k]</span>',
             Carve::render("{\$v}: [x][k]\n\nA {{ \$v }}\n", ['roundtrip' => true]),
         );
+    }
+
+    /**
+     * The render skips the expansion walk on what the parse made, so every place a use can stand must still expand.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function parsedUseShapes(): array
+    {
+        return [
+            'block use' => ["{\$x}: Hi\n\n{{ \$x }}\n", '<p>Hi</p>'],
+            'inline use' => ["{\$x}: Hi\n\nA {{ \$x }} b\n", '<p>A Hi b</p>'],
+            'inline use beside an include line' => ["{\$x}: Hi\n\nSee {{ a.crv }} and {{ \$x }}.\n", 'and Hi.</p>'],
+            'use inside a definition value' => ["{\$y}: Hi\n{\$x}: A {{ \$y }}\n\n{{ \$x }}\n", '<p>A Hi</p>'],
+            'use in a list item' => ["{\$x}: Hi\n\n- {{ \$x }}\n", '<li>Hi</li>'],
+            'use in a table cell' => ["{\$x}: Hi\n\n| {{ \$x }} |\n", '<td>Hi</td>'],
+        ];
+    }
+
+    #[DataProvider('parsedUseShapes')]
+    public function testC2N091EveryParsedUseExpands(string $source, string $html): void
+    {
+        $this->assertStringContainsString($html, Carve::render($source));
+        $this->assertStringContainsString($html, Carve::renderWithDiagnostics($source)->html);
+    }
+
+    public function testC2N090ADuplicateDefinitionWithNoUseInTheDocumentIsReported(): void
+    {
+        $this->assertSame(['duplicate-snippet'], self::codes(Carve::parseWithDiagnostics("{\$x}: A\n{\$x}: B\n")->diagnostics));
     }
 
     public function testC2N091TheRenderExpandsItsOwnCopyAndTheParsedTreeKeepsItsUses(): void

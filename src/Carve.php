@@ -470,7 +470,7 @@ final class Carve
                 );
             }
             if ($keep) {
-                SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === [] ? $source : null);
+                SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === []);
             }
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
             // Only an abbreviation of the parse or a node of an extension can carry an expansion.
@@ -557,6 +557,9 @@ final class Carve
             $ctx->abbreviations[$key] ??= $expansion;
         }
         InlineRunner::run($doc, $source, $ctx);
+        // What the parse made, so a document with no snippet skips the snippet walks (C2-N-090, C2-N-091).
+        $doc->layout['parsedSnippetUse'] = $sink->hasSnippetUse || $ctx->snippetUse;
+        $doc->layout['parsedSnippetDefinition'] = $sink->hasSnippetDefinition;
         if (str_contains($source, "\0") || !mb_check_encoding($source, 'UTF-8')) {
             NulReplacer::apply($doc);
         }
@@ -610,7 +613,7 @@ final class Carve
                     static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
                 );
             }
-            SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === [] ? $source : null);
+            SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === []);
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);

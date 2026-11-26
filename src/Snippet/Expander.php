@@ -160,17 +160,17 @@ final class Expander
      *
      * @param \MarkupCarve\Carve\Node $doc
      * @param bool $roundtrip
-     * @param string|null $source The source of `$doc`, which spares the walk when it spells no use.
+     * @param bool $asParsed Whether `$doc` is as its parse made it, so the parse tells whether it holds a use.
      *
      * @return void
      */
-    public static function expand(Node $doc, bool $roundtrip, ?string $source = null): void
+    public static function expand(Node $doc, bool $roundtrip, bool $asParsed = false): void
     {
         if (isset($doc->layout['snippetsExpanded'])) {
             return;
         }
         $doc->layout['snippetsExpanded'] = true;
-        if ($source !== null && $doc->includeSources === [] && !str_contains($source, '{{')) {
+        if ($asParsed && $doc->includeSources === [] && ($doc->layout['parsedSnippetUse'] ?? true) === false) {
             return;
         }
         if (!self::holds($doc, false)) {

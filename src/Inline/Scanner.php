@@ -1004,6 +1004,7 @@ final class Scanner
                 $node = $this->node('snippet_use', $i, $use);
                 $node->f['name'] = Syntax::useName($t, $i);
                 $node->f['mode'] = 'inline';
+                $this->ctx->snippetUse = true;
 
                 return $this->emit([self::NODE, $node, $i, $use, false, null]);
             }
