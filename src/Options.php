@@ -74,9 +74,10 @@ final class Options
     public const SEMANTIC_KEYS = [['abbr', 'title'], ['time', 'datetime'], ['kbd', null]];
 
     /**
-     * The one renderer option of a catalog row and its values (`rendererOptions` of `data/extensions.json`).
+     * The one renderer option of a catalog row, its values, and whether it is open to any string (`rendererOptions` of
+     * `data/extensions.json`); an open locale falls back to its language, then to `en` (C2-X-075).
      *
-     * @var array<string, array{0: string, 1: array<string>}>
+     * @var array<string, array{0: string, 1: array<string>, 2?: true}>
      */
     private const RENDERER_OPTIONS = [
         'carve.tabs' => ['mode', ['css', 'aria']],
@@ -86,6 +87,7 @@ final class Options
                 'en', 'de', 'de-CH', 'fr', 'pl', 'ru', 'ja', 'zh', 'sv', 'da',
                 'fi', 'cs', 'hu', 'it', 'es', 'pt', 'nl', 'nb', 'nn', 'uk',
             ],
+            true,
         ],
     ];
 
@@ -493,7 +495,7 @@ final class Options
                 || !is_array($renderer) || array_keys($renderer) !== ['standard']
                 || !is_array($renderer['standard']) || array_keys($renderer['standard']) !== [$option[0]]
                 || !is_string($renderer['standard'][$option[0]])
-                || !in_array($renderer['standard'][$option[0]], $option[1], true)
+                || (!isset($option[2]) && !in_array($renderer['standard'][$option[0]], $option[1], true))
             ) {
                 throw new OptionError('option renderers: invalid renderer ' . (string)$name);
             }
