@@ -217,9 +217,22 @@ final class Writer
             $parsedSource = self::$parsedSource;
             [$losses, $fallbackNodes] = self::normalizedAttributeValueLosses($tree);
             self::$lossReported = $losses !== [];
+            // C2-W-088, C2-W-075 (carve-js#5201): the rounds write every reference from the tree, so the escapes
+            // outside a reference never depend on its authored spelling; the verbatim texts are taken after them.
+            $verbatim = self::verbatimTexts($tree, $layout, $options);
+            $writeLayout = $verbatim === [] ? $layout : self::withoutRawRefs($layout);
             $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
-                static fn (): WriteResult => self::writeChecked($tree, $layout, $options),
+                static fn (): WriteResult => self::writeChecked($tree, $writeLayout, $options),
             ));
+            if ($verbatim !== [] && $written->diagnostics === []) {
+                $written = self::withVerbatimReferences($written, $verbatim, self::trimmedPrint($tree, $layout, $options), $options);
+            } elseif ($verbatim !== []) {
+                // Where the rounds give no form without a loss, a write that keeps the verbatim texts in them may.
+                $kept = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
+                    static fn (): WriteResult => self::writeChecked($tree, $layout, $options),
+                ));
+                $written = $kept->diagnostics === [] ? $kept : $written;
+            }
 
             if ($written->diagnostics === [] && self::notePrunable($written->source)) {
                 $print = self::trimmedPrint($tree, $layout, $options);
@@ -236,6 +249,197 @@ final class Writer
             self::$lossReported = $lossReported;
             self::$readsSupplied = $outerReadsSupplied;
         }
+    }
+
+    /**
+     * @var int Past this many references a write whose verbatim texts do not read back together keeps the rest from
+     *   the tree.
+     */
+    private const MAX_VERBATIM_TRIALS = 32;
+
+    /**
+     * C2-W-075: the verbatim text of each reference whose sidecar records one, by path, as the writer spells it there:
+     * the second field says whether the reference is an image, whose text starts behind its `!`.
+     *
+     * The paths are those of the read-back, which holds no line-end blank (C2-W-151).
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, array{string, bool}>
+     */
+    private static function verbatimTexts(array $tree, ?array $layout, array $options): array
+    {
+        $facts = array_filter(self::facts($layout), static fn (array $entry): bool => isset($entry['rawRef']));
+        // C2-W-127: `normalize` writes as if there were no sidecar.
+        if ($facts === [] || ($options['normalize'] ?? false) === true) {
+            return [];
+        }
+        $removed = [];
+        $tree = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
+        if ($removed !== []) {
+            $facts = self::facts(LineEndBlanks::remapLayout($layout, $removed));
+        }
+        $texts = [];
+        foreach ($facts as $path => $entry) {
+            $raw = $entry['rawRef'] ?? null;
+            if (!is_string($raw)) {
+                continue;
+            }
+            $node = $tree;
+            $inCell = false;
+            foreach (explode('/', trim($path, '/')) as $part) {
+                $node = is_array($node[$part] ?? null) ? $node[$part] : null;
+                if ($node === null) {
+                    break;
+                }
+                $inCell = $inCell || ($node['type'] ?? null) === 'table_cell';
+            }
+            $type = $node['type'] ?? null;
+            if (($type === 'link' || $type === 'image') && isset($node['key'])) {
+                $texts[$path] = [Inline::verbatimReference($raw, $inCell), $type === 'image'];
+            }
+        }
+
+        return $texts;
+    }
+
+    /**
+     * @param array<mixed>|null $layout
+     *
+     * @return array<mixed>|null
+     */
+    private static function withoutRawRefs(?array $layout): ?array
+    {
+        if (!is_array($layout['nodes'] ?? null)) {
+            return $layout;
+        }
+        foreach ($layout['nodes'] as &$entry) {
+            if (is_array($entry)) {
+                unset($entry['rawRef']);
+            }
+        }
+        unset($entry);
+
+        return $layout;
+    }
+
+    /**
+     * C2-W-075, C2-W-088 (carve-js `takeVerbatimReferences`): the references take their verbatim text together where the
+     * source reads back with them, and otherwise one by one in document order; the others keep their spelling from the
+     * tree.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $written
+     * @param array<string, array{string, bool}> $verbatim
+     * @param string $treePrint
+     * @param array<string, mixed> $options
+     */
+    private static function withVerbatimReferences(WriteResult $written, array $verbatim, string $treePrint, array $options): WriteResult
+    {
+        $source = $written->source;
+        $spans = self::verbatimSpans($source, $verbatim, $options);
+        if ($spans === []) {
+            return $written;
+        }
+        $all = self::spliced($source, $spans);
+        if (self::readsBack($all, $treePrint, $options)) {
+            return new WriteResult($all, []);
+        }
+        $taken = [];
+        foreach (array_slice($spans, 0, self::MAX_VERBATIM_TRIALS) as $span) {
+            $trial = [...$taken, $span];
+            if (self::readsBack(self::spliced($source, $trial), $treePrint, $options)) {
+                $taken = $trial;
+            }
+        }
+
+        return $taken === [] ? $written : new WriteResult(self::spliced($source, $taken), []);
+    }
+
+    /**
+     * The byte span of each reference in the written source whose verbatim text differs from its spelling there, with
+     * that text, in document order. Inside a container a written line carries its prefixes, so each later line of the
+     * verbatim text takes the prefix the spelling's line took.
+     *
+     * @param string $source
+     * @param array<string, array{string, bool}> $verbatim
+     * @param array<string, mixed> $options
+     *
+     * @return array<int, array{int, int, string}>
+     */
+    private static function verbatimSpans(string $source, array $verbatim, array $options): array
+    {
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        $spans = [];
+        $entries = Carve::parseWithLayout($source, $parseOptions)->layout['nodes'] ?? null;
+        foreach (is_array($entries) ? $entries : [] as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $path = $entry['path'] ?? null;
+            $spelled = $entry['rawRef'] ?? null;
+            $start = $entry['startByte'] ?? null;
+            $end = $entry['endByte'] ?? null;
+            if (!is_string($path) || !isset($verbatim[$path]) || !is_string($spelled) || !is_int($start) || !is_int($end)) {
+                continue;
+            }
+            [$text, $image] = $verbatim[$path];
+            $start += $image ? 1 : 0;
+            $written = substr($source, $start, $end - $start);
+            $out = self::prefixedLike($text, $written, $spelled);
+            if ($out !== null && $out !== $written) {
+                $spans[] = [$start, $end, $out];
+            }
+        }
+        usort($spans, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+
+        return $spans;
+    }
+
+    /**
+     * `$text` with each later line behind the prefix the same line of the written reference carries before its line of
+     * `$spelled`, the reference read without the container prefixes; the last prefix serves the lines past them. Null
+     * where the written lines are not those of `$spelled` behind prefixes. The first line starts at the opening bracket,
+     * so it carries none.
+     */
+    private static function prefixedLike(string $text, string $written, string $spelled): ?string
+    {
+        $lines = explode("\n", $written);
+        $spelledLines = explode("\n", $spelled);
+        if (count($lines) !== count($spelledLines)) {
+            return null;
+        }
+        $prefixes = [];
+        foreach ($lines as $k => $line) {
+            $cut = strlen($line) - strlen($spelledLines[$k]);
+            if ($cut < 0 || substr($line, $cut) !== $spelledLines[$k] || ($k === 0 && $cut !== 0)) {
+                return null;
+            }
+            $prefixes[] = substr($line, 0, $cut);
+        }
+        $out = '';
+        foreach (explode("\n", $text) as $k => $line) {
+            $out .= $k === 0 ? $line : "\n" . $prefixes[min($k, count($prefixes) - 1)] . $line;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param string $source
+     * @param array<int, array{int, int, string}> $spans In document order.
+     */
+    private static function spliced(string $source, array $spans): string
+    {
+        $out = '';
+        $at = 0;
+        foreach ($spans as [$start, $end, $text]) {
+            $out .= substr($source, $at, $start - $at) . $text;
+            $at = $end;
+        }
+
+        return $out . substr($source, $at);
     }
 
     /**

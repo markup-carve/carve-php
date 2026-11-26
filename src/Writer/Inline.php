@@ -3354,13 +3354,20 @@ final class Inline
             return null;
         }
         $raw = $this->w->fact($path, 'rawRef');
-        if (!is_string($raw)) {
-            return null;
-        }
+
+        return is_string($raw) ? self::verbatimReference($raw, $c->inCell) : null;
+    }
+
+    /**
+     * C2-W-022, C2-W-067: the verbatim text of a reference as written, with no blank before a line end, and with its
+     * breaks folded to a space in a cell.
+     */
+    public static function verbatimReference(string $raw, bool $inCell): string
+    {
         if (!str_contains($raw, "\n")) {
             return $raw;
         }
-        if ($c->inCell) {
+        if ($inCell) {
             return (string)preg_replace('/[ \t]*\n[ \t]*/', ' ', $raw);
         }
 
