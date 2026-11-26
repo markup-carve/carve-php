@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Extension\RenderHost;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Include\Expander;
 use MarkupCarve\Carve\Json\TreeDecoder;
+use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Options;
@@ -19,6 +20,8 @@ use MarkupCarve\Carve\Resolve\Facts;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Walk;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
+use MarkupCarve\Carve\Writer\Writer;
 use Throwable;
 use UnexpectedValueException;
 use WeakMap;
@@ -73,6 +76,7 @@ final class HtmlRenderer
         'footnote' => true,
         'abbreviation_def' => true,
         'citation_definition' => true,
+        'snippet_definition' => true,
     ];
 
     public RenderLog $log;
@@ -120,6 +124,10 @@ final class HtmlRenderer
     private function __construct(private Node $doc, public Options $o, ?string $source, ?Facts $facts)
     {
         $this->log = new RenderLog();
+        foreach (SnippetExpander::losses($doc) as [$code, $node, $message]) {
+            $this->log->loss($code, 'warning', [], $node->file, node: $node);
+            $this->log->entries[array_key_last($this->log->entries)]['message'] = $message;
+        }
         $this->silenced = new WeakMap();
         if ($o->profile !== 'full') {
             $this->profile = new Profile($o->profile, $this->log, $o);
@@ -201,7 +209,10 @@ final class HtmlRenderer
         $r = null;
         try {
             // C2-A-135: a tree resolved elsewhere is resolved again; no result field is read from it.
-            $resolved ??= Resolver::resolve($doc, $source, $opts, true)->facts;
+            if ($resolved === null) {
+                SnippetExpander::expand($doc, $opts->roundtrip);
+                $resolved = Resolver::resolve($doc, $source, $opts, true)->facts;
+            }
             $r = new self($doc, $opts, $source, $resolved);
             $html = $r->document();
             $above = $shiftFactKnown ? $shiftAbove : ($opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null);
@@ -247,8 +258,12 @@ final class HtmlRenderer
         $out = [];
         $open = [];
         $abbreviations = [];
+        $snippets = [];
         $sections = $this->o->sections;
         foreach ($this->documentBlocks($this->doc->children ?? []) as $child) {
+            if ($this->snippetRun($child, $snippets, $abbreviations, $out, count($open))) {
+                continue;
+            }
             if ($child->type === 'abbreviation_def') {
                 $this->collectAbbreviation($child, $abbreviations, $out, count($open));
 
@@ -276,6 +291,9 @@ final class HtmlRenderer
         }
         if ($abbreviations !== []) {
             $this->appendAbbreviations($out, $abbreviations, count($open));
+        }
+        if ($snippets !== []) {
+            $out[] = $this->snippetTemplate($snippets, count($open));
         }
         while ($open !== []) {
             array_pop($open);
@@ -387,6 +405,111 @@ final class HtmlRenderer
         $out[] = $this->sectionOpen($child, count($open));
         $open[] = $level;
         $out[] = $this->heading($child, count($open), true);
+    }
+
+    /**
+     * C2-H-216: under `roundtrip` a run of snippet definitions is one template; every other node ends the run.
+     * Returns true for a definition the run took.
+     *
+     * @param \MarkupCarve\Carve\Node $child
+     * @param array<\MarkupCarve\Carve\Node> $snippets
+     * @param array<\MarkupCarve\Carve\Node> $abbreviations
+     * @param array<string> $out
+     * @param int $depth
+     *
+     * @return bool
+     */
+    private function snippetRun(Node $child, array &$snippets, array &$abbreviations, array &$out, int $depth): bool
+    {
+        if (!$this->o->roundtrip) {
+            return false;
+        }
+        if ($child->type === 'snippet_definition') {
+            if ($abbreviations !== []) {
+                $this->appendAbbreviations($out, $abbreviations, $depth);
+                $abbreviations = [];
+            }
+            $snippets[] = $child;
+
+            return true;
+        }
+        if ($snippets !== []) {
+            $out[] = $this->snippetTemplate($snippets, $depth);
+            $snippets = [];
+        }
+
+        return false;
+    }
+
+    /**
+     * C2-H-216: the template of a run of snippet definitions, the run as the canonical writer spells it. A run with a
+     * definition of an included file carries the scope.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $run
+     * @param int $depth
+     *
+     * @return string
+     */
+    private function snippetTemplate(array $run, int $depth): string
+    {
+        $children = [];
+        $scope = '';
+        foreach ($run as $node) {
+            $copy = Extensions::copy($node);
+            $copy->children = self::plainAbbreviations($copy->children ?? []);
+            $children[] = $copy;
+            if ($node->file !== null) {
+                $scope = ' data-carve-snippet-scope="include"';
+            }
+        }
+        $doc = new Node('document', $children);
+        $doc->f['astVersion'] = '2.0';
+        $written = Writer::writeWithDiagnostics((new TreeEncoder())->encode($doc, null));
+        foreach ($written->diagnostics as $entry) {
+            $this->log->loss($entry->code, 'warning', [], $run[0]->file, node: $run[0]);
+            $this->log->entries[array_key_last($this->log->entries)]['message'] = $entry->message;
+        }
+        $source = str_ends_with($written->source, "\n") ? substr($written->source, 0, -1) : $written->source;
+        $presence = $this->o->xhtml ? '=""' : '';
+
+        return self::pad($depth) . '<template data-carve-snippets' . $presence . $scope . '>' . Escape::carrierText($source)
+            . '</template>';
+    }
+
+    /**
+     * C2-I-098: an abbreviation in a definition is its term as text in the template, which holds no abbreviation
+     * definition; the reader applies the document's abbreviations again.
+     *
+     * @param array<\MarkupCarve\Carve\Node> $nodes
+     *
+     * @return array<\MarkupCarve\Carve\Node>
+     */
+    private static function plainAbbreviations(array $nodes): array
+    {
+        $out = [];
+        foreach ($nodes as $node) {
+            if ($node->type === 'abbreviation') {
+                $key = PlainText::str($node->f['key'] ?? '');
+                $node = Node::at('text', -1, -1);
+                $node->f['value'] = $key;
+            } else {
+                SnippetExpander::eachList($node, static function (array &$list): void {
+                    $list = self::plainAbbreviations($list);
+                });
+            }
+            $last = $out === [] ? null : $out[count($out) - 1];
+            if (
+                $last !== null && $last->type === 'text' && $node->type === 'text' && array_keys($last->f) === ['value']
+                && array_keys($node->f) === ['value']
+            ) {
+                $last->f['value'] = PlainText::str($last->f['value']) . PlainText::str($node->f['value']);
+
+                continue;
+            }
+            $out[] = $node;
+        }
+
+        return $out;
     }
 
     /**
@@ -1105,9 +1228,10 @@ final class HtmlRenderer
             return $this->unexpandedInclude($node, $depth, $bare);
         }
         $f = $node->f;
+        $carrier = $this->o->roundtrip ? SnippetExpander::carrierText($node) : '';
         if (
             $append === '' && $this->lineStarts === null && !isset($f['attrs']) && !isset($f['lang']) && !isset($f['dir'])
-            && !isset($f['role'])
+            && !isset($f['role']) && $carrier === ''
         ) {
             // No attributes, no source line and no role: neither a block image nor static math.
             $kids = $node->children ?? [];
@@ -1134,11 +1258,11 @@ final class HtmlRenderer
         if ($content === '' && $kids !== [] && $this->profile !== null) {
             return null;
         }
-        if ($bare && !$hasAttrs) {
+        if ($bare && !$hasAttrs && $carrier === '') {
             return self::pad($depth) . $content;
         }
 
-        return self::pad($depth) . '<p' . $this->attrs($node, [], [], [], [], ['align' => true]) . '>' . $content . '</p>';
+        return self::pad($depth) . '<p' . $this->attrs($node, [], [], [], [], ['align' => true]) . $carrier . '>' . $content . '</p>';
     }
 
     private function imageParagraph(Node $image, Node $node, int $depth): string

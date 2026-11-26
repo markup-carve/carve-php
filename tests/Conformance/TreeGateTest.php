@@ -21,6 +21,16 @@ use stdClass;
 final class TreeGateTest extends TestCase
 {
     /**
+     * Cases whose tree the clauses themselves put out of sibling order; the run fails as soon as one is in order.
+     *
+     * @var array<string, string>
+     */
+    private const SIBLING_CONFLICT = [
+        'CC-2373' => 'markup-carve/carve#6866: C2-N-020 appends the unselected definitions of a line selection with their file positions, '
+            . 'which C2-A-145 does not exempt',
+    ];
+
+    /**
      * @return array<string, array{0: string, 1: array<string, mixed>, 2: array<string, string>}>
      */
     public static function sources(): array
@@ -149,7 +159,12 @@ final class TreeGateTest extends TestCase
         $validator = new SchemaValidator($schema);
         $this->assertTrue($validator->valid(json_decode($json, false), $schema), implode("\n", array_slice($validator->errors, -3)));
         $tree = json_decode($json, true, 4096, JSON_THROW_ON_ERROR);
-        $this->assertSame([], (new PositionChecker($source, $files))->failures($tree));
+        $failures = (new PositionChecker($source, $files))->failures($tree);
+        if (isset(self::SIBLING_CONFLICT[$this->dataName()])) {
+            $this->assertNotSame([], $failures, 'remove ' . $this->dataName() . ' from SIBLING_CONFLICT');
+        } else {
+            $this->assertSame([], $failures);
+        }
         $this->assertNotNull(TreeReader::read($json));
     }
 

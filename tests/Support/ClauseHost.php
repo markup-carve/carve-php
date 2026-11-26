@@ -23,6 +23,15 @@ final class ClauseHost
         foreach ($case['host']['documentTransforms'] ?? [] as $registration) {
             $transforms[] = new DocumentTransform($registration['name'], static function ($document) use ($registration) {
                 $index = (int)substr($registration['after'], strrpos($registration['after'], '/') + 1) + 1;
+                if (isset($registration['setValue'])) {
+                    $node = $document;
+                    foreach (array_chunk(array_slice(explode('/', $registration['after']), 1), 2) as [$field, $at]) {
+                        $node = $field === 'children' ? $node->children[(int)$at] : $node->f[$field][(int)$at];
+                    }
+                    $node->f['value'] = $registration['setValue'];
+
+                    return $document;
+                }
                 if (isset($registration['setLevel'])) {
                     $document->children[$index - 1]->f['level'] = $registration['setLevel'];
 

@@ -26,10 +26,9 @@ final class ImportClauseCasesTest extends TestCase
      * @var array<string, string>
      */
     public const KNOWN_FAIL = [
-        'CC-2393' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2394' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2395' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2396' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2433' => 'markup-carve/carve#6853 (carve-php line): a list-table row with no cell is dropped and the counts skip it',
+        'CC-2434' => 'markup-carve/carve#6853 (carve-php line): a list-table row with no cell is dropped and the counts skip it',
+        'CC-2435' => 'markup-carve/carve#6853 (carve-php line): a list-table row with no cell is dropped and the counts skip it',
     ];
 
     /**

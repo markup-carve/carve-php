@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Resolve\Facts;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Walk;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
 
 /**
  * What the renderer needs to know before it writes a byte (C2-H-102 to C2-H-110), read from a
@@ -193,8 +194,13 @@ final class RenderState
         if (is_int($jsonLength)) {
             $length = min($length, $jsonLength);
         }
-        $this->derivedBudget = max(1000000, min($length, intdiv(PHP_INT_MAX, 8)) * 8);
+        $this->derivedBudget = SnippetExpander::budgetOf($doc);
         $this->derivedRemaining = $this->derivedBudget;
+        // C2-N-094: the snippet copies drew on the budget first; the render goes on from what they left.
+        $left = SnippetExpander::budgetLeft($doc);
+        if ($left !== null) {
+            [$this->derivedBudget, $this->derivedRemaining, $this->budgetReported] = $left;
+        }
         $this->definitions();
         if ($facts !== null && $facts->doc === $doc) {
             $this->fromFacts($facts);
@@ -357,7 +363,7 @@ final class RenderState
             $i = $n++;
             $f = $node->f;
             $type = $node->type;
-            $kids = $node->children;
+            $kids = Walk::children($node);
             foreach ($f as $key => $value) {
                 if (($value instanceof Node || is_array($value) && Walk::nests($value)) && !isset(Walk::OPAQUE[$key])) {
                     $kids = Walk::kids($node);

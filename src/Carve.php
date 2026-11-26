@@ -52,6 +52,7 @@ use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Slug;
 use MarkupCarve\Carve\Resolve\TableGrid;
 use MarkupCarve\Carve\Resolve\Walk;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
 use MarkupCarve\Carve\Writer\Writer;
 use MarkupCarve\Carve\Writer\WriteResult;
 use Throwable;
@@ -209,11 +210,14 @@ final class Carve
         $transformEntries = [];
         $findingsRoot = $doc;
         if ($transforms !== []) {
+            SnippetExpander::markDefinitions($doc);
             [$view, $transformEntries] = self::transformWithoutCollector($doc, $opts, $transforms);
             // The parse findings name nodes of the resolved document, which a transformed view does not hold.
             $findingsRoot = $view ?? new Node('document');
             if ($view !== null) {
+                SnippetExpander::carry($doc, $view);
                 $doc = $view;
+                SnippetExpander::refuseTransformed($doc);
                 $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             }
         }
@@ -465,6 +469,9 @@ final class Carve
                     static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
                 );
             }
+            if ($keep) {
+                SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === [] ? $source : null);
+            }
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
             // Only an abbreviation of the parse or a node of an extension can carry an expansion.
             if (!$keep && ($opts->extensions !== [] || Finisher::$abbreviations !== $abbreviations)) {
@@ -603,6 +610,7 @@ final class Carve
                     static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
                 );
             }
+            SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === [] ? $source : null);
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
@@ -1253,10 +1261,11 @@ final class Carve
      *
      * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree
      * @param \MarkupCarve\Carve\Options $opts
+     * @param bool $expand Run the snippet expansion (C2-N-091); the editor bridge keeps the authored uses.
      *
      * @return array{0: \MarkupCarve\Carve\Node, 1: string|null, 2: \MarkupCarve\Carve\Resolve\Facts|null}
      */
-    private static function resolvedTree(Node|array $tree, Options $opts): array
+    private static function resolvedTree(Node|array $tree, Options $opts, bool $expand = true): array
     {
         $source = $tree instanceof Node ? self::sourceOf($tree) : null;
         $doc = $source !== null ? Extensions::copy($tree) : self::readTree($tree, self::readerExtensions($opts->extensions));
@@ -1265,6 +1274,10 @@ final class Carve
         }
         $gc = self::collectorOff();
         try {
+            // A tree may have changed since its parse, so its source tells nothing about its uses.
+            if ($expand) {
+                SnippetExpander::expand($doc, $opts->roundtrip);
+            }
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
         } finally {
             if ($gc) {

@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Block;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\Utf8;
 
 /**
@@ -1942,6 +1943,9 @@ final class BlockParser
      */
     private function openBrace(int $j): bool
     {
+        if ($this->atDefinitionColumn($j) && $this->openSnippetDefinition($j)) {
+            return true;
+        }
         $attrs = new Attrs();
         $top = count($this->stack) - 1;
         if (LineShapes::attributeLine($this->s, $j, $this->le, $attrs)) {
@@ -1965,6 +1969,16 @@ final class BlockParser
 
             return true;
         }
+        // C2-B-237: a block snippet use is tested before the include directive.
+        if (Syntax::isBlockUse($this->s, $j, $this->le)) {
+            $f = new Frame(Frame::SNIPPET_USE, $j);
+            $f->value = Syntax::useName($this->s, $j);
+            $f->end = $this->le;
+            $this->take($f);
+            $this->emitLeaf($f);
+
+            return true;
+        }
         $inc = IncludeShape::parse($this->s, $j, $this->le);
         if ($inc === null) {
             return false;
@@ -1973,6 +1987,35 @@ final class BlockParser
         $f->include = $inc;
         $f->end = $this->le;
         $this->take($f);
+        $this->emitLeaf($f);
+
+        return true;
+    }
+
+    /**
+     * C2-B-236: a snippet definition, a block of one line at column 0 outside every container.
+     *
+     * @param int $j
+     *
+     * @return bool
+     */
+    private function openSnippetDefinition(int $j): bool
+    {
+        $attrs = new Attrs();
+        $marker = Syntax::marker($this->s, $j, $this->le, $attrs);
+        $value = Syntax::valueStart($this->s, $this->le, $marker);
+        if ($marker === null || $value < 0) {
+            return false;
+        }
+        $f = new Frame(Frame::SNIPPET_DEF, $j);
+        $f->value = substr($this->s, $marker[0], $marker[1] - $marker[0]);
+        $f->spans = [$value, $this->le];
+        $f->end = $this->le;
+        $this->take($f);
+        if (!$attrs->isEmpty()) {
+            $f->attrs ??= new Attrs();
+            $f->attrs->merge($attrs);
+        }
         $this->emitLeaf($f);
 
         return true;

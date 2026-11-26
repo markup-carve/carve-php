@@ -21,14 +21,6 @@ final class LintClauseTest extends TestCase
      */
     private const KNOWN_FAIL = [
         'CC-2241' => 'markup-carve/carve#6838: lint-model.json still excludes pipe tables from the header-rows clamp',
-        'CC-2359' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2361' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2362' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2363' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2364' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2385' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2386' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2387' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
     ];
 
     /**

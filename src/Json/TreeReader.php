@@ -51,6 +51,28 @@ final class TreeReader
     public const INLINE = TreeDepth::INLINE;
 
     /**
+     * The nodes whose `children` hold blocks (C2-A-221).
+     *
+     * @var array<string, true>
+     */
+    private const BLOCK_CHILDREN = [
+        'document' => true,
+        'include' => true,
+        'admonition' => true,
+        'block_extension' => true,
+        'block_quote' => true,
+        'caption' => true,
+        'definition_description' => true,
+        'directive' => true,
+        'div' => true,
+        'figure_group' => true,
+        'footnote' => true,
+        'list_item' => true,
+        'section' => true,
+        'table_cell' => true,
+    ];
+
+    /**
      * Node fields whose values are not walked for child nodes.
      *
      * @var array<string, true>
@@ -466,9 +488,86 @@ final class TreeReader
             self::smartPunctuation($node, $path);
         } elseif ($type === 'table_cell') {
             self::cellChildren($node, $path);
+        } elseif ($type === 'snippet_definition') {
+            self::snippetDefinition($node, $path);
         }
+        self::nodeListModes($node, $path, $type);
         if (in_array($node->type ?? '', ['block_extension', 'inline_extension'], true)) {
             self::extension($node, $path, $declared);
+        }
+    }
+
+    /**
+     * C2-A-220: a snippet definition holds no id, and its value is never empty.
+     *
+     * @param \stdClass $node
+     * @param string $path
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     */
+    private static function snippetDefinition(stdClass $node, string $path): void
+    {
+        if (isset($node->attrs) && $node->attrs instanceof stdClass && property_exists($node->attrs, 'id')) {
+            throw new TreeError('snippet-definition-id', $path . '/attrs/id');
+        }
+        if (isset($node->children) && $node->children === []) {
+            throw new TreeError('snippet-definition-empty', $path . '/children');
+        }
+    }
+
+    /**
+     * C2-A-221: the snippet uses of every node list of `$node`.
+     *
+     * @param \stdClass $node
+     * @param string $path
+     * @param string $type
+     */
+    private static function nodeListModes(stdClass $node, string $path, string $type): void
+    {
+        foreach (get_object_vars($node) as $key => $value) {
+            if (is_array($value) && !isset(self::OPAQUE_FIELDS[$key])) {
+                self::useModes($value, $path . '/' . self::escape($key), self::holdsBlocks($type, $key));
+            }
+        }
+        // An inline extension's slots hold inline nodes; a block extension's slots follow its declaration.
+        if ($type === 'inline_extension' && isset($node->slots) && $node->slots instanceof stdClass) {
+            foreach (get_object_vars($node->slots) as $name => $slot) {
+                if (is_array($slot)) {
+                    self::useModes($slot, $path . '/slots/' . self::escape((string)$name), false);
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether the list `$key` of a node of `$type` holds blocks; every other node list holds inline nodes.
+     */
+    private static function holdsBlocks(string $type, string $key): bool
+    {
+        return match ($key) {
+            'children' => isset(self::BLOCK_CHILDREN[$type]),
+            'longDescription' => true,
+            'fallback' => $type === 'block_extension',
+            default => false,
+        };
+    }
+
+    /**
+     * C2-A-221: the mode of a snippet use matches the list that holds it.
+     *
+     * @param array<mixed> $list
+     * @param string $path
+     * @param bool $blocks
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     */
+    private static function useModes(array $list, string $path, bool $blocks): void
+    {
+        foreach ($list as $i => $child) {
+            $mode = $child instanceof stdClass && ($child->type ?? null) === 'snippet_use' ? $child->mode ?? null : false;
+            if ($mode !== false && $mode !== ($blocks ? 'block' : 'inline')) {
+                throw new TreeError('snippet-use-mode-mismatch', $path . '/' . $i . '/mode');
+            }
         }
     }
 

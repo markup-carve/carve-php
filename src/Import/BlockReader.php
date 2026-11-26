@@ -202,6 +202,10 @@ final class BlockReader
      */
     private function element(HtmlNode $node): array
     {
+        $use = Snippets::block($node, $this->context);
+        if ($use !== null) {
+            return $use;
+        }
         $treated = $this->treated($node);
         if ($treated !== null) {
             return $treated;
@@ -239,8 +243,9 @@ final class BlockReader
             return [];
         }
         if ($kind === 'raw' || Elements::isRawSpan($node)) {
-            if ($node->has('data-carve-abbreviations')) {
-                $this->context->ignoredCarrier($node, 'data-carve-abbreviations', 'a template is read only at the top level of the flow');
+            $carrier = Templates::carrierOf($node);
+            if ($carrier !== null) {
+                $this->context->ignoredCarrier($node, $carrier, 'a template is read only at the top level of the flow');
             }
 
             return Elements::keepsRaw($node, $this->context) ? [self::rawBlock($node)] : [];

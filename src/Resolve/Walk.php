@@ -41,6 +41,10 @@ final class Walk
      */
     public static function kids(Node $node): array
     {
+        // C2-N-090: a snippet definition renders nothing, and its notes take no number.
+        if ($node->type === 'snippet_definition') {
+            return [];
+        }
         if (isset($node->f['fallback']) && ($node->type === 'block_extension' || $node->type === 'inline_extension')) {
             return self::extensionView($node);
         }
@@ -64,6 +68,18 @@ final class Walk
         }
 
         return $out;
+    }
+
+    /**
+     * The `children` a walk enters: none of a snippet definition, which renders nothing (C2-N-090).
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return array<\MarkupCarve\Carve\Node>|null
+     */
+    public static function children(Node $node): ?array
+    {
+        return $node->type === 'snippet_definition' ? null : $node->children;
     }
 
     /**

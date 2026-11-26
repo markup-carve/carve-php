@@ -9,8 +9,10 @@ use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
 use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Include\Selection;
+use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Options;
+use MarkupCarve\Carve\Snippet\Expander;
 
 /**
  * C2-N-085 to C2-N-087: every Carve include the expansion accepted is linted over the source it parsed; each finding names
@@ -44,22 +46,58 @@ final class Includes
      * @param string $source
      * @param mixed $includes
      * @param array<string, mixed> $options
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $own The findings of the source itself, reconciled with the expansion.
      *
      * @return array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
      */
-    public static function lint(string $source, mixed $includes, array $options): array
+    public static function lint(string $source, mixed $includes, array $options, array $own = []): array
     {
         $visit = new self($options);
         $config = $visit->recording($includes);
         $parseOptions = ['includes' => $config] + array_intersect_key($options, ['extensions' => true, 'headingIds' => true]);
         $parsed = Carve::parseWithDiagnostics($source, $parseOptions);
+        $losing = self::losingSnippets($parsed->tree, $parsed->diagnostics);
+        $used = Snippets::usedNames($parsed->tree);
         $tree = json_decode(Carve::encodeTree($parsed->tree), true, 4096, JSON_THROW_ON_ERROR);
         $visit->out = $parsed->diagnostics;
         if (is_array($tree)) {
             $visit->walk(Support::node($tree), '');
         }
+        // C2-N-096: a definition one file of the expansion uses is used, and one that loses to an earlier one takes no hint.
+        $kept = static function (Diagnostic $entry) use ($losing, $used): bool {
+            if ($entry->code !== 'unused-snippet') {
+                return true;
+            }
+            preg_match('/"\$([^"]+)"/', $entry->message, $name);
 
-        return $visit->out;
+            return !isset($losing[($entry->file ?? '') . "\0" . $entry->startOffset]) && !isset($used[$name[1] ?? '']);
+        };
+
+        return [...array_filter($own, $kept), ...array_filter($visit->out, $kept)];
+    }
+
+    /**
+     * C2-N-090: the file and offset of the `$` of each definition of the expanded tree that loses to an earlier one of
+     * its name. A file included twice repeats its definitions at one offset; the winning one stays out.
+     *
+     * @param \MarkupCarve\Carve\Node $tree
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics
+     *
+     * @return array<string, true>
+     */
+    private static function losingSnippets(Node $tree, array $diagnostics): array
+    {
+        $losing = [];
+        foreach ($diagnostics as $entry) {
+            if ($entry->code === 'duplicate-snippet') {
+                $losing[($entry->file ?? '') . "\0" . $entry->startOffset] = true;
+            }
+        }
+        foreach (Expander::registry($tree) as [$definition]) {
+            unset($losing[($definition->file ?? '') . "\0" . ($definition->start + 1)]);
+        }
+
+        return $losing;
     }
 
     /**
@@ -229,7 +267,11 @@ final class Includes
         foreach (Support::kids($node) as $child) {
             $pos = Support::pos($child);
             $type = $child['type'] ?? '';
-            $definition = in_array($type, ['link_reference_definition', 'footnote', 'abbreviation_def', 'citation_definition'], true);
+            $definition = in_array(
+                $type,
+                ['link_reference_definition', 'footnote', 'abbreviation_def', 'citation_definition', 'snippet_definition'],
+                true,
+            );
             if ($pos === null || $definition) {
                 continue;
             }

@@ -53,6 +53,10 @@ final class AttrWriter
         'data-carve-div' => true,
         'data-carve-line-block' => true,
         'data-carve-src' => true,
+        'data-carve-snippet' => true,
+        'data-carve-snippet-mark' => true,
+        'data-carve-snippet-scope' => true,
+        'data-carve-snippets' => true,
     ];
 
     /**

@@ -72,7 +72,7 @@ final class ProseMirrorRenderer
             throw new InvalidArgumentException('ProseMirrorRenderer expects a Carve document tree');
         }
         // A copy, resolved as `Carve::render()` resolves its input (C2-T-005).
-        $resolve = Closure::bind(static fn (Node|array $t, Options $o): array => Carve::resolvedTree($t, $o), null, Carve::class);
+        $resolve = Closure::bind(static fn (Node|array $t, Options $o): array => Carve::resolvedTree($t, $o, false), null, Carve::class);
         [$doc] = $resolve($tree, Options::from([]));
         $tree = Kit::map(Kit::decode(Carve::encodeTree($doc)));
         if (($tree['type'] ?? null) !== 'document') {

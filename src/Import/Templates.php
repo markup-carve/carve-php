@@ -24,11 +24,14 @@ final class Templates
             if (!$node->isElement() || $node->foreign) {
                 continue;
             }
-            if ($node->name === 'template' && $node->has('data-carve-abbreviations')) {
-                $found = self::read($node, $context) ?? [];
+            $carrier = $node->name === 'template' ? self::carrierOf($node) : null;
+            if ($carrier !== null) {
+                $found = self::read($node, $context, $carrier) ?? [];
                 $context->templates[$node] = $found;
                 foreach ($found as $definition) {
-                    $context->abbreviations[J::str($definition, 'key')] ??= $definition;
+                    if ($definition['type'] === 'abbreviation_def') {
+                        $context->abbreviations[J::str($definition, 'key')] ??= $definition;
+                    }
                 }
             } elseif (in_array($node->name, ['section', 'html', 'body'], true) && !Notes::isSection($node)) {
                 self::collect($node->children, $context);
@@ -37,14 +40,27 @@ final class Templates
     }
 
     /**
+     * The carrier a template holds: the abbreviation or, C2-H-216, the snippet template.
+     */
+    public static function carrierOf(HtmlNode $node): ?string
+    {
+        if ($node->has('data-carve-abbreviations')) {
+            return 'data-carve-abbreviations';
+        }
+
+        return $node->has('data-carve-snippets') ? 'data-carve-snippets' : null;
+    }
+
+    /**
      * @return array<array<string, mixed>>|null
      */
-    private static function read(HtmlNode $node, ImportContext $context): ?array
+    private static function read(HtmlNode $node, ImportContext $context, string $carrier): ?array
     {
+        $type = $carrier === 'data-carve-snippets' ? 'snippet_definition' : 'abbreviation_def';
         $text = '';
         foreach ($node->content ?? [] as $child) {
             if (!$child->isText()) {
-                $context->ignoredCarrier($node, 'data-carve-abbreviations', 'the template holds markup');
+                $context->ignoredCarrier($node, $carrier, 'the template holds markup');
 
                 return null;
             }
@@ -53,7 +69,7 @@ final class Templates
         $tree = json_decode(Carve::toJson($text), true, 4096, JSON_THROW_ON_ERROR);
         $out = [];
         foreach (J::nodes(is_array($tree) ? $tree : []) as $child) {
-            if ($child['type'] !== 'abbreviation_def') {
+            if ($child['type'] !== $type) {
                 $out = [];
 
                 break;
@@ -61,9 +77,12 @@ final class Templates
             $out[] = self::withoutPositions($child);
         }
         if ($out === []) {
-            $context->ignoredCarrier($node, 'data-carve-abbreviations', 'the template holds more than definitions');
+            $context->ignoredCarrier($node, $carrier, 'the template holds more than definitions');
 
             return null;
+        }
+        if ($carrier === 'data-carve-snippets') {
+            Snippets::scope($node, $context);
         }
 
         return $out;

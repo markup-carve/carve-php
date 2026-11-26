@@ -121,6 +121,10 @@ final class CoreLayout
         if ($len === 0 || strspn($source, $fenced ? self::FENCED_SOURCE_BYTES : self::SOURCE_BYTES) !== $len) {
             return null;
         }
+        // C2-N-091: a snippet needs the expansion pass.
+        if ($fenced && (str_contains($source, '{{') || str_contains($source, '{$'))) {
+            return null;
+        }
         $defs = [];
         if (str_contains($source, ']: ')) {
             $defs = self::definitions($source);
