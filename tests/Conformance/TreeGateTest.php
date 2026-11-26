@@ -26,7 +26,7 @@ final class TreeGateTest extends TestCase
      * @var array<string, string>
      */
     private const SIBLING_CONFLICT = [
-        'CC-2373' => 'C2-N-020 appends the unselected definitions of a line selection with their file positions, '
+        'CC-2373' => 'markup-carve/carve#6866: C2-N-020 appends the unselected definitions of a line selection with their file positions, '
             . 'which C2-A-145 does not exempt',
     ];
 
