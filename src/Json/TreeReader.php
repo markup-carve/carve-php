@@ -491,11 +491,7 @@ final class TreeReader
         } elseif ($type === 'snippet_definition') {
             self::snippetDefinition($node, $path);
         }
-        foreach (get_object_vars($node) as $key => $value) {
-            if (is_array($value) && !isset(self::OPAQUE_FIELDS[$key])) {
-                self::useModes($value, $path . '/' . self::escape($key), self::holdsBlocks($type, $key));
-            }
-        }
+        self::nodeListModes($node, $path, $type);
         if (in_array($node->type ?? '', ['block_extension', 'inline_extension'], true)) {
             self::extension($node, $path, $declared);
         }
@@ -516,6 +512,30 @@ final class TreeReader
         }
         if (isset($node->children) && $node->children === []) {
             throw new TreeError('snippet-definition-empty', $path . '/children');
+        }
+    }
+
+    /**
+     * C2-A-221: the snippet uses of every node list of `$node`.
+     *
+     * @param \stdClass $node
+     * @param string $path
+     * @param string $type
+     */
+    private static function nodeListModes(stdClass $node, string $path, string $type): void
+    {
+        foreach (get_object_vars($node) as $key => $value) {
+            if (is_array($value) && !isset(self::OPAQUE_FIELDS[$key])) {
+                self::useModes($value, $path . '/' . self::escape($key), self::holdsBlocks($type, $key));
+            }
+        }
+        // An inline extension's slots hold inline nodes; a block extension's slots follow its declaration.
+        if ($type === 'inline_extension' && isset($node->slots) && $node->slots instanceof stdClass) {
+            foreach (get_object_vars($node->slots) as $name => $slot) {
+                if (is_array($slot)) {
+                    self::useModes($slot, $path . '/slots/' . self::escape((string)$name), false);
+                }
+            }
         }
     }
 

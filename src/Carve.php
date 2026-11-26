@@ -470,7 +470,7 @@ final class Carve
                 );
             }
             if ($keep) {
-                SnippetExpander::expand($doc, $opts->roundtrip, $source);
+                SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === [] ? $source : null);
             }
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
             // Only an abbreviation of the parse or a node of an extension can carry an expansion.
@@ -610,7 +610,7 @@ final class Carve
                     static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
                 );
             }
-            SnippetExpander::expand($doc, $opts->roundtrip, $source);
+            SnippetExpander::expand($doc, $opts->roundtrip, $opts->extensions === [] ? $source : null);
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
