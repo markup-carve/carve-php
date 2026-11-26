@@ -178,6 +178,9 @@ final class InlineCarriers
         if (!self::isNoteRef($node)) {
             return null;
         }
+        if (Snippets::droppedMark($node, $this->context)) {
+            return [];
+        }
         $href = $node->attr('href') ?? '';
         $note = $this->context->notes[str_starts_with($href, '#') ? substr($href, 1) : $href] ?? null;
         $label = $node->attr('data-carve-footnote-label');

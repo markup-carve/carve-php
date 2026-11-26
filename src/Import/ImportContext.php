@@ -45,6 +45,13 @@ final class ImportContext
     public SplObjectStorage $templates;
 
     /**
+     * C2-H-217: the ordinals of the accepted snippet carriers.
+     *
+     * @var array<string, true>
+     */
+    public array $snippetOrdinals = [];
+
+    /**
      * C2-H-191: one rebuilt definition per reference key.
      *
      * @var array<string, array<string, mixed>>

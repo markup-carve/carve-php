@@ -156,6 +156,10 @@ final class InlineReader
      */
     private function element(HtmlNode $node): array
     {
+        $use = Snippets::inline($node, $this->context);
+        if ($use !== null) {
+            return $use;
+        }
         $own = $this->carriers->read($node);
         if ($own !== null) {
             return $own;
