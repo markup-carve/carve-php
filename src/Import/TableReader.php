@@ -69,6 +69,9 @@ final class TableReader
             $out['caption'] = $this->blocks->caption($captions[0]);
         }
         $out += Attrs::of($node);
+        if ($this->context->listTable && ListTableImport::wants($out)) {
+            return ListTableImport::convert($out, $node, $this->context);
+        }
 
         return Alignments::resolve($out);
     }

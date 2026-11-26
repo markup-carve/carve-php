@@ -112,7 +112,7 @@ vendor/bin/carve diagnostics FILE...        diagnostics
 vendor/bin/carve lint FILE...               lint findings
 vendor/bin/carve fmt FILE...                canonical form (alias: format)
     --check  --diff  --write|-w  --normalize  --align-tables  --from-ast
-vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] [--adapter=NAME] FILE...
+vendor/bin/carve import --from=html|markdown|gfm|djot [--raw-html] [--list-table] [--adapter=NAME] FILE...
 vendor/bin/carve import --from gfm --directory SRC --output DST
 ```
 

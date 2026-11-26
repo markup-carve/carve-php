@@ -61,6 +61,9 @@ final class HubImporter
         if (($options['adapter'] ?? 'generic') !== 'generic') {
             throw new OptionError('option adapter: HTML only');
         }
+        if (($options['listTable'] ?? false) === true) {
+            throw new OptionError('option listTable: HTML only');
+        }
         self::requireLibrary($format);
         $sink = new Sink();
         try {

@@ -63,6 +63,11 @@ final class ImportContext
     public ?string $rootDir = null;
 
     /**
+     * C2-M-112: a table with a cell of blocks becomes a list table.
+     */
+    public bool $listTable = false;
+
+    /**
      * @param bool $rawHtml
      * @param array<string, string> $labels
      */

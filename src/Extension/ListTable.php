@@ -142,7 +142,8 @@ final class ListTable
         if (count($inlines) !== 1 || $inlines[0]->type !== 'text') {
             return null;
         }
-        $value = trim(PlainText::str($inlines[0]->f['value'] ?? ''));
+        // C2-X-076: only a text node is a mark; a literal-text span `!`<`` is a cell holding `<`.
+        $value = PlainText::str($inlines[0]->f['value'] ?? '');
 
         return $value === '^' || $value === '<' ? $value : null;
     }
@@ -273,7 +274,9 @@ final class ListTable
             $current = [];
             $sameGroup = $row > 0 && $groups[$row] === $groups[$row - 1];
             foreach ($cells as $col => $cell) {
-                $current[$col] = self::merge($cell, $current[$col - 1] ?? null, $above[$col] ?? null, $sameGroup);
+                // C2-X-076: a `<` whose left cell a row span covers from above joins nothing.
+                $covered = $col > 0 && $cells[$col - 1]->marker === '^' && $current[$col - 1] !== $cells[$col - 1];
+                $current[$col] = self::merge($cell, $covered ? null : $current[$col - 1] ?? null, $above[$col] ?? null, $sameGroup);
             }
             $above = $current;
         }
@@ -281,7 +284,7 @@ final class ListTable
 
     private static function merge(ListTableCell $cell, ?ListTableCell $left, ?ListTableCell $up, bool $sameGroup): ListTableCell
     {
-        if ($cell->marker === '<' && $left !== null && $left !== $up) {
+        if ($cell->marker === '<' && $left !== null) {
             $cell->skip = true;
             $left->colspan++;
 
