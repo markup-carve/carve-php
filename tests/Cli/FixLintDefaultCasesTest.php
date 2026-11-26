@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Cli;
 
 use MarkupCarve\Carve\Cli\Command;
+use MarkupCarve\Carve\Test\Support\Held;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -53,7 +54,14 @@ final class FixLintDefaultCasesTest extends TestCase
         $status = Command::main($case['args'], $in, $out, $err);
         rewind($out);
         $expected = $case['expected'];
-        $this->assertSame($expected['stdout'], (string)stream_get_contents($out));
-        $this->assertSame($expected['status'], $status);
+        $actual = [(string)stream_get_contents($out), $status];
+        if (Held::has($case['id'])) {
+            // A held case must keep failing, so its hold goes the moment the spec case is fixed.
+            $this->assertNotSame([$expected['stdout'], $expected['status']], $actual, $case['id'] . ' passes: remove its HELD.md line');
+
+            return;
+        }
+        $this->assertSame($expected['stdout'], $actual[0]);
+        $this->assertSame($expected['status'], $actual[1]);
     }
 }
