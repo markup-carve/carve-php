@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Test\Support\HeldRefusedTrees;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -37,10 +38,22 @@ final class TreeReaderTest extends TestCase
         $data = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/spec/trees/refused.json'), true);
         $out = [];
         foreach ($data['trees'] as $entry) {
-            $out[$entry['id']] = [json_encode($entry['tree'], JSON_THROW_ON_ERROR)];
+            if (!isset(HeldRefusedTrees::IDS[$entry['id']])) {
+                $out[$entry['id']] = [json_encode($entry['tree'], JSON_THROW_ON_ERROR)];
+            }
         }
 
         return $out;
+    }
+
+    public function testHeldRefusedTreesAreStillAccepted(): void
+    {
+        $data = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/spec/trees/refused.json'), true);
+        foreach ($data['trees'] as $entry) {
+            if (isset(HeldRefusedTrees::IDS[$entry['id']])) {
+                HeldRefusedTrees::assertStillAccepted($entry['id'], $entry['tree']);
+            }
+        }
     }
 
     #[DataProvider('accepted')]

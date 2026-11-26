@@ -22,6 +22,14 @@ final class LintClauseTest extends TestCase
     private const KNOWN_FAIL = [
         'CC-2241' => 'markup-carve/carve#6663 (carve-php line): header-rows larger than the rows of a pipe table',
         'CC-2247' => 'markup-carve/carve#6664 (carve-php line): an empty body-rows footer count is not clamped',
+        'CC-2359' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2361' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2362' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2363' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2364' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2385' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2386' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2387' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
     ];
 
     /**
@@ -84,6 +92,11 @@ final class LintClauseTest extends TestCase
             array_flip(['rules', 'platforms', 'upgrade', 'includes', 'extensions', 'headingIds']),
         );
         $actual = Carve::lint($source, $options);
+        foreach ($actual as $diagnostic) {
+            if ($diagnostic->file !== null) {
+                $this->assertNotEmpty($diagnostic->includedBy, $case['id'] . ': ' . $diagnostic->code . ' has no includedBy (C2-T-020)');
+            }
+        }
         $this->assertDiagnostics($case, $source, $expected, $actual);
     }
 
@@ -144,8 +157,35 @@ final class LintClauseTest extends TestCase
         if (isset($entry['message']) && $d->message !== $entry['message']) {
             return false;
         }
+        if (isset($entry['includedBy']) && self::includeSites($d, $case, $source) !== $entry['includedBy']) {
+            return false;
+        }
 
         return self::catalogMessage($d->code, $d->message, $entry['messageWhen'] ?? null);
+    }
+
+    /**
+     * C2-T-020: the include chain as a conformance case states it, each site with its file and its line and column.
+     *
+     * @param \MarkupCarve\Carve\Diagnostics\Diagnostic $d
+     * @param array<string, mixed> $case
+     * @param string $source
+     *
+     * @return array<array<string, int|string>>|null
+     */
+    private static function includeSites(Diagnostic $d, array $case, string $source): ?array
+    {
+        if ($d->includedBy === null) {
+            return null;
+        }
+        $sites = [];
+        foreach ($d->includedBy as $site) {
+            $text = isset($site['file']) ? ($case['files'][$site['file']]['text'] ?? '') : $source;
+            [$line, $column] = self::place($text, $site['range']['startOffset']);
+            $sites[] = (isset($site['file']) ? ['file' => $site['file']] : []) + ['line' => $line, 'column' => $column];
+        }
+
+        return $sites;
     }
 
     /**

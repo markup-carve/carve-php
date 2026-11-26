@@ -8,6 +8,9 @@ use Closure;
 use Generator;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\LineShapes;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
+use MarkupCarve\Carve\Extension\Standard;
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Resolve\PlainText;
@@ -175,6 +178,11 @@ final class DataRules
      * @var array<string, \Closure(\stdClass): mixed> The compiled key of each lookup, by site.
      */
     private array $compiledKeys = [];
+
+    /**
+     * @var array{0: mixed, 1: array<string>}|null The `extensions` option and its `id_extensions`, for the last run.
+     */
+    private ?array $idExtensions = null;
 
     private function __construct(private Context $context)
     {
@@ -2766,7 +2774,11 @@ final class DataRules
 
                 return null;
             case 'run':
-                return $arg === 'extensions' ? ($this->context->options['extensions'] ?? []) : null;
+                return match ($arg) {
+                    'extensions' => $this->context->options['extensions'] ?? [],
+                    'id_extensions' => $this->idExtensions($this->context->options['extensions'] ?? []),
+                    default => null,
+                };
             case 'attribute_line':
                 $text = self::string($this->value($arg, $record));
 
@@ -2774,6 +2786,57 @@ final class DataRules
         }
 
         return self::NONE;
+    }
+
+    /**
+     * Each name a catalog row registers, its own or that of a node it brings, with whether it counts as marked `ids`.
+     *
+     * @return array<string, bool>
+     */
+    private static function catalogNames(): array
+    {
+        static $names = null;
+        if ($names === null) {
+            // A row's own mark wins over that of a row that also registers it (`carve.term` beside `carve.glossary`).
+            $names = Tables::EXTENSION_ROWS;
+            foreach (Tables::EXTENSION_ROWS as $row => $ids) {
+                foreach (Standard::definitions($row) ?? [] as $definition) {
+                    if (!isset(Tables::EXTENSION_ROWS[$definition->name])) {
+                        $names[$definition->name] = ($names[$definition->name] ?? false) || $ids;
+                    }
+                }
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * C2-X-079: the registered extensions that generate ids. A catalog row counts where it is marked `ids`; a
+     * definition whose name no catalog row registers is a host extension and counts too.
+     *
+     * @param mixed $extensions
+     *
+     * @return array<string>
+     */
+    private function idExtensions(mixed $extensions): array
+    {
+        if ($this->idExtensions !== null && $this->idExtensions[0] === $extensions) {
+            return $this->idExtensions[1];
+        }
+        $out = [];
+        foreach (is_array($extensions) ? $extensions : [] as $item) {
+            $name = is_string($item) ? $item : ($item instanceof ExtensionDefinition ? $item->name : null);
+            if ($name === null) {
+                continue;
+            }
+            if (self::catalogNames()[$name] ?? true) {
+                $out[] = $name;
+            }
+        }
+        $this->idExtensions = [$extensions, $out];
+
+        return $out;
     }
 
     /**

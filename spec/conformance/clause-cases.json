@@ -49844,7 +49844,7 @@
     "C2-B-202",
     "C2-N-089"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-201: An include directive is `{{`, one or more spaces, a path, an optional section, zero or more options, one or more spaces and `}}`, with only spaces and tabs after it on the line. C2-B-202: An empty path in any form makes the line text (`empty-include-path`). C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-201: An include directive is `{{`, one or more spaces, a path, an optional section, zero or more options, one or more spaces and `}}`, with only spaces and tabs after it on the line. C2-B-202: An empty path in any form makes the line text (`empty-include-path`). C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`.",
    "summary": "an include brace pair with only a section after a space is reserved, not an empty path",
    "kind": "lint",
    "input": "{{ #a }}\n",
@@ -84793,7 +84793,7 @@
     "C2-W-106",
     "C2-N-089"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`.",
    "summary": "a section-only directive inside a sentence is reported as reserved",
    "kind": "lint",
    "input": "a {{ #dj }} b\n",
@@ -84818,7 +84818,7 @@
     "C2-N-089",
     "C2-B-202"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`. C2-B-202: An empty path in any form makes the line text (`empty-include-path`).",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`. C2-B-202: An empty path in any form makes the line text (`empty-include-path`).",
    "summary": "a section-only directive with an option is no reserved shape, so empty-include-path reports it",
    "kind": "lint",
    "input": "{{ #dj @shift:1 }}\n",
@@ -84842,7 +84842,7 @@
     "C2-W-106",
     "C2-N-089"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`.",
    "summary": "a section-only directive in a heading, a list item and a table row is reported in each",
    "kind": "lint",
    "input": "# {{ #a }}\n\n- {{ #b }}\n\n| {{ #c }} |\n",
@@ -84880,7 +84880,7 @@
     "C2-W-106",
     "C2-N-089"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`.",
    "summary": "an escaped opening brace keeps a section-only directive unreported",
    "kind": "lint",
    "input": "\\{{ #dj }}\n",
@@ -84899,7 +84899,7 @@
     "C2-W-106",
     "C2-N-089"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`.",
    "summary": "a section-only directive in a code span is not reported",
    "kind": "lint",
    "input": "`{{ #dj }}`\n",
@@ -84920,7 +84920,7 @@
     "C2-B-201",
     "C2-B-202"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`. C2-B-202: An empty path in any form makes the line text (`empty-include-path`).",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`. C2-B-202: An empty path in any form makes the line text (`empty-include-path`).",
    "summary": "a tab after the opening braces is no reserved shape, so empty-include-path reports it",
    "kind": "lint",
    "input": "{{\t#dj }}\n",
@@ -84946,7 +84946,7 @@
     "C2-B-202",
     "C2-B-203"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... `reserved-syntax` reports it in place of `empty-include-path`. C2-B-202: An empty path in any form makes the line text (`empty-include-path`).",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... `reserved-syntax` reports it in place of `empty-include-path`. C2-B-202: An empty path in any form makes the line text (`empty-include-path`).",
    "summary": "a section that is no section name is no reserved shape, so empty-include-path reports it",
    "kind": "lint",
    "input": "{{ #a.b }}\n",
@@ -84970,20 +84970,14 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release ... `reserved-syntax` reports it when it is the first line of a paragraph.",
-   "summary": "a line that starts with a braced id and a colon is reported as reserved",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
+   "summary": "a line that starts with a braced id and a colon is text with no finding",
    "kind": "lint",
    "input": "{#dj}: [The Djot Language](https://github.com/jgm/djot)\n",
    "options": {},
    "expected": {
-    "diagnostics": [
-     {
-      "code": "reserved-syntax",
-      "line": 1,
-      "column": 1,
-      "channel": "lint",
-      "severity": "warning"
-     }
+    "notReported": [
+     "reserved-syntax"
     ]
    },
    "from": []
@@ -84995,7 +84989,7 @@
     "C2-B-236",
     "C2-B-090"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release ... `reserved-syntax` reports it when it is the first line of a paragraph.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
    "summary": "a braced id alone on its line is an attribute line and is not reported",
    "kind": "lint",
    "input": "{#dj}\n[x](u)\n",
@@ -85013,7 +85007,7 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release ... `reserved-syntax` reports it when it is the first line of a paragraph.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
    "summary": "an escaped opening brace keeps a definition-shaped line unreported",
    "kind": "lint",
    "input": "\\{#dj}: x\n",
@@ -85032,7 +85026,7 @@
     "C2-B-236",
     "C2-B-081"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release ... `reserved-syntax` reports it when it is the first line of a paragraph.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
    "summary": "a definition-shaped line inside a list item is not reported",
    "kind": "lint",
    "input": "- {#dj}: x\n",
@@ -85050,7 +85044,7 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release ... `reserved-syntax` reports it when it is the first line of a paragraph.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
    "summary": "a definition-shaped line that continues a paragraph is not reported",
    "kind": "lint",
    "input": "text\n{#dj}: x\n",
@@ -85068,7 +85062,7 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release ... `reserved-syntax` reports it when it is the first line of a paragraph.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
    "summary": "a braced id and a colon with no content is not reported",
    "kind": "lint",
    "input": "{#dj}:\n",
@@ -85087,20 +85081,14 @@
     "C2-B-236",
     "C2-B-090"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release ... `reserved-syntax` reports it when it is the first line of a paragraph.",
-   "summary": "a definition-shaped line below an attribute line is the first line of its paragraph and is reported",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
+   "summary": "a definition-shaped line below an attribute line is the first line of its paragraph and is text with no finding",
    "kind": "lint",
    "input": "{.c}\n{#dj}: x\n",
    "options": {},
    "expected": {
-    "diagnostics": [
-     {
-      "code": "reserved-syntax",
-      "line": 2,
-      "column": 1,
-      "channel": "lint",
-      "severity": "warning"
-     }
+    "notReported": [
+     "reserved-syntax"
     ]
    },
    "from": []
@@ -85111,7 +85099,7 @@
     "C2-W-106",
     "C2-N-089"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved for an include from the same document in a later 0.2 release ... A shape whose opening brace is escaped, or that stands in a code span or another verbatim span, is not reported.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved ... A shape whose opening brace is escaped, or that stands in a code span or another verbatim span, is not reported.",
    "summary": "an escaped backslash before a section-only directive leaves its brace unescaped, so it is reported as reserved",
    "kind": "lint",
    "input": "\\\\{{ #dj }}\n",
@@ -87925,20 +87913,14 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release. The marker is `{#`, an id of the section name shape of C2-B-203, optionally a space or tab and characters other than braces and line ends, `}`, then any number of brace groups glued to it, each `{`, characters other than braces and line ends, and `}`, and then `:`. So `{#intro}: text`, `{#intro .lead}: text` and `{#intro}{.lead}: text` are reserved, and so is `{#intro}:  text` with two spaces.",
-   "summary": "a definition line with a class after the id is reported as reserved",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
+   "summary": "a definition line with a class after the id is text with no finding",
    "kind": "lint",
    "input": "{#dj .brand}: [The Djot Language](https://github.com/jgm/djot)\n",
    "options": {},
    "expected": {
-    "diagnostics": [
-     {
-      "code": "reserved-syntax",
-      "line": 1,
-      "column": 1,
-      "channel": "lint",
-      "severity": "warning"
-     }
+    "notReported": [
+     "reserved-syntax"
     ]
    },
    "from": []
@@ -87949,20 +87931,14 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release. The marker is `{#`, an id of the section name shape of C2-B-203, optionally a space or tab and characters other than braces and line ends, `}`, then any number of brace groups glued to it, each `{`, characters other than braces and line ends, and `}`, and then `:`. So `{#intro}: text`, `{#intro .lead}: text` and `{#intro}{.lead}: text` are reserved, and so is `{#intro}:  text` with two spaces.",
-   "summary": "a definition line with a brace group glued to the id block is reported as reserved",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
+   "summary": "a definition line with a brace group glued to the id block is text with no finding",
    "kind": "lint",
    "input": "{#dj}{.brand}: [The Djot Language](https://github.com/jgm/djot)\n",
    "options": {},
    "expected": {
-    "diagnostics": [
-     {
-      "code": "reserved-syntax",
-      "line": 1,
-      "column": 1,
-      "channel": "lint",
-      "severity": "warning"
-     }
+    "notReported": [
+     "reserved-syntax"
     ]
    },
    "from": []
@@ -87973,20 +87949,14 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release. The marker is `{#`, an id of the section name shape of C2-B-203, optionally a space or tab and characters other than braces and line ends, `}`, then any number of brace groups glued to it, each `{`, characters other than braces and line ends, and `}`, and then `:`. So `{#intro}: text`, `{#intro .lead}: text` and `{#intro}{.lead}: text` are reserved, and so is `{#intro}:  text` with two spaces.",
-   "summary": "a definition line with two spaces after the colon is reported as reserved",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
+   "summary": "a definition line with two spaces after the colon is text with no finding",
    "kind": "lint",
    "input": "{#dj}:  [The Djot Language](https://github.com/jgm/djot)\n",
    "options": {},
    "expected": {
-    "diagnostics": [
-     {
-      "code": "reserved-syntax",
-      "line": 1,
-      "column": 1,
-      "channel": "lint",
-      "severity": "warning"
-     }
+    "notReported": [
+     "reserved-syntax"
     ]
    },
    "from": []
@@ -87997,7 +87967,7 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release. The marker is `{#`, an id of the section name shape of C2-B-203, optionally a space or tab and characters other than braces and line ends, `}`, then any number of brace groups glued to it, each `{`, characters other than braces and line ends, and `}`, and then `:`. ... A line whose first attribute block holds the id after another entry, as `{.lead #intro}: text`, is not reserved.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
    "summary": "an attribute block whose id is not its first entry is not reserved",
    "kind": "lint",
    "input": "{.brand #dj}: text\n",
@@ -88015,7 +87985,7 @@
     "C2-W-106",
     "C2-B-236"
    ],
-   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line at column 0 outside every container that starts with a definition marker, one or more spaces and content is reserved for a definition in a later 0.2 release. The marker is `{#`, an id of the section name shape of C2-B-203, optionally a space or tab and characters other than braces and line ends, `}`, then any number of brace groups glued to it, each `{`, characters other than braces and line ends, and `}`, and then `:`.",
+   "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: A line that starts with an id in braces and a colon, as `{#intro}: text` or `{#intro .lead}: text`, is a line of text with no finding: an id names no snippet.",
    "summary": "text between the id block and the colon makes no definition marker",
    "kind": "lint",
    "input": "{#dj} text {.x}: more\n",
@@ -92439,6 +92409,2443 @@
     "html": "<table>\n  <tbody>\n    <tr><td>a</td></tr>\n    <tr><td>b</td></tr>\n  </tbody>\n</table>"
    },
    "from": []
-  }
+  },
+ {
+  "id": "CC-2313",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A reader of JSON text takes the binary64 value nearest to each number and refuses the number, at its path, when there is no finite one or its spelling does not denote the same number as the text",
+  "summary": "2^53 + 1 in a metadata number has no binary64 value of its own and is refused",
+  "kind": "tree",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"number\",\"value\":9007199254740993}}}}",
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/metadata/fields/n/value"
+   }
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2314",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A reader of JSON text takes the binary64 value nearest to each number and refuses the number, at its path, when there is no finite one or its spelling does not denote the same number as the text",
+  "summary": "a 20-digit metadata number is refused, not rounded",
+  "kind": "tree",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"number\",\"value\":12345678901234567890}}}}",
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/metadata/fields/n/value"
+   }
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2315",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A reader of JSON text takes the binary64 value nearest to each number and refuses the number, at its path, when there is no finite one or its spelling does not denote the same number as the text",
+  "summary": "a metadata number with more digits than binary64 holds is refused, not read as 0.1",
+  "kind": "tree",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"number\",\"value\":0.10000000000000000001}}}}",
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/metadata/fields/n/value"
+   }
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2316",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A reader of JSON text takes the binary64 value nearest to each number and refuses the number, at its path, when there is no finite one or its spelling does not denote the same number as the text",
+  "summary": "a metadata number that rounds to zero is refused",
+  "kind": "tree",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"number\",\"value\":2e-324}}}}",
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/metadata/fields/n/value"
+   }
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2317",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A reader of JSON text takes the binary64 value nearest to each number and refuses the number, at its path, when there is no finite one or its spelling does not denote the same number as the text",
+  "summary": "a metadata number beyond the binary64 range is refused",
+  "kind": "tree",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"number\",\"value\":1e400}}}}",
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/metadata/fields/n/value"
+   }
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2318",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A reader of JSON text takes the binary64 value nearest to each number and refuses the number, at its path, when there is no finite one or its spelling does not denote the same number as the text",
+  "summary": "2^53 + 1 in the opaque props of an extension node is refused",
+  "kind": "tree",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"extensions\":[{\"name\":\"ex.box\",\"version\":\"1\",\"required\":false,\"slots\":[]}],\"children\":[{\"type\":\"block_extension\",\"name\":\"ex.box\",\"version\":\"1\",\"children\":[],\"fallback\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"f\"}]}],\"props\":{\"k\":9007199254740993}}]}",
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/children/0/props/k"
+   }
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2319",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A reader of JSON text takes the binary64 value nearest to each number and refuses the number, at its path, when there is no finite one or its spelling does not denote the same number as the text",
+  "summary": "2^53 + 1 as a heading level is refused",
+  "kind": "tree",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[{\"type\":\"heading\",\"level\":9007199254740993,\"children\":[{\"type\":\"text\",\"value\":\"T\"}]}]}",
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/children/0/level"
+   }
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2320",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A number in a tree, in any field and in opaque `props`, `data` and payload values, is a finite IEEE 754 binary64 value, and C2-A-217 writes it in the spelling RFC 8785 gives, the shortest that reads back as that value, with `-0` written `0`.",
+  "summary": "2^53 is a binary64 value and is written as it stands: 9007199254740992",
+  "kind": "fingerprint",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"number\",\"value\":9007199254740992}}}}",
+  "options": {},
+  "expected": {
+   "fingerprint": "sha256:5f96905d442e7e8aab1f5d6fae4d7dc9986c90d22bc195ee5e7af5e95946778a"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2321",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A number in a tree, in any field and in opaque `props`, `data` and payload values, is a finite IEEE 754 binary64 value, and C2-A-217 writes it in the spelling RFC 8785 gives, the shortest that reads back as that value, with `-0` written `0`.",
+  "summary": "-0 is written 0, so its tree has the fingerprint of the tree with 0",
+  "kind": "fingerprint",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"number\",\"value\":-0}}}}",
+  "options": {},
+  "expected": {
+   "fingerprint": "sha256:5c90710c93f6e56324f47aa45d3c961f7bc665899a880f6493efca7a7f28e962"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2322",
+  "clauses": [
+   "C2-A-219"
+  ],
+  "why": "C2-A-219: A number in a tree, in any field and in opaque `props`, `data` and payload values, is a finite IEEE 754 binary64 value, and C2-A-217 writes it in the spelling RFC 8785 gives, the shortest that reads back as that value, with `-0` written `0`.",
+  "summary": "1.0, 1E2, 0.1, 1e21, 1e-7, 5e-324 and -1.5E-7 are written 1, 100, 0.1, 1e+21, 1e-7, 5e-324 and -1.5e-7",
+  "kind": "fingerprint",
+  "json": "{\"type\":\"document\",\"astVersion\":\"2.0\",\"children\":[],\"metadata\":{\"fields\":{\"n\":{\"kind\":\"list\",\"value\":[{\"kind\":\"number\",\"value\":1.0},{\"kind\":\"number\",\"value\":1E2},{\"kind\":\"number\",\"value\":0.1},{\"kind\":\"number\",\"value\":1e21},{\"kind\":\"number\",\"value\":1e-7},{\"kind\":\"number\",\"value\":5e-324},{\"kind\":\"number\",\"value\":-1.5E-7}]}}}}",
+  "options": {},
+  "expected": {
+   "fingerprint": "sha256:142980e5e7472291b1480c89bf69a048589a88b6db43e2815a2cc40f971be1c5"
+  },
+  "from": []
+ },
+  {
+   "id": "CC-2323",
+   "clauses": [
+    "C2-W-075",
+    "C2-W-088"
+   ],
+   "why": "C2-W-075: A reference whose key differs only in a temporary form read by C2-W-088 incurs no loss if, after that procedure including its fallback and this clause's verbatim restoration, the emitted whole output reads back as the tree.",
+   "summary": "collapsed references past the depth cap whose key the escape rounds cannot spell are no loss where the output with their verbatim text reads back",
+   "kind": "format",
+   "input": "[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [],
+    "diagnosticsComplete": true
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2324",
+   "clauses": [
+    "C2-W-075",
+    "C2-W-088"
+   ],
+   "why": "C2-W-075: A reference whose key differs only in a temporary form read by C2-W-088 incurs no loss if, after that procedure including its fallback and this clause's verbatim restoration, the emitted whole output reads back as the tree.",
+   "summary": "121 lines of collapsed references past the depth cap: the rounds brace the emphasis on lines 115, 116 and 119, the references take their verbatim text, and the output reads back with no loss",
+   "kind": "format",
+   "input": "[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n",
+   "options": {},
+   "expected": {
+    "carve": "[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]{*[x]: /u\n[a {*[a][]*}[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*}[x]: /u\n[a *[a][]*[x]: /u\n[a *[a][]*[x]: /u\n",
+    "diagnostics": [],
+    "diagnosticsComplete": true
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2325",
+   "clauses": [
+    "C2-B-155"
+   ],
+   "why": "Catalog heading-marker-mixed: the range is the first heading of the document, from its start to its end, so an attribute line above it is included; a heading counts by the marker that opens it, behind any attribute lines above it C2-B-155: `=` and `#` may mix in one document, and `heading-marker-mixed` reports it.",
+   "summary": "an attributed equals heading and a hash heading: the finding covers the first heading with its attribute line",
+   "kind": "lint",
+   "input": "{#a}\n= A\n\n# B\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "heading-marker-mixed",
+      "line": 1,
+      "column": 1,
+      "endLine": 2,
+      "endColumn": 4,
+      "channel": "lint",
+      "severity": "hint"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2326",
+   "clauses": [
+    "C2-B-155"
+   ],
+   "why": "Catalog heading-marker-mixed: a heading counts by the marker that opens it, behind any attribute lines above it C2-B-155: `=` and `#` may mix in one document, and `heading-marker-mixed` reports it.",
+   "summary": "an equals heading and an attributed hash heading are mixed markers",
+   "kind": "lint",
+   "input": "= A\n\n{#b}\n# B\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "heading-marker-mixed",
+      "line": 1,
+      "column": 1,
+      "endLine": 1,
+      "endColumn": 4,
+      "channel": "lint",
+      "severity": "hint"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2327",
+   "clauses": [
+    "C2-B-155"
+   ],
+   "why": "Catalog heading-marker-mixed: a heading counts by the marker that opens it, behind any attribute lines above it C2-B-155: `=` and `#` may mix in one document, and `heading-marker-mixed` reports it.",
+   "summary": "an attributed equals heading in a quote and a hash heading are mixed markers",
+   "kind": "lint",
+   "input": "> {#a}\n> = A\n\n# B\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "heading-marker-mixed",
+      "line": 1,
+      "column": 3,
+      "endLine": 2,
+      "endColumn": 6,
+      "channel": "lint",
+      "severity": "hint"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2328",
+   "clauses": [
+    "C2-B-155"
+   ],
+   "why": "C2-B-155: `=` and `#` may mix in one document, and `heading-marker-mixed` reports it.",
+   "summary": "near miss: two attributed equals headings",
+   "kind": "lint",
+   "input": "{#a}\n= A\n\n{#b}\n= B\n",
+   "options": {},
+   "expected": {
+    "notReported": [
+     "heading-marker-mixed"
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2329",
+   "clauses": [
+    "C2-I-035",
+    "C2-I-036"
+   ],
+   "why": "Catalog unattached-inline-attribute: a line of a line block is such an inline content too C2-I-035: One that attaches to nothing is printed as written",
+   "summary": "an attribute block glued to no host on a line of a line block is reported",
+   "kind": "lint",
+   "input": "::: |\nx {#id} y\n:::\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "unattached-inline-attribute",
+      "line": 2,
+      "column": 3,
+      "endLine": 2,
+      "endColumn": 8,
+      "channel": "lint",
+      "severity": "hint"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2330",
+   "clauses": [
+    "C2-I-035",
+    "C2-I-036"
+   ],
+   "why": "Catalog unattached-inline-attribute: a line of a line block is such an inline content too C2-I-035: One that attaches to nothing is printed as written",
+   "summary": "a line block in a list item: the attribute block on its line is reported",
+   "kind": "lint",
+   "input": "- ::: |\n  a {.c}\n  :::\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "unattached-inline-attribute",
+      "line": 2,
+      "column": 5,
+      "endLine": 2,
+      "endColumn": 9,
+      "channel": "lint",
+      "severity": "hint"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2331",
+   "clauses": [
+    "C2-I-035",
+    "C2-I-036"
+   ],
+   "why": "Catalog unattached-inline-attribute: a run at the start of a paragraph or of a line of a line block that `block-marker-as-text` reports C2-I-035: One that attaches to nothing is printed as written",
+   "summary": "a line of a line block that starts with an attribute block is left to block-marker-as-text",
+   "kind": "lint",
+   "input": "::: |\n{#id} b\n:::\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "block-marker-as-text",
+      "line": 2,
+      "column": 1,
+      "channel": "lint",
+      "severity": "warning"
+     }
+    ],
+    "notReported": [
+     "unattached-inline-attribute"
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2332",
+   "clauses": [
+    "C2-I-036"
+   ],
+   "why": "C2-I-036: A valid attribute block attaches when it is glued to the end of a formed host",
+   "summary": "near miss: an attribute block glued to a span on a line of a line block",
+   "kind": "lint",
+   "input": "::: |\nx [s]{#id} y\n:::\n",
+   "options": {},
+   "expected": {
+    "notReported": [
+     "unattached-inline-attribute"
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2333",
+   "clauses": [
+    "C2-I-035",
+    "C2-I-036"
+   ],
+   "why": "Catalog unattached-inline-attribute: a line of a line block is such an inline content too C2-I-035: One that attaches to nothing is printed as written",
+   "summary": "an attribute block glued to no host in a caption paragraph is reported",
+   "kind": "lint",
+   "input": "| a |\n^ cap {#x} more\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "unattached-inline-attribute",
+      "line": 2,
+      "column": 7,
+      "endLine": 2,
+      "endColumn": 11,
+      "channel": "lint",
+      "severity": "hint"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2334",
+   "clauses": [
+    "C2-I-035",
+    "C2-I-036"
+   ],
+   "why": "Catalog unattached-inline-attribute: a line of a line block is such an inline content too C2-I-035: One that attaches to nothing is printed as written",
+   "summary": "an attribute block glued to no host in a description paragraph is reported",
+   "kind": "lint",
+   "input": ":: term\n: desc {#x} more\n",
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "unattached-inline-attribute",
+      "line": 2,
+      "column": 8,
+      "endLine": 2,
+      "endColumn": 12,
+      "channel": "lint",
+      "severity": "hint"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2335",
+   "clauses": [
+    "C2-T-020",
+    "C2-N-087"
+   ],
+   "why": "C2-T-020: `includedBy` is the 0.1 field of that name, and every entry with `file` carries it; where one position is reached more than once, it is the chain of the first reach, the one that supplies the path (C2-N-087). C2-N-087: where one position is reached more than once, the first reach in document order supplies the path.",
+   "summary": "a lint finding in a file included twice, and one a level deeper, carry the include chain of their first reach",
+   "kind": "lint",
+   "input": "{{ b.crv }}\n\n{{ b.crv }}\n",
+   "files": {
+    "b.crv": {
+     "text": "See [x][missing].\n\n{{ c.crv }}\n"
+    },
+    "c.crv": {
+     "text": "Go [y](#nope).\n"
+    }
+   },
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "unresolved-reference-link",
+      "file": "b.crv",
+      "line": 1,
+      "column": 5,
+      "channel": "lint",
+      "severity": "warning",
+      "includedBy": [
+       {
+        "line": 1,
+        "column": 1
+       }
+      ]
+     },
+     {
+      "code": "broken-fragment-link",
+      "file": "c.crv",
+      "line": 1,
+      "column": 4,
+      "channel": "lint",
+      "severity": "warning",
+      "includedBy": [
+       {
+        "line": 1,
+        "column": 1
+       },
+       {
+        "file": "b.crv",
+        "line": 3,
+        "column": 1
+       }
+      ]
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2336",
+   "clauses": [
+    "C2-T-020",
+    "C2-N-063"
+   ],
+   "why": "C2-T-020: `includedBy` is the 0.1 field of that name, and every entry with `file` carries it C2-N-063: A failure in an included file is reported at the include node in that file.",
+   "summary": "a parse entry for an include that fails inside an included file carries the include chain",
+   "kind": "lint",
+   "input": "{{ b.crv }}\n",
+   "files": {
+    "b.crv": {
+     "text": "x\n\n{{ nothere.crv }}\n"
+    }
+   },
+   "options": {},
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "include-not-found",
+      "file": "b.crv",
+      "line": 3,
+      "column": 1,
+      "channel": "parse",
+      "severity": "warning",
+      "includedBy": [
+       {
+        "line": 1,
+        "column": 1
+       }
+      ]
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2337",
+   "clauses": [
+    "C2-X-079"
+   ],
+   "why": "Catalog broken-fragment-link: an extension that generates no ids changes nothing",
+   "summary": "a registered extension that generates no ids keeps the missing fragment reported",
+   "kind": "lint",
+   "input": "[x](#missing)\n",
+   "options": {
+    "extensions": [
+     "carve.colorSwatch"
+    ]
+   },
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "broken-fragment-link",
+      "line": 1,
+      "column": 1,
+      "channel": "lint",
+      "severity": "warning"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2338",
+   "clauses": [
+    "C2-X-079"
+   ],
+   "why": "Catalog broken-fragment-link: an extension that generates no ids changes nothing",
+   "summary": "a registered extension that writes links but no ids keeps the missing fragment reported",
+   "kind": "lint",
+   "input": "[x](#missing)\n",
+   "options": {
+    "extensions": [
+     "carve.wiki"
+    ]
+   },
+   "expected": {
+    "diagnostics": [
+     {
+      "code": "broken-fragment-link",
+      "line": 1,
+      "column": 1,
+      "channel": "lint",
+      "severity": "warning"
+     }
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2339",
+   "clauses": [
+    "C2-X-079"
+   ],
+   "why": "C2-X-079: While an extension that generates ids is registered, `broken-fragment-link` reports nothing (C2-W-150).",
+   "summary": "a registered code group, whose row is marked ids, suppresses the missing fragment",
+   "kind": "lint",
+   "input": "[x](#missing)\n",
+   "options": {
+    "extensions": [
+     "carve.codeGroup"
+    ]
+   },
+   "expected": {
+    "notReported": [
+     "broken-fragment-link"
+    ]
+   },
+   "from": []
+  },
+  {
+   "id": "CC-2340",
+   "clauses": [
+    "C2-X-079"
+   ],
+   "why": "C2-X-079: While an extension that generates ids is registered, `broken-fragment-link` reports nothing (C2-W-150).",
+   "summary": "a registered cite extension, whose row is marked ids, suppresses the missing fragment",
+   "kind": "lint",
+   "input": "[x](#missing)\n",
+   "options": {
+    "extensions": [
+     "carve.cite"
+    ]
+   },
+   "expected": {
+    "notReported": [
+     "broken-fragment-link"
+    ]
+   },
+   "from": []
+  },
+ {
+  "id": "CC-2341",
+  "clauses": [
+   "C2-B-119",
+   "C2-H-042",
+   "C2-H-157"
+  ],
+  "why": "C2-B-119: A title or a label may stand with no name before it, after one or more spaces behind the run as a name does: `:::  \"T\"` opens a div with a title, and `:::[x]` is text. C2-H-042: A title on its opener is written as its first child, `<p class=\"admonition-title\">`, as in 0.1. C2-H-157: A plain div writes its title and its label as an admonition does, and carries no name and no generated id.",
+  "summary": "a quoted title two spaces behind the run, with no name, opens a plain div with a title",
+  "kind": "render",
+  "input": ":::  \"T\"\nx\n:::\n",
+  "options": {},
+  "expected": {
+   "html": "<div>\n  <p class=\"admonition-title\">T</p>\n  <p>x</p>\n</div>",
+   "children": [
+    {
+     "type": "div",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "x"
+        }
+       ]
+      }
+     ],
+     "title": [
+      {
+       "type": "text",
+       "value": "T"
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2342",
+  "clauses": [
+   "C2-B-119",
+   "C2-H-042",
+   "C2-H-157"
+  ],
+  "why": "C2-B-119: A title or a label may stand with no name before it, after one or more spaces behind the run as a name does: `:::  \"T\"` opens a div with a title, and `:::[x]` is text. C2-H-042: A title on its opener is written as its first child, `<p class=\"admonition-title\">`, as in 0.1. C2-H-157: A plain div writes its title and its label as an admonition does, and carries no name and no generated id.",
+  "summary": "a quoted title one space behind the run, with no name, opens a plain div with a title",
+  "kind": "render",
+  "input": "::: \"T\"\nx\n:::\n",
+  "options": {},
+  "expected": {
+   "html": "<div>\n  <p class=\"admonition-title\">T</p>\n  <p>x</p>\n</div>",
+   "children": [
+    {
+     "type": "div",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "x"
+        }
+       ]
+      }
+     ],
+     "title": [
+      {
+       "type": "text",
+       "value": "T"
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2343",
+  "clauses": [
+   "C2-B-119",
+   "C2-H-154",
+   "C2-H-157"
+  ],
+  "why": "C2-B-119: After the run, a div opener holds an optional name or sigil, an optional quoted title and an optional label in brackets, in that order. C2-B-119: A title or a label may stand with no name before it, after one or more spaces behind the run as a name does: `:::  \"T\"` opens a div with a title, and `:::[x]` is text. C2-H-154: A title on the opener is its first child, `<p class=\"admonition-title\">`, and a label in brackets follows as `<p class=\"div-label\">`. C2-H-157: A plain div writes its title and its label as an admonition does, and carries no name and no generated id.",
+  "summary": "a quoted title and a label with no name open a plain div with both paragraphs",
+  "kind": "render",
+  "input": "::: \"T\" [l]\nx\n:::\n",
+  "options": {},
+  "expected": {
+   "html": "<div>\n  <p class=\"admonition-title\">T</p>\n  <p class=\"div-label\">l</p>\n  <p>x</p>\n</div>",
+   "children": [
+    {
+     "type": "div",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "x"
+        }
+       ]
+      }
+     ],
+     "title": [
+      {
+       "type": "text",
+       "value": "T"
+      }
+     ],
+     "groupLabel": "l"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2344",
+  "clauses": [
+   "C2-B-119",
+   "C2-H-154",
+   "C2-H-157"
+  ],
+  "why": "C2-B-119: A title or a label may stand with no name before it, after one or more spaces behind the run as a name does: `:::  \"T\"` opens a div with a title, and `:::[x]` is text. C2-H-154: A title on the opener is its first child, `<p class=\"admonition-title\">`, and a label in brackets follows as `<p class=\"div-label\">`. C2-H-157: A plain div writes its title and its label as an admonition does, and carries no name and no generated id.",
+  "summary": "a label with no name opens a plain div with a label paragraph",
+  "kind": "render",
+  "input": "::: [l]\nx\n:::\n",
+  "options": {},
+  "expected": {
+   "html": "<div>\n  <p class=\"div-label\">l</p>\n  <p>x</p>\n</div>",
+   "children": [
+    {
+     "type": "div",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "x"
+        }
+       ]
+      }
+     ],
+     "groupLabel": "l"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2345",
+  "clauses": [
+   "C2-B-119"
+  ],
+  "why": "C2-B-119: A title or a label may stand with no name before it, after one or more spaces behind the run as a name does: `:::  \"T\"` opens a div with a title, and `:::[x]` is text.",
+  "summary": "near miss: a label glued to the run makes the line text",
+  "kind": "render",
+  "input": ":::[x]\n",
+  "options": {},
+  "expected": {
+   "html": "<p>:::[x]</p>",
+   "children": [
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": ":::[x]"
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2346",
+  "clauses": [
+   "C2-B-119",
+   "C2-I-104"
+  ],
+  "why": "C2-B-119: A title or a label may stand with no name before it, after one or more spaces behind the run as a name does: `:::  \"T\"` opens a div with a title, and `:::[x]` is text. C2-I-104: Opening punctuation is one of `(`, `[`, `{`, `=`, `:`, `“` and `‘`, or a straight quote that opens.",
+  "summary": "near miss: a quoted title glued to the run makes the line text, with smart quotes",
+  "kind": "render",
+  "input": ":::\"T\"\n",
+  "options": {},
+  "expected": {
+   "html": "<p>:::“T”</p>",
+   "children": [
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": ":::"
+      },
+      {
+       "type": "smart_punctuation",
+       "kind": "left_double_quote",
+       "glyph": "“",
+       "source": "\""
+      },
+      {
+       "type": "text",
+       "value": "T"
+      },
+      {
+       "type": "smart_punctuation",
+       "kind": "right_double_quote",
+       "glyph": "”",
+       "source": "\""
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2347",
+  "clauses": [
+   "C2-B-236",
+   "C2-I-128",
+   "C2-H-214"
+  ],
+  "why": "C2-B-236: A snippet definition is a line at column 0 outside every container that starts with a snippet marker, one space and a value, as `{$ver}: 0.2.3`. C2-I-128: An inline snippet use is `{{`, one or more spaces, `$` and a snippet name (C2-B-236), one or more spaces and `}}`, as `{{ $ver }}`. C2-H-214: A snippet use renders the copy that the expansion put at its place (C2-N-091)",
+  "summary": "an inline use copies the value of a snippet definition, which renders nothing",
+  "kind": "render",
+  "input": "{$v}: X\n\nA {{ $v }}.\n",
+  "options": {},
+  "expected": {
+   "html": "<p>A X.</p>",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "A "
+      },
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      },
+      {
+       "type": "text",
+       "value": "."
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2348",
+  "clauses": [
+   "C2-N-090",
+   "C2-I-128"
+  ],
+  "why": "C2-N-090: Lookup is global over the expanded tree, so a use may stand before its definition and in another file. C2-I-128: An inline snippet use is `{{`, one or more spaces, `$` and a snippet name (C2-B-236), one or more spaces and `}}`, as `{{ $ver }}`.",
+  "summary": "a use before its definition expands",
+  "kind": "render",
+  "input": "A {{ $v }}.\n\n{$v}: X\n",
+  "options": {},
+  "expected": {
+   "html": "<p>A X.</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2349",
+  "clauses": [
+   "C2-B-237",
+   "C2-H-214"
+  ],
+  "why": "C2-B-237: A block snippet use is a snippet use (C2-I-128) alone on its line, with only spaces and tabs after it, as `{{ $intro }}`: a block of one line and not an interrupter, a `snippet_use` with `mode` `block` (C2-A-221). C2-H-214: and a block use one `<p>` that holds the copy and carries those attributes.",
+  "summary": "a use alone on its line is a block use, written as one paragraph",
+  "kind": "render",
+  "input": "{$v}: X\n\n{{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>X</p>",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "snippet_use",
+     "name": "v",
+     "mode": "block"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2350",
+  "clauses": [
+   "C2-B-237",
+   "C2-B-024"
+  ],
+  "why": "C2-B-237: A line that an open paragraph or stanza takes as a lazy line (C2-B-024), and a line of a line block, is text, and its use is an inline use.",
+  "summary": "a use on a lazy line of a paragraph is an inline use",
+  "kind": "render",
+  "input": "{$v}: X\n\na\n{{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a\nX</p>",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "a"
+      },
+      {
+       "type": "soft_break"
+      },
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2351",
+  "clauses": [
+   "C2-B-236",
+   "C2-H-214"
+  ],
+  "why": "C2-B-236: so `{$brand .badge}: x` and `{$brand}{.badge}: x` are one definition with the class `badge`. C2-H-214: an inline use the nodes of the copy, inside a `<span>` that carries the definition's attributes when it has any",
+  "summary": "the attributes of a definition go on a span around an inline copy",
+  "kind": "render",
+  "input": "{$v .c}: X\n\na {{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a <span class=\"c\">X</span></p>",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "attrs": {
+      "classes": [
+       "c"
+      ]
+     },
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "a "
+      },
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2352",
+  "clauses": [
+   "C2-B-236",
+   "C2-H-214"
+  ],
+  "why": "C2-B-236: so `{$brand .badge}: x` and `{$brand}{.badge}: x` are one definition with the class `badge`.",
+  "summary": "a glued attribute block gives the definition its class",
+  "kind": "render",
+  "input": "{$v}{.c}: X\n\na {{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a <span class=\"c\">X</span></p>",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "attrs": {
+      "classes": [
+       "c"
+      ]
+     },
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "a "
+      },
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2353",
+  "clauses": [
+   "C2-W-106",
+   "C2-B-236"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: `{$v}:` with no value, `{$v}:x` with no space and `{.c #v}: x` are text with no finding.",
+  "summary": "near miss: an id before a colon makes no snippet definition",
+  "kind": "lint",
+  "input": "{.c #v}: X\n",
+  "options": {},
+  "expected": {
+   "notReported": [
+    "snippet-definition-id",
+    "unused-snippet",
+    "reserved-syntax"
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2354",
+  "clauses": [
+   "C2-W-106",
+   "C2-B-236"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: `{$v}:` with no value, `{$v}:x` with no space and `{.c #v}: x` are text with no finding.",
+  "summary": "near miss: a marker with no value makes no snippet definition",
+  "kind": "lint",
+  "input": "{$v}:\n",
+  "options": {},
+  "expected": {
+   "notReported": [
+    "unused-snippet"
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2355",
+  "clauses": [
+   "C2-B-236",
+   "C2-I-002"
+  ],
+  "why": "C2-B-236: it is read once as the inline content of that one line (C2-I-002), and the line below never continues it.",
+  "summary": "the line below a definition is the next block, not part of the value",
+  "kind": "render",
+  "input": "{$v}: X\n  Y\n\n{{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>Y</p>\n<p>X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2356",
+  "clauses": [
+   "C2-B-236",
+   "C2-N-091"
+  ],
+  "why": "C2-B-236: it is read once as the inline content of that one line (C2-I-002) C2-N-091: A use that passes all four is replaced by a copy of the definition's inline children",
+  "summary": "the value is parsed inline once, and the copy keeps its code span and link",
+  "kind": "render",
+  "input": "{$v}: `X` [y](/u)\n\na {{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a <code>X</code> <a href=\"/u\">y</a></p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2357",
+  "clauses": [
+   "C2-I-128"
+  ],
+  "why": "C2-I-128: An inline snippet use is `{{`, one or more spaces, `$` and a snippet name (C2-B-236), one or more spaces and `}}`, as `{{ $ver }}`.",
+  "summary": "more than one space inside the braces still forms a use",
+  "kind": "render",
+  "input": "{$v}: X\n\na {{  $v  }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2358",
+  "clauses": [
+   "C2-I-128"
+  ],
+  "why": "C2-I-128: An escaped opening brace, `\\{{ $v }}`, makes no use",
+  "summary": "near miss: an escaped opening brace makes no use",
+  "kind": "render",
+  "input": "{$v}: X\n\na \\{{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a {{ $v }}</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2359",
+  "clauses": [
+   "C2-W-106",
+   "C2-I-128",
+   "C2-N-096"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-I-128: A tab is not such a space, so `{{\t$v }}` is text, and so are `{{$v}}`, a use with an option such as `{{ $v @shift:1 }}`, and a name of another shape. C2-N-096: `unused-snippet` reports, as a hint, a winning snippet definition that no use of the authored tree names, at the `$` and the name of its marker.",
+  "summary": "near miss: a use with no space inside the braces is text, so the definition is unused",
+  "kind": "lint",
+  "input": "{$v}: X\n\na {{$v}}\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "unused-snippet",
+     "line": 1,
+     "column": 2,
+     "endLine": 1,
+     "endColumn": 4,
+     "channel": "lint",
+     "severity": "hint"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2360",
+  "clauses": [
+   "C2-I-128"
+  ],
+  "why": "C2-I-128: A use carries no attributes: an attribute block glued after it is text, so `{{ $v }}{.c}` is a use and the text `{.c}`.",
+  "summary": "an attribute block after a use is text",
+  "kind": "render",
+  "input": "{$v}: X\n\na {{ $v }}{.c}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a X{.c}</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2361",
+  "clauses": [
+   "C2-W-106",
+   "C2-I-128",
+   "C2-N-096"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-I-128: and so are `{{$v}}`, a use with an option such as `{{ $v @shift:1 }}`, and a name of another shape. C2-N-096: `unused-snippet` reports, as a hint, a winning snippet definition that no use of the authored tree names, at the `$` and the name of its marker.",
+  "summary": "near miss: a use with an option is text, so the definition is unused",
+  "kind": "lint",
+  "input": "{$v}: X\n\na {{ $v @shift:1 }}\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "unused-snippet",
+     "line": 1,
+     "column": 2,
+     "endLine": 1,
+     "endColumn": 4
+    }
+   ],
+   "notReported": [
+    "snippet-unresolved"
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2362",
+  "clauses": [
+   "C2-W-106",
+   "C2-I-128",
+   "C2-N-096"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-I-128: A tab is not such a space, so `{{\t$v }}` is text C2-N-096: `unused-snippet` reports, as a hint, a winning snippet definition that no use of the authored tree names, at the `$` and the name of its marker.",
+  "summary": "near miss: a tab inside the braces makes no use",
+  "kind": "lint",
+  "input": "{$v}: X\n\na {{\t$v }}\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "unused-snippet",
+     "line": 1,
+     "column": 2,
+     "endLine": 1,
+     "endColumn": 4
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2363",
+  "clauses": [
+   "C2-W-106",
+   "C2-B-081",
+   "C2-B-236"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: Like the other definitions it is a block of one line, a lazy line of an open paragraph (C2-B-024) and text inside a container (C2-B-081).",
+  "summary": "a snippet definition inside a quote is text and reported",
+  "kind": "lint",
+  "input": "> {$v}: X\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "definition-in-container",
+     "line": 1,
+     "column": 3,
+     "endLine": 1,
+     "endColumn": 8,
+     "channel": "lint"
+    }
+   ],
+   "notReported": [
+    "unused-snippet"
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2364",
+  "clauses": [
+   "C2-W-106",
+   "C2-N-090",
+   "C2-N-096"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-090: The first definition of a name wins; each later one stays in the tree, renders nothing and reports `duplicate-snippet` at its name. C2-N-096: `unused-snippet` reports, as a hint, a winning snippet definition that no use of the authored tree names, at the `$` and the name of its marker.",
+  "summary": "a second definition of a name is reported, and the unused winner gets the hint",
+  "kind": "lint",
+  "input": "{$v}: X\n\n{$v}: Y\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "unused-snippet",
+     "line": 1,
+     "column": 2,
+     "endLine": 1,
+     "endColumn": 4
+    },
+    {
+     "code": "duplicate-snippet",
+     "line": 3,
+     "column": 2,
+     "endLine": 3,
+     "endColumn": 4,
+     "channel": "parse",
+     "severity": "warning"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2365",
+  "clauses": [
+   "C2-N-090"
+  ],
+  "why": "C2-N-090: The first definition of a name wins; each later one stays in the tree, renders nothing and reports `duplicate-snippet` at its name.",
+  "summary": "a use takes the first definition of its name",
+  "kind": "render",
+  "input": "{$v}: X\n\na {{ $v }}\n\n{$v}: Y\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a X</p>",
+   "diagnostics": [
+    {
+     "code": "duplicate-snippet",
+     "line": 5,
+     "column": 2,
+     "endLine": 5,
+     "endColumn": 4
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2366",
+  "clauses": [
+   "C2-N-090"
+  ],
+  "why": "C2-N-090: The first definition of a name wins; each later one stays in the tree, renders nothing and reports `duplicate-snippet` at its name.",
+  "summary": "two definitions before the use: the first wins",
+  "kind": "render",
+  "input": "{$v}: Y\n\n{$v}: Z\n\na {{ $v }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a Y</p>",
+   "diagnostics": [
+    {
+     "code": "duplicate-snippet",
+     "line": 3,
+     "column": 2,
+     "endLine": 3,
+     "endColumn": 4
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2367",
+  "clauses": [
+   "C2-N-093"
+  ],
+  "why": "C2-N-093: A use is not expanded when no definition carries its name (`snippet-unresolved`) C2-N-093: is written as its source spelling `{{ $name }}` as text, a block use as a paragraph that holds that text, and charges nothing, so a later, smaller use may still fit.",
+  "summary": "a use of a name no definition carries is written as text",
+  "kind": "render",
+  "input": "a {{ $missing }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>a {{ $missing }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-unresolved",
+     "line": 1,
+     "column": 3,
+     "endLine": 1,
+     "endColumn": 17,
+     "channel": "render-loss"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2368",
+  "clauses": [
+   "C2-N-091"
+  ],
+  "why": "C2-N-091: and the walk goes on inside the copy, so a use in a copy is expanded when the walk reaches it and charged then.",
+  "summary": "a snippet may use another snippet",
+  "kind": "render",
+  "input": "{$a}: {{ $b }}\n{$b}: X\n\n{{ $a }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2369",
+  "clauses": [
+   "C2-N-093"
+  ],
+  "why": "C2-N-093: The cycle is tested first, so a definition that uses itself reports `snippet-cycle` under any depth limit. C2-N-093: A finding at a use inside a copy has the range of the authored use the copy came from.",
+  "summary": "a snippet that uses itself is written as text and reported once",
+  "kind": "render",
+  "input": "{$a}: {{ $a }}\n\n{{ $a }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>{{ $a }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-cycle",
+     "line": 1,
+     "column": 7,
+     "endLine": 1,
+     "endColumn": 15
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2370",
+  "clauses": [
+   "C2-N-093"
+  ],
+  "why": "C2-N-093: when its winning definition is already on the stack of definitions being expanded (`snippet-cycle`) C2-N-093: A finding at a use inside a copy has the range of the authored use the copy came from.",
+  "summary": "a cycle through two snippets is reported at the use that closes it",
+  "kind": "render",
+  "input": "{$a}: {{ $b }}\n{$b}: {{ $a }}\n\n{{ $a }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>{{ $a }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-cycle",
+     "line": 2,
+     "column": 7,
+     "endLine": 2,
+     "endColumn": 15
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2371",
+  "clauses": [
+   "C2-N-092",
+   "C2-H-088"
+  ],
+  "why": "C2-N-092: A footnote reference in a copy is an ordinary reference to its note, so each rendered copy gives its own reference mark and backlink (C2-H-089).",
+  "summary": "each copy of a footnote reference gets its own mark and backlink",
+  "kind": "render",
+  "input": "{$s}: [^n]\n\n{{ $s }} and {{ $s }}.\n\n[^n]: Note\n",
+  "options": {},
+  "expected": {
+   "html": "<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> and <a id=\"fnref1-2\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>.</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>Note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference 1\">↩<sup>1</sup></a> <a href=\"#fnref1-2\" role=\"doc-backlink\" aria-label=\"Back to reference 2\">↩<sup>2</sup></a></p>\n    </li>\n  </ol>\n</section>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2372",
+  "clauses": [
+   "C2-N-095",
+   "C2-X-053"
+  ],
+  "why": "C2-N-095: A `snippet_use` that a transform inserts, or with which it replaces a node, is written as its source spelling as text and reports `snippet-unexpanded-transform` at its path",
+  "summary": "a use that a document transform inserts is not expanded; the next transform sees the copy as ordinary text",
+  "kind": "render",
+  "input": "{$v}: X\n\n{{ $v }}\n",
+  "options": {},
+  "host": {
+   "documentTransforms": [
+    {
+     "name": "sample.a",
+     "after": "/children/1",
+     "insert": {
+      "type": "snippet_use",
+      "name": "v",
+      "mode": "block"
+     }
+    },
+    {
+     "name": "sample.b",
+     "after": "/children/1/children/0",
+     "setValue": "Y"
+    }
+   ]
+  },
+  "expected": {
+   "html": "<p>Y</p>\n<p>{{ $v }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-unexpanded-transform",
+     "path": "/children/2"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2373",
+  "clauses": [
+   "C2-N-020",
+   "C2-N-090"
+  ],
+  "why": "C2-N-020: each link reference, footnote, abbreviation, citation and snippet definition of the file parsed whole C2-N-090: Lookup is global over the expanded tree, so a use may stand before its definition and in another file.",
+  "summary": "a line selection appends the snippet definitions the selection left out",
+  "kind": "render",
+  "input": "{{ part.crv @lines:3-3 }}\n",
+  "options": {},
+  "files": {
+   "part.crv": {
+    "text": "{$v}: X\n\nA {{ $v }}\n"
+   }
+  },
+  "expected": {
+   "html": "<p>A X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2374",
+  "clauses": [
+   "C2-N-092",
+   "C2-N-054"
+  ],
+  "why": "C2-N-092: A link, an image and a footnote reference in a copy resolve against the definitions of the file that holds the snippet definition",
+  "summary": "a link in a snippet from an included file resolves against that file",
+  "kind": "render",
+  "input": "{{ part.crv }}\n\n{{ $v }}\n\n[r]: /parent\n",
+  "options": {},
+  "files": {
+   "part.crv": {
+    "text": "{$v}: [x][r]\n\n[r]: /child\n"
+   }
+  },
+  "expected": {
+   "html": "<p><a href=\"/child\">x</a></p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2375",
+  "clauses": [
+   "C2-N-090"
+  ],
+  "why": "C2-N-090: Lookup is global over the expanded tree, so a use may stand before its definition and in another file.",
+  "summary": "a use in an included file finds a definition of the including document",
+  "kind": "render",
+  "input": "{$v}: X\n\n{{ part.crv }}\n",
+  "options": {},
+  "files": {
+   "part.crv": {
+    "text": "A {{ $v }}\n"
+   }
+  },
+  "expected": {
+   "html": "<p>A X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2376",
+  "clauses": [
+   "C2-N-090",
+   "C2-N-093"
+  ],
+  "why": "C2-N-090: and a file the expansion did not take adds none. C2-N-093: A use is not expanded when no definition carries its name (`snippet-unresolved`)",
+  "summary": "a file nothing includes adds no definition",
+  "kind": "render",
+  "input": "{{ $v }}\n",
+  "options": {},
+  "files": {
+   "other.crv": {
+    "text": "{$v}: X\n"
+   }
+  },
+  "expected": {
+   "html": "<p>{{ $v }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-unresolved",
+     "line": 1,
+     "column": 1,
+     "endLine": 1,
+     "endColumn": 9
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2377",
+  "clauses": [
+   "C2-N-094",
+   "C2-N-093"
+  ],
+  "why": "C2-N-094: So a text node `X` costs 32 + 4 + 1 = 37 bytes. C2-N-094: A copy whose cost equals what remains fits",
+  "summary": "a copy that costs exactly the remaining budget fits",
+  "kind": "render",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "options": {},
+  "host": {
+   "limits": {
+    "derivedTextBytes": 37,
+    "snippetNodes": 1
+   }
+  },
+  "expected": {
+   "html": "<p>X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2378",
+  "clauses": [
+   "C2-N-094",
+   "C2-H-201"
+  ],
+  "why": "C2-N-094: So a text node `X` costs 32 + 4 + 1 = 37 bytes. C2-N-094: one that does not fit reports `derived-text-budget` under C2-H-201.",
+  "summary": "a copy one byte over the budget is written as text",
+  "kind": "render",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "options": {},
+  "host": {
+   "limits": {
+    "derivedTextBytes": 36,
+    "snippetNodes": 1
+   }
+  },
+  "expected": {
+   "html": "<p>{{ $v }}</p>",
+   "diagnostics": [
+    {
+     "code": "derived-text-budget",
+     "path": "/children/1/children/0"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2379",
+  "clauses": [
+   "C2-N-094",
+   "C2-N-093"
+  ],
+  "why": "C2-N-094: So a text node `X` costs 32 + 4 + 1 = 37 bytes. C2-N-093: The nodes a copy adds are each copied node, a use inside the copy among them, and the span or paragraph the use adds.",
+  "summary": "two copies draw on one budget",
+  "kind": "render",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "options": {},
+  "host": {
+   "limits": {
+    "derivedTextBytes": 74,
+    "snippetNodes": 2
+   }
+  },
+  "expected": {
+   "html": "<p>X</p>\n<p>X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2380",
+  "clauses": [
+   "C2-N-093"
+  ],
+  "why": "C2-N-093: The nodes a copy adds are each copied node, a use inside the copy among them, and the span or paragraph the use adds. C2-N-093: and when the nodes its copy adds would bring the render's total past `snippet_nodes`, 100,000 (`snippet-node-budget`).",
+  "summary": "the node limit stops the second copy",
+  "kind": "render",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "options": {},
+  "host": {
+   "limits": {
+    "derivedTextBytes": 74,
+    "snippetNodes": 1
+   }
+  },
+  "expected": {
+   "html": "<p>X</p>\n<p>{{ $v }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-node-budget",
+     "path": "/children/2/children/0"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2381",
+  "clauses": [
+   "C2-N-093"
+  ],
+  "why": "C2-N-093: when the stack would then hold more than `snippet_depth` of `data/limits.json`, 16, definitions (`snippet-depth`)",
+  "summary": "sixteen nested snippets expand",
+  "kind": "render",
+  "input": "{$a}: {{ $b }}\n{$b}: {{ $c }}\n{$c}: {{ $d }}\n{$d}: {{ $e }}\n{$e}: {{ $f }}\n{$f}: {{ $g }}\n{$g}: {{ $h }}\n{$h}: {{ $i }}\n{$i}: {{ $j }}\n{$j}: {{ $k }}\n{$k}: {{ $l }}\n{$l}: {{ $m }}\n{$m}: {{ $n }}\n{$n}: {{ $o }}\n{$o}: {{ $p }}\n{$p}: X\n\n{{ $a }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>X</p>",
+   "notReported": [
+    "snippet-depth"
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2382",
+  "clauses": [
+   "C2-N-093"
+  ],
+  "why": "C2-N-093: when the stack would then hold more than `snippet_depth` of `data/limits.json`, 16, definitions (`snippet-depth`) C2-N-093: A finding at a use inside a copy has the range of the authored use the copy came from.",
+  "summary": "a seventeenth nested snippet is written as text",
+  "kind": "render",
+  "input": "{$a}: {{ $b }}\n{$b}: {{ $c }}\n{$c}: {{ $d }}\n{$d}: {{ $e }}\n{$e}: {{ $f }}\n{$f}: {{ $g }}\n{$g}: {{ $h }}\n{$h}: {{ $i }}\n{$i}: {{ $j }}\n{$j}: {{ $k }}\n{$k}: {{ $l }}\n{$l}: {{ $m }}\n{$m}: {{ $n }}\n{$n}: {{ $o }}\n{$o}: {{ $p }}\n{$p}: {{ $q }}\n{$q}: X\n\n{{ $a }}\n",
+  "options": {},
+  "expected": {
+   "html": "<p>{{ $q }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-depth",
+     "line": 16,
+     "column": 7,
+     "endLine": 16,
+     "endColumn": 15
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2383",
+  "clauses": [
+   "C2-N-093"
+  ],
+  "why": "C2-N-093: The cycle is tested first, so a definition that uses itself reports `snippet-cycle` under any depth limit.",
+  "summary": "a cycle is tested before the depth limit",
+  "kind": "render",
+  "input": "{$a}: {{ $a }}\n\n{{ $a }}\n",
+  "options": {},
+  "host": {
+   "limits": {
+    "snippetDepth": 1
+   }
+  },
+  "expected": {
+   "html": "<p>{{ $a }}</p>",
+   "diagnostics": [
+    {
+     "code": "snippet-cycle",
+     "line": 1,
+     "column": 7,
+     "endLine": 1,
+     "endColumn": 15
+    }
+   ],
+   "notReported": [
+    "snippet-depth"
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2384",
+  "clauses": [
+   "C2-N-093",
+   "C2-N-094"
+  ],
+  "why": "C2-N-093: is written as its source spelling `{{ $name }}` as text, a block use as a paragraph that holds that text, and charges nothing, so a later, smaller use may still fit.",
+  "summary": "a use that does not fit charges nothing, so a smaller later use fits",
+  "kind": "render",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "big",
+     "children": [
+      {
+       "type": "text",
+       "value": "XX"
+      }
+     ]
+    },
+    {
+     "type": "snippet_definition",
+     "name": "small",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "big",
+       "mode": "inline"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "small",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "options": {},
+  "host": {
+   "limits": {
+    "derivedTextBytes": 37
+   }
+  },
+  "expected": {
+   "html": "<p>{{ $big }}</p>\n<p>X</p>",
+   "diagnostics": [
+    {
+     "code": "derived-text-budget",
+     "path": "/children/2/children/0"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2385",
+  "clauses": [
+   "C2-W-106",
+   "C2-N-096"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-096: `unused-snippet` reports, as a hint, a winning snippet definition that no use of the authored tree names, at the `$` and the name of its marker.",
+  "summary": "a definition no use names gets the hint",
+  "kind": "lint",
+  "input": "{$v}: X\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "unused-snippet",
+     "line": 1,
+     "column": 2,
+     "endLine": 1,
+     "endColumn": 4,
+     "channel": "lint",
+     "severity": "hint"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2386",
+  "clauses": [
+   "C2-W-106",
+   "C2-N-096"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-096: `unused-snippet` reports, as a hint, a winning snippet definition that no use of the authored tree names, at the `$` and the name of its marker. C2-N-096: A use inside another definition counts, also when its expansion fails.",
+  "summary": "a use inside another definition counts as a use",
+  "kind": "lint",
+  "input": "{$a}: {{ $b }}\n{$b}: X\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "unused-snippet",
+     "line": 1,
+     "column": 2,
+     "endLine": 1,
+     "endColumn": 4
+    }
+   ],
+   "diagnosticsComplete": true
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2387",
+  "clauses": [
+   "C2-W-106",
+   "C2-B-236"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-B-236: so `{$v #x}: a` is a line of text and `snippet-definition-id` reports it.",
+  "summary": "a snippet marker with an id is text and reported",
+  "kind": "lint",
+  "input": "{$v #x}: a\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "snippet-definition-id",
+     "line": 1,
+     "column": 1,
+     "endLine": 1,
+     "endColumn": 9,
+     "channel": "lint"
+    }
+   ],
+   "notReported": [
+    "unused-snippet"
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2388",
+  "clauses": [
+   "C2-W-159"
+  ],
+  "why": "C2-W-159: A paragraph whose only child is an inline use has no spelling, since that line reads as a block use (C2-B-237): the writer writes the block use and reports `structure-unspellable` at the paragraph.",
+  "summary": "a paragraph holding only an inline use is written as the block use",
+  "kind": "write",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "options": {},
+  "expected": {
+   "carve": "{$v}: X\n\n{{ $v }}\n",
+   "diagnostics": [
+    {
+     "code": "structure-unspellable",
+     "path": "/children/1"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2389",
+  "clauses": [
+   "C2-W-159"
+  ],
+  "why": "C2-W-159: A snippet definition is written at column 0 at its place among the children of the document, on one line",
+  "summary": "a definition with a class and an inline use are written canonically",
+  "kind": "write",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "brand",
+     "attrs": {
+      "classes": [
+       "badge"
+      ]
+     },
+     "children": [
+      {
+       "type": "text",
+       "value": "Carve"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "Use "
+      },
+      {
+       "type": "snippet_use",
+       "name": "brand",
+       "mode": "inline"
+      }
+     ]
+    }
+   ]
+  },
+  "options": {},
+  "expected": {
+   "carve": "{$brand .badge}: Carve\n\nUse {{ $brand }}\n"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2390",
+  "clauses": [
+   "C2-B-237"
+  ],
+  "why": "C2-B-237: A table row is read as inline content, so a use in a cell of a source table is always an inline use",
+  "summary": "a use in a table cell is an inline use",
+  "kind": "render",
+  "input": "{$v}: X\n\n{body-rows=0,1}\n| {{ $v }} |\n",
+  "options": {},
+  "expected": {
+   "html": "<table>\n  <tbody>\n    <tr><td>X</td></tr>\n  </tbody>\n</table>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2391",
+  "clauses": [
+   "C2-H-215",
+   "C2-H-216"
+  ],
+  "why": "C2-H-215: An inline use carries it on the one element its copy renders as, when the copy renders as one element and nothing else C2-H-216: is written at the place of the run as one `<template data-carve-snippets>`",
+  "summary": "with roundtrip on, a text copy gets a carrier span and the definition a template",
+  "kind": "render",
+  "input": "{$v}: X\n\nA {{ $v }}\n",
+  "options": {
+   "roundtrip": true
+  },
+  "expected": {
+   "html": "<template data-carve-snippets>{$v}: X</template>\n<p>A <span data-carve-snippet=\"1:inline:$v\">X</span></p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2392",
+  "clauses": [
+   "C2-H-215"
+  ],
+  "why": "C2-H-215: A block use carries it on its `<p>`.",
+  "summary": "with roundtrip on, a block use carries the snippet on its paragraph",
+  "kind": "render",
+  "input": "{$v}: X\n\n{{ $v }}\n",
+  "options": {
+   "roundtrip": true
+  },
+  "expected": {
+   "html": "<template data-carve-snippets>{$v}: X</template>\n<p data-carve-snippet=\"1:block:$v\">X</p>"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2393",
+  "clauses": [
+   "C2-H-217",
+   "C2-H-186",
+   "C2-H-194"
+  ],
+  "why": "C2-H-217: An accepted `data-carve-snippet` replaces its element with one `snippet_use` with the name and mode of the value C2-H-217: A footnote reference `<a>` with an accepted `data-carve-snippet-mark` is dropped and gives no `footnote_ref`",
+  "summary": "import: a moved note mark goes with its use, and the note reads back from the footnote section",
+  "kind": "import",
+  "html": "<p><a href=\"/u\">Go <span data-carve-snippet=\"1:inline:$s\">x</span></a><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\" data-carve-footnote-label=\"n\" data-carve-snippet-mark=\"1\"><sup>1</sup></a></p><template data-carve-snippets>{$s}: x[^n]</template><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\" data-carve-footnote-label=\"n\"><p>N<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>",
+  "options": {},
+  "expected": {
+   "children": [
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "link",
+       "href": "/u",
+       "children": [
+        {
+         "type": "text",
+         "value": "Go "
+        },
+        {
+         "type": "snippet_use",
+         "name": "s",
+         "mode": "inline"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "snippet_definition",
+     "name": "s",
+     "children": [
+      {
+       "type": "text",
+       "value": "x"
+      },
+      {
+       "type": "footnote_ref",
+       "key": "n",
+       "namespace": "footnote"
+      }
+     ]
+    },
+    {
+     "type": "footnote",
+     "key": "n",
+     "namespace": "footnote",
+     "children": [
+      {
+       "type": "paragraph",
+       "children": [
+        {
+         "type": "text",
+         "value": "N"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2394",
+  "clauses": [
+   "C2-H-217",
+   "C2-H-186"
+  ],
+  "why": "C2-H-217: An accepted `data-carve-snippet` replaces its element with one `snippet_use` with the name and mode of the value",
+  "summary": "import: a template and a carrier span read back as a definition and a use",
+  "kind": "import",
+  "html": "<template data-carve-snippets>{$v}: X</template><p>A <span data-carve-snippet=\"1:inline:$v\">X</span></p>",
+  "options": {},
+  "expected": {
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "A "
+      },
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ],
+   "carve": "{$v}: X\n\nA {{ $v }}\n"
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2395",
+  "clauses": [
+   "C2-H-185",
+   "C2-H-186",
+   "C2-M-009"
+  ],
+  "why": "C2-H-185: A carrier whose value is malformed, which contradicts the HTML around it or which contradicts another carrier of its element is ignored.",
+  "summary": "import: an ordinal with a leading zero is ignored and the span reads as content",
+  "kind": "import",
+  "html": "<p><span data-carve-snippet=\"01:inline:$v\">X</span></p>",
+  "options": {},
+  "expected": {
+   "children": [
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    }
+   ],
+   "diagnostics": [
+    {
+     "code": "import-carrier-ignored"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2396",
+  "clauses": [
+   "C2-H-217"
+  ],
+  "why": "C2-H-217: The importer reports `snippet-scope-loss` at each element whose `data-carve-snippet-scope` it accepts, once per element",
+  "summary": "import: an include scope carrier reads back and reports the lost scope",
+  "kind": "import",
+  "html": "<template data-carve-snippets data-carve-snippet-scope=\"include\">{$v}: X</template><p><span data-carve-snippet=\"1:inline:$v\" data-carve-snippet-scope=\"include\">X</span></p>",
+  "options": {},
+  "expected": {
+   "children": [
+    {
+     "type": "snippet_definition",
+     "name": "v",
+     "children": [
+      {
+       "type": "text",
+       "value": "X"
+      }
+     ]
+    },
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "snippet_use",
+       "name": "v",
+       "mode": "inline"
+      }
+     ]
+    }
+   ],
+   "diagnostics": [
+    {
+     "code": "snippet-scope-loss"
+    },
+    {
+     "code": "snippet-scope-loss"
+    }
+   ]
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2397",
+  "clauses": [
+   "C2-W-106",
+   "C2-N-089"
+  ],
+  "why": "C2-W-106: Every code is an entry of one catalog, `data/lint-rules.json`. C2-N-089: A directive with a section and no path is reserved",
+  "summary": "a section-only directive stays reserved beside a snippet use",
+  "kind": "lint",
+  "input": "{$v}: X\n\n{{ $v }} {{ #v }}\n",
+  "options": {},
+  "expected": {
+   "diagnostics": [
+    {
+     "code": "reserved-syntax",
+     "line": 3,
+     "column": 10,
+     "endLine": 3,
+     "endColumn": 18
+    }
+   ],
+   "notReported": [
+    "unused-snippet"
+   ]
+  },
+  "from": []
+ }
  ]
 }

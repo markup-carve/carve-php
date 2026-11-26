@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => 'a5d8846c1d00ffe723d2280e256f1ba2d3043655',
+        'commit' => '6dc09ec33def014ae41e640bd8286f21a4168c51',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -5750,11 +5750,13 @@ final class Tables
             'paragraph',
             'raw_block',
             'section',
+            'snippet_use',
             'table',
             'thematic_break',
             'footnote',
             'link_reference_definition',
             'abbreviation_def',
+            'snippet_definition',
             'citation_definition',
         ],
         'inline' => [
@@ -5783,6 +5785,7 @@ final class Tables
             'ruby',
             'small_caps',
             'smart_punctuation',
+            'snippet_use',
             'soft_break',
             'span',
             'strike',
@@ -5795,6 +5798,48 @@ final class Tables
             'underline',
             'xref',
         ],
+    ];
+
+    /** extensions.json: each row by name, true where it is marked ids (C2-X-079) */
+    public const EXTENSION_ROWS = [
+        'carve.autolink' => false,
+        'carve.cite' => true,
+        'carve.codeCallouts' => false,
+        'carve.codeGroup' => true,
+        'carve.colorSwatch' => false,
+        'carve.details' => false,
+        'carve.externalLinks' => false,
+        'carve.fencedRender.abc' => false,
+        'carve.fencedRender.chart' => false,
+        'carve.fencedRender.d2' => false,
+        'carve.fencedRender.dot' => false,
+        'carve.fencedRender.graphviz' => false,
+        'carve.fencedRender.mermaid' => false,
+        'carve.fencedRender.plantuml' => false,
+        'carve.fencedRender.puml' => false,
+        'carve.fencedRender.vega-lite' => false,
+        'carve.fencedRender.wavedrom' => false,
+        'carve.glossary' => true,
+        'carve.headingNumbers' => false,
+        'carve.headingPermalinks' => false,
+        'carve.headingReference' => false,
+        'carve.imgFence.image' => false,
+        'carve.imgFence.img' => false,
+        'carve.index' => true,
+        'carve.indexTerm' => true,
+        'carve.listTable' => false,
+        'carve.mathBlock' => false,
+        'carve.semanticSpan' => false,
+        'carve.smartQuotes' => false,
+        'carve.spoiler' => false,
+        'carve.spoilerBlock' => false,
+        'carve.tab' => false,
+        'carve.tabNormalize' => false,
+        'carve.tabs' => true,
+        'carve.term' => false,
+        'carve.toc' => false,
+        'carve.tocPlacement' => false,
+        'carve.wiki' => false,
     ];
 
     /** C2-B-046 C2-B-048 task-states.json: box character to mark */
@@ -6923,6 +6968,9 @@ final class Tables
         'duplicate-reference-url' => [
             'This reference definition repeats an earlier URL.',
         ],
+        'duplicate-snippet' => [
+            'Duplicate snippet "$${name}": the first definition of the name wins. Rename or remove this one.',
+        ],
         'emphasis-as-heading' => [
             'This emphasized paragraph looks like a heading.',
         ],
@@ -7217,11 +7265,7 @@ final class Tables
         'reserved-syntax' => [
             [
                 'when' => 'a directive with a section and no path',
-                'text' => 'This "${text}" is reserved for an include from the same document in a later 0.2 release and renders as literal text. Write \\{{ to keep the text.',
-            ],
-            [
-                'when' => 'a line that starts with an id in braces, optional attributes and a colon',
-                'text' => 'A line that starts with "${text}" is reserved for a definition in a later 0.2 release and renders as literal text. Write \\{# to keep the text.',
+                'text' => 'This "${text}" is reserved and renders as literal text. Write \\{{ to keep the text.',
             ],
         ],
         'semantic-attribute-outside-span' => [
@@ -7235,6 +7279,27 @@ final class Tables
         ],
         'sigil-after-letter' => [
             'A mention or tag does not start directly after a letter or number. Put a space or punctuation before it.',
+        ],
+        'snippet-cycle' => [
+            'Snippet "$${name}" was not expanded: it would use itself. Wrote it as text.',
+        ],
+        'snippet-definition-id' => [
+            'A snippet definition is no anchor and takes no id, so this line is text. Remove the id.',
+        ],
+        'snippet-depth' => [
+            'Snippet "$${name}" was not expanded: snippets nest deeper than ${limit} here. Wrote it as text.',
+        ],
+        'snippet-node-budget' => [
+            'Snippet "$${name}" was not expanded: the snippet copies of this render reached their budget of ${limit} nodes. Wrote it as text.',
+        ],
+        'snippet-scope-loss' => [
+            'This snippet came from an included file. The include is gone from the HTML, so the imported snippet resolves in this document only.',
+        ],
+        'snippet-unexpanded-transform' => [
+            'A document transform inserted a snippet node, which is not expanded after the snippet pass. Wrote it as text.',
+        ],
+        'snippet-unresolved' => [
+            'No snippet is named "$${name}". Wrote the use as text.',
         ],
         'structure-unspellable' => [
             'Carve source cannot spell ${what}',
@@ -7377,6 +7442,9 @@ final class Tables
         'unused-link-reference-definition' => [
             'This link reference definition is unused.',
         ],
+        'unused-snippet' => [
+            'Snippet "$${name}" is defined but never used.',
+        ],
     ];
 
     /** C2-A-173 lint-rules.json: severity, channel and first message of each parse and render-loss code */
@@ -7432,6 +7500,11 @@ final class Tables
             'warning',
             'parse',
             'Duplicate link definition (label) is ignored; the first definition for a label wins.',
+        ],
+        'duplicate-snippet' => [
+            'warning',
+            'parse',
+            'Duplicate snippet "$${name}": the first definition of the name wins. Rename or remove this one.',
         ],
         'extension-fallback-rendered' => [
             'warning',
@@ -7627,6 +7700,36 @@ final class Tables
                 'when' => 'every finding of this code',
                 'text' => 'Dropped ${kind} raw format "${format}" while rendering ${target}',
             ],
+        ],
+        'snippet-cycle' => [
+            'warning',
+            'render-loss',
+            'Snippet "$${name}" was not expanded: it would use itself. Wrote it as text.',
+        ],
+        'snippet-depth' => [
+            'warning',
+            'render-loss',
+            'Snippet "$${name}" was not expanded: snippets nest deeper than ${limit} here. Wrote it as text.',
+        ],
+        'snippet-node-budget' => [
+            'warning',
+            'render-loss',
+            'Snippet "$${name}" was not expanded: the snippet copies of this render reached their budget of ${limit} nodes. Wrote it as text.',
+        ],
+        'snippet-scope-loss' => [
+            'warning',
+            'render-loss',
+            'This snippet came from an included file. The include is gone from the HTML, so the imported snippet resolves in this document only.',
+        ],
+        'snippet-unexpanded-transform' => [
+            'warning',
+            'render-loss',
+            'A document transform inserted a snippet node, which is not expanded after the snippet pass. Wrote it as text.',
+        ],
+        'snippet-unresolved' => [
+            'warning',
+            'render-loss',
+            'No snippet is named "$${name}". Wrote the use as text.',
         ],
         'structure-unspellable' => [
             'warning',

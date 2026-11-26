@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Lint;
 use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Include\Selection;
 use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Options;
@@ -107,29 +108,56 @@ final class Includes
     /**
      * @param array<string, mixed> $node
      * @param string $path
+     * @param array<array{file?: string, range: array{startOffset: int, endOffset: int}}> $chain The include sites that
+     *   reached the node (C2-T-020).
+     * @param string|null $in The file the node is in; null for the top-level document.
      *
      * @return void
      */
-    private function walk(array $node, string $path): void
+    private function walk(array $node, string $path, array $chain = [], ?string $in = null): void
     {
+        $inner = $chain;
+        $innerFile = $in;
         if (($node['type'] ?? null) === 'include' && is_array($node['children'] ?? null)) {
-            $this->include($node, $path);
+            $inner[] = self::site($node, $in);
+            $innerFile = is_string($node['file'] ?? null) ? $node['file'] : $in;
+            $this->include($node, $path, $inner);
         }
         foreach ($node as $key => $value) {
             if ($key === 'pos' || $key === 'attrs' || !is_array($value)) {
                 continue;
             }
+            [$under, $underFile] = $key === 'children' ? [$inner, $innerFile] : [$chain, $in];
             if (is_string($value['type'] ?? null)) {
-                $this->walk(Support::node($value), $path . '/' . $key);
+                $this->walk(Support::node($value), $path . '/' . $key, $under, $underFile);
 
                 continue;
             }
             foreach ($value as $i => $child) {
                 if (is_int($i) && is_array($child) && is_string($child['type'] ?? null)) {
-                    $this->walk(Support::node($child), $path . '/' . $key . '/' . $i);
+                    $this->walk(Support::node($child), $path . '/' . $key . '/' . $i, $under, $underFile);
                 }
             }
         }
+    }
+
+    /**
+     * The `includedBy` site of an include node of the encoded tree.
+     *
+     * @param array<string, mixed> $node
+     * @param string|null $in
+     *
+     * @return array{file?: string, range: array{startOffset: int, endOffset: int}}
+     */
+    private static function site(array $node, ?string $in): array
+    {
+        $pos = is_array($node['pos'] ?? null) ? $node['pos'] : [];
+
+        return Findings::site(
+            $in,
+            is_int($pos['startOffset'] ?? null) ? $pos['startOffset'] : -1,
+            is_int($pos['endOffset'] ?? null) ? $pos['endOffset'] : -1,
+        );
     }
 
     /**
@@ -137,10 +165,11 @@ final class Includes
      *
      * @param array<string, mixed> $node
      * @param string $path
+     * @param array<array{file?: string, range: array{startOffset: int, endOffset: int}}> $chain
      *
      * @return void
      */
-    private function include(array $node, string $path): void
+    private function include(array $node, string $path, array $chain): void
     {
         $file = is_string($node['file'] ?? null) ? $node['file'] : null;
         $text = $file === null ? null : ($this->texts[$file] ?? null);
@@ -151,7 +180,7 @@ final class Includes
         if (isset($options['code'])) {
             foreach (Support::kids($node) as $i => $child) {
                 foreach (Linter::lintPayload($text, $child, '/children/' . $i, $this->options) as $entry) {
-                    $this->keep($node, $text, [$text, 0, null, null], $entry, $path);
+                    $this->keep($node, $text, [$text, 0, null, null], $entry, $path, $chain);
                 }
             }
 
@@ -159,7 +188,7 @@ final class Includes
         }
         $part = $this->part($node, $options, $text);
         foreach (Linter::lintSource($part[0], $this->options) as $entry) {
-            $this->keep($node, $text, $part, $entry, $path);
+            $this->keep($node, $text, $part, $entry, $path, $chain);
         }
     }
 
@@ -308,10 +337,11 @@ final class Includes
      * @param array{0: string, 1: int, 2: array{0: int, 1: int}|null, 3: array<string, string>|null} $part
      * @param \MarkupCarve\Carve\Diagnostics\Diagnostic $entry
      * @param string $path
+     * @param array<array{file?: string, range: array{startOffset: int, endOffset: int}}> $chain
      *
      * @return void
      */
-    private function keep(array $node, string $text, array $part, Diagnostic $entry, string $path): void
+    private function keep(array $node, string $text, array $part, Diagnostic $entry, string $path, array $chain): void
     {
         $start = max(0, $entry->startOffset) + $part[1];
         $kept = $part[2];
@@ -340,6 +370,7 @@ final class Includes
             $start,
             $end,
             $file,
+            includedBy: $chain,
         );
     }
 }

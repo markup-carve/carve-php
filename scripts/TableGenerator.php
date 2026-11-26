@@ -130,6 +130,11 @@ final class TableGenerator
             'block' => $types('document'),
             'inline' => $types('paragraph'),
         ]];
+        $rows = $load('extensions')['extensions'];
+        $consts['EXTENSION_ROWS'] = ['extensions.json: each row by name, true where it is marked ids (C2-X-079)', array_combine(
+            array_column($rows, 'name'),
+            array_map(static fn (array $row): bool => ($row['ids'] ?? false) === true, $rows),
+        )];
     }
 
     /**

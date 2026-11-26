@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Json\SchemaValidator;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Test\Support\Corpus;
+use MarkupCarve\Carve\Test\Support\HeldRefusedTrees;
 use MarkupCarve\Carve\Test\Support\PositionChecker;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -54,10 +55,21 @@ final class TreeGateTest extends TestCase
     {
         $out = [];
         foreach (Corpus::refusedTrees() as $id => $entry) {
-            $out[$id] = [$entry];
+            if (!isset(HeldRefusedTrees::IDS[$id])) {
+                $out[$id] = [$entry];
+            }
         }
 
         return $out;
+    }
+
+    public function testHeldRefusedTreesAreStillAccepted(): void
+    {
+        foreach (Corpus::refusedTrees() as $id => $entry) {
+            if (isset(HeldRefusedTrees::IDS[$id])) {
+                HeldRefusedTrees::assertStillAccepted($id, $entry['tree']);
+            }
+        }
     }
 
     /**
