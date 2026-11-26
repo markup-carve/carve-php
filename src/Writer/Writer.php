@@ -539,7 +539,7 @@ final class Writer
         array $options,
     ): WriteResult {
         $source = $written->source;
-        $spans = self::verbatimSpans($source, $verbatim, $options);
+        $spans = self::verbatimSpans($source, $verbatim, $tree, $layout, $options);
         if ($spans === []) {
             return $written;
         }
@@ -667,14 +667,49 @@ final class Writer
      *
      * @param string $source
      * @param array<string, array{string, bool}> $verbatim
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      *
      * @return array<int, array{int, int, string, int}>
      */
-    private static function verbatimSpans(string $source, array $verbatim, array $options): array
+    private static function verbatimSpans(string $source, array $verbatim, array $tree, ?array $layout, array $options): array
+    {
+        $found = self::writtenReferences($source, $verbatim, $options);
+        // A label break has no line in a one-line spelling, so it takes the continuation of the leaf (C2-W-024).
+        $wrapped = array_keys(array_filter(
+            $found,
+            static fn (array $at, string $path): bool => str_contains($verbatim[$path][0], "\n")
+                && !str_contains(substr($source, $at[0], $at[1] - $at[0]), "\n"),
+            ARRAY_FILTER_USE_BOTH,
+        ));
+        $continuations = $wrapped === [] ? [] : self::continuations($tree, $layout, $options, $wrapped);
+        $spans = [];
+        foreach ($found as $path => [$start, $end, $spelled]) {
+            $written = substr($source, $start, $end - $start);
+            $out = self::prefixedLike($verbatim[$path][0], $written, $spelled, $continuations[$path] ?? '');
+            if ($out !== null && $out !== $written) {
+                $spans[] = [$start, $end, $out, preg_match('#^/children/(\d+)#', $path, $block) === 1 ? (int)$block[1] : -1];
+            }
+        }
+        usort($spans, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+
+        return $spans;
+    }
+
+    /**
+     * The byte span and the spelling without container prefixes of each reference with a verbatim text, by path.
+     *
+     * @param string $source
+     * @param array<string, array{string, bool}> $verbatim
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, array{int, int, string}>
+     */
+    private static function writtenReferences(string $source, array $verbatim, array $options): array
     {
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
-        $spans = [];
+        $found = [];
         $entries = Carve::parseWithLayout($source, $parseOptions)->layout['nodes'] ?? null;
         foreach (is_array($entries) ? $entries : [] as $entry) {
             if (!is_array($entry)) {
@@ -687,26 +722,141 @@ final class Writer
             if (!is_string($path) || !isset($verbatim[$path]) || !is_string($spelled) || !is_int($start) || !is_int($end)) {
                 continue;
             }
-            [$text, $image] = $verbatim[$path];
-            $start += $image ? 1 : 0;
-            $written = substr($source, $start, $end - $start);
-            $out = self::prefixedLike($text, $written, $spelled);
-            if ($out !== null && $out !== $written) {
-                $spans[] = [$start, $end, $out, preg_match('#^/children/(\d+)#', $path, $block) === 1 ? (int)$block[1] : -1];
+            $found[$path] = [$start + ($verbatim[$path][1] ? 1 : 0), $end, $spelled];
+        }
+
+        return $found;
+    }
+
+    /**
+     * The prefix the writer gives a later line of the leaf that holds each reference at `$paths`: a probe write of the
+     * tree with a line break in each of those references' text, read off at the line behind that break.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string> $paths
+     *
+     * @return array<string, string>
+     */
+    private static function continuations(array $tree, ?array $layout, array $options, array $paths): array
+    {
+        $removed = [];
+        $probe = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
+        $probeLayout = self::withoutRawRefs($removed === [] ? $layout : LineEndBlanks::remapLayout($layout, $removed));
+        $moved = self::probeBlocks($probe, $probeLayout, $paths);
+        $marks = [];
+        foreach ($paths as $at => $path) {
+            $mark = 'qzx' . $at . 'xzq';
+            $target = $moved($path);
+            if ($target !== null && self::probeAt($probe, explode('/', trim($target, '/')), $mark)) {
+                $marks[$path] = $mark;
             }
         }
-        usort($spans, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        if ($marks === []) {
+            return [];
+        }
+        // The prefix does not depend on escapes, so one plain write without the read-back rounds serves.
+        $out = self::writeInternal($probe, $probeLayout, $options, null)->source;
+        $prefixes = [];
+        foreach ($marks as $path => $mark) {
+            $at = strpos($out, $mark);
+            if ($at === false) {
+                continue;
+            }
+            $lineStart = strrpos(substr($out, 0, $at), "\n");
+            $lineStart = $lineStart === false ? 0 : $lineStart + 1;
+            $prefixes[$path] = substr($out, $lineStart, $at - $lineStart);
+        }
 
-        return $spans;
+        return $prefixes;
+    }
+
+    /**
+     * Keeps only the top-level blocks that hold a path of `$paths`, so the probe stays small, and renumbers the layout to
+     * match. The closure maps a path of the full tree to the probe, null for a dropped block.
+     *
+     * @param array<string, mixed> $probe
+     * @param array<mixed>|null $layout
+     * @param array<string> $paths
+     *
+     * @return \Closure(string): ?string
+     */
+    private static function probeBlocks(array &$probe, ?array &$layout, array $paths): Closure
+    {
+        $blocks = [];
+        foreach ($paths as $path) {
+            if (preg_match('#^/children/(\d+)/#', $path, $m) === 1) {
+                $blocks[(int)$m[1]] = true;
+            }
+        }
+        ksort($blocks);
+        $renumber = array_flip(array_keys($blocks));
+        $children = is_array($probe['children'] ?? null) ? $probe['children'] : [];
+        $probe['children'] = array_values(array_intersect_key($children, $renumber));
+        $moved = static function (string $path) use ($renumber): ?string {
+            if (preg_match('#^/children/(\d+)(/.*)?$#', $path, $m) !== 1) {
+                return $path;
+            }
+
+            return isset($renumber[(int)$m[1]]) ? '/children/' . $renumber[(int)$m[1]] . ($m[2] ?? '') : null;
+        };
+        if (is_array($layout['nodes'] ?? null)) {
+            $nodes = [];
+            foreach ($layout['nodes'] as $entry) {
+                $path = is_array($entry) && is_string($entry['path'] ?? null) ? $moved($entry['path']) : null;
+                if ($path !== null) {
+                    $nodes[] = ['path' => $path] + $entry;
+                }
+            }
+            $layout['nodes'] = $nodes;
+        }
+
+        return $moved;
+    }
+
+    /**
+     * Gives the reference at `$parts` the text `x`, a soft break and `$mark`; an image becomes a link with that text.
+     *
+     * @param array<mixed> $node
+     * @param array<string> $parts
+     * @param string $mark
+     *
+     * @return bool Whether a reference stood there.
+     */
+    private static function probeAt(array &$node, array $parts, string $mark): bool
+    {
+        if ($parts === []) {
+            $type = $node['type'] ?? null;
+            if (($type !== 'link' && $type !== 'image') || !isset($node['key'])) {
+                return false;
+            }
+            if ($type === 'image') {
+                $node = ['type' => 'link', 'key' => $node['key'], 'refForm' => 'full', 'href' => $node['src'] ?? ''];
+            }
+            $node['children'] = [
+                ['type' => 'text', 'value' => 'x'],
+                ['type' => 'soft_break'],
+                ['type' => 'text', 'value' => $mark],
+            ];
+
+            return true;
+        }
+        $part = array_shift($parts);
+        if (!is_array($node[$part] ?? null)) {
+            return false;
+        }
+
+        return self::probeAt($node[$part], $parts, $mark);
     }
 
     /**
      * `$text` with each later line behind the prefix the same line of the written reference carries before its line of
-     * `$spelled`, the reference read without the container prefixes; the last prefix serves the lines past them. Null
-     * where the written lines are not those of `$spelled` behind prefixes. The first line starts at the opening bracket,
-     * so it carries none.
+     * `$spelled`, the reference read without the container prefixes; the last prefix serves the lines past them, and
+     * `$continuation` the lines past a one-line spelling. Null where the written lines are not those of `$spelled` behind
+     * prefixes. The first line starts at the opening bracket, so it carries none.
      */
-    private static function prefixedLike(string $text, string $written, string $spelled): ?string
+    private static function prefixedLike(string $text, string $written, string $spelled, string $continuation): ?string
     {
         $lines = explode("\n", $written);
         $spelledLines = explode("\n", $spelled);
@@ -720,6 +870,9 @@ final class Writer
                 return null;
             }
             $prefixes[] = substr($line, 0, $cut);
+        }
+        if (count($prefixes) === 1) {
+            $prefixes[] = $continuation;
         }
         $out = '';
         foreach (explode("\n", $text) as $k => $line) {

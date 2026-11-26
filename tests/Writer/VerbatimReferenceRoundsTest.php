@@ -161,6 +161,13 @@ final class VerbatimReferenceRoundsTest extends TestCase
             'cell' => ["| [a\\]b][k] | x |\n\n[k]: /u\n", "| [a\\]b][k] | x |\n\n[k]: /u\n"],
             'image' => ["[*a*][k] and ![\\*i][k]\n\n[k]: /u\n", "[*a*][k] and ![\\*i][k]\n\n[k]: /u\n"],
             'line-end blanks' => ["- [x  \n  \\_y][k]\n\n[k]: /u\n", "- [x\n  \\_y][k]\n\n[k]: /u\n"],
+            // carve-php#6106: a label break has no line in the written reference, so it takes the leaf's continuation.
+            'wrapped label in a quote' => ["> See [the ref][a \n> label] now.\n", "> See [the ref][a\n> label] now.\n"],
+            'wrapped label in a list item' => ["- See [the ref][a\n  label] now.\n", "- See [the ref][a\n  label] now.\n"],
+            'wrapped image label in a footnote' => ["[^fn]: See ![alt][a\n  label] now.\n", "[^fn]: See ![alt][a\n  label] now.\n"],
+            'wrapped label in a list in a quote' => ["> - See [x][a\n>   b] now.\n", "> - See [x][a\n>   b] now.\n"],
+            'wrapped label, defined' => ["- [x][a\n  b c] y\n\n[a b c]: /u\n", "- [x][a\n  b c] y\n\n[a b c]: /u\n"],
+            'text and label wrap' => ["> [x\n> y][a\n> b\n> c] z\n", "> [x\n> y][a\n> b\n> c] z\n"],
         ];
     }
 
