@@ -452,7 +452,7 @@ final class InlineCarriers
 
     /**
      * Whether the node gives an inline by itself: a text, a comment or raw element kept as raw HTML, a ranged comment
-     * with text, or an element without children other than an empty inline container without attributes (C2-M-069).
+     * with text, or an element the import keeps a node for when its content gives none (C2-M-069).
      */
     private function holds(HtmlNode $node): bool
     {
@@ -476,7 +476,30 @@ final class InlineCarriers
             return $node->plain() !== '';
         }
 
-        return $node->children === [] && ($node->attrs !== [] || !isset(self::EMPTY_DROPPED[$node->name]));
+        if (Elements::isBlock($node)) {
+            return $node->children === [] && ($node->attrs !== [] || !isset(self::EMPTY_DROPPED[$node->name]));
+        }
+
+        return $this->keepsShell($node);
+    }
+
+    /**
+     * Whether the inline reader keeps a node for the element without its content. The read is a probe: its reports
+     * and the keys it records are taken back.
+     */
+    private function keepsShell(HtmlNode $node): bool
+    {
+        $shell = $node;
+        if ($node->children !== []) {
+            $shell = clone $node;
+            $shell->children = [];
+        }
+        $context = $this->context;
+        [$diagnostics, $anchorKeys, $definitions] = [$context->diagnostics, $context->anchorKeys, $context->definitions];
+        $kept = $this->reader->inline($shell) !== [];
+        [$context->diagnostics, $context->anchorKeys, $context->definitions] = [$diagnostics, $anchorKeys, $definitions];
+
+        return $kept;
     }
 
     /**
