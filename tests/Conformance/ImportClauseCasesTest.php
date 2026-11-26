@@ -27,12 +27,6 @@ final class ImportClauseCasesTest extends TestCase
      */
     public const KNOWN_FAIL = [
         'CC-1425' => 'markup-carve/carve#6850: Word conditional comments of a dropped note wrapper are reported (C2-M-109)',
-        'CC-2156' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
-        'CC-2159' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
-        'CC-2160' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
-        'CC-2161' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
-        'CC-2162' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
-        'CC-2163' => 'markup-carve/carve#6771 (carve-php line): import option listTable',
         'CC-2177' => 'markup-carve/carve#6794 (carve-php line): import option listTable, empty cell',
         'CC-2178' => 'markup-carve/carve#6794 (carve-php line): import option listTable, empty cell',
         'CC-2179' => 'markup-carve/carve#6794 (carve-php line): import option listTable, empty cell',

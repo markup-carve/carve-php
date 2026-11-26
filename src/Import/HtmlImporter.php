@@ -63,9 +63,8 @@ final class HtmlImporter
 
     /**
      * @param string $html
-     * @param array<string, mixed> $options `adapter` (C2-M-102), `rawHtml` (C2-M-066), `labels` (C2-M-101), `strictLosses` (C2-M-082),
-     *   `allowLosses` and `maxLosses`
-     *   (C2-H-204, C2-H-205).
+     * @param array<string, mixed> $options `adapter` (C2-M-102), `rawHtml` (C2-M-066), `labels` (C2-M-101), `listTable` (C2-M-112),
+     *   `strictLosses` (C2-M-082), `allowLosses` and `maxLosses` (C2-H-204, C2-H-205).
      * @param bool $legacyParser Read with the libxml parser even where `Dom\HTMLDocument` exists.
      * @param \Closure(\MarkupCarve\Carve\Import\HtmlNode): void|null $prepare The Markdown and Djot hub's carriers, set on the parsed HTML.
      * @param \Closure(array<array<string, mixed>>): array<array<string, mixed>>|null $finish The hub's changes to the imported children.
@@ -94,7 +93,15 @@ final class HtmlImporter
         }
         $opts = Options::from(array_intersect_key(
             $options,
-            ['adapter' => true, 'rawHtml' => true, 'labels' => true, 'strictLosses' => true, 'allowLosses' => true, 'maxLosses' => true],
+            [
+                'adapter' => true,
+                'rawHtml' => true,
+                'listTable' => true,
+                'labels' => true,
+                'strictLosses' => true,
+                'allowLosses' => true,
+                'maxLosses' => true,
+            ],
         ));
         $direct = $opts->adapter === 'generic' && $prepare === null && $finish === null;
         if ($direct && self::exceedsPlainBlockPrefix($html)) {
@@ -113,6 +120,7 @@ final class HtmlImporter
             $prepare($root);
         }
         $context = new ImportContext($opts->rawHtml, $opts->labels);
+        $context->listTable = $opts->listTable;
         self::fragmentWrapperAttributes($html, $context);
         Notes::collect($root->children, $context);
         self::rootLanguage($root, $context);

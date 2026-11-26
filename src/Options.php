@@ -37,6 +37,11 @@ final class Options
     public string $adapter = 'generic';
 
     /**
+     * C2-M-112: a table with a cell of blocks is imported as a list table.
+     */
+    public bool $listTable = false;
+
+    /**
      * @var array<\MarkupCarve\Carve\Extension\ExtensionDefinition> C2-X-002, C2-X-033.
      */
     public array $extensions = [];
@@ -317,6 +322,7 @@ final class Options
     {
         match ($name) {
             'rawHtml' => $this->rawHtml = $value,
+            'listTable' => $this->listTable = $value,
             'roundtrip' => $this->roundtrip = $value,
             'sections' => $this->sections = $value,
             'smartTypography' => $this->smartTypography = $value,

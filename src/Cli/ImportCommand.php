@@ -24,6 +24,13 @@ use RuntimeException;
 final class ImportCommand
 {
     /**
+     * The switches of `import` and the option each turns on.
+     *
+     * @var array<string, string>
+     */
+    private const SWITCHES = ['--raw-html' => 'rawHtml', '--strict-losses' => 'strictLosses', '--list-table' => 'listTable'];
+
+    /**
      * @param array<string> $args The arguments after `import`.
      * @param resource $in
      * @param resource $out
@@ -168,8 +175,10 @@ final class ImportCommand
             $match = [];
             if (preg_match('/^--(from|adapter|allow-loss|max-render-losses)(?:=(.*))?$/s', $arg, $m) === 1) {
                 $from = self::valueFlag($m[1], $m[2] ?? ($args[++$i] ?? null), $from, $options);
-            } elseif ($arg === '--raw-html' || $arg === '--strict-losses') {
-                $options[$arg === '--raw-html' ? 'rawHtml' : 'strictLosses'] = true;
+            } elseif (isset(self::SWITCHES[$arg])) {
+                $options[self::SWITCHES[$arg]] = true;
+            } elseif ($arg === '--no-list-table') {
+                unset($options['listTable']);
             } elseif ($arg === '-o' || preg_match('/^--(output|directory)(?:=(.*))?$/s', $arg, $match) === 1) {
                 $name = $arg === '-o' ? 'output' : ($match[1] ?? 'output');
                 $value = $match[2] ?? ($args[++$i] ?? null);
