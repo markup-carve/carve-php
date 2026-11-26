@@ -8,6 +8,8 @@ use Closure;
 use Generator;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\LineShapes;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Resolve\PlainText;
@@ -175,6 +177,11 @@ final class DataRules
      * @var array<string, \Closure(\stdClass): mixed> The compiled key of each lookup, by site.
      */
     private array $compiledKeys = [];
+
+    /**
+     * @var array{0: mixed, 1: array<string>}|null The `extensions` option and its `id_extensions`, for the last run.
+     */
+    private ?array $idExtensions = null;
 
     private function __construct(private Context $context)
     {
@@ -2766,7 +2773,11 @@ final class DataRules
 
                 return null;
             case 'run':
-                return $arg === 'extensions' ? ($this->context->options['extensions'] ?? []) : null;
+                return match ($arg) {
+                    'extensions' => $this->context->options['extensions'] ?? [],
+                    'id_extensions' => $this->idExtensions($this->context->options['extensions'] ?? []),
+                    default => null,
+                };
             case 'attribute_line':
                 $text = self::string($this->value($arg, $record));
 
@@ -2774,6 +2785,38 @@ final class DataRules
         }
 
         return self::NONE;
+    }
+
+    /**
+     * C2-X-079: the registered extensions that generate ids. A catalog row counts where it is marked `ids`; a
+     * definition that is no row of the catalog, nor a node of one, is a host extension and counts too.
+     *
+     * @param mixed $extensions
+     *
+     * @return array<string>
+     */
+    private function idExtensions(mixed $extensions): array
+    {
+        if ($this->idExtensions !== null && $this->idExtensions[0] === $extensions) {
+            return $this->idExtensions[1];
+        }
+        $out = [];
+        foreach (is_array($extensions) ? $extensions : [] as $item) {
+            $name = is_string($item) ? $item : ($item instanceof ExtensionDefinition ? $item->name : null);
+            if ($name === null) {
+                continue;
+            }
+            $row = $name;
+            while (!isset(Tables::EXTENSION_ROWS[$row]) && str_contains($row, '.')) {
+                $row = substr($row, 0, (int)strrpos($row, '.'));
+            }
+            if (Tables::EXTENSION_ROWS[$row] ?? true) {
+                $out[] = $name;
+            }
+        }
+        $this->idExtensions = [$extensions, $out];
+
+        return $out;
     }
 
     /**

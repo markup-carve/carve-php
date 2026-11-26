@@ -5800,6 +5800,48 @@ final class Tables
         ],
     ];
 
+    /** extensions.json: each row by name, true where it is marked ids (C2-X-079) */
+    public const EXTENSION_ROWS = [
+        'carve.autolink' => false,
+        'carve.cite' => true,
+        'carve.codeCallouts' => false,
+        'carve.codeGroup' => true,
+        'carve.colorSwatch' => false,
+        'carve.details' => false,
+        'carve.externalLinks' => false,
+        'carve.fencedRender.abc' => false,
+        'carve.fencedRender.chart' => false,
+        'carve.fencedRender.d2' => false,
+        'carve.fencedRender.dot' => false,
+        'carve.fencedRender.graphviz' => false,
+        'carve.fencedRender.mermaid' => false,
+        'carve.fencedRender.plantuml' => false,
+        'carve.fencedRender.puml' => false,
+        'carve.fencedRender.vega-lite' => false,
+        'carve.fencedRender.wavedrom' => false,
+        'carve.glossary' => true,
+        'carve.headingNumbers' => false,
+        'carve.headingPermalinks' => false,
+        'carve.headingReference' => false,
+        'carve.imgFence.image' => false,
+        'carve.imgFence.img' => false,
+        'carve.index' => true,
+        'carve.indexTerm' => true,
+        'carve.listTable' => false,
+        'carve.mathBlock' => false,
+        'carve.semanticSpan' => false,
+        'carve.smartQuotes' => false,
+        'carve.spoiler' => false,
+        'carve.spoilerBlock' => false,
+        'carve.tab' => false,
+        'carve.tabNormalize' => false,
+        'carve.tabs' => true,
+        'carve.term' => false,
+        'carve.toc' => false,
+        'carve.tocPlacement' => false,
+        'carve.wiki' => false,
+    ];
+
     /** C2-B-046 C2-B-048 task-states.json: box character to mark */
     public const TASK_MARKS = [
         ' ' => ' ',
