@@ -357,6 +357,17 @@ final class LegacyForeignContent
     }
 
     /**
+     * The end tag of a raw text element in HTML content, which closes that element and nothing else.
+     */
+    public function ended(string $name): void
+    {
+        if (($this->open[$name] ?? 0) > 0) {
+            $this->open[$name]--;
+            $this->depth--;
+        }
+    }
+
+    /**
      * Whether an end tag of this name closes an open foreign element.
      */
     public function closesForeign(string $name): bool

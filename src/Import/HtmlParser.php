@@ -61,7 +61,7 @@ final class HtmlParser
     private static ?string $rawNonce = null;
 
     /**
-     * Placeholder names of raw text elements in foreign content, by placeholder.
+     * Element names the scan gave libxml as placeholders, by placeholder.
      *
      * @var array<string, string>
      */
@@ -371,8 +371,11 @@ final class HtmlParser
             return [$token . '<br>', $at, $at];
         }
         if ($strayParagraph) {
-            // A `</p>` with no `p` open is an empty paragraph; libxml drops it.
-            return [$token . '<p></p>', $at, $at];
+            // A `</p>` with no `p` open is an empty paragraph; libxml drops it, and would move a `<p>` out of an
+            // inline parent, so it gets a placeholder name.
+            $placeholder = self::placeholder('p');
+
+            return [$token . '<' . $placeholder . '></' . $placeholder . '>', $at, $at];
         }
         if ($renamed) {
             return [$token . '<' . $tag[1] . self::foreignName($name) . substr($tag[0], 1 + strlen($tag[1]) + strlen($tag[2])), $at, $at];
@@ -385,7 +388,11 @@ final class HtmlParser
         $escaped = $rawText ? self::escapeRawText($name, $content, $tag[0]) : $content;
         // The end tag closes the raw text element, never a foreign element of the same name.
         $endTag = '/\G<\/[^\s\/>]*(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/';
-        $resume = preg_match($endTag, $html, $match, 0, $close) === 1 ? $close + strlen($match[0]) : $close;
+        $resume = $close;
+        if (preg_match($endTag, $html, $match, 0, $close) === 1) {
+            $resume += strlen($match[0]);
+            $foreign->ended($name);
+        }
         if ($escaped === $content) {
             return [null, $close, $resume];
         }
@@ -403,9 +410,18 @@ final class HtmlParser
      */
     private static function foreignName(string $name): string
     {
-        if (!in_array($name, self::RAW_TEXT, true)) {
-            return $name;
-        }
+        return in_array($name, self::RAW_TEXT, true) ? self::placeholder($name) : $name;
+    }
+
+    /**
+     * A name libxml parses as an unknown element, which the copy reads as the given name.
+     *
+     * @param string $name
+     *
+     * @return string
+     */
+    private static function placeholder(string $name): string
+    {
         $placeholder = 'carve-raw-' . self::nonce() . '-' . $name;
         self::$foreignNames[$placeholder] = $name;
 
