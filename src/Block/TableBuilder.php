@@ -333,9 +333,9 @@ final class TableBuilder
         $declared = self::count($f->attrs, 'header-rows');
         $head = $declared === null ? self::headRows($rows) : min($declared, count($rows));
         $foot = self::count($f->attrs, 'footer-rows');
-        // C2-B-187: an empty `body-rows` ends the head above a footer count smaller than the rows.
+        // C2-B-187: an empty `body-rows` ends the head above a footer count not larger than the rows.
         if (
-            $declared === null && $foot !== null && $foot > 0 && $foot < count($rows) && $head > count($rows) - $foot
+            $declared === null && $foot !== null && $foot > 0 && $foot <= count($rows) && $head > count($rows) - $foot
             && self::bodyPlan($f->attrs, 0) === []
         ) {
             $head = count($rows) - $foot;

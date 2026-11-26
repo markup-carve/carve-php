@@ -73,15 +73,13 @@ final class TableCommentReadBackTest extends TestCase
         self::assertSame($losses, array_map(static fn ($d): array => [$d->code, (string)$d->path], $result->diagnostics));
     }
 
-    public function testFootOnlyTableOfTwoRowsIsReported(): void
+    public function testFootOnlyTableOfTwoRowsIsSpelled(): void
     {
+        // carve#6664: an empty `body-rows` with a footer count of all the rows leaves no head (C2-B-187, C2-W-136).
         $result = Carve::importHtml('<table><tfoot><tr><th>F</th><th>G</th></tr><tr><td>x</td><td>y</td></tr></tfoot></table>');
 
-        self::assertSame("{footer-rows=2}\n|= F |= G |\n| x | y |\n", $result->source);
-        self::assertSame(
-            [['structure-unspellable', '/children/0/children/0']],
-            array_map(static fn ($d): array => [$d->code, (string)$d->path], $result->diagnostics),
-        );
+        self::assertSame("{footer-rows=2 body-rows}\n|= F |= G |\n| x | y |\n", $result->source);
+        self::assertSame([], $result->diagnostics);
     }
 
     /**

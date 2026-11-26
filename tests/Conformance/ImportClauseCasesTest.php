@@ -48,8 +48,6 @@ final class ImportClauseCasesTest extends TestCase
         'CC-2234' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
         'CC-2235' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
         'CC-2236' => 'markup-carve/carve#6235 (carve-php line): comments of a wrapper the note pass drops',
-        'CC-2244' => 'markup-carve/carve#6664 (carve-php line): a table of only a tfoot imports as a foot',
-        'CC-2245' => 'markup-carve/carve#6664 (carve-php line): a table of only a tfoot imports as a foot',
         'CC-2250' => 'markup-carve/carve#6623 (carve-php line): an unscoped th row below a scope row th row stays in the body',
         'CC-2252' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',
         'CC-2253' => 'markup-carve/carve-js#5574 (carve-php line): an important percentage width and a later width',

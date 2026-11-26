@@ -9,8 +9,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve#6663: `header-rows` sets the head of a pipe table (C2-B-186). The render cases CC-2237 to CC-2240 are held on
- * carve#6837 for their final line feed; these check the same markup without it.
+ * carve#6663, carve#6664: `header-rows` sets the head of a pipe table (C2-B-186), and an empty `body-rows` with a
+ * footer count of all the rows leaves no head (C2-B-187). The render cases CC-2237 to CC-2240, CC-2246 and CC-2248
+ * are held on carve#6837 for their final line feed; these check the same markup without it.
  */
 final class PipeTableHeaderRowsTest extends TestCase
 {
@@ -22,7 +23,7 @@ final class PipeTableHeaderRowsTest extends TestCase
         $out = [];
         $all = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/spec/conformance/clause-cases.json'), true);
         foreach ($all['cases'] as $case) {
-            if (in_array($case['id'], ['CC-2237', 'CC-2238', 'CC-2239', 'CC-2240'], true)) {
+            if (in_array($case['id'], ['CC-2237', 'CC-2238', 'CC-2239', 'CC-2240', 'CC-2246', 'CC-2248'], true)) {
                 $out[$case['id']] = [$case['id'], $case['input'], $case['expected']['html']];
             }
         }

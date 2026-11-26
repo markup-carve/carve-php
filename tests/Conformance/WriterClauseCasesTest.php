@@ -25,7 +25,6 @@ final class WriterClauseCasesTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_FAIL = [
-        'CC-2249' => 'markup-carve/carve#6664 (carve-php line): fmt keeps an empty body-rows on a table of only a foot',
         'CC-501' => 'markup-carve/carve#3598 (carve-php line): metadata.fields beside a frontmatter node are a loss',
         'CC-2265' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
         'CC-2266' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',

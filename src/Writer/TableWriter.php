@@ -179,29 +179,13 @@ final class TableWriter
      */
     private static function headEndsAboveFoot(array $groups): bool
     {
-        $head = [];
-        $foot = [];
         foreach ($groups as [$type, $rows]) {
-            if ($type === 'table_head') {
-                $head = array_merge($head, $rows);
-            } elseif ($type === 'table_foot') {
-                $foot = array_merge($foot, $rows);
-            }
-        }
-        if ($head === [] || $foot === [] || self::leadingHeaderRows([$foot[0]]) !== 1) {
-            return false;
-        }
-        // C2-B-178: a head row is written with header marks only; a row of span marks continues the head.
-        foreach ($head as $row) {
-            foreach (is_array($row['children'] ?? null) ? $row['children'] : [] as $cell) {
-                $isCell = is_array($cell) && ($cell['type'] ?? '') === 'table_cell';
-                if ($isCell && ($cell['header'] ?? false) !== true && !isset($cell['span'])) {
-                    return false;
-                }
+            if ($type === 'table_foot') {
+                return $rows !== [] && self::leadingHeaderRows([$rows[0]]) === 1;
             }
         }
 
-        return true;
+        return false;
     }
 
     /**
