@@ -255,6 +255,10 @@ final class ListTableImport
                 $children[] = ['type' => 'paragraph', 'children' => J::nodes($block)];
             }
         }
+        // C2-M-112: an item that holds no block holds an empty line comment, as `- %%` parses.
+        if ($children === []) {
+            $children[] = ['type' => 'comment', 'form' => 'line', 'value' => ''];
+        }
         if (isset($cell['scope'])) {
             $context->report($node, 'import-attribute-dropped', 'The scope of a list table cell dropped');
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Import;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\ListTable;
 use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\OptionError;
 use PHPUnit\Framework\TestCase;
@@ -70,6 +71,18 @@ final class ListTableImportTest extends TestCase
         $this->expectException(OptionError::class);
         $this->expectExceptionMessage('listTable');
         Carve::importDocument('a', ['from' => 'markdown', 'listTable' => true]);
+    }
+
+    /**
+     * C2-M-112, carve#6794: an empty cell's item holds an empty line comment, and nothing is reported.
+     */
+    public function testEmptyCellHoldsAnEmptyLineComment(): void
+    {
+        [$source, $codes] = $this->listTable('<table><tr><td></td><td><ul><li>a</li></ul></td></tr></table>');
+        self::assertSame("::: list-table\n- - %%\n  - - a\n:::\n", $source);
+        self::assertSame([], $codes);
+        $html = Carve::render($source, ['extensions' => [ListTable::bundle()]]);
+        self::assertStringContainsString('<tr><td></td><td>', $html);
     }
 
     /**
