@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
+use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Snippet\Expander;
 use MarkupCarve\Carve\Snippet\Syntax;
@@ -40,9 +42,9 @@ final class Snippets
                 continue;
             }
             if ($child->type === 'paragraph') {
-                $id = self::definitionId($child, $source);
-                if ($id !== null) {
-                    $out[] = ['snippet-definition-id', $child->start, $id, '/children/' . $index, []];
+                $range = self::definitionId($child, $source);
+                if ($range !== null) {
+                    $out[] = ['snippet-definition-id', $range[0], $range[1], '/children/' . $index, []];
                 }
             }
         }
@@ -75,23 +77,35 @@ final class Snippets
     }
 
     /**
-     * C2-B-236: the end of the marker of a top-level paragraph whose first line a marker with an id made text, or null.
+     * C2-B-236: the marker range of a top-level paragraph whose first line a marker with an id, or an id in the
+     * attribute lines above it, made text, or null.
      *
      * @param \MarkupCarve\Carve\Node $paragraph
      * @param string $source
      *
-     * @return int|null
+     * @return array{0: int, 1: int}|null
      */
-    private static function definitionId(Node $paragraph, string $source): ?int
+    private static function definitionId(Node $paragraph, string $source): ?array
     {
         $start = $paragraph->start;
-        if ($start < 0 || ($start > 0 && $source[$start - 1] !== "\n") || substr($source, $start, 2) !== '{$') {
+        if ($start < 0 || ($start > 0 && $source[$start - 1] !== "\n") || ($source[$start] ?? '') !== '{') {
             return null;
         }
-        $end = strpos($source, "\n", $start);
-        $end = $end === false ? strlen($source) : $end;
+        $lineAttrs = new Attrs();
+        $end = self::lineEnd($source, $start);
+        while (substr($source, $start, 2) !== '{$' && LineShapes::attributeLine($source, $start, $end, $lineAttrs)) {
+            $next = strpos($source, "\n", $start);
+            if ($next === false || $next + 1 >= $paragraph->end) {
+                return null;
+            }
+            $start = $next + 1;
+            $end = self::lineEnd($source, $start);
+        }
+        if (substr($source, $start, 2) !== '{$') {
+            return null;
+        }
         $marker = Syntax::marker($source, $start, $end);
-        if ($marker === null || !$marker[3]) {
+        if ($marker === null || (!$marker[3] && $lineAttrs->id === null)) {
             return null;
         }
         $value = $marker[2];
@@ -99,6 +113,14 @@ final class Snippets
             return null;
         }
 
-        return $value;
+        return [$start, $value];
+    }
+
+    private static function lineEnd(string $source, int $start): int
+    {
+        $end = strpos($source, "\n", $start);
+        $end = $end === false ? strlen($source) : $end;
+
+        return $end > $start && $source[$end - 1] === "\r" ? $end - 1 : $end;
     }
 }

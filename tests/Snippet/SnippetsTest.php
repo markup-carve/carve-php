@@ -30,6 +30,26 @@ final class SnippetsTest extends TestCase
         $this->assertSame(['classes' => ['foo'], 'keyValues' => [['title', 'a}b']]], $tree['children'][0]['attrs']);
     }
 
+    public function testC2B236AnIdInAnyAttributeLineAboveRefusesTheDefinition(): void
+    {
+        $source = "{#i}\n{.k}\n{\$v .c}: X\n";
+        $tree = json_decode(Carve::toJson($source), true);
+        $this->assertSame('paragraph', $tree['children'][0]['type']);
+        $found = array_filter(Carve::lint($source), static fn (Diagnostic $entry): bool => str_starts_with($entry->code, 'snippet'));
+        $this->assertSame([['snippet-definition-id', 10, 18]], array_map(
+            static fn (Diagnostic $entry): array => [$entry->code, $entry->startOffset, $entry->endOffset],
+            array_values($found),
+        ));
+    }
+
+    public function testC2B236AMarkerIdUnderAnAttributeLineIsReportedAtTheMarker(): void
+    {
+        $this->assertSame([['snippet-definition-id', 5, 13]], array_map(
+            static fn (Diagnostic $entry): array => [$entry->code, $entry->startOffset, $entry->endOffset],
+            Carve::lint("{.k}\n{\$v #x}: a\n"),
+        ));
+    }
+
     public function testC2H215ATransformThatChangesTheViewKeepsTheCarriersOfTheUses(): void
     {
         $result = Carve::renderWithDocumentTransforms("{\$x}: Hello\n\n{{ \$x }}\n", [self::append()], ['roundtrip' => true]);
