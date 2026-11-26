@@ -172,6 +172,7 @@ final class TableReader
             $count++;
         }
         $rows = $this->build($node, false, $count);
+        $this->scopeStayingHeaderRows($node, $rows, $count);
         $out = [];
         if ($count > 0) {
             $out[] = ['type' => 'table_head', 'children' => $this->clamp(array_slice($rows, 0, $count), $node)];
@@ -184,6 +185,47 @@ final class TableReader
         }
 
         return $out;
+    }
+
+    /**
+     * C2-M-037: an unscoped `<th>` of the leading all-`<th>` rows that stay in the body is the column header HTML makes it.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param array<array<string, mixed>> $rows
+     * @param int $count
+     *
+     * @return void
+     */
+    private function scopeStayingHeaderRows(HtmlNode $node, array &$rows, int $count): void
+    {
+        $index = 0;
+        foreach ($node->elements() as $child) {
+            if ($child->name !== 'tr') {
+                continue;
+            }
+            if ($index++ < $count) {
+                continue;
+            }
+            $cells = [];
+            foreach ($child->elements() as $cell) {
+                if ($cell->name === 'td') {
+                    return;
+                }
+                if ($cell->name === 'th') {
+                    $cells[] = $cell;
+                }
+            }
+            if ($cells === []) {
+                return;
+            }
+            $nodes = J::nodes($rows[$index - 1]);
+            foreach ($cells as $at => $cell) {
+                if ($cell->attr('scope') === null) {
+                    $nodes[$at]['scope'] = 'col';
+                }
+            }
+            $rows[$index - 1]['children'] = $nodes;
+        }
     }
 
     private static function headRow(HtmlNode $row): bool
