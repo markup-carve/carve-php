@@ -107,6 +107,7 @@ final class ImportClauseCasesTest extends TestCase
     public function testKnownFailListNamesImportCasesOfThePin(): void
     {
         $cases = Corpus::clauseCases();
+        $this->assertNotSame([], $cases, 'the pin holds no clause case');
         foreach (self::KNOWN_FAIL as $id => $owner) {
             $this->assertNotSame('', trim($owner), $id . ' names no owner');
             $this->assertSame('import', $cases[$id]['kind'] ?? null, $id);
