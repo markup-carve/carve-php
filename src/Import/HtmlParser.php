@@ -190,7 +190,8 @@ final class HtmlParser
             if ($document) {
                 $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_PARSEHUGE);
             } else {
-                $wrapped = '<?xml encoding="UTF-8"><' . self::LEGACY_ROOT . '>' . $html . '</' . self::LEGACY_ROOT . '>';
+                // No end tag: an unclosed raw text element, comment or attribute would read it as its content.
+                $wrapped = '<?xml encoding="UTF-8"><' . self::LEGACY_ROOT . '>' . $html;
                 $dom->loadHTML($wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_PARSEHUGE);
             }
         } finally {

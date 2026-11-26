@@ -41,6 +41,7 @@ final class LegacyParserRepairsTest extends TestCase
             'MathML text integration point' => ['<math><mi><textarea>a</b></textarea></mi></math>', 'math[mi[textarea[#a</b>]]]'],
             'MathML closed by an ancestor end tag' => ['<i><math></i><title><!x></title>', 'i[math[]],title[#<!x>]'],
             'marker name in an attribute value' => ['<script data-id="carve-import-raw">a</b></script>', 'script[#a</b>]'],
+            'unclosed textarea' => ['<p>a</p><textarea>b</p>c', 'p[#a],textarea[#b</p>c]'],
         ];
     }
 
@@ -52,7 +53,6 @@ final class LegacyParserRepairsTest extends TestCase
     public static function oldLibxmlInputs(): array
     {
         return [
-            'unclosed textarea' => ['<p>a</p><textarea>b</p>c', 'p[#a],textarea[#b</p>c]'],
             'SVG title is not RCDATA' => [
                 '<svg><title><b>a</b></title></svg><textarea>b</i></textarea>',
                 'svg[title[b[#a]]],textarea[#b</i>]',
