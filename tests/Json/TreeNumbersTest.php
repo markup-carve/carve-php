@@ -73,6 +73,15 @@ final class TreeNumbersTest extends TestCase
         return [
             'data list item' => [$data('1e400'), '/children/0/data/carve.x/a~1b/2'],
             'after a string with a quote and digits' => [$data('0.10000000000000000001'), '/children/0/data/carve.x/a~1b/2'],
+            'a key that occurs twice' => [
+                '{"type":"document","astVersion":"2.0","children":[],'
+                . '"metadata":{"fields":{"n":{"kind":"number","value":9007199254740993,"value":1}}}}',
+                '/metadata/fields/n/value',
+            ],
+            'after an escaped quote and an empty key' => [
+                $doc('{"type":"paragraph","data":{"carve.x":{"\\"[{":{"":[0,[1],{"z":1e400}]}}},"children":[]}'),
+                '/children/0/data/carve.x/"[{//2/z',
+            ],
             'envelope' => [
                 '{"astVersion":"2.0","document":{"type":"document","astVersion":"2.0","children":[],'
                 . '"metadata":{"fields":{"n":{"kind":"number","value":2e-324}}}}}',

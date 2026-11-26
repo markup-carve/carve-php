@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Json;
 
-use JsonException;
-use stdClass;
-
 /**
  * C2-A-219: every number of a tree JSON text is a finite binary64 value whose shortest spelling denotes the number the
- * text gives. One scan of the text over the tokens that can lose value; the path is looked up only for a refusal.
+ * text gives. One scan of the text over the tokens that can lose value; the path is walked only for a refusal.
  */
 final class TreeNumbers
 {
@@ -39,7 +36,7 @@ final class TreeNumbers
         }
         foreach ($matches[0] as [$token, $offset]) {
             if (!self::keeps($token)) {
-                throw new TreeError('number', self::pathOf($json, $offset, strlen($token)));
+                throw new TreeError('number', self::pathOf($json, $offset));
             }
         }
     }
@@ -128,39 +125,53 @@ final class TreeNumbers
     }
 
     /**
-     * The JSON pointer of the token at `$offset`: the token is replaced by a string no other value holds, and that string
-     * is found in the decoded text.
+     * The JSON pointer of the token at `$offset`, walked from the tokens before it, so a key that occurs twice keeps
+     * the path of the occurrence that holds the number.
      */
-    private static function pathOf(string $json, int $offset, int $length): string
+    private static function pathOf(string $json, int $offset): string
     {
-        do {
-            $mark = 'carve-number-' . bin2hex(random_bytes(8));
-        } while (str_contains($json, $mark));
-        try {
-            $marked = substr_replace($json, '"' . $mark . '"', $offset, $length);
-            $value = json_decode($marked, false, TreeReader::JSON_DEPTH, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return '';
-        }
+        /** @var array<int, array{0: bool, 1: string|int, 2: bool}> $stack Object or not, key or index, expecting a key. */
+        $stack = [];
+        $i = 0;
+        while ($i < $offset) {
+            $char = $json[$i];
+            $top = count($stack) - 1;
+            if ($char === '"') {
+                $end = $i + 1;
+                while ($end < $offset) {
+                    $end += strcspn($json, '"\\', $end);
+                    if ($end >= $offset || $json[$end] === '"') {
+                        break;
+                    }
+                    $end += 2;
+                }
+                if ($top >= 0 && $stack[$top][0] && $stack[$top][2]) {
+                    $key = json_decode(substr($json, $i, $end - $i + 1));
+                    $stack[$top][1] = is_string($key) ? $key : '';
+                    $stack[$top][2] = false;
+                }
+                $i = $end + 1;
 
-        return self::find($value, $mark, '') ?? '';
-    }
-
-    private static function find(mixed $value, string $mark, string $path): ?string
-    {
-        if ($value === $mark) {
-            return $path;
-        }
-        if (!is_array($value) && !$value instanceof stdClass) {
-            return null;
-        }
-        foreach ((array)$value as $key => $item) {
-            $found = self::find($item, $mark, $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key));
-            if ($found !== null) {
-                return $found;
+                continue;
             }
+            if ($char === '{' || $char === '[') {
+                $stack[] = [$char === '{', $char === '{' ? '' : 0, $char === '{'];
+            } elseif ($char === '}' || $char === ']') {
+                array_pop($stack);
+            } elseif ($char === ',' && $top >= 0) {
+                if ($stack[$top][0]) {
+                    $stack[$top][2] = true;
+                } else {
+                    $stack[$top][1] = (int)$stack[$top][1] + 1;
+                }
+            }
+            $i++;
+        }
+        $path = '';
+        foreach ($stack as [, $key]) {
+            $path .= '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key);
         }
 
-        return null;
+        return $path;
     }
 }
