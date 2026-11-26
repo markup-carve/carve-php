@@ -54,6 +54,63 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * C2-W-088 (carve#6813): no output of the rounds reads back on 122 collapsed references past the depth cap, so the
+     * paragraph is written as authored (CC-2323).
+     *
+     * @return void
+     */
+    public function testAuthoredBlockWhereTheRoundsLose(): void
+    {
+        $source = str_repeat("[a *[a][]*[x]: /u\n", 122);
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($source, $result->source);
+    }
+
+    /**
+     * A source that is not UTF-8 has its sidecar `source` in base64, and the fallback reads the bytes it encodes.
+     *
+     * @return void
+     */
+    public function testAuthoredBlockOfABase64Source(): void
+    {
+        $source = str_repeat("[a *[a][]*[x]: /u\n", 122) . "\n\xFF\n";
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertNotContains('writer-refused', array_map(static fn ($d): string => $d->code, $result->diagnostics));
+        $this->assertStringStartsWith(str_repeat("[a *[a][]*[x]: /u\n", 122), $result->source);
+    }
+
+    /**
+     * Under `normalize` the writer reads no sidecar (C2-W-127), so there is no authored source either.
+     *
+     * @return void
+     */
+    public function testNoAuthoredBlockUnderNormalize(): void
+    {
+        $result = Writer::formatWithDiagnostics(str_repeat("[a *[a][]*[x]: /u\n", 122), ['normalize' => true]);
+
+        $this->assertSame(['writer-refused'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+    }
+
+    /**
+     * A supplied tree without a sidecar has no authored source to fall back to, and keeps the refusal (C2-W-117).
+     *
+     * @return void
+     */
+    public function testNoAuthoredBlockWithoutASidecar(): void
+    {
+        $tree = TreeEncoder::decodedForWriter(Carve::parse(str_repeat("[a *[a][]*[x]: /u\n", 122)));
+
+        $result = Writer::writeWithDiagnostics($tree);
+
+        $this->assertSame(['writer-refused'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+    }
+
+    /**
      * @return array<string, array{string, string}>
      */
     public static function verbatim(): array

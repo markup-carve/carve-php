@@ -241,6 +241,8 @@ final class Writer
                 $written = $kept->diagnostics === [] ? $kept : $written;
             }
 
+            $written = self::withAuthoredBlock($written, $tree, $layout, $options);
+
             if ($written->diagnostics === [] && self::notePrunable($written->source)) {
                 $print = self::trimmedPrint($tree, $layout, $options);
                 $written = self::withPrunedNoteCarets($written, $print, $options, $parsedSource);
@@ -256,6 +258,123 @@ final class Writer
             self::$lossReported = $lossReported;
             self::$readsSupplied = $outerReadsSupplied;
         }
+    }
+
+    /**
+     * @var int Past this many leaf blocks that do not read back, the authored-block fallback tries no more (C2-W-133).
+     */
+    private const MAX_AUTHORED_TRIALS = 32;
+
+    /**
+     * C2-W-088 (carve#6813): where the repair stops, the first leaf block in document order whose read-back
+     * differs and whose authored source from the sidecar makes the whole output read back is written as authored. A
+     * tree without a sidecar `source` keeps the loss (C2-W-117).
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $written
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     */
+    private static function withAuthoredBlock(WriteResult $written, array $tree, ?array $layout, array $options): WriteResult
+    {
+        $authored = $layout['source'] ?? null;
+        if (is_string($authored) && ($layout['encoding'] ?? null) === 'base64') {
+            $authored = base64_decode($authored, true);
+        }
+        $codes = array_map(static fn (Diagnostic $d): string => $d->code, $written->diagnostics);
+        // Only the repair's own stop: a loss another clause reports (C2-W-016) stays. `normalize` reads no sidecar.
+        if (!is_string($authored) || array_unique($codes) !== ['writer-refused'] || ($options['normalize'] ?? false) === true) {
+            return $written;
+        }
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        $parsed = Carve::parseWithLayout($written->source, $parseOptions);
+        $read = TreeEncoder::decodedForWriter($parsed->tree);
+        $from = self::blockSpans($layout);
+        $to = self::blockSpans($parsed->layout);
+        $print = self::trimmedPrint($tree, $layout, $options);
+        $trials = 0;
+        foreach (self::leafPaths($tree, '') as $path => $leaf) {
+            if (!isset($from[$path], $to[$path]) || TreeEquality::equal($leaf, self::nodeAt($read, $path) ?? [])) {
+                continue;
+            }
+            [$start, $end] = $to[$path];
+            $block = substr($authored, $from[$path][0], $from[$path][1] - $from[$path][0]);
+            $trial = substr_replace($written->source, $block, $start, $end - $start);
+            if (self::readsBack($trial, $print, $options)) {
+                return new WriteResult($trial, []);
+            }
+            if (++$trials >= self::MAX_AUTHORED_TRIALS) {
+                break;
+            }
+        }
+
+        return $written;
+    }
+
+    /**
+     * @param array<mixed>|null $layout
+     *
+     * @return array<string, array{int, int}>
+     */
+    private static function blockSpans(?array $layout): array
+    {
+        $spans = [];
+        foreach (is_array($layout['nodes'] ?? null) ? $layout['nodes'] : [] as $entry) {
+            if (!is_array($entry) || !is_string($entry['path'] ?? null)) {
+                continue;
+            }
+            if (is_int($entry['startByte'] ?? null) && is_int($entry['endByte'] ?? null)) {
+                $spans[$entry['path']] ??= [$entry['startByte'], $entry['endByte']];
+            }
+        }
+
+        return $spans;
+    }
+
+    /**
+     * The leaf blocks of `$node` by path, in document order.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     *
+     * @return array<string, array<mixed>>
+     */
+    private static function leafPaths(array $node, string $path): array
+    {
+        $leaves = [];
+        foreach (is_array($node['children'] ?? null) ? $node['children'] : [] as $k => $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            $at = $path . '/children/' . $k;
+            if (is_string($child['type'] ?? null) && isset(DataModel::INLINE_PARENTS[$child['type']])) {
+                $leaves[$at] = $child;
+            } else {
+                $leaves += self::leafPaths($child, $at);
+            }
+        }
+
+        return $leaves;
+    }
+
+    /**
+     * @param array<mixed> $root
+     * @param string $path
+     *
+     * @return array<mixed>|null
+     */
+    private static function nodeAt(array $root, string $path): ?array
+    {
+        $node = $root;
+        foreach (array_slice(explode('/', $path), 1) as $step) {
+            $next = $node[$step] ?? null;
+            if (!is_array($next)) {
+                return null;
+            }
+            $node = $next;
+        }
+
+        return $node;
     }
 
     /**

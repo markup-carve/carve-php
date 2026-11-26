@@ -32,7 +32,6 @@ final class WriterClauseCasesTest extends TestCase
         'CC-2268' => 'markup-carve/carve#6727 (carve-php line): an open fence loses the empty line that ends its value',
         'CC-2388' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2389' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2323' => 'markup-carve/carve#6813 (carve-php): an unspellable key is no loss where the output reads back (C2-W-075)',
     ];
 
     /**
