@@ -1322,7 +1322,7 @@ HELP;
      *
      * @return array{0: int, 1: int} The line, and the column in characters.
      */
-    private static function location(string $source, int $offset, array &$position): array
+    public static function location(string $source, int $offset, array &$position): array
     {
         $offset = max(0, min($offset, strlen($source)));
         if ($offset < $position['offset']) {

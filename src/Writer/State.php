@@ -284,6 +284,24 @@ final class State
     }
 
     /**
+     * C2-W-011: an image whose alt text is unknown is written with empty brackets. No code of C2-W-134.
+     *
+     * @param string $path
+     *
+     * @return void
+     */
+    public function loseUnknownAlt(string $path): void
+    {
+        $this->losses[] = new Diagnostic(
+            'image-alt-unknown',
+            'warning',
+            'render-loss',
+            'The alt text of this image is unknown; Carve source writes it as empty brackets',
+            $path,
+        );
+    }
+
+    /**
      * C2-W-016: a CR at the end of a line reads as part of its line ending, so the block that wrote it loses the value.
      *
      * @return void

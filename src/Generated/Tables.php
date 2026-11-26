@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '40aff1ce0ec13e5c8c5fa01c6d8c3fe5f70ee065',
+        'commit' => 'a7bc5be1ffaa907d76480ad4b59a404c1c1ecd7b',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -7473,6 +7473,11 @@ final class Tables
             'warning',
             'render-loss',
             'The heading shift of ${shift} raises a heading above level 6.',
+        ],
+        'image-alt-unknown' => [
+            'warning',
+            'render-loss',
+            'image-alt-unknown',
         ],
         'import-attribute-dropped' => [
             'warning',

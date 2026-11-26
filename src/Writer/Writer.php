@@ -86,6 +86,13 @@ final class Writer
     private static bool $lossReported = false;
 
     /**
+     * C2-W-134: `image-alt-unknown` is not among them.
+     *
+     * @var array<string, true>
+     */
+    public const REFUSING_CODES = ['field-unspellable' => true, 'structure-unspellable' => true, 'writer-refused' => true];
+
+    /**
      * Whether a supplied tree the heuristics call safe is read back. The importer writes trees of its own build, whose
      * one-paragraph read-back does not fit the memory its gates allow (carve-php#5664, #5722).
      */
@@ -451,12 +458,21 @@ final class Writer
     {
         $losses = [];
         $fallbackNodes = [];
+        $decorative = false;
         if (is_array($tree['children'] ?? null)) {
             foreach ($tree['children'] as $at => $child) {
                 if (is_array($child)) {
-                    self::findAttributeLineFeeds($child, '/children/' . $at, $losses, $fallbackNodes);
+                    self::findAttributeLineFeeds($child, '/children/' . $at, $losses, $fallbackNodes, $decorative);
                 }
             }
+        }
+        if ($decorative) {
+            foreach ($tree['children'] as &$child) {
+                if (is_array($child)) {
+                    self::spellDecorative($child);
+                }
+            }
+            unset($child);
         }
         if ($losses !== []) {
             foreach ($tree['children'] as &$child) {
@@ -568,16 +584,19 @@ final class Writer
      * @param string $path
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $losses
      * @param array<string, true> $fallbackNodes
+     * @param bool $decorative
      */
     private static function findAttributeLineFeeds(
         array $node,
         string $path,
         array &$losses,
         array &$fallbackNodes,
+        bool &$decorative,
     ): void {
         if (is_array($node['fallback'] ?? null)) {
             $fallbackNodes[$path] = true;
         }
+        $decorative = $decorative || ($node['decorative'] ?? null) === true;
         $attrs = $node['attrs'] ?? null;
         if (is_array($attrs) && is_array($attrs['keyValues'] ?? null)) {
             foreach ($attrs['keyValues'] as $at => $pair) {
@@ -603,7 +622,7 @@ final class Writer
                 continue;
             }
             $step = str_replace(['~', '/'], ['~0', '~1'], (string)$slot);
-            self::findAttributeSlotLineFeeds($value, $path . '/' . $step, $losses, $fallbackNodes);
+            self::findAttributeSlotLineFeeds($value, $path . '/' . $step, $losses, $fallbackNodes, $decorative);
         }
     }
 
@@ -612,11 +631,17 @@ final class Writer
      * @param string $path
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $losses
      * @param array<string, true> $fallbackNodes
+     * @param bool $decorative
      */
-    private static function findAttributeSlotLineFeeds(array $value, string $path, array &$losses, array &$fallbackNodes): void
-    {
+    private static function findAttributeSlotLineFeeds(
+        array $value,
+        string $path,
+        array &$losses,
+        array &$fallbackNodes,
+        bool &$decorative,
+    ): void {
         if (is_string($value['type'] ?? null)) {
-            self::findAttributeLineFeeds($value, $path, $losses, $fallbackNodes);
+            self::findAttributeLineFeeds($value, $path, $losses, $fallbackNodes, $decorative);
 
             return;
         }
@@ -635,9 +660,30 @@ final class Writer
             }
             if (!$leaf) {
                 $step = is_int($at) ? (string)$at : str_replace(['~', '/'], ['~0', '~1'], $at);
-                self::findAttributeSlotLineFeeds($part, $path . '/' . $step, $losses, $fallbackNodes);
+                self::findAttributeSlotLineFeeds($part, $path . '/' . $step, $losses, $fallbackNodes, $decorative);
+            } elseif (($part['decorative'] ?? null) === true) {
+                $decorative = true;
             }
         }
+    }
+
+    /**
+     * C2-W-011: a decorative image is written as `![](x)`, so the read-back to compare with holds its empty alt.
+     *
+     * @param array<mixed> $node
+     */
+    private static function spellDecorative(array &$node): void
+    {
+        if (($node['type'] ?? null) === 'image' && ($node['decorative'] ?? null) === true && !array_key_exists('alt', $node)) {
+            unset($node['decorative']);
+            $node['alt'] = '';
+        }
+        foreach ($node as $slot => &$value) {
+            if (is_array($value) && !in_array($slot, ['attrs', 'metadata', 'data', 'pos', 'segments'], true)) {
+                self::spellDecorative($value);
+            }
+        }
+        unset($value);
     }
 
     /**
@@ -3464,6 +3510,21 @@ final class Writer
     }
 
     /**
+     * C2-W-134: the entries a call that returns only source throws on.
+     *
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics
+     *
+     * @return array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
+     */
+    public static function refusing(array $diagnostics): array
+    {
+        return array_values(array_filter(
+            $diagnostics,
+            static fn (Diagnostic $d): bool => isset(self::REFUSING_CODES[$d->code]),
+        ));
+    }
+
+    /**
      * C2-W-134: the source alone; a loss throws.
      *
      * @param array<string, mixed> $tree
@@ -3477,8 +3538,9 @@ final class Writer
     public static function write(array $tree, ?array $layout = null, array $options = []): string
     {
         $result = self::writeWithDiagnostics($tree, $layout, $options);
-        if ($result->diagnostics !== []) {
-            throw new CarveWriteError($result->diagnostics);
+        $refused = self::refusing($result->diagnostics);
+        if ($refused !== []) {
+            throw new CarveWriteError($refused);
         }
 
         return $result->source;
@@ -3524,8 +3586,9 @@ final class Writer
     public static function format(string $source, array $options = [], ?array $layout = null): string
     {
         $result = self::formatWithDiagnostics($source, $options, $layout);
-        if ($result->diagnostics !== []) {
-            throw new CarveWriteError($result->diagnostics);
+        $refused = self::refusing($result->diagnostics);
+        if ($refused !== []) {
+            throw new CarveWriteError($refused);
         }
 
         return $result->source;
