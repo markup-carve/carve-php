@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\Block\BlockParser;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\Markers;
@@ -905,6 +906,8 @@ final class Blocks
             'include' => $this->includeBlock($node, $path, $prefix),
             'link_reference_definition' => $this->linkDefinition($node, $path, $prefix),
             'abbreviation_def' => $this->abbreviationDefinition($node, $path, $prefix),
+            'snippet_definition' => $this->snippetDefinition($node, $path, $prefix),
+            'snippet_use' => $this->w->emit($prefix, Syntax::spelling(Inline::str($node, 'name'))),
             'definition_term' => $this->textLeaf($node, $path, $prefix, ':: ', '   '),
             'table' => $this->table($node, $path, $prefix),
             default => null,
@@ -912,7 +915,7 @@ final class Blocks
 
         return in_array($type, [
             'paragraph', 'heading', 'thematic_break', 'code_block', 'raw_block', 'comment', 'frontmatter', 'include',
-            'link_reference_definition', 'abbreviation_def', 'definition_term', 'table',
+            'link_reference_definition', 'abbreviation_def', 'snippet_definition', 'snippet_use', 'definition_term', 'table',
         ], true);
     }
 
@@ -1038,6 +1041,17 @@ final class Blocks
      */
     private function paragraph(array $node, string $path, string $prefix): void
     {
+        // C2-W-159: a paragraph whose only child is an inline use reads as a block use, so it is written as one.
+        $children = $node['children'] ?? null;
+        if (
+            is_array($children) && count($children) === 1 && is_array($children[0]) && ($children[0]['type'] ?? null) === 'snippet_use'
+            && !isset($node['attrs']) && !isset($node['caption'])
+        ) {
+            $this->w->lose($path, 'paragraph', null);
+            $this->w->emit($prefix, Syntax::spelling(Inline::str($children[0], 'name')));
+
+            return;
+        }
         $text = $this->textLeaf($node, $path, $prefix, '', '');
         $role = is_string($node['role'] ?? null) ? $node['role'] : null;
         if ($text !== null && self::readRole($text, $node) !== $role) {
@@ -1982,6 +1996,61 @@ final class Blocks
             $this->readDefinitionBack($node, $path, $line);
         }
         $this->w->emit($prefix, $line);
+    }
+
+    /**
+     * C2-W-159: `{$`, the name, the attributes as the parts of one block, `}: ` and the value on one line. A line break
+     * of a supplied value is written as one space and reported.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param string $prefix
+     *
+     * @return void
+     */
+    private function snippetDefinition(array $node, string $path, string $prefix): void
+    {
+        $block = BraceBlock::of($node);
+        $marker = '{$' . Inline::str($node, 'name') . ($block === '' ? '' : ' ' . substr($block, 1, -1)) . '}: ';
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $broken = false;
+        $node['children'] = self::spacedBreaks($children, $broken);
+        if ($broken) {
+            $this->w->lose($path, 'snippet_definition', null);
+        }
+        unset($node['attrs'], $node['lang'], $node['dir']);
+        $this->textLeaf($node, $path, $prefix, $marker, '');
+    }
+
+    /**
+     * The inline nodes with every line break, in any slot, as one space.
+     *
+     * @param array<mixed> $nodes
+     * @param bool $broken Set when a break was replaced.
+     *
+     * @return array<mixed>
+     */
+    private static function spacedBreaks(array $nodes, bool &$broken): array
+    {
+        foreach ($nodes as $at => $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? null;
+            if ($type === 'soft_break' || $type === 'hard_break') {
+                $nodes[$at] = ['type' => 'text', 'value' => ' '];
+                $broken = true;
+
+                continue;
+            }
+            foreach ($node as $key => $value) {
+                if ($key !== 'attrs' && $key !== 'data' && is_array($value) && array_is_list($value) && is_array($value[0] ?? null)) {
+                    $nodes[$at][$key] = self::spacedBreaks($value, $broken);
+                }
+            }
+        }
+
+        return $nodes;
     }
 
     /**

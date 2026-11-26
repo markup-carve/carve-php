@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\BlockParser;
@@ -75,6 +76,7 @@ final class Text
      */
     private const NO_HOSTS = [
         'mention' => true,
+        'snippet_use' => true,
         'tag' => true,
         'smart_punctuation' => true,
         'abbreviation' => true,
@@ -122,6 +124,7 @@ final class Text
         'symbol' => true,
         'tag' => true,
         'mention' => true,
+        'snippet_use' => true,
         'non_breaking_space' => true,
         'smart_punctuation' => true,
         'footnote_ref' => true,
@@ -2255,6 +2258,10 @@ final class Text
      */
     private static function brace(string $value, int $i, Context $c, int $after, bool $markEscaped): bool
     {
+        // C2-I-128: text that reads as a snippet use; its first `{` takes the backslash.
+        if ($after === 0x7B && Syntax::useEnd($value, $i, strlen($value)) > 0) {
+            return true;
+        }
         $flat = (string)$c->flat;
         $at = $c->here + $i;
         if ($c->here < 0) {

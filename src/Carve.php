@@ -210,11 +210,13 @@ final class Carve
         $transformEntries = [];
         $findingsRoot = $doc;
         if ($transforms !== []) {
+            SnippetExpander::markDefinitions($doc);
             [$view, $transformEntries] = self::transformWithoutCollector($doc, $opts, $transforms);
             // The parse findings name nodes of the resolved document, which a transformed view does not hold.
             $findingsRoot = $view ?? new Node('document');
             if ($view !== null) {
                 $doc = $view;
+                SnippetExpander::refuseTransformed($doc);
                 $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             }
         }

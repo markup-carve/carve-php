@@ -183,6 +183,24 @@ final class Expander
     }
 
     /**
+     * C2-H-215: the carriers of an expanded use, from the `snippetCarrier` the pass left on its element.
+     *
+     * @param mixed $carrier
+     *
+     * @return string
+     */
+    public static function carrierText(mixed $carrier): string
+    {
+        if (!is_array($carrier)) {
+            return '';
+        }
+        [$n, $mode, $name, $include] = $carrier;
+
+        return ' data-carve-snippet="' . $n . ':' . $mode . ':$' . $name . '"'
+            . ($include ? ' data-carve-snippet-scope="include"' : '');
+    }
+
+    /**
      * C2-N-090: the registry of the expanded tree in document order: each name with its first definition and the
      * expanded include whose file holds it. Each later definition of a name goes to `$duplicate`.
      *

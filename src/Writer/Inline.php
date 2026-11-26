@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
@@ -1704,6 +1705,7 @@ final class Inline
             'symbol' => ':' . self::str($node, 'name') . ':',
             'tag' => '#' . self::str($node, 'name'),
             'mention' => '@' . self::str($node, 'target'),
+            'snippet_use' => Syntax::spelling(self::str($node, 'name')),
             'non_breaking_space' => '\\ ',
             'smart_punctuation' => self::str($node, 'source'),
             'abbreviation' => self::str($node, 'key'),
@@ -2263,6 +2265,7 @@ final class Inline
             // C2-W-116: the mark of a caption number (C2-B-150); its number is a resolution result.
             'caption_number' => '#',
             'mention' => $this->sigil($type, $path, $next, $this->mention($node, $path)),
+            'snippet_use' => Syntax::spelling(self::str($node, 'name')),
             'xref' => $this->xref($node, $path),
             'abbreviation' => $this->abbreviation($node, $path),
             default => null,

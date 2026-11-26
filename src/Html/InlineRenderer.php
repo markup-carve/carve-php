@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Options;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Walk;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
 use Throwable;
 use UnexpectedValueException;
 
@@ -67,6 +68,11 @@ final class InlineRenderer
         'small_caps' => 'smallCaps',
         'ruby' => 'ruby',
     ];
+
+    /**
+     * C2-H-215: the innermost snippet use whose copy holds the open link.
+     */
+    private ?int $linkSnippet = null;
 
     private int $linkDepth = 0;
 
@@ -153,7 +159,7 @@ final class InlineRenderer
         }
         foreach ($list as $i => $node) {
             $written = strlen($out);
-            $tag = $node->f === [] ? Tables::DELIMITER_HTML[$node->type] ?? null : null;
+            $tag = $node->f === [] && !isset($node->layout['snippetCarrier']) ? Tables::DELIMITER_HTML[$node->type] ?? null : null;
             if ($tag !== null) {
                 // A delimiter span with no attributes, the common case of node(), without its lookups.
                 $out .= '<' . $tag . '>' . $this->inlines($node->children ?? [], $depth + 1, true) . '</' . $tag . '>';
@@ -366,10 +372,39 @@ final class InlineRenderer
         $previous = $this->log->currentNode;
         $this->log->currentNode = $node;
         try {
-            return $this->nodeContent($node, $depth);
+            $html = $this->nodeContent($node, $depth);
+
+            return $this->o->roundtrip && isset($node->layout['snippetCarrier']) ? self::withCarrier($node, $html) : $html;
         } finally {
             $this->log->currentNode = $previous;
         }
+    }
+
+    /**
+     * C2-H-215: the carriers of an expanded use on the element of its one copy node, or on a span around a link that
+     * writes no `<a>`.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     * @param string $html
+     *
+     * @return string
+     */
+    private static function withCarrier(Node $node, string $html): string
+    {
+        $carrier = $node->layout['snippetCarrier'];
+        assert(is_array($carrier));
+        $text = SnippetExpander::carrierText($carrier);
+        $opens = $node->type === 'link' ? str_starts_with($html, '<a ') || str_starts_with($html, '<a>')
+            : str_starts_with($html, '<') && !str_starts_with($html, '</');
+        $close = $opens ? strpos($html, '>') : false;
+        if ($close === false) {
+            return '<span' . $text . '>' . $html . '</span>';
+        }
+        if ($html[$close - 1] === '/') {
+            $close--;
+        }
+
+        return substr($html, 0, $close) . $text . substr($html, $close);
     }
 
     private function textHtml(string $value): string
@@ -715,7 +750,10 @@ final class InlineRenderer
         $this->linkDepth++;
         $saved = $this->moved;
         $this->moved = '';
+        $outerSnippet = $this->linkSnippet;
+        $this->linkSnippet = $node->layout['snippetMark'] ?? null;
         $inner = $this->inlines($node->children ?? [], $depth + 1, true);
+        $this->linkSnippet = $outerSnippet;
         $moved = $this->moved;
         $this->moved = $saved;
         $this->linkDepth--;
@@ -995,6 +1033,11 @@ final class InlineRenderer
         $structural = [['id', $id], ['href', '#' . $this->state->noteIds[$number]], ['role', 'doc-noteref']];
         if ($this->o->roundtrip && $node->type === 'footnote_ref') {
             $structural[] = ['data-carve-footnote-label', PlainText::str($node->f['key'] ?? '')];
+        }
+        // C2-H-215: a mark that moves out of the copy of a use behind a link outside it names that use.
+        $use = $this->o->roundtrip && $this->linkDepth > 0 ? $node->layout['snippetMark'] ?? null : null;
+        if (is_int($use) && $use !== $this->linkSnippet) {
+            $structural[] = ['data-carve-snippet-mark', (string)$use];
         }
         $attrs = $node->f['attrs'] ?? null;
         $mark = '<a' . $this->aw->build($structural, '', $attrs instanceof Attrs ? $attrs : null) . '><sup>' . $number . '</sup></a>';
