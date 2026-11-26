@@ -18,7 +18,7 @@ final class Next2ParityRoundTwoTest extends TestCase
         return [
             'term before hyphens' => [":: term\n---", ['thematic-break-spelling']],
             'quoted spaced hyphens after heading' => ["> # H\n> - - -", ['deprecated-spaced-thematic-break']],
-            'first definition-shaped paragraph line' => [": definition\n---", ['djot-definition-list', 'setext-heading-underline']],
+            'first definition-shaped paragraph line' => [": definition\n---", ['setext-heading-underline']],
             'later definition-shaped paragraph line' => [
                 "text\n: definition", ['block-opener-without-blank-line', 'markdown-definition-paragraph'],
             ],
@@ -27,7 +27,7 @@ final class Next2ParityRoundTwoTest extends TestCase
                 "- item\n  # H\n\t***",
                 ['block-opener-without-blank-line', 'list-item-block-overindented'],
             ],
-            'line outside quote heading' => ["> # H\n ---", ['djot-heading-continuation', 'thematic-break-spelling']],
+            'line outside quote heading' => ["> # H\n ---", ['thematic-break-spelling']],
             'indented heading continuation' => ["# H\n  text", ['deprecated-indented-line-under-heading']],
         ];
     }

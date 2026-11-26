@@ -71,8 +71,13 @@ final class CatalogTest extends TestCase
                 $renderers = [$row['name'] => ['standard' => [$option => $value]]];
                 Carve::toHtml("a\n", ['extensions' => [$row['name']], 'renderers' => $renderers]);
             }
+            // An open option takes any string (C2-X-075, CC-2148) and still refuses another type (CC-2300).
+            $refused = ($spec['open'] ?? false) === true ? 1 : 'xx';
+            if ($refused === 1) {
+                Carve::toHtml("a\n", ['extensions' => [$row['name']], 'renderers' => [$row['name'] => ['standard' => [$option => 'xx']]]]);
+            }
             $this->expectException(OptionError::class);
-            Carve::toHtml("a\n", ['extensions' => [$row['name']], 'renderers' => [$row['name'] => ['standard' => [$option => 'xx']]]]);
+            Carve::toHtml("a\n", ['extensions' => [$row['name']], 'renderers' => [$row['name'] => ['standard' => [$option => $refused]]]]);
         }
         $this->addToAssertionCount(1);
     }

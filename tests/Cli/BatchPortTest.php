@@ -36,7 +36,7 @@ final class BatchPortTest extends TestCase
     public function testFixUsesCatalogAndLeavesConflictingRanges(): void
     {
         $this->assertSame([0, "a *b* {~c~}\n\n+ x\n", ''], self::callCommand(['fix'], "a **b** ~~c~~\n\n+ x\n"));
-        [$status, $source] = self::callCommand(['lint', '--fix', '--upgrade'], "a ~s~ b\n");
+        [$status, $source] = self::callCommand(['lint', '--fix', '--upgrade', '--rules', '{"djot-subscript-tilde":"on"}'], "a ~s~ b\n");
         $this->assertSame(1, $status);
         $this->assertSame("a ~s~ b\n", $source);
         $args = ['fix', '--upgrade', '--rules', '{"djot-subscript-tilde":"off"}'];
@@ -109,7 +109,7 @@ final class BatchPortTest extends TestCase
         self::assertNotFalse($file);
         file_put_contents($file, "a ~s~ b\n");
         try {
-            [$status, $out, $err] = self::callCommand(['fix', '--write', '--upgrade', $file]);
+            [$status, $out, $err] = self::callCommand(['fix', '--write', '--upgrade', '--rules', '{"djot-subscript-tilde":"on"}', $file]);
             $this->assertSame(1, $status);
             $this->assertStringContainsString('deprecated-bare-strike', $out);
             $this->assertSame('', $err);
