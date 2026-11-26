@@ -76,6 +76,7 @@ final class InlineReader
      */
     private const VALUE_NEEDS_CONTENT = [
         'code' => true,
+        'critic_comment' => true,
         'literal_inline' => true,
         'math' => true,
         'raw_inline' => true,
