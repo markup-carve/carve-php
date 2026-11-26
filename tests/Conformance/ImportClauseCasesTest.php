@@ -51,6 +51,7 @@ final class ImportClauseCasesTest extends TestCase
         'CC-2394' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2395' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2396' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
+        'CC-2412' => 'markup-carve/carve#6832 (carve-php line): read data-carve-tight over a kept <p>',
     ];
 
     /**

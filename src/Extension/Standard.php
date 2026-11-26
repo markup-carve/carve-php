@@ -76,8 +76,8 @@ final class Standard
             'carve.headingReference' => [Navigation::headingReference()],
             'carve.semanticSpan' => SemanticSpan::bundle()->definitions(),
             'carve.smartQuotes' => SmartQuotes::bundle()->definitions(),
-            'carve.toc' => [Navigation::tableOfContents()->withoutRenderers()],
-            'carve.tocPlacement' => [Navigation::tocPlacement()->withoutRenderers()],
+            'carve.toc' => [Navigation::tableOfContents()],
+            'carve.tocPlacement' => [Navigation::tocPlacement()],
             default => str_starts_with($name, self::FENCED) ? self::fenced($name) : null,
         };
     }
@@ -165,8 +165,10 @@ final class Standard
             'carve.listTable' => ListTable::bundle(),
             'carve.term', 'carve.glossary' => Glossary::bundle(),
             'carve.indexTerm', 'carve.index' => IndexTerms::bundle(),
-            'carve.toc' => new Bundle([Navigation::tableOfContents()]),
-            'carve.tocPlacement' => new Bundle([Navigation::tocPlacement()]),
+            'carve.toc' => new Bundle([
+                Toc::tableOfContents(minLevel: 1, maxLevel: 6, ordered: false, cssClass: 'toc', bottom: false, props: []),
+            ]),
+            'carve.tocPlacement' => new Bundle([Toc::placement()]),
             'carve.mathBlock' => MathBlock::bundle(),
             'carve.wiki' => Wikilinks::bundle(),
             default => str_starts_with($name, self::FENCED) ? FencedRender::presets() : null,

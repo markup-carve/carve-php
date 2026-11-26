@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Extension;
 
+use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\DocumentTransform;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
@@ -101,9 +102,16 @@ final class NavigationTest extends TestCase
         self::assertStringContainsString($expected, self::html($source, Navigation::headingNumbers()));
     }
 
+    /**
+     * carve-js#5309: the toc renderers are registered through `renderers`, not carried by the definitions.
+     *
+     * @var array<string, string>
+     */
+    private const TOC_RENDERERS = ['carve.toc' => 'standard', 'carve.tocPlacement' => 'standard'];
+
     private static function html(string $source, ExtensionDefinition ...$extensions): string
     {
-        return Carve::render($source, ['extensions' => $extensions]);
+        return Carve::render($source, ['extensions' => $extensions, 'renderers' => self::TOC_RENDERERS]);
     }
 
     private static function suffix(string $name, string $text): ExtensionDefinition
@@ -187,7 +195,11 @@ final class NavigationTest extends TestCase
             "<nav class=\"toc\" aria-label=\"Table of contents\">\n{$indented}\n</nav>\n<section id=\"Intro\">",
             $html,
         );
-        $this->assertSame($html, Carve::render(self::DOC, ['extensions' => [Navigation::tableOfContents()], 'mode' => 'static']));
+        $this->assertSame($html, Carve::render(self::DOC, [
+            'extensions' => [Navigation::tableOfContents()],
+            'renderers' => self::TOC_RENDERERS,
+            'mode' => 'static',
+        ]));
         $result = Carve::renderWithDiagnostics(self::DOC, ['extensions' => [Navigation::tableOfContents()->withoutRenderers()]]);
         $this->assertStringStartsWith("<div class=\"toc\">\n{$indented}\n</div>\n", $result->html);
         $this->assertSame(['extension-fallback-rendered'], $result->codes());
@@ -212,9 +224,17 @@ final class NavigationTest extends TestCase
             . "  <ul>\n    <li><a href=\"#A\">A</a></li>\n  </ul>\n</details>\n",
             self::html("= A\n", Navigation::tableOfContents(collapsible: true, summary: 'On <this> page', open: true)),
         );
-        $named = Carve::render("= A\n", ['extensions' => [Navigation::tableOfContents()], 'labels' => ['tocNav' => 'Contents']]);
+        $named = Carve::render("= A\n", [
+            'extensions' => [Navigation::tableOfContents()],
+            'renderers' => self::TOC_RENDERERS,
+            'labels' => ['tocNav' => 'Contents'],
+        ]);
         $this->assertStringStartsWith('<nav class="toc" aria-label="Contents">', $named);
-        $bare = Carve::render("= A\n", ['extensions' => [Navigation::tableOfContents()], 'labels' => ['tocNav' => '']]);
+        $bare = Carve::render("= A\n", [
+            'extensions' => [Navigation::tableOfContents()],
+            'renderers' => self::TOC_RENDERERS,
+            'labels' => ['tocNav' => ''],
+        ]);
         $this->assertStringStartsWith('<nav class="toc">', $bare);
     }
 
@@ -245,9 +265,51 @@ final class NavigationTest extends TestCase
         );
     }
 
+    /**
+     * @return array<string, array{\Closure(): \MarkupCarve\Carve\Extension\ExtensionDefinition, string, string, string|null}>
+     */
+    public static function tocRendererCases(): array
+    {
+        $toc = static fn (): ExtensionDefinition => Navigation::tableOfContents();
+        $placement = static fn (): ExtensionDefinition => Navigation::tocPlacement();
+
+        return [
+            'toc default' => [$toc, 'carve.toc', "= A\n\n== B\n", null],
+            'toc static' => [$toc, 'carve.toc', "= A\n\n== B\n", 'static'],
+            'placement default' => [$placement, 'carve.tocPlacement', "::: toc\n:::\n\n= A\n\n== B\n", null],
+            'placement static' => [$placement, 'carve.tocPlacement', "::: toc\n:::\n\n= A\n\n== B\n", 'static'],
+        ];
+    }
+
+    /**
+     * carve-js#5309, EXT-117 to EXT-123: without a `renderers` entry the fallback is written and reported in both modes
+     * (C2-X-052, C2-X-035); with `standard` the bundled renderer writes the `<nav>`.
+     *
+     * @param \Closure(): \MarkupCarve\Carve\Extension\ExtensionDefinition $make
+     * @param string $name
+     * @param string $source
+     * @param string|null $mode
+     */
+    #[DataProvider('tocRendererCases')]
+    public function testTocRendererComesFromTheRenderersOption(Closure $make, string $name, string $source, ?string $mode): void
+    {
+        $list = "  <ul>\n    <li><a href=\"#A\">A</a>\n      <ul>\n        <li><a href=\"#B\">B</a></li>\n      </ul>\n"
+            . "    </li>\n  </ul>\n";
+        $sections = "<section id=\"A\">\n  <h1>A</h1>\n  <section id=\"B\">\n    <h2>B</h2>\n  </section>\n</section>";
+        $options = ['extensions' => [$make()]] + ($mode === null ? [] : ['mode' => $mode]);
+
+        $fallback = Carve::renderWithDiagnostics($source, $options);
+        $this->assertSame("<div class=\"toc\">\n{$list}</div>\n{$sections}", $fallback->html);
+        $this->assertSame(['extension-fallback-rendered'], $fallback->codes());
+
+        $rendered = Carve::renderWithDiagnostics($source, $options + ['renderers' => [$name => 'standard']]);
+        $this->assertSame("<nav class=\"toc\" aria-label=\"Table of contents\">\n{$list}</nav>\n{$sections}", $rendered->html);
+        $this->assertSame([], $rendered->codes());
+    }
+
     public function testTocPlacementFallbackAndCore(): void
     {
-        $fallback = self::html("= A\n\n::: toc\n:::\n", Navigation::tocPlacement()->withoutRenderers());
+        $fallback = Carve::render("= A\n\n::: toc\n:::\n", ['extensions' => [Navigation::tocPlacement()]]);
         $this->assertStringContainsString(
             "<div class=\"toc\">\n    <ul>\n      <li><a href=\"#A\">A</a></li>\n    </ul>\n  </div>",
             $fallback,
