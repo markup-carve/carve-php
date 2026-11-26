@@ -233,9 +233,11 @@ final class Writer
                     static fn (): WriteResult => self::writeChecked($tree, $writeLayout, $options),
                 ),
             ));
-            if ($verbatim !== [] && $written->diagnostics === []) {
+            // The loss is judged after the verbatim texts are restored, so a refused rounds form may still read back.
+            if ($verbatim !== [] && ($written->diagnostics === [] || self::onlyRefused($written))) {
                 $written = self::withVerbatimReferences($written, $verbatim, $tree, $layout, $options);
-            } elseif ($verbatim !== []) {
+            }
+            if ($verbatim !== [] && $written->diagnostics !== []) {
                 // Where the rounds give no form without a loss, a write that keeps the verbatim texts in them may.
                 $kept = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
                     static fn (): WriteResult => WriteMemo::scoped(
@@ -265,14 +267,15 @@ final class Writer
     }
 
     /**
-     * @var int Past this many leaf blocks that do not read back, the authored-block fallback tries no more (C2-W-133).
+     * @var int Past this many trials of a pass, the authored-block fallback takes the rest of the pass at once (C2-W-133).
      */
     private const MAX_AUTHORED_TRIALS = 32;
 
     /**
-     * C2-W-088 (carve#6813): where the repair stops, the first leaf block in document order whose read-back
-     * differs and whose authored source from the sidecar makes the whole output read back is written as authored. A
-     * tree without a sidecar `source` keeps the loss (C2-W-117).
+     * C2-W-088 (carve#6813, carve#6846, carve#6848): where the repair stops, the leaf blocks whose subtree does not
+     * read back take their authored source from the sidecar, cumulatively in document order, until the whole output
+     * reads back; failing that, the remaining blocks whose spelling differs from their authored slice follow. A tree
+     * without a sidecar `source` keeps the loss (C2-W-117). The fallback runs under `normalize` too (C2-W-127).
      *
      * @param \MarkupCarve\Carve\Writer\WriteResult $written
      * @param array<string, mixed> $tree
@@ -285,9 +288,8 @@ final class Writer
         if (is_string($authored) && ($layout['encoding'] ?? null) === 'base64') {
             $authored = base64_decode($authored, true);
         }
-        $codes = array_map(static fn (Diagnostic $d): string => $d->code, $written->diagnostics);
-        // Only the repair's own stop: a loss another clause reports (C2-W-016) stays. `normalize` reads no sidecar.
-        if (!is_string($authored) || array_unique($codes) !== ['writer-refused'] || ($options['normalize'] ?? false) === true) {
+        // Only the repair's own stop: a loss another clause reports (C2-W-016) stays.
+        if (!is_string($authored) || !self::onlyRefused($written)) {
             return $written;
         }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
@@ -296,27 +298,83 @@ final class Writer
         $from = self::blockSpans($layout);
         $to = self::blockSpans($parsed->layout);
         $print = self::trimmedPrint($tree, $layout, $options);
-        $trials = 0;
-        // Each replacement is kept for the trials after it; the spans of later blocks move by what it changed.
-        $trial = $written->source;
-        $shift = 0;
+        $failing = [];
+        $rest = [];
         foreach (self::leafPaths($tree, '') as $path => $leaf) {
-            if (!isset($from[$path], $to[$path]) || TreeEquality::equal($leaf, self::nodeAt($read, $path) ?? [])) {
+            if (!isset($from[$path], $to[$path])) {
                 continue;
             }
-            [$start, $end] = $to[$path];
-            $block = substr($authored, $from[$path][0], $from[$path][1] - $from[$path][0]);
-            $trial = substr_replace($trial, $block, $start + $shift, $end - $start);
-            $shift += strlen($block) - ($end - $start);
-            if (self::readsBack($trial, $print, $options)) {
-                return new WriteResult($trial, []);
+            $block = self::authoredSlice($authored, $from[$path][0], $from[$path][1]);
+            if (!TreeEquality::equal($leaf, self::nodeAt($read, $path) ?? [])) {
+                $failing[$path] = $block;
+            } elseif ($block !== substr($written->source, $to[$path][0], $to[$path][1] - $to[$path][0])) {
+                $rest[$path] = $block;
             }
-            if (++$trials >= self::MAX_AUTHORED_TRIALS) {
-                break;
+        }
+        // Each replacement is kept for the trials after it, also across the passes.
+        $taken = [];
+        foreach ([$failing, $rest] as $pass) {
+            $trials = 0;
+            foreach ($pass as $path => $block) {
+                $taken[$path] = $block;
+                if (++$trials > self::MAX_AUTHORED_TRIALS && $trials < count($pass)) {
+                    continue;
+                }
+                $trial = self::withBlocks($written->source, $to, $taken);
+                if (self::readsBack($trial, $print, $options)) {
+                    return new WriteResult($trial, []);
+                }
             }
         }
 
         return $written;
+    }
+
+    private static function onlyRefused(WriteResult $written): bool
+    {
+        $codes = array_map(static fn (Diagnostic $d): string => $d->code, $written->diagnostics);
+
+        return array_unique($codes) === ['writer-refused'];
+    }
+
+    /**
+     * The authored source of a block as the writer writes it: a CR before an LF dropped (C2-B-010, C2-W-016), and no
+     * space or tab at a line end (C2-W-022), which leaves a hard break its backslash alone (C2-W-079).
+     */
+    private static function authoredSlice(string $authored, int $from, int $to): string
+    {
+        $slice = str_replace("\r\n", "\n", substr($authored, $from, $to - $from));
+        $next = $authored[$to] ?? "\n";
+        if (str_ends_with($slice, "\r") && $next === "\n") {
+            $slice = substr($slice, 0, -1);
+        }
+        $slice = (string)preg_replace('/[ \t]+(?=\n)/', '', $slice);
+
+        return $next === "\n" || $next === "\r" ? rtrim($slice, " \t") : $slice;
+    }
+
+    /**
+     * `$source` with the block at each path of `$taken` replaced, the spans of `$to` read in `$source`.
+     *
+     * @param string $source
+     * @param array<string, array{int, int}> $to
+     * @param array<string, string> $taken
+     */
+    private static function withBlocks(string $source, array $to, array $taken): string
+    {
+        $spans = [];
+        foreach ($taken as $path => $block) {
+            $spans[] = [$to[$path][0], $to[$path][1], $block];
+        }
+        usort($spans, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $out = '';
+        $at = 0;
+        foreach ($spans as [$start, $end, $block]) {
+            $out .= substr($source, $at, $start - $at) . $block;
+            $at = $end;
+        }
+
+        return $out . substr($source, $at);
     }
 
     /**
