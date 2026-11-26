@@ -34,6 +34,18 @@ final class HtmlParser
      */
     private const LEGACY_ROOT = 'carve-import-root';
 
+    /**
+     * Void elements libxml below 2.14 does not know: it lets them hold the content that follows.
+     *
+     * @var array<string>
+     */
+    private const LEGACY_VOIDS = ['bgsound', 'embed', 'keygen', 'source', 'track', 'wbr'];
+
+    /**
+     * @var array<string>
+     */
+    private const RAW_TEXT = ['iframe', 'noembed', 'noframes', 'script', 'style', 'textarea', 'title', 'xmp'];
+
     public static function available(): bool
     {
         return class_exists(DOMDocument::class);
@@ -157,7 +169,7 @@ final class HtmlParser
     private static function legacy(string $html, bool $document): HtmlNode
     {
         // The HTML input stream turns CR LF and a lone CR into LF before tokenizing; libxml keeps them.
-        $html = str_replace(["\r\n", "\r"], "\n", $html);
+        $html = self::bogusComments(str_replace(["\r\n", "\r"], "\n", $html));
         $dom = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
         try {
@@ -172,6 +184,7 @@ final class HtmlParser
             libxml_use_internal_errors($previous);
         }
         self::impliedTableBodies($dom);
+        self::emptyVoids($dom, $html);
         $root = new HtmlNode(HtmlNode::ROOT);
         $source = $document ? $dom : $dom->getElementsByTagName(self::LEGACY_ROOT)->item(0);
         if ($source !== null) {
@@ -189,6 +202,83 @@ final class HtmlParser
         }
 
         return $root;
+    }
+
+    /**
+     * The HTML tokenizer reads `<!` that opens no comment, doctype or CDATA as a bogus comment up to the next `>`;
+     * libxml below 2.14 keeps it as text (Word's `<![if !supportFootnotes]>`).
+     *
+     * @param string $html
+     *
+     * @return string
+     */
+    private static function bogusComments(string $html): string
+    {
+        if (!preg_match('/<!(?!--|(?i:doctype)|\[CDATA\[)/', $html)) {
+            return $html;
+        }
+        $out = '';
+        $from = 0;
+        $at = 0;
+        $length = strlen($html);
+        while (($lt = strpos($html, '<', $at)) !== false) {
+            $next = $html[$lt + 1] ?? '';
+            if ($next === '!') {
+                if (substr($html, $lt + 2, 2) === '--') {
+                    $end = strpos($html, '-->', $lt + 2);
+                    $at = $end === false ? $length : $end + 3;
+
+                    continue;
+                }
+                if (strncasecmp(substr($html, $lt + 2, 7), 'doctype', 7) === 0 || substr($html, $lt + 2, 7) === '[CDATA[') {
+                    $at = $lt + 2;
+
+                    continue;
+                }
+                $end = strpos($html, '>', $lt + 2);
+                $close = $end === false ? $length : $end;
+                $out .= substr($html, $from, $lt - $from) . '<!--' . substr($html, $lt + 2, $close - $lt - 2) . '-->';
+                $from = $at = $end === false ? $length : $end + 1;
+
+                continue;
+            }
+            if (!preg_match('/\G<([a-zA-Z][^\s\/>]*)(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/', $html, $tag, 0, $lt)) {
+                $at = $lt + 1;
+
+                continue;
+            }
+            $at = $lt + strlen($tag[0]);
+            if (in_array(strtolower($tag[1]), self::RAW_TEXT, true)) {
+                $found = preg_match('~</' . preg_quote($tag[1], '~') . '[\s/>]~i', $html, $end, PREG_OFFSET_CAPTURE, $at);
+                $at = $found === 1 ? $end[0][1] : $length;
+            }
+        }
+
+        return $out . substr($html, $from);
+    }
+
+    /**
+     * A void element holds no content: what libxml put inside one follows it.
+     *
+     * @param \DOMDocument $document
+     * @param string $html
+     *
+     * @return void
+     */
+    private static function emptyVoids(DOMDocument $document, string $html): void
+    {
+        foreach (self::LEGACY_VOIDS as $name) {
+            if (stripos($html, '<' . $name) === false) {
+                continue;
+            }
+            /** @var array<\DOMElement> $elements */
+            $elements = iterator_to_array($document->getElementsByTagName($name));
+            foreach ($elements as $element) {
+                while ($element->lastChild !== null && $element->parentNode !== null) {
+                    $element->parentNode->insertBefore($element->lastChild, $element->nextSibling);
+                }
+            }
+        }
     }
 
     /**

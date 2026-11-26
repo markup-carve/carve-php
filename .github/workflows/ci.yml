@@ -26,6 +26,27 @@ jobs:
       - name: Run import tests
         run: vendor/bin/phpunit tests/Import
 
+  # The libxml fallback on libxml below 2.14 (HTML4 parser), as Debian 12 and Ubuntu 24.04 ship it; the runners have 2.14+.
+  import-old-libxml:
+    runs-on: ubuntu-latest
+    container: php:8.5-cli
+    timeout-minutes: 20
+    steps:
+      # Without git the checkout downloads the archive, which leaves out the export-ignored tests.
+      - name: Install git and unzip
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip git
+      - uses: actions/checkout@v6
+      - name: Install composer
+        run: |
+          curl -sS https://getcomposer.org/installer | php -- --quiet --install-dir=/usr/local/bin --filename=composer
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+      - name: The image still has the HTML4 parser
+        run: |
+          php -r '$d = new DOMDocument(); @$d->loadHTML("<p>a<wbr>b</p>"); if ($d->getElementsByTagName("wbr")->item(0)->childNodes->length === 0) { fwrite(STDERR, "this image has libxml 2.14 or later: pin an older one\n"); exit(1); } echo "libxml ", LIBXML_DOTTED_VERSION, PHP_EOL;'
+      - name: Run import tests
+        run: php -d memory_limit=1G vendor/bin/phpunit tests/Import tests/Conformance/ImportClauseCasesTest.php
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
