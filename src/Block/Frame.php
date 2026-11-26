@@ -126,6 +126,20 @@ final class Frame
      */
     public const ATTR_PARAGRAPH = 24;
 
+    /**
+     * C2-B-236: a snippet definition, a leaf of one line.
+     *
+     * @var int
+     */
+    public const SNIPPET_DEF = 25;
+
+    /**
+     * C2-B-237: a block snippet use.
+     *
+     * @var int
+     */
+    public const SNIPPET_USE = 26;
+
     public int $markerCol = 0;
 
     public int $contentCol = 0;

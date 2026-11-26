@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Options;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
 use Normalizer;
 
 /**
@@ -236,6 +237,9 @@ final class Resolver
                 $doc->f['srcByteLength'] = strlen($s);
             }
             $r->collectDefinitions();
+            if ($findings !== null && ($s === null || str_contains($s, '{$') || $doc->includeSources !== [])) {
+                $r->duplicateSnippets();
+            }
             $r->prepare();
             $r->body = Walk::bodyRanges($doc, $r->pos, $r->end);
             $r->numberFootnotes();
@@ -313,6 +317,27 @@ final class Resolver
         if ($this->doc->includeSources !== []) {
             $this->collectIncludedDefinitions();
         }
+    }
+
+    /**
+     * C2-N-090: a later snippet definition of a name stays, renders nothing and reports at its `$` and name.
+     *
+     * @return void
+     */
+    private function duplicateSnippets(): void
+    {
+        SnippetExpander::registry($this->doc, function (Node $node): void {
+            $name = is_string($node->f['name'] ?? null) ? $node->f['name'] : '';
+            $start = $node->start;
+            $this->findings?->add(
+                'duplicate-snippet',
+                $node,
+                $node->file,
+                $start < 0 ? -1 : $start + 1,
+                $start < 0 ? -1 : $start + 2 + strlen($name),
+                Message::fill('duplicate-snippet', ['name' => $name]),
+            );
+        });
     }
 
     /**
@@ -477,7 +502,7 @@ final class Resolver
             if ($type === 'footnote') {
                 $this->pos[spl_object_id($node)] = $i;
             }
-            $kids = $node->children;
+            $kids = Walk::children($node);
             foreach ($f as $key => $value) {
                 if (($value instanceof Node || is_array($value) && Walk::nests($value)) && !isset(Walk::OPAQUE[$key])) {
                     $kids = Walk::kids($node);

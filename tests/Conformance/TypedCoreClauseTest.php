@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Json\TreeReader;
 use MarkupCarve\Carve\Options;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
 use MarkupCarve\Carve\Test\Support\ClauseHost;
 use MarkupCarve\Carve\Test\Support\Corpus;
 use PHPUnit\Framework\AssertionFailedError;
@@ -40,40 +41,6 @@ final class TypedCoreClauseTest extends TestCase
         'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2273' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2274' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2347' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2348' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2349' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2350' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2351' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2352' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2355' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2356' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2357' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2358' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2360' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2365' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2366' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2367' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2368' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2369' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2370' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2371' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2372' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2373' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2374' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2375' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2376' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2377' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2378' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2379' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2380' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2381' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2382' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2383' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2384' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2390' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2391' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2392' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
     ];
 
     /**
@@ -122,6 +89,19 @@ final class TypedCoreClauseTest extends TestCase
      * @param array<string, mixed> $case
      */
     private function check(array $case): void
+    {
+        SnippetExpander::$testLimits = $case['host']['limits'] ?? null;
+        try {
+            $this->checkCase($case);
+        } finally {
+            SnippetExpander::$testLimits = null;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $case
+     */
+    private function checkCase(array $case): void
     {
         $expected = $case['expected'];
         if ($case['kind'] === 'tree') {

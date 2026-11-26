@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Resolve\Facts;
 use MarkupCarve\Carve\Resolve\PlainText;
 use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Walk;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
 use Throwable;
 use UnexpectedValueException;
 use WeakMap;
@@ -73,6 +74,7 @@ final class HtmlRenderer
         'footnote' => true,
         'abbreviation_def' => true,
         'citation_definition' => true,
+        'snippet_definition' => true,
     ];
 
     public RenderLog $log;
@@ -120,6 +122,10 @@ final class HtmlRenderer
     private function __construct(private Node $doc, public Options $o, ?string $source, ?Facts $facts)
     {
         $this->log = new RenderLog();
+        foreach ($doc->layout['snippetLosses'] ?? [] as [$code, $node, $message]) {
+            $this->log->loss($code, 'warning', [], $node->file, node: $node);
+            $this->log->entries[array_key_last($this->log->entries)]['message'] = $message;
+        }
         $this->silenced = new WeakMap();
         if ($o->profile !== 'full') {
             $this->profile = new Profile($o->profile, $this->log, $o);
@@ -201,7 +207,10 @@ final class HtmlRenderer
         $r = null;
         try {
             // C2-A-135: a tree resolved elsewhere is resolved again; no result field is read from it.
-            $resolved ??= Resolver::resolve($doc, $source, $opts, true)->facts;
+            if ($resolved === null) {
+                SnippetExpander::expand($doc, $opts->roundtrip, $source);
+                $resolved = Resolver::resolve($doc, $source, $opts, true)->facts;
+            }
             $r = new self($doc, $opts, $source, $resolved);
             $html = $r->document();
             $above = $shiftFactKnown ? $shiftAbove : ($opts->headingShift !== 0 ? HeadingShift::firstAboveSix($doc) : null);

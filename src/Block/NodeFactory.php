@@ -179,6 +179,18 @@ final class NodeFactory
                 }
 
                 return $node;
+            case Frame::SNIPPET_DEF:
+                $node = Node::at('snippet_definition', $f->start, $f->end);
+                $node->f['name'] = $f->value;
+                $node->lines = $f->spans;
+
+                return $node;
+            case Frame::SNIPPET_USE:
+                $node = Node::at('snippet_use', $f->start, $f->end);
+                $node->f['name'] = $f->value;
+                $node->f['mode'] = 'block';
+
+                return $node;
             case Frame::COMMENT_LINE:
                 $node = Node::at('comment', $f->start, $f->end);
                 $node->f['form'] = 'line';

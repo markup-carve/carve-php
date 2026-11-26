@@ -52,6 +52,7 @@ use MarkupCarve\Carve\Resolve\Resolver;
 use MarkupCarve\Carve\Resolve\Slug;
 use MarkupCarve\Carve\Resolve\TableGrid;
 use MarkupCarve\Carve\Resolve\Walk;
+use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
 use MarkupCarve\Carve\Writer\Writer;
 use MarkupCarve\Carve\Writer\WriteResult;
 use Throwable;
@@ -465,6 +466,9 @@ final class Carve
                     static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
                 );
             }
+            if ($keep) {
+                SnippetExpander::expand($doc, $opts->roundtrip, $source);
+            }
             $facts = Resolver::resolve($doc, $source, $opts, $keep, $findings)->facts;
             // Only an abbreviation of the parse or a node of an extension can carry an expansion.
             if (!$keep && ($opts->extensions !== [] || Finisher::$abbreviations !== $abbreviations)) {
@@ -603,6 +607,7 @@ final class Carve
                     static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
                 );
             }
+            SnippetExpander::expand($doc, $opts->roundtrip, $source);
             // The resolve hands its lists to the renderer, which then skips its own walk of the tree.
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
             HeadingShift::apply($doc, $opts->headingShift, $opts->rendered);
@@ -1265,6 +1270,7 @@ final class Carve
         }
         $gc = self::collectorOff();
         try {
+            SnippetExpander::expand($doc, $opts->roundtrip, $source);
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
         } finally {
             if ($gc) {

@@ -8,6 +8,7 @@ use MarkupCarve\Carve\AttributeParser;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Snippet\Syntax;
 use MarkupCarve\Carve\Utf8;
 
 /**
@@ -996,6 +997,17 @@ final class Scanner
     private function brace(int $i): int
     {
         $t = $this->t;
+        // C2-I-128: a snippet use is read before the forms at an opening brace.
+        if ($i + 1 < $this->n && $t[$i + 1] === '{') {
+            $use = Syntax::useEnd($t, $i, $this->n);
+            if ($use > 0) {
+                $node = $this->node('snippet_use', $i, $use);
+                $node->f['name'] = Syntax::useName($t, $i);
+                $node->f['mode'] = 'inline';
+
+                return $this->emit([self::NODE, $node, $i, $use, false, null]);
+            }
+        }
         // An attribute block starts with a space, `}` or the first character of a part (C2-I-028).
         if (strspn($t, self::ATTR_STARTS, $i + 1, 1) === 1) {
             $attrs = new Attrs();

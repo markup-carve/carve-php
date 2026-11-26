@@ -93,7 +93,7 @@ final class Section
     {
         return !in_array($node->type, [
             'include', 'comment', 'frontmatter', 'link_reference_definition', 'abbreviation_def',
-            'footnote', 'citation_definition', 'table_row', 'table_cell', 'list_item',
+            'footnote', 'citation_definition', 'snippet_definition', 'table_row', 'table_cell', 'list_item',
         ], true);
     }
 
@@ -108,7 +108,7 @@ final class Section
             $node = array_pop($stack);
             if (
                 in_array($node->type, [
-                    'link_reference_definition', 'abbreviation_def', 'footnote', 'citation_definition',
+                    'link_reference_definition', 'abbreviation_def', 'footnote', 'citation_definition', 'snippet_definition',
                 ], true)
             ) {
                 $out[] = $node;
