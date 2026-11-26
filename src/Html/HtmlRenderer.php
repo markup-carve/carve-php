@@ -1500,11 +1500,11 @@ final class HtmlRenderer
      * @param array<mixed> $marker
      * @param bool $ordered
      * @param bool $tight
-     * @param int $count
+     * @param array<\MarkupCarve\Carve\Node>|null $children
      *
      * @return array<array{0: string, 1: string|null}>
      */
-    private static function listCarriers(array $marker, bool $ordered, bool $tight, int $count): array
+    private static function listCarriers(array $marker, bool $ordered, bool $tight, ?array $children): array
     {
         $out = [];
         $char = $marker['char'] ?? '-';
@@ -1513,7 +1513,7 @@ final class HtmlRenderer
         }
         if ($tight) {
             $out[] = ['data-carve-tight', null];
-        } elseif ($count > 1) {
+        } elseif (count(array_filter($children ?? [], static fn (Node $item): bool => $item->type === 'list_item')) > 1) {
             $out[] = ['data-carve-loose', null];
         }
 
@@ -1561,8 +1561,7 @@ final class HtmlRenderer
         $tight = ($node->f['spacing'] ?? 'tight') !== 'loose';
         $structural = $ordered ? self::orderedAttributes($marker) : [];
         if ($this->o->roundtrip) {
-            $count = count(array_filter($node->children ?? [], static fn (Node $item): bool => $item->type === 'list_item'));
-            $structural = array_merge($structural, self::listCarriers($marker, $ordered, $tight, $count));
+            $structural = array_merge($structural, self::listCarriers($marker, $ordered, $tight, $node->children));
         }
         $task = false;
         $items = [];
