@@ -30,6 +30,7 @@ final class TypedCoreClauseTest extends TestCase
      */
     private const KNOWN_FAIL = [
         'CC-2187' => 'markup-carve/carve#6795 (carve-php line): a < beside a cell covered from above joins nothing',
+        'CC-2210' => 'markup-carve/carve#6804 (carve-php line): an image whose alt is unknown renders no alt',
     ];
 
     /**
