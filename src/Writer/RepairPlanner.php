@@ -2607,7 +2607,40 @@ final class RepairPlanner
      */
     private function probeRounds(): bool
     {
+        $root = $this->root();
+        $seen = [];
+        $states = [];
+        $reads = [];
         for ($round = 0; $round < self::MAX_PROBE_ROUNDS; $round++) {
+            if ($seen !== null) {
+                $state = $this->probeState();
+                $key = hash('xxh3', serialize($state));
+                $from = $seen[$key] ?? null;
+                if ($from !== null && $states[$from] !== $state) {
+                    $from = null;
+                }
+                if ($from === null) {
+                    $seen[$key] = $round;
+                    $states[$round] = $state;
+                    $reads[$round] = $root->read;
+                } else {
+                    // A round starts from the state of an earlier one, so the rounds left repeat that cycle: the state
+                    // and the characters they would read are known without reading them (C2-W-133).
+                    $period = $round - $from;
+                    $left = self::MAX_PROBE_ROUNDS - $round;
+                    $rest = $left % $period;
+                    $charged = intdiv($left, $period) * ($root->read - $reads[$from]) + $reads[$from + $rest] - $reads[$from];
+                    if ($root->read + $charged <= $root->limit) {
+                        $root->read += $charged;
+                        $this->restoreProbeState($states[$from + $rest]);
+
+                        return true;
+                    }
+                    // Past the budget the rounds run, so the charge that fails stops them where it would.
+                    $seen = null;
+                    $states = [];
+                }
+            }
             $escapes = $this->escapes;
             $source = Writer::bareSource($this->tree, null, $this->options, $escapes);
             if (!$this->charge($source)) {
@@ -2628,6 +2661,63 @@ final class RepairPlanner
         }
 
         return true;
+    }
+
+    private function root(): self
+    {
+        return $this->parent === null ? $this : $this->parent->root();
+    }
+
+    /**
+     * Everything a probe round reads that an earlier round may have changed.
+     *
+     * @return array{
+     *     escapes: array<string, array<int, true>>,
+     *     attempts: array<string, int>,
+     *     trialEscapes: array<string, array<int, true>>,
+     *     kindsDone: array<string, array<string, true>>,
+     *     compareAsks: array<string, array<int, true>>,
+     *     notesDone: array<string, array<int, true>>,
+     *     nextRead: array{string, array<string, mixed>}|null,
+     *     roundPrint: array{array<string, array<int, true>>, string, string}|null
+     * }
+     */
+    private function probeState(): array
+    {
+        return [
+            'escapes' => $this->escapes,
+            'attempts' => $this->attempts,
+            'trialEscapes' => $this->trialEscapes,
+            'kindsDone' => $this->kindsDone,
+            'compareAsks' => $this->compareAsks,
+            'notesDone' => $this->notesDone,
+            'nextRead' => $this->nextRead,
+            'roundPrint' => $this->roundPrint,
+        ];
+    }
+
+    /**
+     * @param array{
+     *     escapes: array<string, array<int, true>>,
+     *     attempts: array<string, int>,
+     *     trialEscapes: array<string, array<int, true>>,
+     *     kindsDone: array<string, array<string, true>>,
+     *     compareAsks: array<string, array<int, true>>,
+     *     notesDone: array<string, array<int, true>>,
+     *     nextRead: array{string, array<string, mixed>}|null,
+     *     roundPrint: array{array<string, array<int, true>>, string, string}|null
+     * } $state
+     */
+    private function restoreProbeState(array $state): void
+    {
+        $this->escapes = $state['escapes'];
+        $this->attempts = $state['attempts'];
+        $this->trialEscapes = $state['trialEscapes'];
+        $this->kindsDone = $state['kindsDone'];
+        $this->compareAsks = $state['compareAsks'];
+        $this->notesDone = $state['notesDone'];
+        $this->nextRead = $state['nextRead'];
+        $this->roundPrint = $state['roundPrint'];
     }
 
     /**
