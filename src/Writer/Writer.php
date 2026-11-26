@@ -232,7 +232,7 @@ final class Writer
                 static fn (): WriteResult => self::writeChecked($tree, $writeLayout, $options),
             ));
             if ($verbatim !== [] && $written->diagnostics === []) {
-                $written = self::withVerbatimReferences($written, $verbatim, self::trimmedPrint($tree, $layout, $options), $options);
+                $written = self::withVerbatimReferences($written, $verbatim, $tree, $layout, $options);
             } elseif ($verbatim !== []) {
                 // Where the rounds give no form without a loss, a write that keeps the verbatim texts in them may.
                 $kept = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
@@ -378,8 +378,8 @@ final class Writer
     }
 
     /**
-     * @var int Past this many references a write whose verbatim texts do not read back together keeps the rest from
-     *   the tree.
+     * @var int Past this many references a block whose verbatim texts do not read back together keeps the rest from the
+     *   tree.
      */
     private const MAX_VERBATIM_TRIALS = 32;
 
@@ -453,46 +453,157 @@ final class Writer
 
     /**
      * C2-W-075, C2-W-088 (carve-js `takeVerbatimReferences`): the references take their verbatim text together where the
-     * source reads back with them, and otherwise one by one in document order; the others keep their spelling from the
-     * tree.
+     * source reads back with them; otherwise each top-level block decides its own, together where it reads back and else
+     * one by one in document order. The others keep their spelling from the tree.
+     *
+     * Inline content does not reach across blocks, so one parse per round judges every block by its own subtree. Where
+     * the result does not read back as a whole, the trials run on the whole document instead.
      *
      * @param \MarkupCarve\Carve\Writer\WriteResult $written
      * @param array<string, array{string, bool}> $verbatim
-     * @param string $treePrint
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      */
-    private static function withVerbatimReferences(WriteResult $written, array $verbatim, string $treePrint, array $options): WriteResult
-    {
+    private static function withVerbatimReferences(
+        WriteResult $written,
+        array $verbatim,
+        array $tree,
+        ?array $layout,
+        array $options,
+    ): WriteResult {
         $source = $written->source;
         $spans = self::verbatimSpans($source, $verbatim, $options);
         if ($spans === []) {
             return $written;
         }
+        $removed = [];
+        $trimmed = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
+        $treePrint = TreeEquality::fingerprint($trimmed);
         $all = self::spliced($source, $spans);
-        if (self::readsBack($all, $treePrint, $options)) {
+        $read = self::readTree($all, $options);
+        if (TreeEquality::fingerprint($read) === $treePrint) {
             return new WriteResult($all, []);
         }
+        if (in_array(-1, array_column($spans, 3), true)) {
+            return self::verbatimOneByOne($written, $spans, $treePrint, $options);
+        }
+        $final = self::verbatimByBlock($source, $spans, $read, $trimmed, $options);
+        if ($final === []) {
+            return $written;
+        }
+        $out = self::spliced($source, $final);
+        if (TreeEquality::fingerprint(self::readTree($out, $options)) === $treePrint) {
+            return new WriteResult($out, []);
+        }
+
+        return self::verbatimOneByOne($written, $spans, $treePrint, $options);
+    }
+
+    /**
+     * The verbatim texts each top-level block takes, by rounds that each parse the whole source once: all of a block's
+     * texts where the block read back with them in `$read`, else one by one in document order.
+     *
+     * @param string $source
+     * @param array<int, array{int, int, string, int}> $spans
+     * @param array<mixed> $read The read-back with every verbatim text.
+     * @param array<string, mixed> $trimmed
+     * @param array<string, mixed> $options
+     *
+     * @return array<int, array{int, int, string, int}>
+     */
+    private static function verbatimByBlock(string $source, array $spans, array $read, array $trimmed, array $options): array
+    {
+        $children = is_array($trimmed['children'] ?? null) ? $trimmed['children'] : [];
+        $wanted = array_map(static fn (mixed $child): string => TreeEquality::fingerprint($child), $children);
+        $reads = static function (array $read, int $block) use ($wanted): bool {
+            $children = is_array($read['children'] ?? null) ? $read['children'] : [];
+
+            return count($children) === count($wanted) && isset($children[$block], $wanted[$block])
+                && TreeEquality::fingerprint($children[$block]) === $wanted[$block];
+        };
+        $byBlock = [];
+        foreach ($spans as $span) {
+            $byBlock[$span[3]][] = $span;
+        }
+        $taken = [];
+        $open = [];
+        foreach ($byBlock as $block => $list) {
+            $together = $reads($read, $block);
+            $taken[$block] = $together ? $list : [];
+            if (!$together && count($list) > 1) {
+                $open[$block] = 0;
+            }
+        }
+        while ($open !== []) {
+            $trial = $taken;
+            foreach ($open as $block => $at) {
+                $trial[$block][] = $byBlock[$block][$at];
+            }
+            $read = self::readTree(self::spliced($source, array_merge(...array_values($trial))), $options);
+            foreach ($open as $block => $at) {
+                if ($reads($read, $block)) {
+                    $taken[$block] = $trial[$block];
+                }
+                $open[$block] = $at + 1;
+                if ($at + 1 >= min(count($byBlock[$block]), self::MAX_VERBATIM_TRIALS)) {
+                    unset($open[$block]);
+                }
+            }
+        }
+
+        return array_merge(...array_values($taken));
+    }
+
+    /**
+     * The trials of `withVerbatimReferences()` on the whole document, for an output whose blocks do not decide alone.
+     *
+     * @param \MarkupCarve\Carve\Writer\WriteResult $written
+     * @param array<int, array{int, int, string, int}> $spans
+     * @param string $treePrint
+     * @param array<string, mixed> $options
+     */
+    private static function verbatimOneByOne(WriteResult $written, array $spans, string $treePrint, array $options): WriteResult
+    {
         $taken = [];
         foreach (array_slice($spans, 0, self::MAX_VERBATIM_TRIALS) as $span) {
             $trial = [...$taken, $span];
-            if (self::readsBack(self::spliced($source, $trial), $treePrint, $options)) {
+            if (self::readsBack(self::spliced($written->source, $trial), $treePrint, $options)) {
                 $taken = $trial;
             }
         }
 
-        return $taken === [] ? $written : new WriteResult(self::spliced($source, $taken), []);
+        return $taken === [] ? $written : new WriteResult(self::spliced($written->source, $taken), []);
+    }
+
+    /**
+     * The tree `readsBack()` compares.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     *
+     * @return array<mixed>
+     */
+    private static function readTree(string $source, array $options): array
+    {
+        if (ReadbackRound::memoActive() && !isset($options['extensions'])) {
+            return ReadbackRound::read($source, $options);
+        }
+        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+
+        return TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions));
     }
 
     /**
      * The byte span of each reference in the written source whose verbatim text differs from its spelling there, with
-     * that text, in document order. Inside a container a written line carries its prefixes, so each later line of the
-     * verbatim text takes the prefix the spelling's line took.
+     * that text and the index of the top-level block that holds it, in document order. Inside a container a written line
+     * carries its prefixes, so each later line of the verbatim text takes the prefix the spelling's line took.
      *
      * @param string $source
      * @param array<string, array{string, bool}> $verbatim
      * @param array<string, mixed> $options
      *
-     * @return array<int, array{int, int, string}>
+     * @return array<int, array{int, int, string, int}>
      */
     private static function verbatimSpans(string $source, array $verbatim, array $options): array
     {
@@ -515,7 +626,7 @@ final class Writer
             $written = substr($source, $start, $end - $start);
             $out = self::prefixedLike($text, $written, $spelled);
             if ($out !== null && $out !== $written) {
-                $spans[] = [$start, $end, $out];
+                $spans[] = [$start, $end, $out, preg_match('#^/children/(\d+)#', $path, $block) === 1 ? (int)$block[1] : -1];
             }
         }
         usort($spans, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
@@ -554,7 +665,7 @@ final class Writer
 
     /**
      * @param string $source
-     * @param array<int, array{int, int, string}> $spans In document order.
+     * @param array<int, array{int, int, string, int}> $spans In document order.
      */
     private static function spliced(string $source, array $spans): string
     {
