@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '7596a20e552f17c05a66674d03ba061cbd48ec3a',
+        'commit' => '409551d32b691c8b5f9619c16cf9657c265b2c72',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
