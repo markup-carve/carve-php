@@ -19,24 +19,26 @@ final class FirstLine
      * @param string|null $head
      * @param string $path
      * @param bool $lines
+     * @param bool $idAbove
      *
      * @return string
      */
-    public static function lead(string $text, array $children, ?string $head, string $path, bool $lines): string
+    public static function lead(string $text, array $children, ?string $head, string $path, bool $lines, bool $idAbove = false): string
     {
         $newline = strpos($text, "\n");
         $first = $children[0] ?? null;
         $textFirst = is_array($first) && ($first['type'] ?? null) === 'text';
         if ($newline === false) {
-            return $lines || $textFirst ? Blocks::protectParagraphLead($text, $children, $head, $path) : $text;
+            return $lines || $textFirst ? Blocks::protectParagraphLead($text, $children, $head, $path, $idAbove) : $text;
         }
         // C2-W-092: a first line that starts with text is tested as it is written (Text::firstLine), and only an
-        // attribute or include line starts with a brace, which the text writer tests too.
-        if (!$lines || $textFirst || $text[0] === '{') {
+        // attribute or include line starts with a brace, which the text writer tests too. A snippet definition
+        // (C2-B-236) is the one brace line the text writer leaves, so it is tested here.
+        if (!$lines || (!str_starts_with($text, '{$') && ($textFirst || $text[0] === '{'))) {
             return $text;
         }
 
-        return self::protect($text, $newline, $children, $head, $path);
+        return self::protect($text, $newline, $children, $head, $path, $idAbove);
     }
 
     /**
@@ -45,25 +47,32 @@ final class FirstLine
      * @param array<mixed> $children
      * @param string|null $head
      * @param string $path
+     * @param bool $idAbove
      *
      * @return string
      */
-    public static function protect(string $text, int $newline, array $children, ?string $head, string $path): string
+    public static function protect(string $text, int $newline, array $children, ?string $head, string $path, bool $idAbove = false): string
     {
         $hard = false;
         $first = self::children($children, $hard);
         $line = substr($text, 0, $newline);
-        if ($first === null || !Blocks::mayOpenBlock($line)) {
+        $snippet = str_starts_with($line, '{$') && !Blocks::definitionOutOfPlace($line, $path, $idAbove);
+        if (($first === null && !$snippet) || !Blocks::mayOpenBlock($line)) {
             return $text;
         }
         $lead = $head ?? '';
         if (Blocks::firstBlockIsParagraph(Blocks::blocksOf($lead . $line . "\n"), $lead === '' ? [] : Blocks::containers($lead . 'x'))) {
             return $text;
         }
+        // C2-B-236: a node that goes on past the first line leaves no children to test it with, and a backslash on the
+        // brace of a definition marker keeps every child.
+        if ($first === null) {
+            return '\\' . $text;
+        }
         // The backslash of a hard break is no content of the line, which is tested with it (C2-B-167).
         $break = $hard && str_ends_with($line, '\\') ? 1 : 0;
 
-        return Blocks::protectParagraphLead(substr($line, 0, strlen($line) - $break), $first, $head, $path)
+        return Blocks::protectParagraphLead(substr($line, 0, strlen($line) - $break), $first, $head, $path, $idAbove)
             . substr($text, $newline - $break);
     }
 

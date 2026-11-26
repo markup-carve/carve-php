@@ -1206,13 +1206,14 @@ final class Blocks
             $this->w->lose($path, Inline::str($node, 'type'), null);
         }
         if ($mark === '') {
-            $protected = FirstLine::lead($text, $children, $this->w->lead, $path, $this->w->repairTrace === null);
+            $idAbove = self::hasId($node);
+            $protected = FirstLine::lead($text, $children, $this->w->lead, $path, $this->w->repairTrace === null, $idAbove);
             $kind = $this->w->repairTrace === null && $protected !== $text ? FirstLine::kind($text, $protected) : null;
             if ($kind !== null) {
                 $c = $this->context($children, true, $prefix);
                 $c->kinds = [$kind => true];
                 $text = $this->inline->content($children, $path . '/children', $c, -1);
-                $protected = FirstLine::lead($text, $children, $this->w->lead, $path, true);
+                $protected = FirstLine::lead($text, $children, $this->w->lead, $path, true, $idAbove);
             }
             $text = $protected;
         }
@@ -1237,10 +1238,11 @@ final class Blocks
      * @param array<mixed> $children
      * @param string|null $head
      * @param string $path
+     * @param bool $idAbove Whether the attribute line above the paragraph holds an id.
      *
      * @return string
      */
-    public static function protectParagraphLead(string $text, array $children, ?string $head, string $path): string
+    public static function protectParagraphLead(string $text, array $children, ?string $head, string $path, bool $idAbove = false): string
     {
         if (!self::mayOpenBlock($text)) {
             return $text;
@@ -1250,8 +1252,7 @@ final class Blocks
         if ($text[0] === '^' && !in_array($text[1] ?? '', [' ', "\t", ''], true)) {
             return $text;
         }
-        // Definition lines open only at document column zero, never inside a container.
-        if ($text[0] === '[' && preg_match('#^/children/[0-9]+$#', $path) !== 1) {
+        if (self::definitionOutOfPlace($text, $path, $idAbove)) {
             return $text;
         }
         $head ??= '';
@@ -1275,6 +1276,29 @@ final class Blocks
         }
 
         return $lead;
+    }
+
+    /**
+     * @param array<mixed> $node
+     */
+    private static function hasId(array $node): bool
+    {
+        $attrs = $node['attrs'] ?? null;
+
+        return is_array($attrs) && isset($attrs['id']);
+    }
+
+    /**
+     * Definition lines open only at document column zero, never inside a container (C2-B-081). Only a snippet
+     * definition starts with `{$`, and an id on the attribute line above refuses it (C2-B-236).
+     */
+    public static function definitionOutOfPlace(string $text, string $path, bool $idAbove): bool
+    {
+        if ($text[0] !== '[' && !str_starts_with($text, '{$')) {
+            return false;
+        }
+
+        return ($idAbove && $text[0] === '{') || preg_match('#^/children/[0-9]+$#', $path) !== 1;
     }
 
     /**
