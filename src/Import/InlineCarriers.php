@@ -451,8 +451,8 @@ final class InlineCarriers
     }
 
     /**
-     * Whether the node gives an inline by itself: a text, a comment kept as raw HTML, or an element without children
-     * other than an empty inline container without attributes (C2-M-069).
+     * Whether the node gives an inline by itself: a text, a comment or raw element kept as raw HTML, a ranged comment
+     * with text, or an element without children other than an empty inline container without attributes (C2-M-069).
      */
     private function holds(HtmlNode $node): bool
     {
@@ -462,19 +462,51 @@ final class InlineCarriers
         if ($node->isComment()) {
             return $this->context->rawHtml;
         }
+        if (!$node->isElement()) {
+            return false;
+        }
+        $kind = Elements::treatment($node);
+        if ($kind === 'drop') {
+            return false;
+        }
+        if ($kind === 'raw' || $node->name === 'input') {
+            return $this->context->rawHtml;
+        }
+        if (self::isRangeStart($node)) {
+            return $node->plain() !== '';
+        }
 
-        return $node->isElement() && $node->children === [] && ($node->attrs !== [] || !isset(self::EMPTY_DROPPED[$node->name]));
+        return $node->children === [] && ($node->attrs !== [] || !isset(self::EMPTY_DROPPED[$node->name]));
+    }
+
+    /**
+     * An element whose content gives no inline of its own: it is dropped, kept whole as raw, or a comment's text.
+     */
+    private static function isOpaque(HtmlNode $node): bool
+    {
+        if (!$node->isElement()) {
+            return false;
+        }
+        $kind = Elements::treatment($node);
+
+        return $kind === 'drop' || $kind === 'raw' || $node->name === 'input' || self::isRangeStart($node);
+    }
+
+    private static function isRangeStart(HtmlNode $node): bool
+    {
+        return $node->isElement('span') && ($node->classes()[0] ?? '') === 'comment-start';
     }
 
     /**
      * One walk of the document for every ranged comment: each node's place in document order and the last place
-     * of its descendants, and the `comment-end` spans by `data-comment-id` in that order.
+     * of its descendants, and the `comment-end` spans by `data-comment-id` in that order. Only what the import keeps
+     * counts as an inline: the walk skips the content of opaque elements, and an end a start before it claims is dropped.
      *
      * @return \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, array{0: int, 1: int}>
      */
     private function indexDocument(HtmlNode $node): SplObjectStorage
     {
-        if ($this->order !== null) {
+        if ($this->order !== null && isset($this->order[$node])) {
             return $this->order;
         }
         $root = $node;
@@ -483,6 +515,8 @@ final class InlineCarriers
         }
         $this->order = new SplObjectStorage();
         $this->ends = [];
+        $this->holding = [0];
+        $pending = [];
         $count = 0;
         $stack = [[$root, false]];
         while ($stack !== []) {
@@ -493,12 +527,23 @@ final class InlineCarriers
                 continue;
             }
             $this->order[$at] = [$count, $count];
-            $this->holding[$count + 1] = $this->holding[$count] + ($this->holds($at) ? 1 : 0);
-            if ($at->isElement('span') && ($at->classes()[0] ?? '') === 'comment-end') {
-                $this->ends[$at->attr('data-comment-id') ?? "\0"][] = [$count, $at];
+            $end = $at->isElement('span') && ($at->classes()[0] ?? '') === 'comment-end';
+            $id = $at->attr('data-comment-id') ?? "\0";
+            $claimed = $end && isset($pending[$id]);
+            if ($claimed) {
+                unset($pending[$id]);
+            }
+            $this->holding[$count + 1] = $this->holding[$count] + (!$claimed && $this->holds($at) ? 1 : 0);
+            if ($end) {
+                $this->ends[$id][] = [$count, $at];
+            } elseif (self::isRangeStart($at)) {
+                $pending[$id] = true;
             }
             $count++;
             $stack[] = [$at, true];
+            if (self::isOpaque($at)) {
+                continue;
+            }
             for ($i = count($at->children) - 1; $i >= 0; $i--) {
                 $stack[] = [$at->children[$i], false];
             }
