@@ -39,6 +39,28 @@ final class InlineCarriers
      */
     private const RANGED_COMMENT_KEYS = ['data-author' => 'author', 'data-date' => 'datetime'];
 
+    /**
+     * The inline containers that an import drops when they hold nothing and have no attributes (C2-M-069).
+     *
+     * @var array<string, true>
+     */
+    private const EMPTY_DROPPED = [
+        'span' => true,
+        'a' => true,
+        'em' => true,
+        'i' => true,
+        'strong' => true,
+        'b' => true,
+        's' => true,
+        'strike' => true,
+        'del' => true,
+        'ins' => true,
+        'mark' => true,
+        'u' => true,
+        'sub' => true,
+        'sup' => true,
+    ];
+
     private ImportContext $context;
 
     private ?Options $policy = null;
@@ -59,6 +81,13 @@ final class InlineCarriers
      * @var array<string, array<array{0: int, 1: \MarkupCarve\Carve\Import\HtmlNode}>>
      */
     private array $ends = [];
+
+    /**
+     * For each place in document order, the number of nodes before it that give an inline.
+     *
+     * @var array<int, int>
+     */
+    private array $holding = [0];
 
     public function __construct(private InlineReader $reader)
     {
@@ -405,12 +434,36 @@ final class InlineCarriers
 
             return [];
         }
-        if ($end !== null && $order[$end][0] > $last + 1) {
+        if ($end !== null && $this->rangeHolds($last + 1, $order[$end][0])) {
             $this->context->report($node, 'import-structure-repaired', 'Ranged comment read as a point: its range is lost');
         }
         $mapped = Attrs::withoutKeys(Attrs::withoutClasses(Attrs::of($node), ['comment-start']), ['data-comment-id']);
 
         return [['type' => 'critic_comment', 'value' => $value] + Attrs::renamedKeys($mapped, self::RANGED_COMMENT_KEYS)];
+    }
+
+    /**
+     * Whether a node in document order from `from` up to `to` gives an inline.
+     */
+    private function rangeHolds(int $from, int $to): bool
+    {
+        return $this->holding[$to] > $this->holding[$from];
+    }
+
+    /**
+     * Whether the node gives an inline by itself: a text, a comment kept as raw HTML, or an element without children
+     * other than an empty inline container without attributes (C2-M-069).
+     */
+    private function holds(HtmlNode $node): bool
+    {
+        if ($node->isText()) {
+            return $node->name !== '';
+        }
+        if ($node->isComment()) {
+            return $this->context->rawHtml;
+        }
+
+        return $node->isElement() && $node->children === [] && ($node->attrs !== [] || !isset(self::EMPTY_DROPPED[$node->name]));
     }
 
     /**
@@ -440,6 +493,7 @@ final class InlineCarriers
                 continue;
             }
             $this->order[$at] = [$count, $count];
+            $this->holding[$count + 1] = $this->holding[$count] + ($this->holds($at) ? 1 : 0);
             if ($at->isElement('span') && ($at->classes()[0] ?? '') === 'comment-end') {
                 $this->ends[$at->attr('data-comment-id') ?? "\0"][] = [$count, $at];
             }

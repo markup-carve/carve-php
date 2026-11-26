@@ -56,4 +56,14 @@ final class RevisionMetadataTest extends TestCase
         $this->assertSame("{#n#}/a/\n", $result->source);
         $this->assertSame(['import-structure-repaired'], $result->codes());
     }
+
+    public function testRangeOfOnlyAnEmptySpanLosesNothing(): void
+    {
+        $html = '<p>a <span class="comment-start" data-comment-id="1">n</span><span></span>'
+            . '<span class="comment-end" data-comment-id="1"></span> b</p>';
+        $result = Carve::importHtml($html);
+
+        $this->assertSame("a {#n#} b\n", $result->source);
+        $this->assertSame([], $result->codes());
+    }
 }
