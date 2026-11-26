@@ -30,8 +30,6 @@ final class WriterClauseCasesTest extends TestCase
         'CC-2429' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
         'CC-2430' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
         'CC-2431' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
-        'CC-2388' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2389' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
     ];
 
     /**

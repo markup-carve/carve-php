@@ -163,9 +163,12 @@ final class Linter
         }
         $entries = DataRules::enabled() ? self::layoutEntries((array)($parsed->layout['nodes'] ?? [])) : [];
         unset($parsed);
+        // The encoder below releases the tree as it goes.
+        $snippets = Snippets::findings($document, $source);
         $tree = (new TreeEncoder())->encodeForLint($document, $source);
         unset($document);
         $c = new Context($source, $options, self::catalog());
+
         $c->layoutEntries = $entries;
         unset($entries);
         $c->layout->rawRefs($rawRefs);
@@ -182,6 +185,11 @@ final class Linter
             self::visit($node, $path, $c, $controls, $parent, $index);
         }
         unset($childCounts, $tree, $root);
+        foreach ($snippets as [$id, $start, $end, $path, $values]) {
+            if ($c->active($id)) {
+                $c->report($id, $start, $end, $path, $values);
+            }
+        }
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
 

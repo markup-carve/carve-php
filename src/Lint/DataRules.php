@@ -1178,7 +1178,7 @@ final class DataRules
             'blockquote-marker-without-space' => !str_contains($context->source, '>'),
             'html-comment-renders-as-text' => !str_contains($context->source, '<!--'),
             'region-marker-renders-as-text' => stripos($context->source, 'region') === false,
-            'definition-in-container' => !str_contains($context->source, '['),
+            'definition-in-container' => !str_contains($context->source, '[') && !str_contains($context->source, '{$'),
             'caption-looking-paragraph' => !str_contains($context->source, ':'),
             'block-marker-as-text' => !str_contains($context->source, '~~~')
                 && !str_contains($context->source, ':::') && !str_contains($context->source, '{'),
@@ -1530,7 +1530,7 @@ final class DataRules
                     if ($rule['id'] === 'region-marker-renders-as-text' && stripos($record->text, 'region') === false) {
                         continue;
                     }
-                    if ($rule['id'] === 'definition-in-container' && !str_contains($record->text, '[')) {
+                    if ($rule['id'] === 'definition-in-container' && !str_contains($record->text, '[') && !str_contains($record->text, '{$')) {
                         continue;
                     }
                 }
