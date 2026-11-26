@@ -745,9 +745,15 @@ final class Writer
         $probe = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $probeLayout = self::withoutRawRefs($removed === [] ? $layout : LineEndBlanks::remapLayout($layout, $removed));
         $moved = self::probeBlocks($probe, $probeLayout, $paths);
+        // A mark that no text of the probe holds, so only the inserted one is found.
+        $held = (string)json_encode($probe, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        $base = 'qzx';
+        while (str_contains($held, $base)) {
+            $base .= 'q';
+        }
         $marks = [];
         foreach ($paths as $at => $path) {
-            $mark = 'qzx' . $at . 'xzq';
+            $mark = $base . $at . 'x';
             $target = $moved($path);
             if ($target !== null && self::probeAt($probe, explode('/', trim($target, '/')), $mark)) {
                 $marks[$path] = $mark;

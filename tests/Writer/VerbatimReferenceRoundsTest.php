@@ -167,6 +167,7 @@ final class VerbatimReferenceRoundsTest extends TestCase
             'wrapped image label in a footnote' => ["[^fn]: See ![alt][a\n  label] now.\n", "[^fn]: See ![alt][a\n  label] now.\n"],
             'wrapped label in a list in a quote' => ["> - See [x][a\n>   b] now.\n", "> - See [x][a\n>   b] now.\n"],
             'wrapped label, defined' => ["- [x][a\n  b c] y\n\n[a b c]: /u\n", "- [x][a\n  b c] y\n\n[a b c]: /u\n"],
+            'text that looks like the probe mark' => ["- qzx0xzq [x][a\n  b] tail\n", "- qzx0xzq [x][a\n  b] tail\n"],
             'text and label wrap' => ["> [x\n> y][a\n> b\n> c] z\n", "> [x\n> y][a\n> b\n> c] z\n"],
         ];
     }
