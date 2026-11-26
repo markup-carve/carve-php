@@ -654,7 +654,13 @@ final class InlineCarriers
         if ($src !== null) {
             $out['src'] = $src;
         }
-        $out['alt'] = $node->attr('alt') ?? '';
+        // C2-A-115: an empty alt is decorative, a missing one leaves the alt text unknown.
+        $alt = $node->attr('alt');
+        if ($alt === '') {
+            $out['decorative'] = true;
+        } elseif ($alt !== null) {
+            $out['alt'] = $alt;
+        }
         if ($ref !== null) {
             $this->define($ref['key'], $src, $node);
             $out += ['key' => $ref['key'], 'namespace' => 'link', 'refForm' => $ref['refForm']];
@@ -669,7 +675,7 @@ final class InlineCarriers
         if ($src !== null || $ref !== null) {
             return [$out];
         }
-        $alt = $out['alt'] === '' ? [] : [['type' => 'text', 'value' => $out['alt']]];
+        $alt = isset($out['alt']) ? [['type' => 'text', 'value' => $out['alt']]] : [];
 
         return isset($out['attrs']) ? [['type' => 'span', 'children' => $alt, 'attrs' => $out['attrs']]] : $alt;
     }

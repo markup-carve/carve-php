@@ -40,7 +40,7 @@ final class ImportCommandTest extends TestCase
     {
         [$status, $out, $err] = self::call(['import', '--from=html'], '<p onclick="x()">a</p>');
         $this->assertSame(0, $status);
-        $this->assertSame("carve[import-attribute-dropped]: Attribute onclick dropped: an event handler\n", $err);
+        $this->assertSame("<stdin>:1:1: warning import-attribute-dropped Attribute onclick dropped: an event handler\n", $err);
         $this->assertNotSame('', $out);
     }
 

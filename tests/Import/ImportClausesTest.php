@@ -160,7 +160,7 @@ final class ImportClausesTest extends TestCase
             'type' => 'paragraph',
             'role' => 'image',
             'children' => [
-                ['type' => 'image', 'src' => $src, 'alt' => ''],
+                ['type' => 'image', 'src' => $src],
             ],
         ];
         $this->assertImports([$image('/a'), $image('/b')], '<img src="/a"> <img src="/b">');

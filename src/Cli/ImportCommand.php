@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Import\ImportInputError;
 use MarkupCarve\Carve\Import\ImportResult;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\OptionError;
+use MarkupCarve\Carve\Writer\Writer;
 use RuntimeException;
 
 /**
@@ -22,13 +23,6 @@ use RuntimeException;
  */
 final class ImportCommand
 {
-    /**
-     * C2-W-117: the writer codes that refuse the output.
-     *
-     * @var array<string, true>
-     */
-    private const WRITER_LOSSES = ['writer-refused' => true, 'structure-unspellable' => true, 'field-unspellable' => true];
-
     /**
      * @param array<string> $args The arguments after `import`.
      * @param resource $in
@@ -86,22 +80,30 @@ final class ImportCommand
             return self::fail($err, 'import-tree-invalid', $display . ': ' . $e->getMessage(), 1);
         }
 
-        return self::finish($result, $options, $display, $output, $out, $err);
+        return self::finish($result, $options, $display, [$from, $html], $output, $out, $err);
     }
 
     /**
      * @param \MarkupCarve\Carve\Import\ImportResult $result
      * @param array<string, mixed> $options
      * @param string $display
+     * @param array{string, string} $input The format and the input, for the line and column of an entry with a range.
      * @param string|null $output
      * @param resource $out
      * @param resource $err
      *
      * @return int
      */
-    private static function finish(ImportResult $result, array $options, string $display, ?string $output, $out, $err): int
-    {
-        $losses = array_filter($result->diagnostics, static fn (Diagnostic $d): bool => isset(self::WRITER_LOSSES[$d->code]));
+    private static function finish(
+        ImportResult $result,
+        array $options,
+        string $display,
+        array $input,
+        ?string $output,
+        $out,
+        $err,
+    ): int {
+        $losses = array_filter($result->diagnostics, static fn (Diagnostic $d): bool => isset(Writer::REFUSING_CODES[$d->code]));
         if (($options['strictLosses'] ?? false) && $result->diagnostics !== []) {
             return self::fail($err, 'render-loss', $display . ': import reported a loss', 1);
         }
@@ -110,8 +112,17 @@ final class ImportCommand
 
             return self::fail($err, 'writer-refused', $display . ': ' . implode(', ', $named), 1);
         }
+        // C2-T-019: a diagnostic line, so `carve[...]:` stays the failure line of C2-T-039.
+        $position = ['offset' => 0, 'line' => 1, 'column' => 1];
+        // The hub's offsets point into the HTML it built, not into the input.
+        $html = $input[0] === 'html' ? $input[1] : null;
         foreach ($result->diagnostics as $entry) {
-            fwrite($err, 'carve[' . $entry->code . ']: ' . $entry->message . "\n");
+            $where = $display;
+            if ($html !== null && $entry->startOffset >= 0) {
+                [$line, $column] = Command::location($html, $entry->startOffset, $position);
+                $where .= ':' . $line . ':' . $column;
+            }
+            fwrite($err, $where . ': ' . $entry->severity . ' ' . $entry->code . ' ' . $entry->message . "\n");
         }
 
         return self::writeProduct($result->source, $output, $out, $err);

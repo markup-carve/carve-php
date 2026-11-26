@@ -960,7 +960,11 @@ final class InlineRenderer
         $def = is_string($key) ? $this->state->linkDefs[$key] ?? null : null;
         $merged = self::mergeDefinition($attrs, $def);
         $tooltip = $def === null ? $node->f['tooltip'] ?? null : $def->f['tooltip'] ?? null;
-        $structural = [['src', $this->destination(PlainText::str($src), $node, 'src')], ['alt', PlainText::str($node->f['alt'] ?? '')]];
+        $structural = [['src', $this->destination(PlainText::str($src), $node, 'src')]];
+        // C2-H-080: an image whose alt text is unknown writes no alt.
+        if (isset($node->f['alt']) || ($node->f['decorative'] ?? null) === true) {
+            $structural[] = ['alt', PlainText::str($node->f['alt'] ?? '')];
+        }
         if (is_string($tooltip)) {
             $structural[] = ['title', $tooltip];
         }

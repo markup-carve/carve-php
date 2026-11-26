@@ -3279,8 +3279,11 @@ final class Inline
      */
     private function image(array $node, string $path, Context $c): string
     {
-        if (array_key_exists('decorative', $node)) {
+        // C2-W-011: `decorative: true` alone writes as `![](x)` with no report; an unknown alt is reported at the image.
+        if (array_key_exists('decorative', $node) && ($node['decorative'] !== true || array_key_exists('alt', $node))) {
             $this->w->lose($path, 'image', 'decorative');
+        } elseif (!array_key_exists('alt', $node) && !array_key_exists('decorative', $node)) {
+            $this->w->loseUnknownAlt($path);
         }
         $raw = $this->rawReference($node, $path, $c);
         if ($raw !== null && AltSource::spells($raw, $node)) {
