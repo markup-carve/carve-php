@@ -155,7 +155,12 @@ final class InlineReader
         $children = $this->children($node);
         $type = self::FORMATS[$node->name] ?? null;
         if ($type !== null) {
-            return $this->nonEmpty([['type' => $type, 'children' => $children] + Attrs::of($node)], $node);
+            $mapped = Attrs::of($node);
+            if ($type === 'insert' || $type === 'delete') {
+                $mapped = Attrs::renamedKeys($mapped, ['data-author' => 'author']);
+            }
+
+            return $this->nonEmpty([['type' => $type, 'children' => $children] + $mapped], $node);
         }
 
         return match ($node->name) {

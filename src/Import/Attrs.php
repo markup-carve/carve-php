@@ -191,6 +191,35 @@ final class Attrs
     }
 
     /**
+     * The fields of `of()` with the keys of `map` renamed in place, unless the target key is there already
+     * (C2-M-044, the reverse of C2-H-210).
+     *
+     * @param array<string, mixed> $mapped
+     * @param array<string, string> $map
+     *
+     * @return array<string, mixed>
+     */
+    public static function renamedKeys(array $mapped, array $map): array
+    {
+        $attrs = J::attrs($mapped);
+        if (!isset($attrs['keyValues'])) {
+            return $mapped;
+        }
+        $pairs = J::pairs($attrs);
+        $present = array_column($pairs, 0);
+        foreach ($pairs as $i => [$key, $value]) {
+            $target = $map[$key] ?? null;
+            if ($target !== null && !in_array($target, $present, true)) {
+                $pairs[$i] = [$target, $value];
+            }
+        }
+        $attrs['keyValues'] = $pairs;
+        $mapped['attrs'] = $attrs;
+
+        return $mapped;
+    }
+
+    /**
      * @param array<string, mixed> $mapped
      *
      * @return array<string, mixed>

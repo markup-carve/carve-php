@@ -55,6 +55,55 @@ final class AttrWriter
         'data-carve-src' => true,
     ];
 
+    /**
+     * C2-H-210: the revision keys and the names they are written as, by node type.
+     *
+     * @var array<string, array<string, string>>
+     */
+    public const REVISION_KEYS = [
+        'insert' => ['author' => 'data-author'],
+        'delete' => ['author' => 'data-author'],
+        'critic_comment' => ['author' => 'data-author', 'datetime' => 'data-datetime'],
+    ];
+
+    /**
+     * C2-H-210: the attributes with the revision keys of the node type renamed in place; an authored
+     * target name wins and the derived one is not written.
+     *
+     * @param string $type
+     * @param \MarkupCarve\Carve\Attrs|null $attrs
+     *
+     * @return \MarkupCarve\Carve\Attrs|null
+     */
+    public static function revision(string $type, ?Attrs $attrs): ?Attrs
+    {
+        $map = self::REVISION_KEYS[$type] ?? null;
+        if ($map === null || $attrs === null || $attrs->pairs === []) {
+            return $attrs;
+        }
+        $authored = [];
+        $hit = false;
+        foreach ($attrs->pairs as [$name]) {
+            $authored[strtolower($name)] = true;
+            $hit = $hit || isset($map[$name]);
+        }
+        if (!$hit) {
+            return $attrs;
+        }
+        $out = clone $attrs;
+        $out->pairs = [];
+        foreach ($attrs->pairs as [$name, $value]) {
+            $target = $map[$name] ?? null;
+            if ($target === null) {
+                $out->pairs[] = [$name, $value];
+            } elseif (!isset($authored[$target])) {
+                $out->pairs[] = [$target, $value];
+            }
+        }
+
+        return $out;
+    }
+
     public function __construct(private Options $o, private RenderLog $log)
     {
     }

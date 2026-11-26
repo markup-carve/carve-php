@@ -452,7 +452,7 @@ final class InlineRenderer
         $kids = $node->children ?? [];
         $tag = Tables::DELIMITER_HTML[$type] ?? null;
         if ($tag !== null) {
-            return '<' . $tag . $this->aw->build([], null, $attrs, $lang, dir: AttrWriter::dirOf($node)) . '>'
+            return '<' . $tag . $this->aw->build([], null, AttrWriter::revision($type, $attrs), $lang, dir: AttrWriter::dirOf($node)) . '>'
                 . $this->inlines($kids, $depth + 1, true) . '</' . $tag . '>';
         }
 
@@ -516,6 +516,8 @@ final class InlineRenderer
      */
     private function criticComment(Node $node, ?Attrs $attrs, ?string $lang, int $depth = 0): string
     {
+        $attrs = AttrWriter::revision('critic_comment', $attrs);
+
         return '<span' . $this->aw->build([], null, $attrs, $lang, ['critic-comment'], dir: AttrWriter::dirOf($node)) . '>'
             . Escape::text(PlainText::str($node->f['value'] ?? '')) . '</span>';
     }
