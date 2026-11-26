@@ -210,7 +210,7 @@ final class HtmlRenderer
         try {
             // C2-A-135: a tree resolved elsewhere is resolved again; no result field is read from it.
             if ($resolved === null) {
-                SnippetExpander::expand($doc, $opts->roundtrip, $source);
+                SnippetExpander::expand($doc, $opts->roundtrip);
                 $resolved = Resolver::resolve($doc, $source, $opts, true)->facts;
             }
             $r = new self($doc, $opts, $source, $resolved);

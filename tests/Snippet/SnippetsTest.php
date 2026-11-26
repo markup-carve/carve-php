@@ -301,6 +301,22 @@ final class SnippetsTest extends TestCase
         $this->assertSame("<p><a href=\"/from-a\">x</a></p>\n<p>e</p>", $result->html);
     }
 
+    public function testC2N091AUseAddedToAParsedTreeExpands(): void
+    {
+        $tree = Carve::parse("{\$x}: X\n\nP\n");
+        $use = new Node('snippet_use');
+        $use->f = ['name' => 'x', 'mode' => 'block'];
+        $tree->children[] = $use;
+        $this->assertSame("<p>P</p>\n<p>X</p>", Carve::render($tree));
+    }
+
+    public function testC2A221ABlockUseInATitleIsRefused(): void
+    {
+        $this->expectExceptionMessage('snippet-use-mode-mismatch at /children/0/title/0/mode');
+        TreeReader::read('{"type":"document","astVersion":"2.0","children":[{"type":"admonition","kind":"note",'
+            . '"title":[{"type":"snippet_use","name":"v","mode":"block"}],"children":[]}]}');
+    }
+
     public function testC2A221AUseWhoseModeDoesNotMatchItsListIsRefused(): void
     {
         $this->expectExceptionMessage('snippet-use-mode-mismatch');

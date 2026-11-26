@@ -1274,8 +1274,9 @@ final class Carve
         }
         $gc = self::collectorOff();
         try {
+            // A tree may have changed since its parse, so its source tells nothing about its uses.
             if ($expand) {
-                SnippetExpander::expand($doc, $opts->roundtrip, $source);
+                SnippetExpander::expand($doc, $opts->roundtrip);
             }
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
         } finally {

@@ -491,8 +491,10 @@ final class TreeReader
         } elseif ($type === 'snippet_definition') {
             self::snippetDefinition($node, $path);
         }
-        if (isset($node->children) && is_array($node->children)) {
-            self::useModes($node->children, $path . '/children', isset(self::BLOCK_CHILDREN[$type]));
+        foreach (get_object_vars($node) as $key => $value) {
+            if (is_array($value) && !isset(self::OPAQUE_FIELDS[$key])) {
+                self::useModes($value, $path . '/' . self::escape($key), self::holdsBlocks($type, $key));
+            }
         }
         if (in_array($node->type ?? '', ['block_extension', 'inline_extension'], true)) {
             self::extension($node, $path, $declared);
@@ -515,6 +517,19 @@ final class TreeReader
         if (isset($node->children) && $node->children === []) {
             throw new TreeError('snippet-definition-empty', $path . '/children');
         }
+    }
+
+    /**
+     * Whether the list `$key` of a node of `$type` holds blocks; every other node list holds inline nodes.
+     */
+    private static function holdsBlocks(string $type, string $key): bool
+    {
+        return match ($key) {
+            'children' => isset(self::BLOCK_CHILDREN[$type]),
+            'longDescription' => true,
+            'fallback' => $type === 'block_extension',
+            default => false,
+        };
     }
 
     /**
