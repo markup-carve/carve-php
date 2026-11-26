@@ -54,6 +54,36 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * C2-W-088 (carve#6813): no output of the rounds reads back on 122 collapsed references past the depth cap, so the
+     * paragraph is written as authored (CC-2323).
+     *
+     * @return void
+     */
+    public function testAuthoredBlockWhereTheRoundsLose(): void
+    {
+        $source = str_repeat("[a *[a][]*[x]: /u\n", 122);
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($source, $result->source);
+    }
+
+    /**
+     * A supplied tree without a sidecar has no authored source to fall back to, and keeps the refusal (C2-W-117).
+     *
+     * @return void
+     */
+    public function testNoAuthoredBlockWithoutASidecar(): void
+    {
+        $tree = TreeEncoder::decodedForWriter(Carve::parse(str_repeat("[a *[a][]*[x]: /u\n", 122)));
+
+        $result = Writer::writeWithDiagnostics($tree);
+
+        $this->assertSame(['writer-refused'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+    }
+
+    /**
      * @return array<string, array{string, string}>
      */
     public static function verbatim(): array
