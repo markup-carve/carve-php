@@ -9,6 +9,7 @@ use Generator;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Extension\ExtensionDefinition;
+use MarkupCarve\Carve\Extension\Standard;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\InlineContext;
 use MarkupCarve\Carve\Inline\InlineRunner;
@@ -2788,8 +2789,31 @@ final class DataRules
     }
 
     /**
+     * Each name a catalog row registers, its own or that of a node it brings, with whether it counts as marked `ids`.
+     *
+     * @return array<string, bool>
+     */
+    private static function catalogNames(): array
+    {
+        static $names = null;
+        if ($names === null) {
+            // A row's own mark wins over that of a row that also registers it (`carve.term` beside `carve.glossary`).
+            $names = Tables::EXTENSION_ROWS;
+            foreach (Tables::EXTENSION_ROWS as $row => $ids) {
+                foreach (Standard::definitions($row) ?? [] as $definition) {
+                    if (!isset(Tables::EXTENSION_ROWS[$definition->name])) {
+                        $names[$definition->name] = ($names[$definition->name] ?? false) || $ids;
+                    }
+                }
+            }
+        }
+
+        return $names;
+    }
+
+    /**
      * C2-X-079: the registered extensions that generate ids. A catalog row counts where it is marked `ids`; a
-     * definition that is no row of the catalog, nor a node of one, is a host extension and counts too.
+     * definition whose name no catalog row registers is a host extension and counts too.
      *
      * @param mixed $extensions
      *
@@ -2806,11 +2830,7 @@ final class DataRules
             if ($name === null) {
                 continue;
             }
-            $row = $name;
-            while (!isset(Tables::EXTENSION_ROWS[$row]) && str_contains($row, '.')) {
-                $row = substr($row, 0, (int)strrpos($row, '.'));
-            }
-            if (Tables::EXTENSION_ROWS[$row] ?? true) {
+            if (self::catalogNames()[$name] ?? true) {
                 $out[] = $name;
             }
         }
