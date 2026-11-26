@@ -25,7 +25,6 @@ final class WriterClauseCasesTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_FAIL = [
-        'CC-2426' => 'markup-carve/carve#6846: the authored-block fallback of C2-W-088 takes every failing block',
         'CC-2428' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
         'CC-2429' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
         'CC-2430' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',

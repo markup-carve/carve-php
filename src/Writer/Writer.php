@@ -293,13 +293,17 @@ final class Writer
         $to = self::blockSpans($parsed->layout);
         $print = self::trimmedPrint($tree, $layout, $options);
         $trials = 0;
+        // Each replacement is kept for the trials after it; the spans of later blocks move by what it changed.
+        $trial = $written->source;
+        $shift = 0;
         foreach (self::leafPaths($tree, '') as $path => $leaf) {
             if (!isset($from[$path], $to[$path]) || TreeEquality::equal($leaf, self::nodeAt($read, $path) ?? [])) {
                 continue;
             }
             [$start, $end] = $to[$path];
             $block = substr($authored, $from[$path][0], $from[$path][1] - $from[$path][0]);
-            $trial = substr_replace($written->source, $block, $start, $end - $start);
+            $trial = substr_replace($trial, $block, $start + $shift, $end - $start);
+            $shift += strlen($block) - ($end - $start);
             if (self::readsBack($trial, $print, $options)) {
                 return new WriteResult($trial, []);
             }
@@ -1300,8 +1304,19 @@ final class Writer
         if ($repaired === null) {
             // C2-W-088: where the kind rounds end with a node that did not read back, rounds that escape only the
             // reported openers write the group again.
-            $repaired = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->reportedOpenersAfter($planner)->repair();
+            $openers = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->reportedOpenersAfter($planner);
+            $repaired = $openers->repair();
             $spans = null;
+            if ($repaired === null) {
+                // C2-W-125: where every form loses a node, the passes by kind and by reported opener run again and
+                // retest the escapes they placed together.
+                $byKind = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->chargedAfter($openers)->retestingAfter(null);
+                $repaired = $byKind->repair();
+                if ($repaired === null) {
+                    $repaired = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))
+                        ->reportedOpenersAfter($byKind)->retestingAfter($byKind)->repair();
+                }
+            }
         }
 
         if ($repaired === null) {
@@ -2898,6 +2913,84 @@ final class Writer
         }
         $nodes = [];
         foreach ($layout['nodes'] as $entry) {
+            if (!is_array($entry) || self::remapPaths($entry, $map)) {
+                $nodes[] = $entry;
+            }
+        }
+        $layout['nodes'] = $nodes;
+
+        return $layout;
+    }
+
+    /**
+     * `rootIndex()` for `isolatedBlock()`, built once per tree.
+     *
+     * @param array<mixed>|null $layout
+     *
+     * @return array{array<int, mixed>, array<int, array<array{int, int}>>, array<int>}
+     */
+    public static function layoutIndex(?array $layout): array
+    {
+        return self::rootIndex($layout);
+    }
+
+    /**
+     * Top-level child `$index` as a document of its own, at index 0, followed by the link definitions of the tree when
+     * it holds a reference: its tree and layout. The C2-W-125 retest reads it instead of the whole document.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array{array<int, mixed>, array<int, array<array{int, int}>>, array<int>} $index `layoutIndex()`
+     * @param int $child
+     *
+     * @return array{array<string, mixed>, array<mixed>|null}
+     */
+    public static function isolatedBlock(array $tree, ?array $layout, array $index, int $child): array
+    {
+        $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        $map = [$child => 0];
+        if (str_contains(json_encode($children[$child] ?? null) ?: '', '"key"')) {
+            foreach ($children as $i => $node) {
+                if (is_array($node) && ($node['type'] ?? null) === 'link_reference_definition' && $i !== $child) {
+                    $map[$i] = count($map);
+                }
+            }
+        }
+        $sub = $tree;
+        $sub['children'] = [];
+        foreach ($map as $i => $_) {
+            $sub['children'][] = $children[$i];
+        }
+
+        return [$sub, self::isolatedLayout($layout, $index, $map)];
+    }
+
+    /**
+     * The layout entries of the top-level children in `$map`, their paths renumbered by it.
+     *
+     * @param array<mixed>|null $layout
+     * @param array{array<int, mixed>, array<int, array<array{int, int}>>, array<int>} $index
+     * @param array<int, int> $map
+     *
+     * @return array<mixed>|null
+     */
+    private static function isolatedLayout(?array $layout, array $index, array $map): ?array
+    {
+        if ($layout === null || !is_array($layout['nodes'] ?? null)) {
+            return $layout;
+        }
+        [$entries, $byFirst, $picked] = $index;
+        foreach ($map as $i => $_) {
+            foreach ($byFirst[$i] ?? [] as [$e, $high]) {
+                if ($high === $i || isset($map[$high])) {
+                    $picked[] = $e;
+                }
+            }
+        }
+        sort($picked);
+        $nodes = [];
+        foreach ($picked as $e) {
+            $entry = $entries[$e];
             if (!is_array($entry) || self::remapPaths($entry, $map)) {
                 $nodes[] = $entry;
             }
