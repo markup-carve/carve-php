@@ -30,11 +30,6 @@ final class WriterClauseCasesTest extends TestCase
         'CC-2429' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
         'CC-2430' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
         'CC-2431' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
-        'CC-501' => 'markup-carve/carve#3598 (carve-php line): metadata.fields beside a frontmatter node are a loss',
-        'CC-2265' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
-        'CC-2266' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
-        'CC-2267' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
-        'CC-2268' => 'markup-carve/carve#6727 (carve-php line): an open fence loses the empty line that ends its value',
         'CC-2388' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2389' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
     ];
