@@ -3475,7 +3475,7 @@ final class Writer
         $w->labels = self::linkKeys($options);
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         self::collect($children, $w);
-        self::rootLosses($tree, $children, $w);
+        self::rootLosses($tree, $w);
         $w->beginRepairDocument($children);
         (new Blocks($w))->blocks($children, '/children', '');
         self::lineLosses($children, $w);
@@ -3744,25 +3744,19 @@ final class Writer
     }
 
     /**
-     * C2-W-011, C2-W-117: root `metadata` has no spelling, except `fields` beside a frontmatter node.
+     * C2-W-011, C2-W-117: root `metadata` has no spelling; a frontmatter node is raw text and never reads back as
+     * `fields`.
      *
      * @param array<string, mixed> $tree
-     * @param array<mixed> $children
      * @param \MarkupCarve\Carve\Writer\State $w
      *
      * @return void
      */
-    private static function rootLosses(array $tree, array $children, State $w): void
+    private static function rootLosses(array $tree, State $w): void
     {
         $metadata = is_array($tree['metadata'] ?? null) ? $tree['metadata'] : [];
-        $frontmatter = false;
-        foreach ($children as $child) {
-            $frontmatter = $frontmatter || (is_array($child) && ($child['type'] ?? '') === 'frontmatter');
-        }
         foreach (array_keys($metadata) as $field) {
-            if ($field !== 'fields' || !$frontmatter) {
-                $w->lose('', 'document', 'metadata/' . $field);
-            }
+            $w->lose('', 'document', 'metadata/' . $field);
         }
         foreach (['attrs', 'lang', 'dir'] as $field) {
             if (isset($tree[$field])) {
