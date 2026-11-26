@@ -121,7 +121,7 @@ final class PositionChecker
             return;
         }
         if (array_is_list($value)) {
-            $this->siblings($value, $path, $file);
+            $this->siblings($value, $path, $file, $ancestors === [] ? null : $ancestors[count($ancestors) - 1]);
             foreach ($value as $at => $item) {
                 $this->walk($item, $path . '/' . $at, $file, $ancestors, $inCell, $derived);
             }
@@ -259,33 +259,169 @@ final class PositionChecker
     }
 
     /**
+     * C2-N-020, C2-N-031: the definitions a line, region or section selection appends after the selected blocks.
+     *
+     * @var array<string, true>
+     */
+    private const DEFINITIONS = [
+        'link_reference_definition' => true,
+        'footnote' => true,
+        'abbreviation_def' => true,
+        'citation_definition' => true,
+        'snippet_definition' => true,
+    ];
+
+    /**
      * C2-A-145: siblings do not overlap.
      *
      * @param array<mixed> $nodes
      * @param string $path
      * @param string $file
+     * @param array<string, mixed>|null $owner
      *
      * @return void
      */
-    private function siblings(array $nodes, string $path, string $file): void
+    private function siblings(array $nodes, string $path, string $file, ?array $owner): void
     {
-        $last = null;
+        $positioned = [];
         foreach ($nodes as $node) {
-            if (!is_array($node) || !is_string($node['type'] ?? null) || !is_array($node['pos'] ?? null)) {
+            if (is_array($node) && is_string($node['type'] ?? null) && is_array($node['pos'] ?? null)) {
+                $positioned[] = $node;
+            }
+        }
+        if (str_ends_with($path, '/children') && self::isSelection($owner) && $this->appendedSplit($positioned, $owner)) {
+            return;
+        }
+        array_push($this->found, ...$this->orderFailures($positioned, $path, $file));
+    }
+
+    /**
+     * The C2-A-145 failures of a list of positioned siblings, with the comment cases exempt.
+     *
+     * @param array<array<string, mixed>> $nodes
+     * @param string $path
+     * @param string $file
+     *
+     * @return array<string>
+     */
+    private function orderFailures(array $nodes, string $path, string $file): array
+    {
+        $found = [];
+        $count = count($nodes);
+        for ($at = 1; $at < $count; $at++) {
+            $last = $nodes[$at - 1];
+            $node = $nodes[$at];
+            if ($last['pos']['endOffset'] <= $node['pos']['startOffset']) {
                 continue;
             }
-            if ($last !== null && $last['pos']['endOffset'] > $node['pos']['startOffset']) {
-                $breaks = isset(self::BREAKS[$last['type']], self::BREAKS[$node['type']]);
-                $before = $last['type'] === 'comment' && self::inside($last['pos'], $node['pos']);
-                $fenced = $last['type'] === 'code_block'
-                    || ($last['type'] === 'table' && $this->afterFence($file, $node['pos']['startOffset']));
-                $after = $node['type'] === 'comment' && $fenced && self::inside($node['pos'], $last['pos']);
-                if (!$breaks && !$before && !$after) {
-                    $this->found[] = $path . ': ' . $last['type'] . ' overlaps ' . $node['type'] . ' (C2-A-145)';
+            $breaks = isset(self::BREAKS[$last['type']], self::BREAKS[$node['type']]);
+            $before = $last['type'] === 'comment' && self::inside($last['pos'], $node['pos']);
+            $fenced = $last['type'] === 'code_block'
+                || ($last['type'] === 'table' && $this->afterFence($file, $node['pos']['startOffset']));
+            $after = $node['type'] === 'comment' && $fenced && self::inside($node['pos'], $last['pos']);
+            // A comment block in a line block, inside the line that a lazy `%%` comment behind it ends.
+            $children = $last['type'] === 'line' && is_array($last['children'] ?? null) ? $last['children'] : [];
+            $tail = $children === [] ? null : $children[count($children) - 1];
+            $lazy = $node['type'] === 'comment' && ($node['form'] ?? null) === 'block'
+                && is_array($tail) && ($tail['type'] ?? null) === 'comment' && ($tail['form'] ?? null) === 'line'
+                && is_array($tail['pos'] ?? null) && $tail['pos']['startOffset'] >= $node['pos']['endOffset']
+                && self::inside($node['pos'], $last['pos']);
+            if (!$breaks && !$before && !$after && !$lazy) {
+                $found[] = $path . ': ' . $last['type'] . ' overlaps ' . $node['type'] . ' (C2-A-145)';
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * @phpstan-assert-if-true array<string, mixed> $node
+     *
+     * @param array<string, mixed>|null $node
+     *
+     * @return bool
+     */
+    private static function isSelection(?array $node): bool
+    {
+        return $node !== null && ($node['type'] ?? null) === 'include'
+            && (isset($node['section']) || isset($node['options']['lines']) || isset($node['options']['region']));
+    }
+
+    /**
+     * C2-A-145: a selected block and an appended definition are not compared. The list passes when it splits into
+     * the selected blocks and a tail of definitions, each part ordered, with every definition of the tail outside
+     * the span of the selected blocks. Under `lines` the selected blocks start on a selected line and the
+     * definitions do not; under a section only blank space stands between two selected blocks.
+     *
+     * @param array<array<string, mixed>> $nodes
+     * @param array<string, mixed> $include
+     *
+     * @return bool
+     */
+    private function appendedSplit(array $nodes, array $include): bool
+    {
+        $file = (string)($include['file'] ?? '');
+        $lines = $include['options']['lines'] ?? null;
+        $range = is_string($lines) ? array_map('intval', explode('-', $lines)) : [];
+        $first = $range[0] ?? null;
+        $last = $range[1] ?? null;
+        $picked = static fn (array $node): bool => $first !== null && $last !== null
+            && $node['pos']['startLine'] >= $first && $node['pos']['startLine'] <= $last;
+        for ($split = count($nodes) - 1; $split >= 0 && isset(self::DEFINITIONS[$nodes[$split]['type']]); $split--) {
+            $selected = array_slice($nodes, 0, $split);
+            $appended = array_slice($nodes, $split);
+            if ($this->orderFailures($selected, '', $file) !== [] || $this->orderFailures($appended, '', $file) !== []) {
+                continue;
+            }
+            if ($first !== null) {
+                if (count(array_filter($selected, $picked)) !== count($selected) || array_filter($appended, $picked) !== []) {
+                    continue;
                 }
             }
-            $last = $node;
+            if (isset($include['section']) && !$this->contiguous($selected, $file)) {
+                continue;
+            }
+            if ($selected === []) {
+                return true;
+            }
+            $start = $selected[0]['pos']['startOffset'];
+            $end = $selected[count($selected) - 1]['pos']['endOffset'];
+            $outside = true;
+            foreach ($appended as $node) {
+                if ($node['pos']['endOffset'] > $start && $node['pos']['startOffset'] < $end) {
+                    $outside = false;
+                }
+            }
+            if ($outside) {
+                return true;
+            }
         }
+
+        return false;
+    }
+
+    /**
+     * @param array<array<string, mixed>> $nodes
+     * @param string $file
+     *
+     * @return bool
+     */
+    private function contiguous(array $nodes, string $file): bool
+    {
+        if (!isset($this->tables[$file])) {
+            return true;
+        }
+        $text = $this->tables[$file][1];
+        $count = count($nodes);
+        for ($at = 1; $at < $count; $at++) {
+            $from = $nodes[$at - 1]['pos']['endOffset'];
+            $gap = substr($text, $from, max(0, $nodes[$at]['pos']['startOffset'] - $from));
+            if (strspn($gap, " \t\r\n") !== strlen($gap)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
