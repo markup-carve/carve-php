@@ -315,6 +315,8 @@ final class DataModel
         $pipeTables = [];
         $rows = [];
         $holderOf = [];
+        // C2-B-120: the title of a block is inline content of one line; the walk visits it before the other slots.
+        $title = null;
         // The lint visit registered every node in walk order; the index counts the earlier children of the same parent.
         $childCounts = [];
         foreach ($c->layout->nodes() as $path => $node) {
@@ -323,6 +325,16 @@ final class DataModel
             $item = $this->walked($path, $node, $parent, $path === '' ? 0 : ($childCounts[$parent] = ($childCounts[$parent] ?? -1) + 1));
             $parentHolder = $this->holderByPath[$item->parent] ?? null;
             $type = $item->type;
+            $titled = false;
+            if ($title !== null && str_starts_with($item->path, $title['path'] . '/')) {
+                $titled = strlen($item->parent) + 6 === strlen($title['path']);
+                if ($titled) {
+                    $parentHolder = $title['holder'];
+                }
+            } else {
+                $title = is_array($item->node['title'] ?? null)
+                    ? ['path' => $item->path . '/title', 'holder' => ['type' => $type, 'inline' => true]] : null;
+            }
             if ($type === 'table_row') {
                 if ($item->startLine > 0) {
                     $rows[] = [$item->startLine - 1, $item->endLine - 1, $item->path];
@@ -384,7 +396,7 @@ final class DataModel
             }
             if ($this->textRuns) {
                 $parentType = $c->nodeTypes[$item->parent] ?? 'document';
-                if (isset(self::INLINE_PARENTS[$parentType])) {
+                if ($titled || isset(self::INLINE_PARENTS[$parentType])) {
                     $key = $item->parent;
                     if ($type === 'text' || $type === 'soft_break') {
                         $open = $openRuns[$key] ?? null;
