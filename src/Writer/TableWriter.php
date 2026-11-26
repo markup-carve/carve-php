@@ -53,9 +53,9 @@ final class TableWriter
     private array $tickedCells = [];
 
     /**
-     * Whether `attrs` of the table being written keeps a `body-rows` (C2-W-136).
+     * Whether `attrs` of the table being written keeps a body key the writer makes none beside (C2-W-136).
      */
-    private bool $keepsBodyRows = false;
+    private bool $keepsBodyKey = false;
 
     /**
      * Whether the cell being written is one of `$tickedCells`.
@@ -66,6 +66,11 @@ final class TableWriter
      * @var int
      */
     private const PERCENT_CACHE = 256;
+
+    /**
+     * @var array<string>
+     */
+    private const BODY_KEYS = ['body-rows', 'body-header-rows', 'body-header-cols'];
 
     /**
      * Width entries already written, by the bytes of the width.
@@ -98,6 +103,16 @@ final class TableWriter
             }
         }
         $skip = [];
+        // C2-W-136: a tree with no spelling beside a kept body key is written from the table fields.
+        if (self::bodyKeysUnspellable($node)) {
+            foreach (self::BODY_KEYS as $key) {
+                if (isset($own[$key])) {
+                    $skip[] = $key;
+                    $this->w->lose($path, 'table', 'attrs');
+                    unset($own[$key]);
+                }
+            }
+        }
         foreach ($keys as [$key]) {
             if (isset($own[$key])) {
                 $skip[] = $key;
@@ -142,10 +157,11 @@ final class TableWriter
         if (in_array('table_foot', array_column($groups, 0), true)) {
             $rest[] = ['footer-rows', (string)$counts['table_foot']];
         }
-        $keptBodyRows = self::keptKey($node, 'body-rows');
-        $bodies = $keptBodyRows === null ? self::bodyFacts($node) : [];
+        // C2-W-136: beside a body key that `attrs` keeps, the writer makes none of the three.
+        $keptBody = self::keepsBodyKey($node) && !self::bodyKeysUnspellable($node);
+        $bodies = $keptBody ? [] : self::bodyFacts($node);
         // C2-W-136, C2-B-187: an empty `body-rows` ends the head above a foot that leads with a row of header cells.
-        if ($keptBodyRows === null && $bodies === [] && self::headEndsAboveFoot($groups)) {
+        if (!$keptBody && $bodies === [] && self::headEndsAboveFoot($groups)) {
             $rest[] = ['body-rows', ''];
         }
         $partitioned = $bodies !== [] && (
@@ -175,7 +191,7 @@ final class TableWriter
             }
         } else {
             // C2-W-066: the count is written wherever the written marks and keys give another head (C2-B-178, C2-B-187).
-            $foot = self::writesNoBody($node, $rest) ? $counts['table_foot'] : 0;
+            $foot = self::writesNoBody($node, $keptBody, $rest) ? $counts['table_foot'] : 0;
             if (self::markedHead($groups, $bodyHeaders, $foot) !== $head) {
                 $keys[] = ['header-rows', (string)$head];
             }
@@ -219,21 +235,22 @@ final class TableWriter
 
     /**
      * C2-B-187, C2-B-230: the written keys hold an empty `body-rows` that takes effect, so it ends the head above the
-     * foot. A made key replaces the key of its name in `attrs`, except `body-rows`, which `attrs` keeps (C2-W-136).
+     * foot. Made keys stand where `attrs` keeps no body key (C2-W-136).
      *
      * @param array<mixed> $node
+     * @param bool $kept The body keys of `attrs` are written.
      * @param array<array{0: string, 1: string}> $made
      *
      * @return bool
      */
-    private static function writesNoBody(array $node, array $made): bool
+    private static function writesNoBody(array $node, bool $kept, array $made): bool
     {
         $written = [];
-        foreach (['body-rows', 'body-header-rows', 'body-header-cols'] as $key) {
-            $written[$key] = self::keptKey($node, $key);
+        foreach (self::BODY_KEYS as $key) {
+            $written[$key] = $kept ? self::keptKey($node, $key) : null;
         }
         foreach ($made as [$key, $value]) {
-            if (array_key_exists($key, $written) && ($key !== 'body-rows' || $written[$key] === null)) {
+            if (array_key_exists($key, $written)) {
                 $written[$key] = $value;
             }
         }
@@ -241,6 +258,42 @@ final class TableWriter
         return $written['body-rows'] !== null && trim($written['body-rows'], " \t") === ''
             && ($written['body-header-rows'] === null || trim($written['body-header-rows'], " \t") === '')
             && $written['body-header-cols'] === null;
+    }
+
+    /**
+     * @param array<mixed> $node
+     *
+     * @return bool
+     */
+    private static function keepsBodyKey(array $node): bool
+    {
+        foreach (self::BODY_KEYS as $key) {
+            if (self::keptKey($node, $key) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * C2-W-136: beside a kept body key, more than one body, an empty body or a `rowHeadColumns` has no spelling.
+     *
+     * @param array<mixed> $node
+     *
+     * @return bool
+     */
+    private static function bodyKeysUnspellable(array $node): bool
+    {
+        if (!self::keepsBodyKey($node)) {
+            return false;
+        }
+        $bodies = self::bodyFacts($node);
+        if (count($bodies) > 1) {
+            return true;
+        }
+
+        return $bodies !== [] && ($bodies[0]['dataRows'] + $bodies[0]['headerRows'] === 0 || $bodies[0]['rowHeadColumns'] !== null);
     }
 
     /**
@@ -520,13 +573,13 @@ final class TableWriter
     {
         // A table in a cell is written while the rows of the table around it are.
         $outer = $this->spans;
-        $outerKeeps = $this->keepsBodyRows;
+        $outerKeeps = $this->keepsBodyKey;
         $this->spans = SpanMarks::of($node, $path);
         try {
             $this->table($node, $path, $prefix, $prewritten);
         } finally {
             $this->spans = $outer;
-            $this->keepsBodyRows = $outerKeeps;
+            $this->keepsBodyKey = $outerKeeps;
         }
     }
 
@@ -569,7 +622,7 @@ final class TableWriter
         if (!$prewritten && $attributeLine !== '') {
             $this->w->emit($prefix, $attributeLine);
         }
-        $this->keepsBodyRows = self::keptKey($node, 'body-rows') !== null;
+        $this->keepsBodyKey = self::keepsBodyKey($node) && !self::bodyKeysUnspellable($node);
         $lines = $this->lines($node, $path);
         $written = [];
         foreach ($this->w->alignTables ? self::aligned($lines) : $lines as $line) {
@@ -924,8 +977,8 @@ final class TableWriter
         if (isset($group['attrs'])) {
             $this->w->lose($path, self::typeOf($group), 'attrs');
         }
-        // C2-W-136: beside a `body-rows` that `attrs` keeps, no `body-header-rows` is made and the marks stay.
-        $bodyHeaders = ($group['type'] ?? '') === 'table_body' && !$this->keepsBodyRows ? self::leadingHeaderRows($items) : 0;
+        // C2-W-136: beside a body key that `attrs` keeps, no `body-header-rows` is made and the marks stay.
+        $bodyHeaders = ($group['type'] ?? '') === 'table_body' && !$this->keepsBodyKey ? self::leadingHeaderRows($items) : 0;
         $this->blocked = $this->blockedMarks($items, $path);
         $rowIndex = 0;
         $lastAt = count($items) - 1;

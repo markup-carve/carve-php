@@ -26,7 +26,7 @@ final class PipeTableHeadCountTest extends TestCase
             512,
             JSON_THROW_ON_ERROR,
         );
-        $ids = ['CC-2070', 'CC-2242', 'CC-2249', 'CC-2468', 'CC-2469', 'CC-2470', 'CC-2471'];
+        $ids = ['CC-2070', 'CC-2242', 'CC-2249', 'CC-2468', 'CC-2469', 'CC-2470', 'CC-2471', 'CC-2472', 'CC-2473', 'CC-2474'];
         $cases = [];
         foreach ($data['cases'] as $case) {
             if (in_array($case['id'], $ids, true)) {
@@ -72,6 +72,28 @@ final class PipeTableHeadCountTest extends TestCase
 
         self::assertSame([], $result->diagnostics);
         self::assertSame(self::shape(Carve::parse($source)), self::shape(Carve::parse($result->source)));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function unspellableTrees(): array
+    {
+        return [
+            'two bodies' => ["{body-rows=1,1}\n| a |\n| b |\n", 'body-header-rows', "{body-rows=1,1}\n| a |\n| b |\n"],
+            'two bodies, kept body-rows' => ["{body-rows=1,1}\n| a |\n| b |\n", 'body-rows', "{body-rows=1,1}\n| a |\n| b |\n"],
+        ];
+    }
+
+    #[DataProvider('unspellableTrees')]
+    public function testUnspellableTreeBesideKeptKeyIsWrittenFromTheFields(string $source, string $key, string $expected): void
+    {
+        $tree = json_decode(Carve::encodeTree(Carve::parse($source)), true, 4096, JSON_THROW_ON_ERROR);
+        $tree['children'][0]['attrs'] = ['keyValues' => [[$key, 'x']]];
+        $result = Carve::writeWithDiagnostics($tree);
+
+        self::assertSame($expected, $result->source);
+        self::assertSame(['field-unspellable'], array_map(static fn ($entry): string => $entry->code, $result->diagnostics));
     }
 
     /**
