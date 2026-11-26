@@ -26,6 +26,11 @@ use MarkupCarve\Carve\Snippet\Syntax;
  * The escapes of a text node (C2-W-088 to C2-W-099), decided from the contexts of `data/escape-contexts.json` before the
  * text is written: each character that a context can make an opener at its position takes a backslash, from the
  * characters around it in the written output, and from nothing that a later parse finds.
+ *
+ * @phpstan-type WriteState array{
+ *     array<string, array<int, true>>|null, array<string, array<int, true>>, array<string, array<int, true>>,
+ *     array<string, true>|null, array<string, array<int, true>>, int, bool, bool, bool, bool, bool, bool, bool, bool, bool
+ * }
  */
 final class Text
 {
@@ -356,7 +361,7 @@ final class Text
     /**
      * The public state a write reads and sets, for `WriteMemo`.
      *
-     * @return array<mixed>
+     * @return WriteState
      */
     public static function writeState(): array
     {
@@ -368,7 +373,7 @@ final class Text
     }
 
     /**
-     * @param array<mixed> $state `writeState()`.
+     * @param array $state
      */
     public static function restoreWriteState(array $state): void
     {

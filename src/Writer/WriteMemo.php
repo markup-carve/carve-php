@@ -10,6 +10,8 @@ use Closure;
  * The traced writes of one outer write, by their inputs: the C2-W-088 passes and their trials write the same tree with
  * the same escapes again. A write is a function of its arguments and of the `Text` write state, which the key holds;
  * a hit restores the state the write left.
+ *
+ * @phpstan-import-type WriteState from \MarkupCarve\Carve\Writer\Text
  */
 final class WriteMemo
 {
@@ -40,7 +42,7 @@ final class WriteMemo
     private static array $held = [];
 
     /**
-     * @var array<string, array<string, array{mixed, array<mixed>, bool}>>|null By kind, oldest first; null outside
+     * @var array<string, array<string, array{mixed, WriteState|null, bool}>>|null By kind, oldest first; null outside
      *   `scoped()`.
      */
     private static ?array $entries = null;
@@ -67,11 +69,13 @@ final class WriteMemo
     }
 
     /**
+     * @template T
+     *
      * @param string $kind
      * @param array<mixed> $inputs Everything the write reads besides the `Text` state.
-     * @param \Closure(): array{mixed, bool} $write The result and the flag the caller keeps beside it.
+     * @param \Closure(): array{T, bool} $write The result and the flag the caller keeps beside it.
      *
-     * @return array{mixed, bool}
+     * @return array{T, bool}
      */
     public static function remember(string $kind, array $inputs, Closure $write): array
     {
@@ -83,7 +87,9 @@ final class WriteMemo
         if ($entry !== null) {
             unset(self::$entries[$kind][$key]);
             self::$entries[$kind][$key] = $entry;
-            Text::restoreWriteState($entry[1]);
+            if ($entry[1] !== null) {
+                Text::restoreWriteState($entry[1]);
+            }
 
             return [$entry[0], $entry[2]];
         }
@@ -114,7 +120,7 @@ final class WriteMemo
             return self::$entries[$kind][$key][0];
         }
         $value = $read();
-        self::keep($kind, $key, [$value, [], false]);
+        self::keep($kind, $key, [$value, null, false]);
 
         return $value;
     }
@@ -124,7 +130,7 @@ final class WriteMemo
      *
      * @param string $kind
      * @param string $key
-     * @param array{mixed, array<mixed>, bool} $entry
+     * @param array{mixed, WriteState|null, bool} $entry
      */
     private static function keep(string $kind, string $key, array $entry): void
     {
@@ -136,7 +142,8 @@ final class WriteMemo
         $kept = self::$entries[$kind] ?? [];
         $held = (self::$held[$kind] ?? 0) + $size;
         $kept[$key] = $entry;
-        while (count($kept) > self::LIMITS[$kind] || $held > self::BYTES[$kind]) {
+        $count = count($kept);
+        while ($count-- > self::LIMITS[$kind] || $held > self::BYTES[$kind]) {
             $oldest = array_key_first($kept);
             $held -= self::WEIGHTS[$kind] * self::sourceBytes($kept[$oldest][0]);
             unset($kept[$oldest]);

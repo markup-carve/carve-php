@@ -421,12 +421,23 @@ final class RepairPlanner
     private ?array $startAt = null;
 
     /**
-     * Where the rounds of a pass without a trial log stopped (`keepStop()`): the planner as it was, the loop state, the
-     * characters read since `$startAt`, `$startAt`, and whether a pass with a log retests there.
+     * Where the rounds of a pass without a trial log stopped (`keepStop()`).
      *
-     * @var array{self, array{array<string, true>, string|null, int, array{string, int, int}|null, array<string, array<int, true>>, int}, int, string, int}|null
+     * @var array{
+     *     planner: self,
+     *     locals: array{array<string, true>, string|null, int, array{string, int, int}|null, array<string, array<int, true>>, int},
+     *     consumed: int,
+     *     state: array<mixed>,
+     *     read: int,
+     *     retests: bool
+     * }|null
      */
     private ?array $stop = null;
+
+    /**
+     * Whether the stop this pass took over is one where a pass with a log retests.
+     */
+    private bool $stopRetests = false;
 
     /**
      * The escapes `logTrials()` would have logged, in order, while there is no log.
@@ -463,8 +474,17 @@ final class RepairPlanner
         }
         $state = get_object_vars($this);
         unset(
-            $state['read'], $state['trialLog'], $state['trialsRetested'], $state['twin'], $state['startAt'],
-            $state['stop'], $state['logItems'], $state['first'], $state['firstEscapes'], $state['nextRead'],
+            $state['read'],
+            $state['trialLog'],
+            $state['trialsRetested'],
+            $state['twin'],
+            $state['startAt'],
+            $state['stop'],
+            $state['logItems'],
+            $state['first'],
+            $state['firstEscapes'],
+            $state['nextRead'],
+            $state['stopRetests'],
         );
 
         return [$state, $source, $escapes];
@@ -482,22 +502,78 @@ final class RepairPlanner
         if ($this->trialLog !== null || $this->startAt === null) {
             return;
         }
+        [$state, $read] = $this->startAt;
         $planner = clone $this;
         $planner->startAt = null;
-        $this->stop = [$planner, $locals, $this->read - $this->startAt[1], $this->startAt[0], $this->startAt[1], $retests];
+        $this->stop = [
+            'planner' => $planner,
+            'locals' => $locals,
+            'consumed' => $this->read - $read,
+            'state' => $state,
+            'read' => $read,
+            'retests' => $retests,
+        ];
     }
 
     /**
-     * Takes over the stop of the twin: its state, and its log replayed onto this pass's log.
+     * After the first comparison of a pass with a trial log: where its twin stopped from the same state, inside this
+     * pass's budget, this pass takes over that stop and returns the loop state there. Otherwise it keeps its own state
+     * for a later twin.
      *
-     * @param array{self, array{array<string, true>, string|null, int, array{string, int, int}|null, array<string, array<int, true>>, int}, int, array<mixed>, int, bool} $stop
+     * @param string $source
+     * @param array<string, array<int, true>>|null $escapes
+     *
+     * @return array{array<string, true>, string|null, int, array{string, int, int}|null, array<string, array<int, true>>, int}|null
      */
-    private function adopt(array $stop): void
+    private function resumedStop(string $source, ?array $escapes): ?array
     {
-        [$planner, , $consumed] = $stop;
-        $keep = ['read', 'trialLog', 'trialsRetested', 'twin', 'startAt', 'stop', 'logItems', 'limit', 'parent', 'probed', 'firstEscapes'];
+        if ($this->parent !== null) {
+            return null;
+        }
+        $state = $this->startState($source, $escapes);
+        $stop = $this->twin?->stop;
+        $this->twin = null;
+        $this->startAt = $state === null ? null : [$state, $this->read];
+        if (
+            $stop === null || $state === null || $this->trialLog === null || $this->read < $stop['read']
+            || $this->read + $stop['consumed'] > $this->limit || $stop['state'] !== $state
+        ) {
+            return null;
+        }
+        $this->startAt = null;
+        $this->adopt($stop['planner'], $stop['consumed']);
+        $this->stopRetests = $stop['retests'];
+
+        return $stop['locals'];
+    }
+
+    /**
+     * Whether a pass that took over its twin's stop retests there, as the twin's rounds would have with a log.
+     *
+     * @param array<string, array<int, true>> $logged
+     */
+    private function retestsAtStop(array $logged): bool
+    {
+        if (!$this->stopRetests) {
+            return false;
+        }
+        $this->logTrials($logged);
+
+        return $this->retestedTrials();
+    }
+
+    /**
+     * Takes over the state of the twin where it stopped, and replays the log its rounds would have written onto this
+     * pass's log.
+     */
+    private function adopt(self $planner, int $consumed): void
+    {
+        $own = [
+            'read', 'trialLog', 'trialsRetested', 'twin', 'startAt', 'stop', 'logItems', 'limit', 'parent', 'probed',
+            'firstEscapes', 'stopRetests',
+        ];
         foreach (get_object_vars($planner) as $name => $value) {
-            if (!in_array($name, $keep, true)) {
+            if (!in_array($name, $own, true)) {
                 $this->$name = $value;
             }
         }
@@ -933,6 +1009,8 @@ final class RepairPlanner
     /**
      * C2-W-133: null means the repair could not settle inside the existing character budget.
      */
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
     public function repair(): ?string
     {
         $seen = [];
@@ -959,29 +1037,15 @@ final class RepairPlanner
             }
             $seen[$key] = true;
             $compared = $first ?? $this->compared($source, $escapes, $this->layout);
-            if ($round === 0 && $this->parent === null) {
-                $state = $this->startState($source, $first === null ? $escapes : $this->firstEscapes);
-                $stop = $this->twin?->stop;
-                $this->twin = null;
-                if (
-                    $stop !== null && $state !== null && $this->trialLog !== null && $this->read >= $stop[4]
-                    && $this->read + $stop[2] <= $this->limit && $stop[3] === $state
-                ) {
-                    unset($compared, $state);
-                    $this->adopt($stop);
-                    [$seen, $settled, $pairRounds, $run, $logged, $round] = $stop[1];
-                    if (!$stop[5]) {
-                        return $settled;
-                    }
-                    $this->logTrials($logged);
-                    if ($this->retestedTrials()) {
-                        continue;
-                    }
-
-                    return $settled;
+            $resumed = $round === 0 ? $this->resumedStop($source, $first === null ? $escapes : $this->firstEscapes) : null;
+            if ($resumed !== null) {
+                unset($compared, $first);
+                [$seen, $settled, $pairRounds, $run, $logged, $round] = $resumed;
+                if ($this->retestsAtStop($logged)) {
+                    continue;
                 }
-                $this->startAt = $state === null ? null : [$state, $this->read];
-                unset($state, $stop);
+
+                return $settled;
             }
             unset($first);
             if ($round === 0 && $compared !== null && !$compared[1]['equal'] && $this->probed === null) {
@@ -1033,6 +1097,8 @@ final class RepairPlanner
 
         return $settled;
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * C2-I-118: past the depth cap each round frees one entry, so two rounds that each escape the same character at
