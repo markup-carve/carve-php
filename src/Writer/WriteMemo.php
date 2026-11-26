@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 use Closure;
+use Exception;
 
 /**
  * The traced writes of one outer write, by their inputs: the C2-W-088 passes and their trials write the same tree with
@@ -82,7 +83,7 @@ final class WriteMemo
         if (self::$entries === null) {
             return $write();
         }
-        $key = hash('xxh128', serialize([$inputs, Text::writeState()]));
+        $key = self::key([$inputs, Text::writeState()]);
         $entry = self::$entries[$kind][$key] ?? null;
         if ($entry !== null) {
             unset(self::$entries[$kind][$key]);
@@ -115,7 +116,7 @@ final class WriteMemo
         if (self::$entries === null) {
             return $read();
         }
-        $key = hash('xxh128', serialize($inputs));
+        $key = self::key($inputs);
         if (isset(self::$entries[$kind][$key])) {
             return self::$entries[$kind][$key][0];
         }
@@ -159,5 +160,31 @@ final class WriteMemo
         }
 
         return is_array($value) && is_string($value['source'] ?? null) ? strlen($value['source']) : 0;
+    }
+
+    /**
+     * An extension registered with closures is keyed by the identity of its objects, which live as long as the write.
+     *
+     * @param array<mixed> $inputs
+     */
+    private static function key(array $inputs): string
+    {
+        try {
+            return hash('xxh128', serialize($inputs));
+        } catch (Exception) {
+            return hash('xxh128', serialize(self::objectIds($inputs)));
+        }
+    }
+
+    private static function objectIds(mixed $value): mixed
+    {
+        if (is_object($value)) {
+            return [$value::class, spl_object_id($value)];
+        }
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        return array_map(self::objectIds(...), $value);
     }
 }

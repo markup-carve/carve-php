@@ -373,7 +373,9 @@ final class Text
     }
 
     /**
-     * @param array $state
+     * @phpstan-param WriteState $state
+     *
+     * @param array<mixed> $state `writeState()`.
      */
     public static function restoreWriteState(array $state): void
     {
