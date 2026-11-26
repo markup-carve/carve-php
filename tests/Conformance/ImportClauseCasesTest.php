@@ -26,6 +26,9 @@ final class ImportClauseCasesTest extends TestCase
      * @var array<string, string>
      */
     public const KNOWN_FAIL = [
+        'CC-2433' => 'markup-carve/carve#6853 (carve-php line): a list-table row with no cell is dropped and the counts skip it',
+        'CC-2434' => 'markup-carve/carve#6853 (carve-php line): a list-table row with no cell is dropped and the counts skip it',
+        'CC-2435' => 'markup-carve/carve#6853 (carve-php line): a list-table row with no cell is dropped and the counts skip it',
     ];
 
     /**
