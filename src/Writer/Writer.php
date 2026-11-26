@@ -366,7 +366,7 @@ final class Writer
         foreach ($taken as $path => $block) {
             $spans[] = [$to[$path][0], $to[$path][1], $block];
         }
-        usort($spans, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        usort($spans, static fn (array $a, array $b): int => [$a[0], $b[1]] <=> [$b[0], $a[1]]);
         $out = '';
         $at = 0;
         foreach ($spans as [$start, $end, $block]) {
@@ -738,6 +738,10 @@ final class Writer
         $out = '';
         $at = 0;
         foreach ($spans as [$start, $end, $text]) {
+            // A reference in the text of another is already in that one's verbatim text.
+            if ($start < $at) {
+                continue;
+            }
             $out .= substr($source, $at, $start - $at) . $text;
             $at = $end;
         }

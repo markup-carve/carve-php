@@ -205,6 +205,42 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * C2-W-075: a reference inside the text of another one is part of that one's verbatim text, so taking both does not
+     * splice the inner one twice. The second block keeps its own verbatim label.
+     *
+     * @return void
+     */
+    public function testNestedReferenceKeepsTheOtherBlocksVerbatimTexts(): void
+    {
+        $source = "[a [b][ X ] c][ X ]\n\nd [e][ X ]\n\n[x]: /u\n";
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($source, $result->source);
+    }
+
+    /**
+     * C2-W-003 (carve-php#6099): a generated document of the carve#6813 family with references nested in references
+     * past the depth cap, whose second `fmt` gave other bytes. Output is carve-js `main`.
+     *
+     * @return void
+     */
+    public function testNestedReferencesPastTheDepthCapAreAFixedPoint(): void
+    {
+        $source = (string)file_get_contents(dirname(__DIR__) . '/fixtures/writer/nested-verbatim-references.txt');
+
+        $first = Writer::formatWithDiagnostics($source);
+        $second = Writer::formatWithDiagnostics($first->source);
+
+        $this->assertSame([], $first->diagnostics);
+        $this->assertSame([], $second->diagnostics);
+        $this->assertSame($first->source, $second->source);
+        $expected = (string)file_get_contents(dirname(__DIR__) . '/fixtures/writer/nested-verbatim-references.fmt.txt');
+        $this->assertSame($expected, $first->source);
+    }
+
+    /**
      * C2-W-127: `normalize` writes every reference from the tree.
      *
      * @return void
