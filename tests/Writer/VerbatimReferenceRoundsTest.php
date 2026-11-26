@@ -85,15 +85,55 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
-     * Under `normalize` the writer reads no sidecar (C2-W-127), so there is no authored source either.
+     * Under `normalize` the authored-block fallback still reads the sidecar's source (C2-W-127, carve#6848).
      *
      * @return void
      */
     public function testNoAuthoredBlockUnderNormalize(): void
     {
-        $result = Writer::formatWithDiagnostics(str_repeat("[a *[a][]*[x]: /u\n", 122), ['normalize' => true]);
+        $source = str_repeat("[a *[a][]*[x]: /u\n", 122);
+        $result = Writer::formatWithDiagnostics($source, ['normalize' => true]);
 
-        $this->assertSame(['writer-refused'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($source, $result->source);
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function authoredInContainers(): array
+    {
+        $line = '[a *[a][]*[x]: /u';
+        $quote = implode("\n", array_map(static fn (int $i): string => '> ' . $line . ($i === 3 ? '  ' : ''), range(1, 122)));
+        $item = '- ' . implode("\n  ", array_map(static fn (int $i): string => $line . ($i === 3 ? "\t" : ''), range(1, 122)));
+        $crlf = str_repeat($line . "\r\n", 122) . "\r\n" . str_repeat($line . "\r\n", 122);
+
+        return [
+            'quote' => [$quote . "\n", false],
+            'quote normalize' => [$quote . "\n", true],
+            'list item' => [$item . "\n", false],
+            'list item normalize' => [$item . "\n", true],
+            'two paragraphs, CR LF' => [$crlf, false],
+            'two paragraphs, CR LF, normalize' => [$crlf, true],
+        ];
+    }
+
+    /**
+     * The authored-block fallback takes a leaf block inside a container with its prefixes, and every block it takes
+     * loses the CR of a CR LF and the blanks at its line ends (C2-W-088, carve#6848).
+     *
+     * @param string $source
+     * @param bool $normalize
+     *
+     * @return void
+     */
+    #[DataProvider('authoredInContainers')]
+    public function testAuthoredBlockAsTheWriterWritesIt(string $source, bool $normalize): void
+    {
+        $result = Writer::formatWithDiagnostics($source, $normalize ? ['normalize' => true] : []);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame((string)preg_replace('/[ \t]+\n/', "\n", str_replace("\r\n", "\n", $source)), $result->source);
     }
 
     /**
