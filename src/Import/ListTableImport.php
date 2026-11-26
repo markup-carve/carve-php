@@ -79,11 +79,6 @@ final class ListTableImport
         $headerCols = self::headerColumns($rows, $head);
         $items = [];
         foreach ($rows as $index => $slots) {
-            if ($slots === []) {
-                $context->report($node, 'import-structure-repaired', 'A list table row with no cell dropped');
-
-                continue;
-            }
             $cells = [];
             $loose = false;
             foreach ($slots as $column => [$cell, $mark]) {
@@ -146,7 +141,8 @@ final class ListTableImport
     }
 
     /**
-     * The rows of the table in group order, each with its slots: a cell, or the cell a span mark continues (C2-W-145).
+     * The rows that give an item, in group order, each with its slots: a cell, or the cell a span mark continues
+     * (C2-W-145).
      *
      * @param array<array{type: string, rows: array<array<array<string, mixed>>>}> $grid
      * @param \MarkupCarve\Carve\Import\HtmlNode $node
@@ -175,8 +171,15 @@ final class ListTableImport
         foreach ($grid as $g => $group) {
             foreach ($group['rows'] as $r => $cells) {
                 $marked = $marks?->rows['/children/' . $g . '/children/' . $r] ?? null;
-                $rows[] = $marked === null ? array_map(static fn (array $cell): array => [$cell, null], $cells)
+                $slots = $marked === null ? array_map(static fn (array $cell): array => [$cell, null], $cells)
                     : array_map(static fn (array $entry): array => self::slot($grid, $entry), $marked);
+                // C2-M-112: a row with no cell and no covered slot gives no item and counts in no group.
+                if ($slots === []) {
+                    $context->report($node, 'import-structure-repaired', 'A list table row with no cell dropped');
+
+                    continue;
+                }
+                $rows[] = $slots;
                 $counts[$group['type']] = ($counts[$group['type']] ?? 0) + 1;
             }
         }
