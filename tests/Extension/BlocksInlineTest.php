@@ -341,4 +341,25 @@ final class BlocksInlineTest extends TestCase
         $this->expectExceptionMessageMatches('/semantic keys/');
         Carve::render('a', ['extensions' => [new ExtensionDefinition('a.b', '1', semanticKeys: [['samp', null]])]]);
     }
+
+    public function testAuthoredValueWithADeniedSchemeIsWrittenEmpty(): void
+    {
+        // carve-js#5647, C2-H-161: an authored value on an extension element passes the core renderer's tests.
+        $this->assertSame(
+            '<p>X <a href="page" class="wikilink" data-wikilink="Page" title="">Page</a> Y</p>' . "\n"
+            . '<p>Z <span class="spoiler" title="">s</span></p>' . "\n" . '<p><strong title="">c</strong></p>',
+            self::html(
+                "X :wiki[Page]{title=\"javascript:x\"} Y\n\nZ :spoiler[s]{title=\"javascript:x\"}\n\n*c*{title=\"javascript:x\"}\n",
+                Bundle::merge(Wikilinks::bundle(), Spoiler::bundle()),
+            ),
+        );
+        $this->assertSame(
+            '<p><a href="p" class="wikilink" data-wikilink="P" data-x="" title="a: b">P</a></p>',
+            self::html(":wiki[P]{data-x=\"vbscript:y\" title=\"a: b\"}\n", Wikilinks::bundle()),
+        );
+        $this->assertStringStartsWith(
+            '<details title="" lang="en">',
+            self::html("{title=\"JavaScript:x\" lang=\"en\"}\n::: details\nx\n:::\n", Details::bundle()),
+        );
+    }
 }

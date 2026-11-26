@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Html\AttrWriter;
+use MarkupCarve\Carve\Html\UrlPolicy;
 
 /**
  * Internal: the authored attributes a standard extension writes on its own element, filtered like the carve-js
@@ -98,7 +101,31 @@ final class AuthorAttrs
             return ' ' . $name . '=""';
         }
 
-        return ' ' . $name . '="' . RenderHost::escapeAttribute($value) . '"';
+        return ' ' . $name . '="' . RenderHost::escapeAttribute(self::authoredValue($lower, $value)) . '"';
+    }
+
+    /**
+     * C2-H-161: an authored value passes the tests of the core renderer, whatever the key: a denied scheme before the
+     * first colon, of the whole value or of one entry of a URL list, and active CSS (C2-H-162).
+     */
+    private static function authoredValue(string $lower, string $value): string
+    {
+        if ($lower !== 'style' && !str_contains($value, ':')) {
+            return $value;
+        }
+        if (UrlPolicy::authoredValueFails($value)) {
+            return '';
+        }
+        if (isset(Tables::URL_LIST_ATTRIBUTES[$lower])) {
+            $sep = Tables::URL_LIST_ATTRIBUTES[$lower] ? '/[\s,]+/' : '/\s+/';
+            foreach (preg_split($sep, $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
+                if (UrlPolicy::authoredValueFails($token)) {
+                    return '';
+                }
+            }
+        }
+
+        return $lower === 'style' && AttrWriter::styleFails($value) ? '' : $value;
     }
 
     public static function value(?Attrs $attrs, string $name): ?string
