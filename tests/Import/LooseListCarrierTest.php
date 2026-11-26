@@ -59,4 +59,11 @@ final class LooseListCarrierTest extends TestCase
         self::assertSame("- > a\n- b\n", $result->source);
         self::assertSame(['import-carrier-ignored'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
     }
+
+    public function testRunThatReadsAsNoParagraphKeepsTheCarrier(): void
+    {
+        $result = Carve::importHtml('<ul data-carve-loose><li><span></span><blockquote><p>a</p></blockquote></li>'
+            . '<li><blockquote><p>b</p></blockquote></li></ul>');
+        self::assertSame("- > a\n\n- > b\n", $result->source);
+    }
 }

@@ -34,10 +34,11 @@ final class BlockReader
      * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
      * @param \MarkupCarve\Carve\Import\HtmlNode $host
      * @param bool $top Read the children of the document, where templates stand (C2-H-187).
+     * @param bool $bare Set when a run of the flow reads as a paragraph (C2-H-186).
      *
      * @return array<array<string, mixed>>
      */
-    public function flow(array $nodes, HtmlNode $host, bool $top = false): array
+    public function flow(array $nodes, HtmlNode $host, bool $top = false, bool &$bare = false): array
     {
         $out = [];
         $run = [];
@@ -47,12 +48,12 @@ final class BlockReader
 
                 continue;
             }
-            array_push($out, ...$this->run($run, $host, $top));
+            array_push($out, ...$this->run($run, $host, $top, $bare));
             $run = [];
             array_push($out, ...($top ? $this->documentChild($node) : $this->block($node)));
         }
 
-        return array_merge($out, $this->run($run, $host, $top));
+        return array_merge($out, $this->run($run, $host, $top, $bare));
     }
 
     private static function isPhrasing(HtmlNode $node): bool
@@ -61,40 +62,19 @@ final class BlockReader
     }
 
     /**
-     * C2-M-012, C2-M-013: whether the phrasing children of a flow hold a run that reads as a paragraph, not raw
-     * elements or an image run alone.
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $run
+     * @param \MarkupCarve\Carve\Import\HtmlNode $host
+     * @param bool $top
+     * @param bool $bare
      *
-     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
-     *
-     * @return bool
+     * @return array<array<string, mixed>>
      */
-    public static function hasParagraphRun(array $nodes): bool
+    private function run(array $run, HtmlNode $host, bool $top, bool &$bare): array
     {
-        $solid = [];
-        foreach ($nodes as $node) {
-            if (self::isPhrasing($node)) {
-                if (!$node->isBlank()) {
-                    $solid[] = $node;
-                }
-
-                continue;
-            }
-            if ($solid !== [] && self::isParagraphRun($solid)) {
-                return true;
-            }
-            $solid = [];
+        $solid = array_values(array_filter($run, static fn (HtmlNode $n): bool => !$n->isBlank()));
+        if ($solid === []) {
+            return [];
         }
-
-        return $solid !== [] && self::isParagraphRun($solid);
-    }
-
-    /**
-     * @param non-empty-array<\MarkupCarve\Carve\Import\HtmlNode> $solid The non-blank nodes of a run.
-     *
-     * @return bool
-     */
-    private static function isParagraphRun(array $solid): bool
-    {
         $raw = true;
         $images = false;
         $imageRun = true;
@@ -103,24 +83,7 @@ final class BlockReader
             $images = $images || $node->isElement('img');
             $imageRun = $imageRun && ($node->isElement('img') || $node->isComment());
         }
-
-        return !$raw && !($images && $imageRun);
-    }
-
-    /**
-     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $run
-     * @param \MarkupCarve\Carve\Import\HtmlNode $host
-     * @param bool $top
-     *
-     * @return array<array<string, mixed>>
-     */
-    private function run(array $run, HtmlNode $host, bool $top): array
-    {
-        $solid = array_values(array_filter($run, static fn (HtmlNode $n): bool => !$n->isBlank()));
-        if ($solid === []) {
-            return [];
-        }
-        if (!self::isParagraphRun($solid)) {
+        if ($raw || ($images && $imageRun)) {
             $out = [];
             foreach ($solid as $node) {
                 array_push($out, ...($top ? $this->documentChild($node) : $this->block($node)));
@@ -134,7 +97,12 @@ final class BlockReader
         }
         $children = Whitespace::edges(Whitespace::breaks(Whitespace::coalesce($inline), $host, $this->context), $host, $this->context);
 
-        return $children === [] ? [] : [self::paragraph($children)];
+        if ($children === []) {
+            return [];
+        }
+        $bare = true;
+
+        return [self::paragraph($children)];
     }
 
     /**
@@ -693,7 +661,7 @@ final class BlockReader
     /**
      * C2-H-043: one paragraph per stanza, a line per `<br>`, and the no-break spaces of the verse whitespace as spaces.
      * A `<br>` with only whitespace after it is the hard break of the stanza's last line; a line that is empty or ends
-     * in a space or tab keeps the hard break its `<br>` stands for, as it cannot be written without it (C2-H-195 row 17).
+     * in a space or tab keeps the hard break its `<br>` stands for, as it cannot be written without it (C2-H-195 row 18).
      *
      * @return array<string, mixed>
      */

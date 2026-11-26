@@ -43,9 +43,10 @@ final class ListReader
             }
         }
         $items = [];
+        $bare = false;
         foreach ($node->elements() as $child) {
             if ($child->name === 'li') {
-                $items[] = $this->item($child);
+                $items[] = $this->item($child, $bare);
             }
         }
         if ($items === []) {
@@ -55,7 +56,12 @@ final class ListReader
         }
         $mapped = Attrs::of($node, ['start', 'type', 'data-delim']);
         $tasks = array_filter($items, static fn (array $item): bool => isset($item['task'])) !== [];
-        $out = ['type' => 'list', 'children' => $items, 'marker' => $this->marker($node), 'spacing' => $this->spacing($node, $items)];
+        $out = [
+            'type' => 'list',
+            'children' => $items,
+            'marker' => $this->marker($node),
+            'spacing' => $this->spacing($node, $items, $bare),
+        ];
 
         return [$out + ($tasks ? Attrs::withoutClasses($mapped, ['task-list']) : $mapped)];
     }
@@ -103,10 +109,11 @@ final class ListReader
      *
      * @param \MarkupCarve\Carve\Import\HtmlNode $node
      * @param array<array<string, mixed>> $items
+     * @param bool $bare An item holds a run that C2-M-012 reads as a paragraph.
      *
      * @return string
      */
-    private function spacing(HtmlNode $node, array $items): string
+    private function spacing(HtmlNode $node, array $items, bool $bare): string
     {
         if ($node->has('data-carve-tight') && $node->has('data-carve-loose')) {
             $this->context->ignoredCarrier($node, 'data-carve-tight and data-carve-loose', 'they contradict each other');
@@ -119,7 +126,7 @@ final class ListReader
 
                 return 'tight';
             }
-            if (self::hasBareRun($node)) {
+            if ($bare) {
                 $this->context->ignoredCarrier($node, 'data-carve-loose', 'an item writes a paragraph bare');
 
                 return $this->measuredSpacing($node, $items);
@@ -163,26 +170,6 @@ final class ListReader
         }
 
         return 'tight';
-    }
-
-    /**
-     * C2-H-186: an item of the list holds a run that C2-M-012 reads as a paragraph, which a loose list writes in `<p>`.
-     *
-     * @param \MarkupCarve\Carve\Import\HtmlNode $node
-     *
-     * @return bool
-     */
-    private static function hasBareRun(HtmlNode $node): bool
-    {
-        foreach ($node->elements() as $item) {
-            $children = array_filter($item->children, static fn (HtmlNode $c): bool => !($c->isElement('input')
-                && $c->attr('type') === 'checkbox'));
-            if ($item->name === 'li' && BlockReader::hasParagraphRun($children)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -252,9 +239,12 @@ final class ListReader
     /**
      * C2-M-032: the task box of an item, its state, and the class and style every render gives the item.
      *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param bool $bare Set when the item holds a run that reads as a paragraph.
+     *
      * @return array<string, mixed>
      */
-    private function item(HtmlNode $node): array
+    private function item(HtmlNode $node, bool &$bare): array
     {
         $boxes = array_values(array_filter($node->elements(), static fn (HtmlNode $c): bool => $c->name === 'input'
             && $c->attr('type') === 'checkbox'));
@@ -272,7 +262,7 @@ final class ListReader
             $after->name = substr($after->name, 1);
         }
         $mapped = Attrs::of($node, ['data-task-state']);
-        $out = ['type' => 'list_item', 'children' => $this->blocks->flow($nodes, $node)];
+        $out = ['type' => 'list_item', 'children' => $this->blocks->flow($nodes, $node, false, $bare)];
         if ($box === null) {
             return $out + $mapped;
         }
