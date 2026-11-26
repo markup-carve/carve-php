@@ -97620,6 +97620,304 @@
    "carve": "{body-header-rows=1 header-rows=1 footer-rows=1}\n|= h | d |\n|= h | < |\n"
   },
   "from": []
+ },
+ {
+  "id": "CC-2475",
+  "clauses": [
+   "C2-H-163",
+   "C2-H-129",
+   "C2-H-165"
+  ],
+  "why": "C2-H-163: Otherwise, when the axis has an allow list, a type is inside exactly when the list names it. C2-H-129: A construct outside the profile renders in its degraded form and is reported. C2-H-165: A node that leaves no text is dropped. A degraded node is reported once (C2-H-129)",
+  "summary": "under comment a link definition, a footnote reference and its definition are each reported",
+  "kind": "render",
+  "input": "[r]: /u\n\nSee [x][r] and[^n].\n\n[^n]: note\n",
+  "options": {
+   "profile": "comment"
+  },
+  "expected": {
+   "html": "<p>See <a href=\"/u\" rel=\"nofollow ugc\">x</a> and[^n].</p>",
+   "diagnostics": [
+    {
+     "code": "profile-construct-degraded",
+     "line": 1,
+     "column": 1,
+     "channel": "render-loss",
+     "severity": "warning"
+    },
+    {
+     "code": "profile-construct-degraded",
+     "line": 3,
+     "column": 15,
+     "channel": "render-loss",
+     "severity": "warning"
+    },
+    {
+     "code": "profile-construct-degraded",
+     "line": 5,
+     "column": 1,
+     "channel": "render-loss",
+     "severity": "warning"
+    }
+   ],
+   "diagnosticsComplete": true,
+   "diagnosticsOrdered": true
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2476",
+  "clauses": [
+   "C2-H-178",
+   "C2-H-163",
+   "C2-H-129"
+  ],
+  "why": "C2-H-178: A profile does not degrade an `abbreviation_def`, also one outside the profile (C2-H-165): the template is data and no presentation, so it is written under every profile, and the definition is not reported as degraded. C2-H-163: Otherwise, when the axis has an allow list, a type is inside exactly when the list names it. C2-H-129: A construct outside the profile renders in its degraded form and is reported.",
+  "summary": "under minimal a link definition is reported and an abbreviation definition is not",
+  "kind": "render",
+  "input": "*[B]: bee\n\n[r]: /u\n\nA B.\n",
+  "options": {
+   "profile": "minimal"
+  },
+  "expected": {
+   "html": "<p>A B.</p>",
+   "diagnostics": [
+    {
+     "code": "profile-construct-degraded",
+     "line": 3,
+     "column": 1,
+     "channel": "render-loss",
+     "severity": "warning"
+    },
+    {
+     "code": "profile-construct-degraded",
+     "line": 5,
+     "column": 3,
+     "channel": "render-loss",
+     "severity": "warning"
+    }
+   ],
+   "diagnosticsComplete": true,
+   "diagnosticsOrdered": true
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2477",
+  "clauses": [
+   "C2-H-163",
+   "C2-H-165",
+   "C2-A-151"
+  ],
+  "why": "C2-H-163: Otherwise, when the axis has an allow list, a type is inside exactly when the list names it. C2-H-165: a `comment` and a `critic_comment` give no text ... A node that leaves no text is dropped. A degraded node is reported once (C2-H-129) C2-A-151: to a line comment at the end of the line, which starts at the first space or tab before its `%%` and ends at the line ending",
+  "summary": "under comment a line, a block and a braced comment are each reported and write nothing",
+  "kind": "render",
+  "input": "x %% c\n\n%%%\nblock\n%%%\n\nb {% c %} d\n",
+  "options": {
+   "profile": "comment"
+  },
+  "expected": {
+   "html": "<p>x</p>\n<p>b  d</p>",
+   "diagnostics": [
+    {
+     "code": "profile-construct-degraded",
+     "line": 1,
+     "column": 2,
+     "channel": "render-loss",
+     "severity": "warning"
+    },
+    {
+     "code": "profile-construct-degraded",
+     "line": 3,
+     "column": 1,
+     "channel": "render-loss",
+     "severity": "warning"
+    },
+    {
+     "code": "profile-construct-degraded",
+     "line": 7,
+     "column": 3,
+     "channel": "render-loss",
+     "severity": "warning"
+    }
+   ],
+   "diagnosticsComplete": true,
+   "diagnosticsOrdered": true
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2478",
+  "clauses": [
+   "C2-H-070",
+   "C2-H-163",
+   "C2-H-129",
+   "C2-H-178"
+  ],
+  "why": "C2-H-070: Every frontmatter node, leading or later and whether keyed or unkeyed, renders nothing. C2-H-163: Otherwise, when the axis has an allow list, a type is inside exactly when the list names it. C2-H-129: A construct outside the profile renders in its degraded form and is reported. C2-H-178: A profile does not degrade an `abbreviation_def`, also one outside the profile (C2-H-165)",
+  "summary": "under comment a frontmatter node writes nothing and is reported once at its start",
+  "kind": "render",
+  "input": "---\na: 1\n---\n\nx\n",
+  "options": {
+   "profile": "comment"
+  },
+  "expected": {
+   "html": "<p>x</p>",
+   "diagnostics": [
+    {
+     "code": "profile-construct-degraded",
+     "line": 1,
+     "column": 1,
+     "channel": "render-loss",
+     "severity": "warning"
+    }
+   ],
+   "diagnosticsComplete": true,
+   "diagnosticsOrdered": true
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2479",
+  "clauses": [
+   "C2-H-070",
+   "C2-H-163",
+   "C2-H-129",
+   "C2-H-178"
+  ],
+  "why": "C2-H-070: Every frontmatter node, leading or later and whether keyed or unkeyed, renders nothing. C2-H-163: Otherwise, when the axis has an allow list, a type is inside exactly when the list names it. C2-H-129: A construct outside the profile renders in its degraded form and is reported. C2-H-178: A profile does not degrade an `abbreviation_def`, also one outside the profile (C2-H-165)",
+  "summary": "under minimal a frontmatter node writes nothing and is reported once at its start",
+  "kind": "render",
+  "input": "---\na: 1\n---\n\nx\n",
+  "options": {
+   "profile": "minimal"
+  },
+  "expected": {
+   "html": "<p>x</p>",
+   "diagnostics": [
+    {
+     "code": "profile-construct-degraded",
+     "line": 1,
+     "column": 1,
+     "channel": "render-loss",
+     "severity": "warning"
+    }
+   ],
+   "diagnosticsComplete": true,
+   "diagnosticsOrdered": true
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2480",
+  "clauses": [
+   "C2-A-214",
+   "C2-A-029"
+  ],
+  "why": "C2-A-214: A range may carry `data` under C2-A-029, declared on the root or envelope of the tree, and a reader keeps unknown optional `data` on a range. C2-A-029: Every `data` key has the qualified grammar of C2-A-123, matches a declaration on the root or envelope, and holds opaque JSON.",
+  "summary": "a tree reader accepts an annotation range with declared data",
+  "kind": "tree",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "extensions": [
+    {
+     "name": "x.note",
+     "version": "1",
+     "required": false,
+     "slots": []
+    }
+   ],
+   "children": [
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "hello"
+      }
+     ]
+    }
+   ]
+  },
+  "annotations": {
+   "ranges": [
+    {
+     "id": "r1",
+     "start": {
+      "path": "/children/0",
+      "offset": 0
+     },
+     "end": {
+      "path": "/children/0",
+      "offset": 5
+     },
+     "data": {
+      "x.note": {
+       "by": "a"
+      }
+     }
+    }
+   ]
+  },
+  "options": {},
+  "expected": {
+   "accepted": true
+  },
+  "from": []
+ },
+ {
+  "id": "CC-2481",
+  "clauses": [
+   "C2-A-029",
+   "C2-A-214"
+  ],
+  "why": "C2-A-029: Every `data` key has the qualified grammar of C2-A-123, matches a declaration on the root or envelope, and holds opaque JSON. C2-A-214: A range may carry `data` under C2-A-029, declared on the root or envelope of the tree, and a reader keeps unknown optional `data` on a range.",
+  "summary": "a tree reader refuses an annotation range whose data key has no declaration",
+  "kind": "tree",
+  "tree": {
+   "type": "document",
+   "astVersion": "2.0",
+   "children": [
+    {
+     "type": "paragraph",
+     "children": [
+      {
+       "type": "text",
+       "value": "hello"
+      }
+     ]
+    }
+   ]
+  },
+  "annotations": {
+   "ranges": [
+    {
+     "id": "r1",
+     "start": {
+      "path": "/children/0",
+      "offset": 0
+     },
+     "end": {
+      "path": "/children/0",
+      "offset": 5
+     },
+     "data": {
+      "x.note": {
+       "by": "a"
+      }
+     }
+    }
+   ]
+  },
+  "options": {},
+  "expected": {
+   "refusal": {
+    "error": "CarveTreeError",
+    "path": "/ranges/0/data"
+   }
+  },
+  "from": []
  }
  ]
 }

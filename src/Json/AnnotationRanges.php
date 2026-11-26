@@ -11,6 +11,13 @@ use stdClass;
 // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 final class AnnotationRanges
 {
+    /**
+     * The qualified data key grammar of the tree schema (C2-A-123).
+     *
+     * @var string
+     */
+    private const QUALIFIED = '/^[A-Za-z][A-Za-z0-9_-]*(?:\\.[A-Za-z][A-Za-z0-9_-]*)+$/D';
+
     private static ?stdClass $schema = null;
 
     /**
@@ -75,6 +82,9 @@ final class AnnotationRanges
                     throw new TreeError('annotation-range-offset', $at . '/offset');
                 }
             }
+            if (isset($range->data)) {
+                self::checkData($range->data, '/ranges/' . $index . '/data', $declared);
+            }
         }
         $pending = [[$root, '']];
         while ($pending !== []) {
@@ -103,6 +113,41 @@ final class AnnotationRanges
                 }
                 if ($child instanceof stdClass || is_array($child)) {
                     $pending[] = [$child, $path . '/' . str_replace(['~', '/'], ['~0', '~1'], $name)];
+                }
+            }
+        }
+    }
+
+    /**
+     * C2-A-214: range data follows the node data rules of C2-A-029 and C2-A-189.
+     *
+     * @param \stdClass $data
+     * @param string $path
+     * @param array<string, \stdClass> $declared
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     */
+    private static function checkData(stdClass $data, string $path, array $declared): void
+    {
+        foreach (get_object_vars($data) as $key => $value) {
+            $keyPath = $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$key);
+            if (!preg_match(self::QUALIFIED, (string)$key)) {
+                throw new TreeError('annotation-range-schema', $keyPath);
+            }
+            if (!isset($declared[$key])) {
+                throw new TreeError('data-undeclared', $keyPath);
+            }
+            $stack = [[$value, $keyPath]];
+            while ($stack !== []) {
+                [$item, $at] = array_pop($stack);
+                if ($item instanceof stdClass) {
+                    if (isset($item->type) && is_string($item->type)) {
+                        throw new TreeError('data-holds-node', $at);
+                    }
+                    $item = get_object_vars($item);
+                }
+                foreach (is_array($item) ? $item : [] as $name => $child) {
+                    $stack[] = [$child, $at . '/' . str_replace(['~', '/'], ['~0', '~1'], (string)$name)];
                 }
             }
         }

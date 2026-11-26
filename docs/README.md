@@ -102,6 +102,10 @@ Carve::validateTree($tree);
 assert(Carve::render($tree) === '<p>a</p>');
 ```
 
+Both calls take an `annotations` option, the annotation-range sidecar `{ranges}` of C2-A-214. Each range has `id`,
+`start` and `end`, and may carry a `data` object whose keys are qualified names declared on the tree's root or
+envelope (C2-A-029). The reader checks the sidecar and leaves it unchanged.
+
 ## Includes
 
 Pass a resolver in the `includes` option: `Include\FileResolver::forRoot()` reads files under an absolute root
