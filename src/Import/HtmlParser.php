@@ -277,7 +277,7 @@ final class HtmlParser
             }
             $at = $lt + strlen($tag[0]);
             $name = strtolower($tag[2]);
-            $inForeign = in_array(end($foreign), ['svg', 'math'], true);
+            $inForeign = in_array(end($foreign), ['svg', 'math', 'glyph'], true);
             $foreign = self::foreignScopes($foreign, $tag[1] === '/', $name, $tag[0]);
             // In SVG and MathML `title`, `style` and `script` are not raw text.
             if ($inForeign || $tag[1] === '/' || !in_array($name, self::RAW_TEXT, true)) {
@@ -332,8 +332,11 @@ final class HtmlParser
         $scope = match (true) {
             $name === 'svg', $name === 'math' => $name,
             $top === 'svg' && in_array($name, ['foreignobject', 'desc', 'title'], true) => 'html',
-            $top === 'math' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true) => 'html',
-            $top === 'html' && $end && in_array($name, self::INTEGRATION_POINTS, true) => 'html',
+            $top === 'math' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true) => 'mathtext',
+            // `mglyph` and `malignmark` in a MathML text integration point stay foreign.
+            $top === 'mathtext' && !$end && in_array($name, ['mglyph', 'malignmark'], true) => 'glyph',
+            $top === 'glyph' && $end && in_array($name, ['mglyph', 'malignmark'], true) => 'glyph',
+            in_array($top, ['html', 'mathtext'], true) && $end && in_array($name, self::INTEGRATION_POINTS, true) => $top,
             default => null,
         };
         if ($scope === null) {
@@ -386,7 +389,8 @@ final class HtmlParser
             return str_replace('<', '&lt;', $content);
         }
         if ($name === 'script' || $name === 'style') {
-            if (!preg_match('~</[a-zA-Z]~', $content) || stripos($tag, self::LEGACY_RAW) !== false) {
+            $names = preg_replace('/"[^"]*"|\'[^\']*\'/', '', $tag) ?? $tag;
+            if (!preg_match('~</[a-zA-Z]~', $content) || preg_match('~[\s/]' . self::LEGACY_RAW . '(?![^\s/=>])~i', $names)) {
                 return $content;
             }
         }

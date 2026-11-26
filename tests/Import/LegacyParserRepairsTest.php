@@ -42,6 +42,8 @@ final class LegacyParserRepairsTest extends TestCase
                 '<svg><title><b>a</b></title></svg><textarea>b</i></textarea>',
                 'svg[title[b[#a]]],textarea[#b</i>]',
             ],
+            'MathML text integration point' => ['<math><mi><textarea>a</b></textarea></mi></math>', 'math[mi[textarea[#a</b>]]]'],
+            'marker name in an attribute value' => ['<script data-id="carve-import-raw">a</b></script>', 'script[#a</b>]'],
         ];
     }
 
