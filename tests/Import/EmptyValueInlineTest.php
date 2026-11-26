@@ -9,7 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve#6859: a code, math or raw inline with an empty value needs content, so the import drops it (C2-M-069).
+ * carve#6859, carve-php#6096: a code, math, raw or critic comment inline with an empty value needs content, so the
+ * import drops it (C2-M-069).
  */
 final class EmptyValueInlineTest extends TestCase
 {
@@ -42,6 +43,24 @@ final class EmptyValueInlineTest extends TestCase
             'MathML with an empty TeX source in a ranged comment' => [
                 '<p><span class="comment-start" data-comment-id="1">n</span><math><semantics><mi>x</mi>'
                     . '<annotation encoding="application/x-tex"></annotation></semantics></math>'
+                    . '<span class="comment-end" data-comment-id="1"></span>y</p>',
+                "{#n#}y\n",
+                [],
+            ],
+            'empty critic comment' => ['<p>a<span class="critic-comment"></span>b</p>', "ab\n", []],
+            'empty critic comment with an author' => [
+                '<p>a<span class="critic-comment" data-author="me"></span>b</p>',
+                "ab\n",
+                [$repaired],
+            ],
+            'empty critic comment alone in an emphasis' => ['<p>a<em><span class="critic-comment"></span></em>b</p>', "ab\n", []],
+            'empty critic comment in a classed span' => [
+                '<p>a<span class="y"><span class="critic-comment"></span></span>b</p>',
+                "a[]{.y}b\n",
+                [],
+            ],
+            'empty critic comment in a ranged comment' => [
+                '<p><span class="comment-start" data-comment-id="1">n</span><span class="critic-comment"></span>'
                     . '<span class="comment-end" data-comment-id="1"></span>y</p>',
                 "{#n#}y\n",
                 [],

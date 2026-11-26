@@ -3904,7 +3904,10 @@ final class Inline
     private function criticComment(array $node, string $path, Context $c): string
     {
         $value = $this->cellValue($node, $path, $c, self::str($node, 'value'));
-        if ($this->laterLineOpens($value, '#}', $c)) {
+        if ($value === '') {
+            // C2-W-116, C2-I-063: `{##}` reads back as text.
+            $this->w->lose($path, 'critic_comment', null);
+        } elseif ($this->laterLineOpens($value, '#}', $c)) {
             $this->w->lose($path, 'critic_comment', 'value');
         }
 
