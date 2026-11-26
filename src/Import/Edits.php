@@ -28,6 +28,13 @@ final class Edits
     private array $gone = [];
 
     /**
+     * Removed node id to the nodes that take its slot.
+     *
+     * @var array<int, array<\MarkupCarve\Carve\Import\HtmlNode>>
+     */
+    private array $spilled = [];
+
+    /**
      * @return array{0: \MarkupCarve\Carve\Import\HtmlNode, 1: int}|null
      */
     private function slot(HtmlNode $node): ?array
@@ -92,6 +99,33 @@ final class Edits
         $this->gone[spl_object_id($node)] = true;
     }
 
+    /**
+     * Removes `$node` and puts `$kept` in its slot at `finish()`, in their order.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $kept
+     */
+    public function dissolve(HtmlNode $node, array $kept): void
+    {
+        if ($this->slot($node) === null) {
+            return;
+        }
+        $this->gone[spl_object_id($node)] = true;
+        if ($kept !== []) {
+            $this->spilled[spl_object_id($node)] = $kept;
+        }
+    }
+
+    /**
+     * The nodes a removed `$node` puts in its slot.
+     *
+     * @return array<\MarkupCarve\Carve\Import\HtmlNode>
+     */
+    public function spilledFrom(HtmlNode $node): array
+    {
+        return $this->spilled[spl_object_id($node)] ?? [];
+    }
+
     public function replace(HtmlNode $node, HtmlNode $replacement): void
     {
         $found = $this->slot($node);
@@ -120,10 +154,15 @@ final class Edits
         foreach ($this->parents as $parent) {
             $kept = [];
             $changed = false;
+            $spills = !isset($this->gone[spl_object_id($parent)]);
             foreach ($parent->children as $child) {
                 if (isset($this->gone[spl_object_id($child)])) {
                     $child->parent = null;
                     $changed = true;
+                    foreach ($spills ? $this->spilled[spl_object_id($child)] ?? [] : [] as $moved) {
+                        $moved->parent = $parent;
+                        $kept[] = $moved;
+                    }
 
                     continue;
                 }

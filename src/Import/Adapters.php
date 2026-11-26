@@ -692,7 +692,8 @@ final class Adapters
     }
 
     /**
-     * C2-M-109: an element the notes left with layout only gives nothing, nor its parent, up to the `<body>`.
+     * C2-M-109: an element the notes left with layout only gives nothing, nor its parent, up to the `<body>`; its
+     * comments take its place.
      */
     private function pruneEmpty(HtmlNode $start): void
     {
@@ -703,8 +704,16 @@ final class Adapters
                     return;
                 }
             }
+            $comments = [];
+            foreach ($node->children as $child) {
+                if ($this->edits->isGone($child)) {
+                    array_push($comments, ...$this->edits->spilledFrom($child));
+                } elseif ($child->isComment()) {
+                    $comments[] = $child;
+                }
+            }
             $parent = $node->parent;
-            $this->edits->detach($node);
+            $this->edits->dissolve($node, $comments);
             $node = $parent;
         }
     }

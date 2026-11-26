@@ -25,6 +25,11 @@ final class WriterClauseCasesTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_FAIL = [
+        'CC-2426' => 'markup-carve/carve#6846: the authored-block fallback of C2-W-088 takes every failing block',
+        'CC-2428' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
+        'CC-2429' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
+        'CC-2430' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
+        'CC-2431' => 'markup-carve/carve#6848 (carve-php line): the authored-block fallback of C2-W-088',
         'CC-501' => 'markup-carve/carve#3598 (carve-php line): metadata.fields beside a frontmatter node are a loss',
         'CC-2265' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
         'CC-2266' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',

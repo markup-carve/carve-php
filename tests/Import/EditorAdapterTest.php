@@ -94,6 +94,26 @@ final class EditorAdapterTest extends TestCase
     }
 
     /**
+     * C2-M-109: the comments of nested wrappers the notes empty take the place of the outer one in document order, and
+     * a wrapper that keeps content keeps its comments.
+     */
+    public function testCommentsOfDroppedWrappersKeepTheirOrder(): void
+    {
+        $html = '<p>a<a href="#n" id="r">1</a></p>'
+            . '<div><!--1--><div id="w"><!--2--><div><p><a href="#r" id="n">1</a> N</p></div><!--3--></div><!--4--></div>'
+            . '<div><!--5--><p>kept</p></div>';
+        $result = HtmlImporter::import($html, ['adapter' => 'google-docs', 'rawHtml' => true]);
+        $this->assertSame(
+            ['<!--1-->', '<!--2-->', '<!--3-->', '<!--4-->', '<!--5-->'],
+            array_values(array_filter(
+                explode("\n", $result->source),
+                static fn (string $line): bool => str_starts_with($line, '<!--'),
+            )),
+        );
+        $this->assertStringContainsString("[^1]: N\n", $result->source);
+    }
+
+    /**
      * @param array<string, mixed> $case
      */
     private function cliCase(array $case): void
