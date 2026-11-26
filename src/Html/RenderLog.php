@@ -23,6 +23,20 @@ final class RenderLog
     public ?Node $currentNode = null;
 
     /**
+     * Entries held back until a loss of a later node in the same file is logged, keyed by file.
+     *
+     * @var array<string, \MarkupCarve\Carve\Html\HeldEntries>
+     */
+    private array $held = [];
+
+    private int $heldCount = 0;
+
+    /**
+     * Set while the entries about to be held are logged, so they release nothing.
+     */
+    public bool $holding = false;
+
+    /**
      * C2-H-052: raw HTML was escaped in this render.
      */
     public bool $escapedRaw = false;
@@ -52,6 +66,9 @@ final class RenderLog
         ?Node $node = null,
         ?string $field = null,
     ): void {
+        if ($this->held !== [] && !$this->holding) {
+            $this->releaseBefore($node ?? $this->currentNode);
+        }
         $this->entries[] = [
             'code' => $code,
             'severity' => $severity,
@@ -62,6 +79,48 @@ final class RenderLog
             'slots' => $slots,
             'field' => $field,
         ];
+    }
+
+    /**
+     * Moves the entries logged since `$from` into the held entries, to be put back in source order.
+     *
+     * @param int $from
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return void
+     */
+    public function hold(int $from, Node $node): void
+    {
+        foreach (array_splice($this->entries, $from) as $entry) {
+            $this->held[$node->file ?? ''] ??= new HeldEntries();
+            $this->held[$node->file ?? '']->insert([$node->start, $this->heldCount++, $entry]);
+        }
+    }
+
+    /**
+     * Logs every held entry that is still waiting.
+     *
+     * @return void
+     */
+    public function releaseAll(): void
+    {
+        foreach ($this->held as $heap) {
+            foreach ($heap as $item) {
+                $this->entries[] = $item[2];
+            }
+        }
+        $this->held = [];
+    }
+
+    private function releaseBefore(?Node $node): void
+    {
+        if ($node === null) {
+            return;
+        }
+        $heap = $this->held[$node->file ?? ''] ?? null;
+        while ($heap !== null && !$heap->isEmpty() && $heap->top()[0] < $node->start) {
+            $this->entries[] = $heap->extract()[2];
+        }
     }
 
     public function rendererFailed(Node $node, Throwable $error): void

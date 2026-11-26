@@ -43,6 +43,12 @@ final class ProfileSilentNodeReportTest extends TestCase
                 "<ul>\n  <li>a\n    <p>b</p>\n  </li>\n</ul>",
                 ['1:1 comment', '5:3 comment'],
             ],
+            'nested block comment reported in source order' => [
+                "> # H\n>\n> %%%\n> x\n> %%%\n>\n> # I\n",
+                'comment',
+                "<blockquote>\n  <p># H</p>\n  <p># I</p>\n</blockquote>",
+                ['1:3 heading', '3:3 comment', '7:3 heading'],
+            ],
             'no report without an allow list' => [
                 "[r]: /u\n\n[x][r] %% c\n",
                 'article',
@@ -74,5 +80,13 @@ final class ProfileSilentNodeReportTest extends TestCase
                 . substr($diagnostic->message, (int)strrpos($diagnostic->message, ' ') + 1, -1);
         }
         self::assertSame($reports, $got);
+    }
+
+    public function testMaxLossesKeepsTheFirstLossInSourceOrder(): void
+    {
+        $result = Carve::renderWithDiagnostics("> # H\n>\n> %%%\n> x\n> %%%\n", ['profile' => 'comment', 'maxLosses' => 1]);
+
+        self::assertCount(1, $result->diagnostics);
+        self::assertSame(2, $result->diagnostics[0]->startOffset);
     }
 }

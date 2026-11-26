@@ -305,6 +305,7 @@ final class HtmlRenderer
                 $out[] = $section;
             }
         }
+        $this->log->releaseAll();
 
         return implode("\n", $out);
     }
@@ -773,10 +774,11 @@ final class HtmlRenderer
      * Reports a node that writes nothing at its place once, however often its container is walked.
      *
      * @param \MarkupCarve\Carve\Node $node
+     * @param bool $defer
      *
      * @return void
      */
-    private function reportSilent(Node $node): void
+    private function reportSilent(Node $node, bool $defer = false): void
     {
         if ($this->profile === null || isset($this->silenced[$node])) {
             return;
@@ -784,8 +786,14 @@ final class HtmlRenderer
         $this->silenced[$node] = true;
         $previous = $this->log->currentNode;
         $this->log->currentNode = $node;
+        $count = count($this->log->entries);
+        $this->log->holding = $defer;
         $this->profile->reportSilent($node);
+        $this->log->holding = false;
         $this->log->currentNode = $previous;
+        if ($defer) {
+            $this->log->hold($count, $node);
+        }
     }
 
     /**
@@ -798,7 +806,8 @@ final class HtmlRenderer
         $out = [];
         foreach ($nodes as $node) {
             if (!self::visible($node)) {
-                $this->reportSilent($node);
+                // Found ahead of the siblings before it; the log holds the report until a later node reports.
+                $this->reportSilent($node, true);
             } elseif (!$this->silent($node)) {
                 $out[] = $node;
             }
