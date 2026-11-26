@@ -38,6 +38,10 @@ final class LegacyParserRepairsTest extends TestCase
             'tags and entities in raw text' => ['<xmp>a&amp;<i>b</i></xmp>', 'xmp[#a&amp;<i>b</i>]'],
             'end tags in a script' => ['<script>a</b>&amp;&lt;</scripts></script>x', 'script[#a</b>&amp;&lt;</scripts>],#x'],
             'end tag in a style' => ['<style class="k">p{}</x></style>', 'style[#p{}</x>]'],
+            'SVG title is not RCDATA' => [
+                '<svg><title><b>a</b></title></svg><textarea>b</i></textarea>',
+                'svg[title[b[#a]]],textarea[#b</i>]',
+            ],
         ];
     }
 
@@ -73,6 +77,14 @@ final class LegacyParserRepairsTest extends TestCase
     {
         $script = HtmlParser::parse('<script type="m">a</b></script>', true)->children[0];
         $this->assertSame(['type' => 'm'], $script->attrs);
+    }
+
+    public function testAnInputAttributeIsNotTakenForTheMarker(): void
+    {
+        $scripts = HtmlParser::parse('<script carve-import-raw>&lt;</script><script carve-import-raw="q">a</b></script>', true)->children;
+        $this->assertSame(['carve-import-raw' => ''], $scripts[0]->attrs);
+        $this->assertSame('&lt;', $scripts[0]->children[0]->name);
+        $this->assertSame(['carve-import-raw' => 'q'], $scripts[1]->attrs);
     }
 
     private static function shape(HtmlNode $node): string

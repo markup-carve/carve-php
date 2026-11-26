@@ -53,7 +53,17 @@ final class HtmlParser
      */
     private const LEGACY_RAW = 'carve-import-raw';
 
+    /**
+     * @var array<string>
+     */
+    private const INTEGRATION_POINTS = ['foreignobject', 'desc', 'title', 'mi', 'mo', 'mn', 'ms', 'mtext'];
+
     private static ?bool $tagsInRawText = null;
+
+    /**
+     * The LEGACY_RAW value, so an attribute of that name in the input is not taken for the marker.
+     */
+    private static ?string $rawNonce = null;
 
     public static function available(): bool
     {
@@ -237,6 +247,7 @@ final class HtmlParser
         $out = '';
         $from = 0;
         $at = 0;
+        $foreign = [];
         $length = strlen($html);
         while (($lt = strpos($html, '<', $at)) !== false) {
             $next = $html[$lt + 1] ?? '';
@@ -259,21 +270,24 @@ final class HtmlParser
 
                 continue;
             }
-            if (!preg_match('/\G<([a-zA-Z][^\s\/>]*)(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/', $html, $tag, 0, $lt)) {
+            if (!preg_match('/\G<(\/?)([a-zA-Z][^\s\/>]*)(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/', $html, $tag, 0, $lt)) {
                 $at = $lt + 1;
 
                 continue;
             }
             $at = $lt + strlen($tag[0]);
-            $name = strtolower($tag[1]);
-            if (!in_array($name, self::RAW_TEXT, true)) {
+            $name = strtolower($tag[2]);
+            $inForeign = in_array(end($foreign), ['svg', 'math'], true);
+            $foreign = self::foreignScopes($foreign, $tag[1] === '/', $name, $tag[0]);
+            // In SVG and MathML `title`, `style` and `script` are not raw text.
+            if ($inForeign || $tag[1] === '/' || !in_array($name, self::RAW_TEXT, true)) {
                 continue;
             }
-            $close = self::rawTextEnd($html, $tag[1], $at);
+            $close = self::rawTextEnd($html, $tag[2], $at);
             $content = substr($html, $at, $close - $at);
-            $escaped = $rawText ? self::escapeRawText($name, $content) : $content;
+            $escaped = $rawText ? self::escapeRawText($name, $content, $tag[0]) : $content;
             if ($escaped !== $content) {
-                $nameEnd = $lt + 1 + strlen($tag[1]);
+                $nameEnd = $lt + 1 + strlen($tag[2]);
                 $out .= substr($html, $from, $nameEnd - $from) . self::rawMarker($name);
                 $out .= substr($html, $nameEnd, $at - $nameEnd) . $escaped;
                 $from = $close;
@@ -293,7 +307,50 @@ final class HtmlParser
      */
     private static function rawMarker(string $name): string
     {
-        return in_array($name, ['script', 'style'], true) ? ' ' . self::LEGACY_RAW : '';
+        if (!in_array($name, ['script', 'style'], true)) {
+            return '';
+        }
+        self::$rawNonce ??= bin2hex(random_bytes(8));
+
+        return ' ' . self::LEGACY_RAW . '="' . self::$rawNonce . '"';
+    }
+
+    /**
+     * The open SVG and MathML elements and the HTML integration points in them, after a tag. Breakout tags and
+     * `annotation-xml` are not tracked: raw text inside them keeps the unrepaired reading.
+     *
+     * @param array<string> $scopes
+     * @param bool $end
+     * @param string $name
+     * @param string $tag
+     *
+     * @return array<string>
+     */
+    private static function foreignScopes(array $scopes, bool $end, string $name, string $tag): array
+    {
+        $top = end($scopes);
+        $scope = match (true) {
+            $name === 'svg', $name === 'math' => $name,
+            $top === 'svg' && in_array($name, ['foreignobject', 'desc', 'title'], true) => 'html',
+            $top === 'math' && in_array($name, ['mi', 'mo', 'mn', 'ms', 'mtext'], true) => 'html',
+            $top === 'html' && $end && in_array($name, self::INTEGRATION_POINTS, true) => 'html',
+            default => null,
+        };
+        if ($scope === null) {
+            return $scopes;
+        }
+        if ($end) {
+            if ($top === $scope) {
+                array_pop($scopes);
+            }
+
+            return $scopes;
+        }
+        if (!str_ends_with($tag, '/>')) {
+            $scopes[] = $scope;
+        }
+
+        return $scopes;
     }
 
     /**
@@ -314,20 +371,24 @@ final class HtmlParser
 
     /**
      * The content of a raw text or RCDATA element, escaped so libxml below 2.14 reads it as the same text. `script`
-     * and `style`, which libxml keeps raw up to `</` and a letter, are escaped only when they hold one.
+     * and `style`, which libxml keeps raw up to `</` and a letter, are escaped only when they hold one and their start
+     * tag leaves room for the LEGACY_RAW marker.
      *
      * @param string $name
      * @param string $content
+     * @param string $tag
      *
      * @return string
      */
-    private static function escapeRawText(string $name, string $content): string
+    private static function escapeRawText(string $name, string $content, string $tag): string
     {
         if ($name === 'textarea' || $name === 'title') {
             return str_replace('<', '&lt;', $content);
         }
-        if (($name === 'script' || $name === 'style') && !preg_match('~</[a-zA-Z]~', $content)) {
-            return $content;
+        if ($name === 'script' || $name === 'style') {
+            if (!preg_match('~</[a-zA-Z]~', $content) || stripos($tag, self::LEGACY_RAW) !== false) {
+                return $content;
+            }
         }
 
         return strtr($content, ['&' => '&amp;', '<' => '&lt;']);
@@ -366,7 +427,7 @@ final class HtmlParser
             /** @var array<\DOMElement> $elements */
             $elements = iterator_to_array($document->getElementsByTagName($name));
             foreach ($elements as $element) {
-                if (!$element->hasAttribute(self::LEGACY_RAW)) {
+                if (self::$rawNonce === null || $element->getAttribute(self::LEGACY_RAW) !== self::$rawNonce) {
                     continue;
                 }
                 $element->removeAttribute(self::LEGACY_RAW);
