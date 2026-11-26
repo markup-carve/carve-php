@@ -648,6 +648,8 @@ final class BlockReader
 
     /**
      * C2-H-043: one paragraph per stanza, a line per `<br>`, and the no-break spaces of the verse whitespace as spaces.
+     * A `<br>` with only whitespace after it is the hard break of the stanza's last line; a line that is empty or ends
+     * in a space or tab keeps the hard break its `<br>` stands for, as it cannot be written without it (C2-H-195 row 18).
      *
      * @return array<string, mixed>
      */
@@ -658,19 +660,60 @@ final class BlockReader
             if ($lines !== []) {
                 $lines[] = ['type' => 'line', 'children' => []];
             }
-            $current = [];
+            $pieces = [[]];
             foreach ($stanza->children as $child) {
                 if ($child->isElement('br')) {
-                    $lines[] = ['type' => 'line', 'children' => $this->lineInline($current, $stanza)];
-                    $current = [];
+                    $pieces[] = [];
                 } else {
-                    $current[] = $child;
+                    $pieces[count($pieces) - 1][] = $child;
                 }
             }
-            $lines[] = ['type' => 'line', 'children' => $this->lineInline($current, $stanza)];
+            $closing = count($pieces) > 1 && self::blank($pieces[count($pieces) - 1]);
+            if ($closing) {
+                array_pop($pieces);
+            }
+            $last = count($pieces) - 1;
+            foreach ($pieces as $i => $piece) {
+                $children = $this->lineInline($piece, $stanza);
+                if ($i === $last ? $closing : self::needsHardBreak($children)) {
+                    $children[] = ['type' => 'hard_break'];
+                }
+                $lines[] = ['type' => 'line', 'children' => $children];
+            }
         }
 
         return ['type' => 'line_block', 'children' => $lines] + Attrs::withoutClasses(Attrs::of($node), ['line-block']);
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
+     *
+     * @return bool
+     */
+    private static function blank(array $nodes): bool
+    {
+        foreach ($nodes as $node) {
+            if (!$node->isBlank()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<array<string, mixed>> $children
+     *
+     * @return bool
+     */
+    private static function needsHardBreak(array $children): bool
+    {
+        if ($children === []) {
+            return true;
+        }
+        $end = $children[count($children) - 1];
+
+        return $end['type'] === 'text' && in_array(substr(J::str($end, 'value'), -1), [' ', "\t"], true);
     }
 
     /**
