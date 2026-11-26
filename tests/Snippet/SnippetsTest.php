@@ -167,9 +167,13 @@ final class SnippetsTest extends TestCase
                     'type' => 'snippet_definition',
                     'name' => 'x',
                     'children' => [
-                        ['type' => 'emphasis', 'children' => [
-                            ['type' => 'text', 'value' => 'a'], ['type' => 'soft_break'], ['type' => 'text', 'value' => 'b'],
-                        ]],
+                        [
+
+                            'type' => 'emphasis',
+                            'children' => [
+                                ['type' => 'text', 'value' => 'a'], ['type' => 'soft_break'], ['type' => 'text', 'value' => 'b'],
+                            ],
+                        ],
                     ],
                 ],
             ],
