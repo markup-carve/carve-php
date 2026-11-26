@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Import;
 
+use SplObjectStorage;
+
 /**
  * Inline content: the inline elements (C2-M-044 to C2-M-049), the elements without a counterpart read as spans
  * (C2-M-056) and raw content in a run (C2-M-065).
@@ -75,6 +77,13 @@ final class InlineReader
     public readonly InlineCarriers $carriers;
 
     /**
+     * During a probe of a ranged comment's range, the nodes already known to give nothing (C2-M-113).
+     *
+     * @var \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, true>|null
+     */
+    public ?SplObjectStorage $skip = null;
+
+    /**
      * @var array<string, array<string, string>>
      */
     private array $texts = [];
@@ -106,6 +115,9 @@ final class InlineReader
      */
     public function inline(HtmlNode $node): array
     {
+        if ($this->skip !== null && isset($this->skip[$node])) {
+            return [];
+        }
         if ($node->isText()) {
             if (strlen($node->name) <= 32 && strpbrk($node->name, "\r\n\0") === false) {
                 // One shared array per short text, as HtmlImporter::shareTexts() leaves the tree (carve-php#5722).
