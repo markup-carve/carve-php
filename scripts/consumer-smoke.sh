@@ -22,9 +22,9 @@ cat > "$work/app/composer.json" <<JSON
     "type": "project",
     "minimum-stability": "dev",
     "repositories": [
-        {"type": "path", "url": "$work/pkg", "options": {"symlink": false, "versions": {"markup-carve/carve-php": "dev-next2"}}}
+        {"type": "path", "url": "$work/pkg", "options": {"symlink": false, "versions": {"markup-carve/carve-php": "dev-main"}}}
     ],
-    "require": {"markup-carve/carve-php": "dev-next2"}
+    "require": {"markup-carve/carve-php": "dev-main"}
 }
 JSON
 cp "$repo/scripts/consumer-smoke.php" "$work/app/smoke.php"
