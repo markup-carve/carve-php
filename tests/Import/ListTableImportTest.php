@@ -86,6 +86,70 @@ final class ListTableImportTest extends TestCase
     }
 
     /**
+     * C2-M-112, C2-X-076, carve#6795 ruling D: a cell of the text `<` or `^` is a literal-text span, never a mark.
+     */
+    public function testCellOfMarkTextIsALiteralSpan(): void
+    {
+        $html = '<table><tr><td>a</td><td>&lt;</td></tr><tr><td><ul><li>b</li></ul></td><td>w</td></tr></table>';
+        [$source, $codes] = $this->listTable($html);
+        self::assertSame("::: list-table\n- - a\n  - !`<`\n- - - b\n  - w\n:::\n", $source);
+        self::assertSame([], $codes);
+        self::assertSame('<tr><td>a</td><td>&lt;</td></tr>', self::rows($source)[0]);
+    }
+
+    public function testMarkTextIsALiteralSpanWhereItWouldJoinNothing(): void
+    {
+        $lt = $this->listTable('<table><tr><td>&lt;</td><td><ul><li>b</li></ul></td></tr></table>')[0];
+        self::assertSame("::: list-table\n- - !`<`\n  - - b\n:::\n", $lt);
+        $caret = $this->listTable('<table><tr><td>^</td><td><ul><li>b</li></ul></td></tr></table>')[0];
+        self::assertSame("::: list-table\n- - !`^`\n  - - b\n:::\n", $caret);
+    }
+
+    public function testSpanMarksOfCoveredSlotsStayTextMarks(): void
+    {
+        $html = '<table><tr><td colspan="2">a</td></tr><tr><td>^</td><td><ul><li>b</li></ul></td></tr></table>';
+        self::assertSame("::: list-table\n- - a\n  - <\n- - !`^`\n  - - b\n:::\n", $this->listTable($html)[0]);
+    }
+
+    public function testLiteralSpanIsNeverAMark(): void
+    {
+        self::assertSame('<tr><td>^</td><td>&lt;</td></tr>', self::rows("::: list-table\n- - a\n  - b\n- - !`^`\n  - !`<`\n:::\n")[1]);
+    }
+
+    public function testLessThanBesideACellCoveredFromAboveJoinsNothing(): void
+    {
+        self::assertSame(
+            ['<tr><td rowspan="2">x</td><td>y</td></tr>', '<tr><td>&lt;</td></tr>'],
+            self::rows("::: list-table\n- - x\n  - y\n- - ^\n  - <\n:::\n"),
+        );
+    }
+
+    public function testLessThanRightOfARefusedLessThanJoinsIt(): void
+    {
+        $rows = self::rows("::: list-table\n- - x\n  - y\n  - z\n- - ^\n  - <\n  - <\n:::\n");
+        self::assertSame('<tr><td colspan="2">&lt;</td></tr>', $rows[1]);
+    }
+
+    /**
+     * The mark items with attributes: ruling D leaves them as they are, cells that hold the text.
+     */
+    public function testMarkWithAttributesIsACell(): void
+    {
+        self::assertSame('<tr><td class="x">&lt;</td></tr>', self::rows("::: list-table\n- - a\n- -{.x} <\n:::\n")[1]);
+    }
+
+    /**
+     * @return array<string>
+     */
+    private static function rows(string $source): array
+    {
+        $html = Carve::render($source, ['extensions' => [ListTable::bundle()]]);
+        $lines = array_filter(explode("\n", $html), static fn (string $line): bool => str_contains($line, '<tr'));
+
+        return array_values(array_map('trim', $lines));
+    }
+
+    /**
      * @return array{0: string, 1: array<string>}
      */
     private function listTable(string $html): array

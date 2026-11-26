@@ -255,6 +255,7 @@ final class ListTableImport
                 $children[] = ['type' => 'paragraph', 'children' => J::nodes($block)];
             }
         }
+        $children = self::literalMark($children);
         // C2-M-112: an item that holds no block holds an empty line comment, as `- %%` parses.
         if ($children === []) {
             $children[] = ['type' => 'comment', 'form' => 'line', 'value' => ''];
@@ -287,6 +288,24 @@ final class ListTableImport
         }
 
         return $item;
+    }
+
+    /**
+     * C2-M-112: a cell of only the text `<` or `^` is a literal-text span, which C2-X-076 never reads as a mark.
+     *
+     * @param array<array<string, mixed>> $children
+     *
+     * @return array<array<string, mixed>>
+     */
+    private static function literalMark(array $children): array
+    {
+        $inlines = count($children) === 1 && $children[0]['type'] === 'paragraph' ? J::nodes($children[0]) : [];
+        $text = count($inlines) === 1 && $inlines[0]['type'] === 'text' ? J::str($inlines[0], 'value') : null;
+        if ($text === '<' || $text === '^') {
+            $children[0]['children'] = [['type' => 'literal_inline', 'value' => $text]];
+        }
+
+        return $children;
     }
 
     /**

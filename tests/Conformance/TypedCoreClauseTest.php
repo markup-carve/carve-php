@@ -35,7 +35,6 @@ final class TypedCoreClauseTest extends TestCase
         'CC-2238' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
         'CC-2239' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
         'CC-2240' => 'markup-carve/carve#6837: the expected html ends in a line feed no render writes',
-        'CC-2187' => 'markup-carve/carve#6795 (carve-php line): a < beside a cell covered from above joins nothing',
         'CC-2270' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2271' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
