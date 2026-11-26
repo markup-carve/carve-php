@@ -70,6 +70,18 @@ final class InlineReader
     ];
 
     /**
+     * C2-M-069, C2-W-116: the inline nodes whose value needs content.
+     *
+     * @var array<string, true>
+     */
+    private const VALUE_NEEDS_CONTENT = [
+        'code' => true,
+        'literal_inline' => true,
+        'math' => true,
+        'raw_inline' => true,
+    ];
+
+    /**
      * @var array<string>
      */
     private const TEX = ['application/x-tex', 'text/x-tex', 'LaTeX'];
@@ -162,11 +174,11 @@ final class InlineReader
         }
         $own = $this->carriers->read($node);
         if ($own !== null) {
-            return $own;
+            return $this->nonEmpty($own, $node, true);
         }
         $kept = $this->treated($node) ?? $this->leaf($node);
         if ($kept !== null) {
-            return $kept;
+            return $this->nonEmpty($kept, $node, true);
         }
         $children = $this->children($node);
         $type = self::FORMATS[$node->name] ?? null;
@@ -238,17 +250,23 @@ final class InlineReader
 
     /**
      * C2-M-069: an inline node that needs content and has none is dropped, except a span with attributes.
+     * With `$valuesOnly`, only the value inlines are checked.
      *
      * @param array<array<string, mixed>> $nodes
      * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param bool $valuesOnly
      *
      * @return array<array<string, mixed>>
      */
-    public function nonEmpty(array $nodes, HtmlNode $node): array
+    public function nonEmpty(array $nodes, HtmlNode $node, bool $valuesOnly = false): array
     {
         $out = [];
         foreach ($nodes as $item) {
-            if (!isset(self::NEEDS_CONTENT[J::str($item, 'type')]) || !isset($item['children']) || $item['children'] !== []) {
+            $type = J::str($item, 'type');
+            $empty = isset(self::VALUE_NEEDS_CONTENT[$type])
+                ? ($item['value'] ?? null) === ''
+                : !$valuesOnly && isset(self::NEEDS_CONTENT[$type]) && ($item['children'] ?? null) === [];
+            if (!$empty) {
                 $out[] = $item;
 
                 continue;
