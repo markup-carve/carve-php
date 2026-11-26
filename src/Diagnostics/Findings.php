@@ -56,6 +56,7 @@ final class Findings
             return [];
         }
         $paths = self::paths($doc);
+        $chains = null;
         $out = [];
         foreach ($this->notes as [$code, $node, $file, $start, $end, $message]) {
             [$severity, $channel] = Tables::DIAGNOSTICS[$code];
@@ -64,10 +65,77 @@ final class Findings
                 $end = $node->end;
             }
             $path = $node === null ? '' : ($paths[$node] ?? null);
-            $out[] = new Diagnostic($code, $severity, $channel, $message ?? Message::fill($code), $path, $start, $end, $file);
+            $includedBy = null;
+            if ($file !== null && $node !== null) {
+                $chains ??= self::chains($doc);
+                $includedBy = $chains[$node] ?? null;
+            }
+            $out[] = new Diagnostic(
+                $code,
+                $severity,
+                $channel,
+                $message ?? Message::fill($code),
+                $path,
+                $start,
+                $end,
+                $file,
+                includedBy: $includedBy,
+            );
         }
 
         return $out;
+    }
+
+    /**
+     * C2-T-020: the include sites from the top-level document inward of every node inside an expanded include.
+     *
+     * @param \MarkupCarve\Carve\Node $doc
+     *
+     * @return \SplObjectStorage<\MarkupCarve\Carve\Node, array<array{file?: string, range: array{startOffset: int, endOffset: int}}>>
+     */
+    public static function chains(Node $doc): SplObjectStorage
+    {
+        /** @var \SplObjectStorage<\MarkupCarve\Carve\Node, array<array{file?: string, range: array{startOffset: int, endOffset: int}}>> $chains */
+        $chains = new SplObjectStorage();
+        $stack = [[$doc, []]];
+        while ($stack !== []) {
+            [$node, $chain] = array_pop($stack);
+            if ($chain !== []) {
+                $chains[$node] = $chain;
+            }
+            $inner = $chain;
+            if ($node->type === 'include') {
+                $inner[] = self::site($node->file, $node->start, $node->end);
+            }
+            foreach ($node->children ?? [] as $child) {
+                $stack[] = [$child, $inner];
+            }
+            foreach ($node->f as $value) {
+                if ($value instanceof Node) {
+                    $stack[] = [$value, $chain];
+                } elseif (is_array($value) && $value !== [] && array_is_list($value)) {
+                    foreach ($value as $item) {
+                        if ($item instanceof Node) {
+                            $stack[] = [$item, $chain];
+                        }
+                    }
+                }
+            }
+        }
+
+        return $chains;
+    }
+
+    /**
+     * One include site of `includedBy`: the file the include node is in, absent for the top-level document, and its range.
+     *
+     * @return array{file?: string, range: array{startOffset: int, endOffset: int}}
+     */
+    public static function site(?string $file, int $start, int $end): array
+    {
+        $range = ['startOffset' => $start, 'endOffset' => $end];
+
+        return $file === null ? ['range' => $range] : ['file' => $file, 'range' => $range];
     }
 
     /**
