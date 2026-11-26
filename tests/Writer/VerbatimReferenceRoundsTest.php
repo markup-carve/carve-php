@@ -134,6 +134,37 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * carve#6772: the rounds read the reference from the tree on every pass, so the slash before it keeps its backslash
+     * and a second pass gives the same bytes.
+     *
+     * @return void
+     */
+    public function testEscapesBesideAReferenceAreStable(): void
+    {
+        $once = Writer::format("^[/\\`[`[/[^]]][<]\n");
+        $this->assertSame("^\\[\\/\\`[\\`\\[\\/\\[^\\]\\]][<]\n", $once);
+        $this->assertSame($once, Writer::format($once));
+    }
+
+    /**
+     * C2-W-075: each block decides its own verbatim texts. Forty blocks whose verbatim text does not read back come
+     * before one whose text does; that one keeps its authored backslashes.
+     *
+     * @return void
+     */
+    public function testEachBlockDecidesItsVerbatimTexts(): void
+    {
+        $failing = "^[/\\`[`[/[^]]][<]\n\n";
+        $source = str_repeat($failing, 40) . "[a\\-b\\.][k]\n\n[<]: /u\n\n[k]: /k\n";
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertStringContainsString("\n[a\\-b\\.][k]\n", $result->source);
+        $this->assertStringContainsString("^\\[\\/\\`[\\`\\[\\/\\[^\\]\\]][<]\n", $result->source);
+    }
+
+    /**
      * C2-W-127: `normalize` writes every reference from the tree.
      *
      * @return void
