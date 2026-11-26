@@ -75,14 +75,6 @@ final class TypedCoreClauseTest extends TestCase
         'CC-2390' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2391' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2392' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
-        'CC-2398' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
-        'CC-2399' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
-        'CC-2402' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
-        'CC-2403' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
-        'CC-2406' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
-        'CC-2407' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
-        'CC-2409' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
-        'CC-2410' => 'markup-carve/carve#6832 (carve-php line): keep the <p> of a paragraph whose bare form would not import back',
     ];
 
     /**

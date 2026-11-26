@@ -1040,7 +1040,7 @@ final class HtmlRenderer
     }
 
     /**
-     * C2-M-092: a paragraph a tightness rule writes bare keeps its `<p>` where the bare form would not import as
+     * C2-H-018, C2-M-092: a paragraph a tightness rule writes bare keeps its `<p>` where the bare form would not import as
      * that one paragraph: an image-only run splits into image paragraphs (C2-M-013), and a bare block image
      * after it joins its run (C2-M-012).
      *
