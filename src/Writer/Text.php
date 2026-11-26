@@ -353,6 +353,32 @@ final class Text
      */
     private static array $blockReads = [];
 
+    /**
+     * The public state a write reads and sets, for `WriteMemo`.
+     *
+     * @return array<mixed>
+     */
+    public static function writeState(): array
+    {
+        return [
+            self::$recorded, self::$recordedDecided, self::$recordedPairs, self::$captionTexts, self::$recordedOwn,
+            self::$tickKindRounds, self::$undecided, self::$caseFive, self::$gluedElsewhere, self::$closesFence,
+            self::$cellTicks, self::$cellKinds, self::$conservative, self::$suppliedTree, self::$bareSigils,
+        ];
+    }
+
+    /**
+     * @param array<mixed> $state `writeState()`.
+     */
+    public static function restoreWriteState(array $state): void
+    {
+        [
+            self::$recorded, self::$recordedDecided, self::$recordedPairs, self::$captionTexts, self::$recordedOwn,
+            self::$tickKindRounds, self::$undecided, self::$caseFive, self::$gluedElsewhere, self::$closesFence,
+            self::$cellTicks, self::$cellKinds, self::$conservative, self::$suppliedTree, self::$bareSigils,
+        ] = $state;
+    }
+
     public static function isPunct(string $c): bool
     {
         return $c !== '' && strlen($c) === 1 && str_contains(self::PUNCT, $c);

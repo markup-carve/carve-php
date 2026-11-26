@@ -229,14 +229,14 @@ final class Writer
             $verbatim = self::verbatimTexts($tree, $layout, $options);
             $writeLayout = $verbatim === [] ? $layout : self::withoutRawRefs($layout);
             $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
-                static fn (): WriteResult => self::writeChecked($tree, $writeLayout, $options),
+                static fn (): WriteResult => WriteMemo::scoped(static fn (): WriteResult => self::writeChecked($tree, $writeLayout, $options)),
             ));
             if ($verbatim !== [] && $written->diagnostics === []) {
                 $written = self::withVerbatimReferences($written, $verbatim, $tree, $layout, $options);
             } elseif ($verbatim !== []) {
                 // Where the rounds give no form without a loss, a write that keeps the verbatim texts in them may.
                 $kept = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
-                    static fn (): WriteResult => self::writeChecked($tree, $layout, $options),
+                    static fn (): WriteResult => WriteMemo::scoped(static fn (): WriteResult => self::writeChecked($tree, $layout, $options)),
                 ));
                 $written = $kept->diagnostics === [] ? $kept : $written;
             }
@@ -1288,7 +1288,7 @@ final class Writer
                     ? $markedBare[1]
                     : self::markedCandidate($tree, $layout, $options, $glued, $bareSource);
                 $planner = new RepairPlanner($tree, $layout, $options, $glued, $treePrint);
-                $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false), $readParts);
+                $planner->startFrom($bare, ReadbackRound::compare($bare, $read, $tree, $treePrint, false), $readParts, $glued);
                 unset($bare);
             }
             unset($read);
@@ -1310,11 +1310,12 @@ final class Writer
             if ($repaired === null) {
                 // C2-W-125: where every form loses a node, the passes by kind and by reported opener run again and
                 // retest the escapes they placed together.
-                $byKind = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->chargedAfter($openers)->retestingAfter(null);
+                $byKind = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->chargedAfter($openers)->retestingAfter(null)
+                    ->twinOf($planner);
                 $repaired = $byKind->repair();
                 if ($repaired === null) {
                     $repaired = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))
-                        ->reportedOpenersAfter($byKind)->retestingAfter($byKind)->repair();
+                        ->reportedOpenersAfter($byKind)->retestingAfter($byKind)->twinOf($openers)->repair();
                 }
             }
         }
@@ -3594,10 +3595,11 @@ final class Writer
         bool $mark = true,
     ): array {
         if (!$mark) {
-            $trace = new RepairTrace($escapes, false);
-            $result = self::writeInternal($tree, $layout, $options, $trace);
+            return self::remembered('decoded', $tree, $layout, $options, $escapes, static function () use ($tree, $layout, $options, $escapes): array {
+                $trace = new RepairTrace($escapes, false);
 
-            return $trace->decode($result->source);
+                return [$trace->decode(self::writeInternal($tree, $layout, $options, $trace)->source), self::$bareRepaired];
+            })[0];
         }
 
         return self::markedCandidate($tree, $layout, $options, $escapes, self::bareSource($tree, $layout, $options, $escapes));
@@ -3613,11 +3615,36 @@ final class Writer
      */
     public static function bareSource(array $tree, ?array $layout, array $options, array $escapes): string
     {
-        $trace = new RepairTrace($escapes, false);
-        $source = self::writeInternal($tree, $layout, $options, $trace)->source;
-        self::$bareRepaired = $trace->repaired;
+        $source = self::remembered('bare', $tree, $layout, $options, $escapes, static function () use ($tree, $layout, $options, $escapes): array {
+            $trace = new RepairTrace($escapes, false);
+
+            return [self::writeInternal($tree, $layout, $options, $trace)->source, $trace->repaired];
+        })[0];
 
         return $source;
+    }
+
+    /**
+     * `WriteMemo::remember()` for a traced write, except while the writes of a check are recorded. The flag of the
+     * write is the `$bareRepaired` it leaves.
+     *
+     * @param string $kind
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param array<string, array<int, true>> $escapes
+     * @param \Closure(): array{mixed, bool} $write
+     *
+     * @return array{mixed, bool}
+     */
+    private static function remembered(string $kind, array $tree, ?array $layout, array $options, array $escapes, Closure $write): array
+    {
+        $written = self::$captured !== null
+            ? $write()
+            : WriteMemo::remember($kind, [$tree, $layout, $options, $escapes, self::$bareRepaired], $write);
+        self::$bareRepaired = $written[1];
+
+        return $written;
     }
 
     /**
@@ -3639,13 +3666,15 @@ final class Writer
      */
     public static function markedCandidate(array $tree, ?array $layout, array $options, array $escapes, string $bare): array
     {
-        do {
-            $marker = "\x01" . bin2hex(random_bytes(6)) . "\x03";
-        } while (str_contains($bare, $marker));
-        $trace = new RepairTrace($escapes, true, $marker);
-        $result = self::writeInternal($tree, $layout, $options, $trace);
+        return self::remembered('marked', $tree, $layout, $options, [$escapes, $bare], static function () use ($tree, $layout, $options, $escapes, $bare): array {
+            do {
+                $marker = "\x01" . bin2hex(random_bytes(6)) . "\x03";
+            } while (str_contains($bare, $marker));
+            $trace = new RepairTrace($escapes, true, $marker);
+            $result = self::writeInternal($tree, $layout, $options, $trace);
 
-        return RepairAlignment::onto($trace->decode($result->source), $bare);
+            return [RepairAlignment::onto($trace->decode($result->source), $bare), self::$bareRepaired];
+        })[0];
     }
 
     /**
