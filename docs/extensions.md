@@ -213,12 +213,19 @@ resolved view (C2-X-053). Pass the definitions straight in `extensions`; no tran
 ```php
 use MarkupCarve\Carve\Extension\Navigation;
 
-Carve::render($source, ['extensions' => [
-    Navigation::headingNumbers(),
-    Navigation::headingPermalinks(),
-    Navigation::tableOfContents(),
-]]);
+Carve::render($source, [
+    'extensions' => [
+        Navigation::headingNumbers(),
+        Navigation::headingPermalinks(),
+        Navigation::tableOfContents(),
+    ],
+    'renderers' => ['carve.toc' => 'standard'],
+]);
 ```
+
+`tableOfContents()` and `tocPlacement()` carry no renderer: register it through `renderers`
+(`'carve.toc' => 'standard'`, `'carve.tocPlacement' => 'standard'`), in both modes. Without that entry the table is
+written as its fallback `<div class="toc">` and the render reports `extension-fallback-rendered` (C2-X-052).
 
 - `tableOfContents(minLevel, maxLevel, listType, cssClass, position, collapsible, summary, open)`: a `carve.toc`
   node of nested links to the top-level headings, at the top or the bottom, written in a `<nav>` named by the

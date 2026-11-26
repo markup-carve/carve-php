@@ -354,7 +354,9 @@ final class Navigation
 
     /**
      * A table of contents of the top-level headings, inserted at the top or bottom of the render view, as `carve.toc`
-     * with the list of links as its fallback; the renderer writes it inside a named `<nav>`.
+     * with the list of links as its fallback. Its renderer, which writes it inside a named `<nav>`, is registered
+     * through `renderers` (`'carve.toc' => 'standard'`); without that entry the fallback is written and reported
+     * (C2-X-052).
      *
      * @param int $minLevel Lowest heading level listed (1-6).
      * @param int $maxLevel Highest heading level listed (1-6).
@@ -384,16 +386,17 @@ final class Navigation
             $cssClass,
             $position === 'bottom',
             $collapsible ? ['collapsible' => true, 'summary' => $summary] + ($open ? ['open' => true] : []) : [],
-        );
+        )->withoutRenderers();
     }
 
     /**
      * Writes a table of contents at each `toc` directive, claimed as `carve.tocPlacement`; its headings window comes from
      * `{depth=N}` or `{from=X to=Y}`, and like `tableOfContents()` it lists only the headings a section wraps. Without
-     * this extension the directive stays the core `<div class="toc">`.
+     * this extension the directive stays the core `<div class="toc">`. Its renderer is registered through `renderers`
+     * (`'carve.tocPlacement' => 'standard'`); without that entry the fallback is written and reported (C2-X-052).
      */
     public static function tocPlacement(): ExtensionDefinition
     {
-        return Toc::placement();
+        return Toc::placement()->withoutRenderers();
     }
 }
