@@ -18,7 +18,6 @@ final class HeldRefusedTrees
      * @var array
      */
     public const IDS = [
-        'snippet-use-mode-mismatch' => 'markup-carve/carve#6395 (carve-php): a block snippet use in a list of inline nodes (C2-A-221)',
     ];
 
     /**
