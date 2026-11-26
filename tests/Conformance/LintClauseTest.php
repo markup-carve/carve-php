@@ -20,8 +20,7 @@ final class LintClauseTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_FAIL = [
-        'CC-2241' => 'markup-carve/carve#6663 (carve-php line): header-rows larger than the rows of a pipe table',
-        'CC-2247' => 'markup-carve/carve#6664 (carve-php line): an empty body-rows footer count is not clamped',
+        'CC-2241' => 'markup-carve/carve#6838: lint-model.json still excludes pipe tables from the header-rows clamp',
         'CC-2359' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2361' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',
         'CC-2362' => 'markup-carve/carve#6395 (carve-php): named snippets are not ported',

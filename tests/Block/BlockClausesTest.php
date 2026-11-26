@@ -289,13 +289,13 @@ final class BlockClausesTest extends TestCase
     /**
      * @return void
      */
-    public function testC2B186HeaderRowsHasNoEffectOnPipeTable(): void
+    public function testC2B186HeaderRowsSetsTheHeadOfAPipeTable(): void
     {
+        // carve#6663: the count sets the head and the cells keep their kind.
         $cell = '{"type":"table_cell","header":false,"children":[{"type":"cell_paragraph"}]}';
         $row = '{"type":"table_row","children":[' . $cell . ',' . $cell . ']}';
         $expected = '[{"type":"table","columns":[{"type":"table_column"},{"type":"table_column"}],';
-        $expected .= '"attrs":{"keyValues":[["header-rows","2"]]},';
-        $expected .= '"children":[{"type":"table_body","children":[' . $row . ',' . $row . ']}]}]';
+        $expected .= '"children":[{"type":"table_head","children":[' . $row . ',' . $row . ']}]}]';
         $this->assertTree("{header-rows=2}\n|a|b|\n|c|d|", $expected);
     }
 

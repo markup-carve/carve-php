@@ -110,7 +110,6 @@ final class TableReader
             }
             $entry = ['type' => $type, 'children' => $this->rows($group, $type === 'table_head')] + Attrs::of($group);
             if ($type === 'table_head' && $head === null) {
-                $entry['children'] = $this->headCells($group, $entry['children']);
                 $head = $entry;
             } elseif ($type === 'table_foot' && $foot === null) {
                 $foot = $entry;
@@ -127,38 +126,6 @@ final class TableReader
         }
 
         return array_merge($head === null ? [] : [$head], $out, $foot === null ? [] : [$foot]);
-    }
-
-    /**
-     * carve#6663: a head holds header cells only (C2-B-178), so each `<td>` of the `<thead>` is one, reported once.
-     *
-     * @param \MarkupCarve\Carve\Import\HtmlNode $head
-     * @param array<array<string, mixed>> $rows
-     *
-     * @return array<array<string, mixed>>
-     */
-    private function headCells(HtmlNode $head, array $rows): array
-    {
-        $changed = false;
-        foreach ($rows as $index => $row) {
-            $cells = J::nodes($row);
-            foreach ($cells as $at => $cell) {
-                if ($cell['header'] !== true) {
-                    $cells[$at]['header'] = true;
-                    $changed = true;
-                    // `scope="col"` is implied on a head header cell, as on a `<th>`.
-                    if (($cell['scope'] ?? null) === 'col') {
-                        unset($cells[$at]['scope']);
-                    }
-                }
-            }
-            $rows[$index]['children'] = $cells;
-        }
-        if ($changed) {
-            $this->context->report($head, 'import-structure-repaired', 'The data cells of a table head read as header cells');
-        }
-
-        return $rows;
     }
 
     /**
@@ -205,6 +172,7 @@ final class TableReader
             $count++;
         }
         $rows = $this->build($node, false, $count);
+        $this->scopeStayingHeaderRows($node, $rows, $count);
         $out = [];
         if ($count > 0) {
             $out[] = ['type' => 'table_head', 'children' => $this->clamp(array_slice($rows, 0, $count), $node)];
@@ -217,6 +185,47 @@ final class TableReader
         }
 
         return $out;
+    }
+
+    /**
+     * C2-M-037: an unscoped `<th>` of the leading all-`<th>` rows that stay in the body is the column header HTML makes it.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param array<array<string, mixed>> $rows
+     * @param int $count
+     *
+     * @return void
+     */
+    private function scopeStayingHeaderRows(HtmlNode $node, array &$rows, int $count): void
+    {
+        $index = 0;
+        foreach ($node->elements() as $child) {
+            if ($child->name !== 'tr') {
+                continue;
+            }
+            if ($index++ < $count) {
+                continue;
+            }
+            $cells = [];
+            foreach ($child->elements() as $cell) {
+                if ($cell->name === 'td') {
+                    return;
+                }
+                if ($cell->name === 'th') {
+                    $cells[] = $cell;
+                }
+            }
+            if ($cells === []) {
+                return;
+            }
+            $nodes = J::nodes($rows[$index - 1]);
+            foreach ($cells as $at => $cell) {
+                if ($cell->attr('scope') === null) {
+                    $nodes[$at]['scope'] = 'col';
+                }
+            }
+            $rows[$index - 1]['children'] = $nodes;
+        }
     }
 
     private static function headRow(HtmlNode $row): bool
@@ -454,7 +463,7 @@ final class TableReader
             [$value, $other] = $style === null ? [null, false] : self::styleWidth($style);
             $widths[] = $value;
             if ($style !== null && ($value === null || $other)) {
-                $this->context->report($col, 'import-attribute-dropped', 'Column style dropped: no width or another declaration');
+                $this->context->report($col, 'import-attribute-dropped', 'Column style dropped: no width, another or an important one');
             }
         }
         $out = [];
@@ -466,7 +475,8 @@ final class TableReader
     }
 
     /**
-     * C2-M-041, C2-B-212: the fraction of the last `width: N%` declaration, and whether any other declaration stands.
+     * C2-M-041, C2-B-212: the fraction the applying `width` declaration gives, the last one marked important or else
+     * the last one, and whether the style must be reported: any other declaration, no width or an important width.
      *
      * @param string $style
      *
@@ -475,7 +485,8 @@ final class TableReader
     private static function styleWidth(string $style): array
     {
         $ws = " \t\n\f\r";
-        $width = null;
+        $last = null;
+        $important = null;
         $count = 0;
         foreach (explode(';', $style) as $piece) {
             if (trim($piece, $ws) === '') {
@@ -487,15 +498,21 @@ final class TableReader
                 continue;
             }
             $value = trim(substr($piece, $colon + 1), $ws);
-            if (preg_match('/\A([0-9]+(?:\.[0-9]+)?)%\z/', $value, $m) !== 1) {
-                continue;
+            if (preg_match('/\A(.*?)[ \t\n\f\r]*![ \t\n\f\r]*important\z/is', $value, $m) === 1) {
+                $important = $m[1];
+            } else {
+                $last = $value;
             }
+        }
+        $value = $important ?? $last;
+        $width = null;
+        if ($value !== null && preg_match('/\A([0-9]+(?:\.[0-9]+)?)%\z/', $value, $m) === 1) {
             $n = (float)$m[1];
             if ($n > 0 && $n <= 100) {
                 $width = $n / 100;
             }
         }
 
-        return [$width, $count > ($width === null ? 0 : 1)];
+        return [$width, $width === null || $important !== null || $count > 1];
     }
 }

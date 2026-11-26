@@ -276,11 +276,12 @@ final class SpecRulingsTest extends TestCase
     {
         $src = "{header-rows=2 footer-rows=x}\n| a | b |\n| c | d |";
         $tree = json_decode(Carve::toJson($src), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame([['header-rows', '2'], ['footer-rows', 'x']], $tree['children'][0]['attrs']['keyValues']);
+        // carve#6663: `header-rows` applies to a pipe table (C2-B-186), so only the invalid count stays.
+        $this->assertSame([['footer-rows', 'x']], $tree['children'][0]['attrs']['keyValues']);
         $html = Carve::toHtml($src);
         $this->assertStringNotContainsString('header-rows=', $html);
         $this->assertStringNotContainsString('footer-rows=', $html);
-        $this->assertStringNotContainsString('<thead>', $html);
+        $this->assertStringContainsString('<thead>', $html);
     }
 
     public function testC2B226DelimitedTableDropsOneFinalEmptyRow(): void

@@ -36,10 +36,12 @@ final class EmptyBodyRowsFootTest extends TestCase
         self::assertNotContains('table-row-count-clamped', array_map(static fn ($entry): string => $entry->code, Carve::lint($source)));
     }
 
-    public function testACountOfAllRowsKeepsTheHead(): void
+    public function testACountOfAllRowsLeavesNoHead(): void
     {
+        // carve#6664: a footer count of all the rows makes every row a footer row (C2-B-187).
         $html = Carve::render("{footer-rows=2 body-rows}\n|= H |\n|= F |\n");
-        self::assertStringNotContainsString('<tfoot>', $html);
+        self::assertStringContainsString('<tfoot>', $html);
+        self::assertStringNotContainsString('<thead>', $html);
     }
 
     public function testADataCellFootNeedsNoBodyRows(): void

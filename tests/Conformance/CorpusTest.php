@@ -23,10 +23,7 @@ final class CorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    public const HELD = [
-        'CC-2068' => 'markup-carve/carve#6664 (carve-php line): an empty body-rows with a footer count of all the rows',
-        'syntax-blocks-219' => 'markup-carve/carve#6663 (carve-php line): header-rows sets the head of a pipe table',
-    ];
+    public const HELD = [];
 
     /**
      * @var array<string, true>
