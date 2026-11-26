@@ -349,6 +349,14 @@ final class LegacyForeignContent
     }
 
     /**
+     * Whether an HTML element of this name is open, counting no end tag the tree builder implies.
+     */
+    public function opened(string $name): bool
+    {
+        return ($this->open[$name] ?? 0) > 0;
+    }
+
+    /**
      * Whether an end tag of this name closes an open foreign element.
      */
     public function closesForeign(string $name): bool

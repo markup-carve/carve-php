@@ -249,7 +249,9 @@ final class HtmlParser
             . ($rawText ? '|<(?i:' . implode('|', self::RAW_TEXT) . ')[\s\/>]/' : '/');
         $comment = strrpos($html, '<!--');
         $unclosed = $comment !== false && strpos($html, '-->', $comment + 2) === false;
-        if (!$unclosed && !preg_match($pattern, $html)) {
+        // More `</p>` than `<p>`: one of them closes no paragraph.
+        $strayParagraph = preg_match_all('/<\/p[\s\/>]/i', $html) > preg_match_all('/<p[\s\/>]/i', $html);
+        if (!$unclosed && !$strayParagraph && !preg_match($pattern, $html)) {
             return $html;
         }
         $out = '';
@@ -358,6 +360,7 @@ final class HtmlParser
         $raw = in_array($name, self::RAW_TEXT, true);
         // In SVG and MathML raw text element names are ordinary elements: libxml gets a placeholder name for them.
         $renamed = $raw && ($end ? $foreign->closesForeign($name) : $inForeign);
+        $strayParagraph = $end && $name === 'p' && !$foreign->opened('p');
         $token = '';
         // libxml has no foreign content: the end tags close what a breakout closes.
         foreach ($foreign->tag($name, $end, str_ends_with($tag[0], '/>'), $tag[0]) as $closedName) {
@@ -366,6 +369,10 @@ final class HtmlParser
         if ($end && $name === 'br') {
             // The tree builder reads `</br>` as `<br>`; libxml drops it.
             return [$token . '<br>', $at, $at];
+        }
+        if ($strayParagraph) {
+            // A `</p>` with no `p` open is an empty paragraph; libxml drops it.
+            return [$token . '<p></p>', $at, $at];
         }
         if ($renamed) {
             return [$token . '<' . $tag[1] . self::foreignName($name) . substr($tag[0], 1 + strlen($tag[1]) + strlen($tag[2])), $at, $at];

@@ -73,6 +73,8 @@ final class LegacyParserRepairsTest extends TestCase
                 'math[annotation-xml[p[#a]]]',
             ],
             'end tag without a name' => ['<p>a</ b>c</>d</</p>e</', 'p[#a,! b,#cd,!</p,#e</]'],
+            'end tag p without a paragraph' => ['<div>a</p>b</div><p>c</p></P>', 'div[#a,p[],#b],p[#c],p[]'],
+            'end tag p breaks out of SVG' => ['<svg><textarea>a</p>b</textarea></svg>', 'svg[textarea[#a]],p[],#b'],
             'bogus comment hides an end tag in SVG' => ['<svg><title>a</</title>b</svg>', 'svg[title[#a,!</title,#b]]'],
         ];
     }
