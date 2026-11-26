@@ -43,9 +43,10 @@ final class ListReader
             }
         }
         $items = [];
+        $bare = false;
         foreach ($node->elements() as $child) {
             if ($child->name === 'li') {
-                $items[] = $this->item($child);
+                $items[] = $this->item($child, $bare);
             }
         }
         if ($items === []) {
@@ -55,7 +56,12 @@ final class ListReader
         }
         $mapped = Attrs::of($node, ['start', 'type', 'data-delim']);
         $tasks = array_filter($items, static fn (array $item): bool => isset($item['task'])) !== [];
-        $out = ['type' => 'list', 'children' => $items, 'marker' => $this->marker($node), 'spacing' => $this->spacing($node, $items)];
+        $out = [
+            'type' => 'list',
+            'children' => $items,
+            'marker' => $this->marker($node),
+            'spacing' => $this->spacing($node, $items, $bare),
+        ];
 
         return [$out + ($tasks ? Attrs::withoutClasses($mapped, ['task-list']) : $mapped)];
     }
@@ -99,15 +105,35 @@ final class ListReader
     }
 
     /**
-     * C2-M-033, C2-H-186 `data-carve-tight`.
+     * C2-M-033, C2-H-185, C2-H-186: `data-carve-tight` and `data-carve-loose`.
      *
      * @param \MarkupCarve\Carve\Import\HtmlNode $node
      * @param array<array<string, mixed>> $items
+     * @param bool $bare An item holds a run that C2-M-012 reads as a paragraph.
      *
      * @return string
      */
-    private function spacing(HtmlNode $node, array $items): string
+    private function spacing(HtmlNode $node, array $items, bool $bare): string
     {
+        if ($node->has('data-carve-tight') && $node->has('data-carve-loose')) {
+            $this->context->ignoredCarrier($node, 'data-carve-tight and data-carve-loose', 'they contradict each other');
+
+            return $this->measuredSpacing($node, $items);
+        }
+        if ($node->has('data-carve-loose')) {
+            if (count($items) <= 1) {
+                $this->context->ignoredCarrier($node, 'data-carve-loose', 'a list with one item is tight');
+
+                return 'tight';
+            }
+            if ($bare) {
+                $this->context->ignoredCarrier($node, 'data-carve-loose', 'an item writes a paragraph bare');
+
+                return $this->measuredSpacing($node, $items);
+            }
+
+            return 'loose';
+        }
         if ($node->has('data-carve-tight')) {
             $loose = self::hasLooseItem($node, true);
             if (!$loose) {
@@ -117,6 +143,20 @@ final class ListReader
 
             return count($items) > 1 ? 'loose' : 'tight';
         }
+
+        return $this->measuredSpacing($node, $items);
+    }
+
+    /**
+     * C2-M-033: the spacing of a list on which no spacing carrier was accepted.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param array<array<string, mixed>> $items
+     *
+     * @return string
+     */
+    private function measuredSpacing(HtmlNode $node, array $items): string
+    {
         if (count($items) <= 1) {
             return 'tight';
         }
@@ -199,9 +239,12 @@ final class ListReader
     /**
      * C2-M-032: the task box of an item, its state, and the class and style every render gives the item.
      *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param bool $bare Set when the item holds a run that reads as a paragraph.
+     *
      * @return array<string, mixed>
      */
-    private function item(HtmlNode $node): array
+    private function item(HtmlNode $node, bool &$bare): array
     {
         $boxes = array_values(array_filter($node->elements(), static fn (HtmlNode $c): bool => $c->name === 'input'
             && $c->attr('type') === 'checkbox'));
@@ -219,7 +262,7 @@ final class ListReader
             $after->name = substr($after->name, 1);
         }
         $mapped = Attrs::of($node, ['data-task-state']);
-        $out = ['type' => 'list_item', 'children' => $this->blocks->flow($nodes, $node)];
+        $out = ['type' => 'list_item', 'children' => $this->blocks->flow($nodes, $node, false, $bare)];
         if ($box === null) {
             return $out + $mapped;
         }

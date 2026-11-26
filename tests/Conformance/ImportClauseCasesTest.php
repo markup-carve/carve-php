@@ -25,14 +25,7 @@ final class ImportClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    public const KNOWN_FAIL = [
-        'CC-2441' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
-        'CC-2443' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
-        'CC-2446' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
-        'CC-2450' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
-        'CC-2451' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
-        'CC-2452' => 'markup-carve/carve#6844 (carve-php line, lane p6844-php): the loose carrier on a list of non-paragraph items',
-    ];
+    public const KNOWN_FAIL = [];
 
     /**
      * Cases the libxml fallback (PHP below 8.4) imports differently, as `ImportCorpusTest::LEGACY_DIFFERS`.

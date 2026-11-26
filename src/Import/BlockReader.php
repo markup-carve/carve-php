@@ -34,10 +34,11 @@ final class BlockReader
      * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
      * @param \MarkupCarve\Carve\Import\HtmlNode $host
      * @param bool $top Read the children of the document, where templates stand (C2-H-187).
+     * @param bool $bare Set when a run of the flow reads as a paragraph (C2-H-186).
      *
      * @return array<array<string, mixed>>
      */
-    public function flow(array $nodes, HtmlNode $host, bool $top = false): array
+    public function flow(array $nodes, HtmlNode $host, bool $top = false, bool &$bare = false): array
     {
         $out = [];
         $run = [];
@@ -47,12 +48,12 @@ final class BlockReader
 
                 continue;
             }
-            array_push($out, ...$this->run($run, $host, $top));
+            array_push($out, ...$this->run($run, $host, $top, $bare));
             $run = [];
             array_push($out, ...($top ? $this->documentChild($node) : $this->block($node)));
         }
 
-        return array_merge($out, $this->run($run, $host, $top));
+        return array_merge($out, $this->run($run, $host, $top, $bare));
     }
 
     private static function isPhrasing(HtmlNode $node): bool
@@ -64,10 +65,11 @@ final class BlockReader
      * @param array<\MarkupCarve\Carve\Import\HtmlNode> $run
      * @param \MarkupCarve\Carve\Import\HtmlNode $host
      * @param bool $top
+     * @param bool $bare
      *
      * @return array<array<string, mixed>>
      */
-    private function run(array $run, HtmlNode $host, bool $top): array
+    private function run(array $run, HtmlNode $host, bool $top, bool &$bare): array
     {
         $solid = array_values(array_filter($run, static fn (HtmlNode $n): bool => !$n->isBlank()));
         if ($solid === []) {
@@ -95,7 +97,12 @@ final class BlockReader
         }
         $children = Whitespace::edges(Whitespace::breaks(Whitespace::coalesce($inline), $host, $this->context), $host, $this->context);
 
-        return $children === [] ? [] : [self::paragraph($children)];
+        if ($children === []) {
+            return [];
+        }
+        $bare = true;
+
+        return [self::paragraph($children)];
     }
 
     /**

@@ -403,7 +403,7 @@ final class TableReader
     }
 
     /**
-     * C2-M-038: a line break in a cell becomes one space (C2-H-195 row 7).
+     * C2-M-038: a line break in a cell becomes one space (C2-H-195 row 6).
      *
      * @return array<array<string, mixed>>
      */

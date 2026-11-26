@@ -36,7 +36,7 @@ final class RoundTrip
     ];
 
     /**
-     * C2-H-195 row 9: the directive kinds a plain div can name with its first class.
+     * C2-H-195 row 8: the directive kinds a plain div can name with its first class.
      *
      * @var array<string>
      */
@@ -199,7 +199,7 @@ final class RoundTrip
     }
 
     /**
-     * C2-H-193, C2-H-194, C2-H-195 rows 14 and 15: the used definitions after the blocks, links first in the order of
+     * C2-H-193, C2-H-194, C2-H-195 rows 13 and 14: the used definitions after the blocks, links first in the order of
      * first use, then the footnotes in the order of their numbers; the attributes of a link definition on its uses.
      *
      * @param array<mixed> $children
@@ -219,11 +219,11 @@ final class RoundTrip
             if (isset($def['attrs'])) {
                 $merged[$key] = $def['attrs'];
                 unset($defs[$key]['attrs']);
-                $this->losses[] = 'C2-H-195 row 15 attributes of a link definition';
+                $this->losses[] = 'C2-H-195 row 14 attributes of a link definition';
             }
             if (self::toHeading((string)$key, $def, $headings)) {
                 unset($defs[$key]);
-                $this->losses[] = 'C2-H-195 row 14 definition to the heading its key finds';
+                $this->losses[] = 'C2-H-195 row 13 definition to the heading its key finds';
             }
         }
         uksort($defs, static fn ($a, $b): int => $uses[$a] <=> $uses[$b]);
@@ -377,7 +377,7 @@ final class RoundTrip
      * The losses that change a node list.
      *
      * @param array<mixed> $nodes
-     * @param bool $cell The list is the inline content of a table cell (C2-H-195 rows 7 and 16).
+     * @param bool $cell The list is the inline content of a table cell (C2-H-195 rows 6 and 15).
      * @param bool $edge
      *
      * @return array<mixed>
@@ -394,7 +394,7 @@ final class RoundTrip
 
     /**
      * What a comment that renders nothing (C2-H-069) leaves: breaks in a row, a break at the edge of inline content
-     * (C2-M-018), an empty paragraph or term (C2-M-069); and the text edges of a cell (C2-H-195 rows 7 and 16).
+     * (C2-M-018), an empty paragraph or term (C2-M-069); and the text edges of a cell (C2-H-195 rows 6 and 15).
      *
      * @param array<mixed> $nodes
      * @param bool $cell
@@ -449,14 +449,14 @@ final class RoundTrip
         foreach ($out as $i => $node) {
             if (($node['type'] ?? '') === 'text' && str_contains($node['value'], "\n")) {
                 $out[$i]['value'] = str_replace("\n", ' ', $node['value']);
-                $this->losses[] = 'C2-H-195 row 7 line break in a cell';
+                $this->losses[] = 'C2-H-195 row 6 line break in a cell';
             }
         }
         $last = count($out) - 1;
         foreach ([0 => 'ltrim', $last => 'rtrim'] as $i => $trim) {
             if ($i >= 0 && ($out[$i]['type'] ?? '') === 'text' && $trim($out[$i]['value'], ' ') !== $out[$i]['value']) {
                 $out[$i]['value'] = $trim($out[$i]['value'], ' ');
-                $this->losses[] = 'C2-H-195 row 16 whitespace at the edge of a cell';
+                $this->losses[] = 'C2-H-195 row 15 whitespace at the edge of a cell';
             }
         }
 
@@ -534,7 +534,7 @@ final class RoundTrip
             return [['type' => 'code_block', 'value' => $node['value'], 'syntax' => 'html']];
         }
         if ($cell && ($type === 'soft_break' || $type === 'hard_break')) {
-            $this->losses[] = 'C2-H-195 row 7 line break in a cell';
+            $this->losses[] = 'C2-H-195 row 6 line break in a cell';
 
             return [['type' => 'text', 'value' => ' ']];
         }
@@ -552,9 +552,9 @@ final class RoundTrip
     private function fields(array $node): array
     {
         $type = $node['type'];
-        if ($type === 'list' && $node['spacing'] === 'loose' && self::noParagraph($node)) {
+        if ($type === 'list' && $node['spacing'] === 'loose' && count($node['children']) < 2) {
             $node['spacing'] = 'tight';
-            $this->losses[] = 'C2-H-195 row 6 loose list whose items start with no paragraph';
+            $this->losses[] = 'C2-H-195 row 23 loose spacing of a list with one item';
         }
         if ($type === 'list' && $node['spacing'] === 'tight') {
             $node = $this->bareImages($node);
@@ -569,14 +569,14 @@ final class RoundTrip
             $node = $this->resolvedAligns($node);
         }
         if ($type === 'div' && in_array($node['attrs']['classes'][0] ?? '', self::DIRECTIVE_KINDS, true)) {
-            $this->losses[] = 'C2-H-195 row 9 div with a directive class';
+            $this->losses[] = 'C2-H-195 row 8 div with a directive class';
             $node['type'] = 'directive';
             $node['kind'] = array_shift($node['attrs']['classes']);
             $node = self::tidy($node);
         }
         $first = $node['attrs']['classes'][0] ?? '';
         if ($type === 'span' && str_starts_with($first, 'ext-') && strlen($first) > 4) {
-            $this->losses[] = 'C2-H-195 row 10 span with an ext- class';
+            $this->losses[] = 'C2-H-195 row 9 span with an ext- class';
             $node['type'] = 'inline_extension';
             $node['name'] = substr(array_shift($node['attrs']['classes']), 4);
             $node = self::tidy($node);
@@ -586,14 +586,14 @@ final class RoundTrip
             && $node['children'][0]['display'] && !isset($node['role'])
         ) {
             $node['role'] = 'math';
-            $this->losses[] = 'C2-H-195 row 12 display math paragraph without a role';
+            $this->losses[] = 'C2-H-195 row 11 display math paragraph without a role';
         }
 
         return $node;
     }
 
     /**
-     * C2-H-195 rows 8, 11, 13 and 17, and the table options a render reads (C2-H-152).
+     * C2-H-195 rows 7, 10, 12 and 16, and the table options a render reads (C2-H-152).
      *
      * @param array<mixed> $node
      *
@@ -614,11 +614,11 @@ final class RoundTrip
                 unset($pairs[$lower]);
             }
             if ($lower !== $key) {
-                $this->losses[] = 'C2-H-195 row 13 case of an attribute name';
+                $this->losses[] = 'C2-H-195 row 12 case of an attribute name';
             }
             if ($lower === 'lang' && !isset($node['lang'])) {
                 $node['lang'] = $value;
-                $this->losses[] = 'C2-H-195 row 11 authored key lang';
+                $this->losses[] = 'C2-H-195 row 10 authored key lang';
 
                 continue;
             }
@@ -629,7 +629,7 @@ final class RoundTrip
             }
             if ($node['type'] === 'link' && $lower === 'title' && !isset($node['tooltip'])) {
                 $node['tooltip'] = $value;
-                $this->losses[] = 'C2-H-195 row 17 structural attribute key';
+                $this->losses[] = 'C2-H-195 row 16 structural attribute key';
 
                 continue;
             }
@@ -641,7 +641,7 @@ final class RoundTrip
     }
 
     /**
-     * C2-H-195 row 8: with a head row, the alignment of a column comes back as a mark on the header cell of the first
+     * C2-H-195 row 7: with a head row, the alignment of a column comes back as a mark on the header cell of the first
      * head row, which has no span in the inputs this gate reads.
      *
      * @param array<mixed> $table
@@ -654,7 +654,7 @@ final class RoundTrip
             if (!isset($column['align'])) {
                 continue;
             }
-            $this->losses[] = 'C2-H-195 row 8 column alignment with a head row';
+            $this->losses[] = 'C2-H-195 row 7 column alignment with a head row';
             unset($table['columns'][$c]['align']);
             $table['children'][0]['children'][0]['children'][$c]['align'] ??= $column['align'];
         }
@@ -746,28 +746,6 @@ final class RoundTrip
         $marked = isset($block['role']) || isset($block['attrs']) || isset($block['lang']) || isset($block['dir']);
 
         return ($block['type'] ?? '') === 'paragraph' && !$marked;
-    }
-
-    /**
-     * @param array<mixed> $list
-     */
-    private static function noParagraph(array $list): bool
-    {
-        if (count($list['children']) < 2) {
-            return true;
-        }
-        foreach ($list['children'] as $item) {
-            $first = $item['children'][0] ?? [];
-            if (self::bare($first)) {
-                return false;
-            }
-            $blocks = array_filter($item['children'], static fn (array $block): bool => $block['type'] !== 'list');
-            if (count($blocks) > 1) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**

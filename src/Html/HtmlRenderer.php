@@ -1495,15 +1495,16 @@ final class HtmlRenderer
     }
 
     /**
-     * C2-H-112: the roundtrip carriers of a list.
+     * C2-H-112, C2-H-138: the roundtrip carriers of a list.
      *
      * @param array<mixed> $marker
      * @param bool $ordered
      * @param bool $tight
+     * @param array<\MarkupCarve\Carve\Node>|null $children
      *
      * @return array<array{0: string, 1: string|null}>
      */
-    private static function listCarriers(array $marker, bool $ordered, bool $tight): array
+    private static function listCarriers(array $marker, bool $ordered, bool $tight, ?array $children): array
     {
         $out = [];
         $char = $marker['char'] ?? '-';
@@ -1512,6 +1513,8 @@ final class HtmlRenderer
         }
         if ($tight) {
             $out[] = ['data-carve-tight', null];
+        } elseif (count(array_filter($children ?? [], static fn (Node $item): bool => $item->type === 'list_item')) > 1) {
+            $out[] = ['data-carve-loose', null];
         }
 
         return $out;
@@ -1558,7 +1561,7 @@ final class HtmlRenderer
         $tight = ($node->f['spacing'] ?? 'tight') !== 'loose';
         $structural = $ordered ? self::orderedAttributes($marker) : [];
         if ($this->o->roundtrip) {
-            $structural = array_merge($structural, self::listCarriers($marker, $ordered, $tight));
+            $structural = array_merge($structural, self::listCarriers($marker, $ordered, $tight, $node->children));
         }
         $task = false;
         $items = [];
