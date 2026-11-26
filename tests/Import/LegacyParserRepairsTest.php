@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Import;
 
+use DOMDocument;
 use MarkupCarve\Carve\Import\HtmlNode;
 use MarkupCarve\Carve\Import\HtmlParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * libxml below 2.14 lets HTML5 void elements hold content and keeps bogus comments as text; the fallback repairs both.
+ * libxml below 2.14 lets HTML5 void elements hold content, keeps bogus comments as text and parses markup inside raw text
+ * and RCDATA elements; the fallback repairs all three.
  */
 final class LegacyParserRepairsTest extends TestCase
 {
@@ -31,7 +33,53 @@ final class LegacyParserRepairsTest extends TestCase
             'markup declaration in an attribute' => ['<p title="<!x>">a</p>', 'p[#a]'],
             'markup declaration in raw text' => ['<textarea><!x></textarea>', 'textarea[#<!x>]'],
             'comment and doctype untouched' => ['<!-- c --><p>a</p>', '! c ,p[#a]'],
+            'end tag prefix in a textarea' => ['<textarea>a</textareas>b</textarea>', 'textarea[#a</textareas>b]'],
+            'tags and entities in RCDATA' => ['<title>a<b>c</b>&amp;</x></title>', 'title[#a<b>c</b>&</x>]'],
+            'tags and entities in raw text' => ['<xmp>a&amp;<i>b</i></xmp>', 'xmp[#a&amp;<i>b</i>]'],
+            'end tags in a script' => ['<script>a</b>&amp;&lt;</scripts></script>x', 'script[#a</b>&amp;&lt;</scripts>],#x'],
+            'end tag in a style' => ['<style class="k">p{}</x></style>', 'style[#p{}</x>]'],
+            'MathML text integration point' => ['<math><mi><textarea>a</b></textarea></mi></math>', 'math[mi[textarea[#a</b>]]]'],
+            'MathML closed by an ancestor end tag' => ['<i><math></i><title><!x></title>', 'i[math[]],title[#<!x>]'],
+            'marker name in an attribute value' => ['<script data-id="carve-import-raw">a</b></script>', 'script[#a</b>]'],
         ];
+    }
+
+    /**
+     * Shapes the raw text repair gets right that libxml 2.14 and later, which needs no repair, reads its own way.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function oldLibxmlInputs(): array
+    {
+        return [
+            'unclosed textarea' => ['<p>a</p><textarea>b</p>c', 'p[#a],textarea[#b</p>c]'],
+            'SVG title is not RCDATA' => [
+                '<svg><title><b>a</b></title></svg><textarea>b</i></textarea>',
+                'svg[title[b[#a]]],textarea[#b</i>]',
+            ],
+            'stray end tag in SVG' => ['<svg><g></x><title><b>a</b></title></svg>', 'svg[g[title[b[#a]]]]'],
+            'MathML glyph stays foreign' => [
+                '<math><mi><mglyph><textarea>a</b></textarea></mglyph></mi></math>',
+                'math[mi[mglyph[textarea[#a]]]]',
+            ],
+        ];
+    }
+
+    #[DataProvider('oldLibxmlInputs')]
+    public function testLegacyTreeOnOldLibxml(string $html, string $expected): void
+    {
+        $probe = new DOMDocument();
+        @$probe->loadHTML('<xmp>&amp;</xmp>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        if ($probe->textContent !== '&') {
+            $this->markTestSkipped('libxml 2.14 or later tokenizes raw text itself');
+        }
+        $this->assertSame($expected, self::shape(HtmlParser::parse($html, true)));
+    }
+
+    #[DataProvider('oldLibxmlInputs')]
+    public function testHtml5TreeAgreesOnOldLibxmlShapes(string $html, string $expected): void
+    {
+        $this->testHtml5TreeAgrees($html, $expected);
     }
 
     #[DataProvider('inputs')]
@@ -60,6 +108,20 @@ final class LegacyParserRepairsTest extends TestCase
         $textarea = HtmlParser::parse('<textarea>a</textareas><!x></textarea>', true)->children[0];
         $this->assertCount(1, $textarea->children);
         $this->assertStringEndsWith('<!x>', $textarea->children[0]->name);
+    }
+
+    public function testEscapedScriptKeepsOnlyItsOwnAttributes(): void
+    {
+        $script = HtmlParser::parse('<script type="m">a</b></script>', true)->children[0];
+        $this->assertSame(['type' => 'm'], $script->attrs);
+    }
+
+    public function testAnInputAttributeIsNotTakenForTheMarker(): void
+    {
+        $scripts = HtmlParser::parse('<script carve-import-raw>&lt;</script><script carve-import-raw="q">a</b></script>', true)->children;
+        $this->assertSame(['carve-import-raw' => ''], $scripts[0]->attrs);
+        $this->assertSame('&lt;', $scripts[0]->children[0]->name);
+        $this->assertSame(['carve-import-raw' => 'q'], $scripts[1]->attrs);
     }
 
     private static function shape(HtmlNode $node): string

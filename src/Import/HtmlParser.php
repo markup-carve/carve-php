@@ -46,6 +46,20 @@ final class HtmlParser
      */
     private const RAW_TEXT = ['iframe', 'noembed', 'noframes', 'script', 'style', 'textarea', 'title', 'xmp'];
 
+    /**
+     * Marks a `script` or `style` whose content the fallback escaped.
+     *
+     * @var string
+     */
+    private const LEGACY_RAW = 'carve-import-raw';
+
+    private static ?bool $tagsInRawText = null;
+
+    /**
+     * The LEGACY_RAW value, so an attribute of that name in the input is not taken for the marker.
+     */
+    private static ?string $rawNonce = null;
+
     public static function available(): bool
     {
         return class_exists(DOMDocument::class);
@@ -169,7 +183,7 @@ final class HtmlParser
     private static function legacy(string $html, bool $document): HtmlNode
     {
         // The HTML input stream turns CR LF and a lone CR into LF before tokenizing; libxml keeps them.
-        $html = self::bogusComments(str_replace(["\r\n", "\r"], "\n", $html));
+        $html = self::legacyTokens(str_replace(["\r\n", "\r"], "\n", $html));
         $dom = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
         try {
@@ -185,6 +199,9 @@ final class HtmlParser
         }
         self::impliedTableBodies($dom);
         self::emptyVoids($dom, $html);
+        if (str_contains($html, self::LEGACY_RAW)) {
+            self::unescapeRaw($dom);
+        }
         $root = new HtmlNode(HtmlNode::ROOT);
         $source = $document ? $dom : $dom->getElementsByTagName(self::LEGACY_ROOT)->item(0);
         if ($source !== null) {
@@ -205,21 +222,27 @@ final class HtmlParser
     }
 
     /**
-     * The HTML tokenizer reads `<!` that opens no comment, doctype or CDATA as a bogus comment up to the next `>`;
-     * libxml below 2.14 keeps it as text (Word's `<![if !supportFootnotes]>`).
+     * Repairs what libxml below 2.14 tokenizes differently. The HTML tokenizer reads `<!` that opens no comment,
+     * doctype or CDATA as a bogus comment up to the next `>`; libxml keeps it as text (Word's
+     * `<![if !supportFootnotes]>`). The content of a raw text or RCDATA element is text up to its own end tag;
+     * libxml below 2.14 parses tags and drops end tags in it, and decodes entities in all but `script` and `style`,
+     * so there the content is escaped to give the same text (carve-php#6061).
      *
      * @param string $html
      *
      * @return string
      */
-    private static function bogusComments(string $html): string
+    private static function legacyTokens(string $html): string
     {
-        if (!preg_match('/<!(?!--|(?i:doctype)|\[CDATA\[)/', $html)) {
+        $rawText = self::tagsInRawText();
+        $pattern = '/<!(?!--|(?i:doctype)|\[CDATA\[)' . ($rawText ? '|<(?i:' . implode('|', self::RAW_TEXT) . ')[\s\/>]/' : '/');
+        if (!preg_match($pattern, $html)) {
             return $html;
         }
         $out = '';
         $from = 0;
         $at = 0;
+        $foreign = new LegacyForeignContent();
         $length = strlen($html);
         while (($lt = strpos($html, '<', $at)) !== false) {
             $next = $html[$lt + 1] ?? '';
@@ -242,19 +265,137 @@ final class HtmlParser
 
                 continue;
             }
-            if (!preg_match('/\G<([a-zA-Z][^\s\/>]*)(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/', $html, $tag, 0, $lt)) {
+            if (!preg_match('/\G<(\/?)([a-zA-Z][^\s\/>]*)(?:"[^"]*"|\'[^\']*\'|[^>"\'])*>?/', $html, $tag, 0, $lt)) {
                 $at = $lt + 1;
 
                 continue;
             }
             $at = $lt + strlen($tag[0]);
-            if (in_array(strtolower($tag[1]), self::RAW_TEXT, true)) {
-                $found = preg_match('~</' . preg_quote($tag[1], '~') . '[\s/>]~i', $html, $end, PREG_OFFSET_CAPTURE, $at);
-                $at = $found === 1 ? $end[0][1] : $length;
+            $name = strtolower($tag[2]);
+            $inForeign = $foreign->foreign();
+            $foreign->tag($name, $tag[1] === '/', str_ends_with($tag[0], '/>'));
+            // In SVG and MathML `title`, `style` and `script` are not raw text.
+            if ($inForeign || $tag[1] === '/' || !in_array($name, self::RAW_TEXT, true)) {
+                continue;
             }
+            $close = self::rawTextEnd($html, $tag[2], $at);
+            $content = substr($html, $at, $close - $at);
+            $escaped = $rawText ? self::escapeRawText($name, $content, $tag[0]) : $content;
+            if ($escaped !== $content) {
+                $nameEnd = $lt + 1 + strlen($tag[2]);
+                $out .= substr($html, $from, $nameEnd - $from) . self::rawMarker($name);
+                $out .= substr($html, $nameEnd, $at - $nameEnd) . $escaped;
+                $from = $close;
+            }
+            $at = $close;
         }
 
         return $out . substr($html, $from);
+    }
+
+    /**
+     * The marker attribute for an escaped `script` or `style`, whose text libxml does not decode.
+     *
+     * @param string $name
+     *
+     * @return string
+     */
+    private static function rawMarker(string $name): string
+    {
+        if (!in_array($name, ['script', 'style'], true)) {
+            return '';
+        }
+        self::$rawNonce ??= bin2hex(random_bytes(8));
+
+        return ' ' . self::LEGACY_RAW . '="' . self::$rawNonce . '"';
+    }
+
+    /**
+     * Where the content of a raw text element ends: at its own end tag, or at the end of the input.
+     *
+     * @param string $html
+     * @param string $name
+     * @param int $at
+     *
+     * @return int
+     */
+    private static function rawTextEnd(string $html, string $name, int $at): int
+    {
+        $found = preg_match('~</' . preg_quote($name, '~') . '[\s/>]~i', $html, $end, PREG_OFFSET_CAPTURE, $at);
+
+        return $found === 1 ? $end[0][1] : strlen($html);
+    }
+
+    /**
+     * The content of a raw text or RCDATA element, escaped so libxml below 2.14 reads it as the same text. `script`
+     * and `style`, which libxml keeps raw up to `</` and a letter, are escaped only when they hold one and their start
+     * tag leaves room for the LEGACY_RAW marker.
+     *
+     * @param string $name
+     * @param string $content
+     * @param string $tag
+     *
+     * @return string
+     */
+    private static function escapeRawText(string $name, string $content, string $tag): string
+    {
+        if ($name === 'textarea' || $name === 'title') {
+            return str_replace('<', '&lt;', $content);
+        }
+        if ($name === 'script' || $name === 'style') {
+            $names = preg_replace('/"[^"]*"|\'[^\']*\'/', '', $tag) ?? $tag;
+            if (!preg_match('~</[a-zA-Z]~', $content) || preg_match('~[\s/]' . self::LEGACY_RAW . '(?![^\s/=>])~i', $names)) {
+                return $content;
+            }
+        }
+
+        return strtr($content, ['&' => '&amp;', '<' => '&lt;']);
+    }
+
+    /**
+     * Whether this libxml parses markup inside raw text elements (below 2.14), probed once: an `xmp` whose entity
+     * it decodes.
+     *
+     * @return bool
+     */
+    private static function tagsInRawText(): bool
+    {
+        if (self::$tagsInRawText === null) {
+            $probe = new DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            $probe->loadHTML('<xmp>&amp;</xmp>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+            self::$tagsInRawText = $probe->textContent === '&';
+        }
+
+        return self::$tagsInRawText;
+    }
+
+    /**
+     * Undoes the escaping of a marked `script` or `style`, whose text libxml does not decode.
+     *
+     * @param \DOMDocument $document
+     *
+     * @return void
+     */
+    private static function unescapeRaw(DOMDocument $document): void
+    {
+        foreach (['script', 'style'] as $name) {
+            /** @var array<\DOMElement> $elements */
+            $elements = iterator_to_array($document->getElementsByTagName($name));
+            foreach ($elements as $element) {
+                if (self::$rawNonce === null || $element->getAttribute(self::LEGACY_RAW) !== self::$rawNonce) {
+                    continue;
+                }
+                $element->removeAttribute(self::LEGACY_RAW);
+                foreach ($element->childNodes as $child) {
+                    if ($child instanceof DOMText) {
+                        $child->data = strtr($child->data, ['&lt;' => '<', '&amp;' => '&']);
+                    }
+                }
+            }
+        }
     }
 
     /**
