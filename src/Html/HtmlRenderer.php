@@ -55,6 +55,13 @@ final class HtmlRenderer
     ];
 
     /**
+     * C2-H-211: the keys of the line options besides the class `line-numbers`.
+     *
+     * @var array<string>
+     */
+    private const LINE_OPTION_KEYS = ['data-line-start', 'data-highlight'];
+
+    /**
      * Blocks that never render at their place (C2-H-019, C2-H-070, C2-H-071).
      *
      * @var array<string, true>
@@ -812,17 +819,63 @@ final class HtmlRenderer
         if ($inner->ownStart >= 0) {
             $inner->start = $inner->ownStart;
         }
+        $figure = $node;
+        $attrs = $node->f['attrs'] ?? null;
+        if ($node->type === 'code_block' && $attrs instanceof Attrs) {
+            [$outer, $line] = self::splitLineOptions($attrs);
+            if ($line !== null) {
+                $inner->f['attrs'] = $line;
+                $figure = clone $node;
+                $figure->f['attrs'] = $outer;
+            }
+        }
         $children = $this->blocks([$inner], $depth + 1);
         $caption = $node->f['caption'];
         assert($caption instanceof Node);
         $children[] = $this->caption('figcaption', $caption, $depth + 1);
 
         return $this->container(
-            '<figure' . $this->attrs($node, $panel ? ['carve-figure-panel'] : []) . '>',
+            '<figure' . $this->attrs($figure, $panel ? ['carve-figure-panel'] : []) . '>',
             '</figure>',
             $children,
             $depth,
         );
+    }
+
+    /**
+     * C2-H-063, C2-H-211: the line options of a captioned code block stay on its `<pre>`, the rest go on the figure.
+     *
+     * @param \MarkupCarve\Carve\Attrs $attrs
+     *
+     * @return array{0: \MarkupCarve\Carve\Attrs, 1: \MarkupCarve\Carve\Attrs|null}
+     */
+    private static function splitLineOptions(Attrs $attrs): array
+    {
+        $line = null;
+        $outer = null;
+        foreach ($attrs->classes as $i => $class) {
+            if ($class === 'line-numbers') {
+                $line ??= new Attrs();
+                $outer ??= clone $attrs;
+                $line->classes[] = $class;
+                unset($outer->classes[$i]);
+            }
+        }
+        foreach ($attrs->pairs as $i => $pair) {
+            if (in_array(strtolower($pair[0]), self::LINE_OPTION_KEYS, true)) {
+                $line ??= new Attrs();
+                $outer ??= clone $attrs;
+                $line->pairs[] = $pair;
+                unset($outer->pairs[$i]);
+            }
+        }
+        if ($line === null || $outer === null) {
+            return [$attrs, null];
+        }
+        $outer->classes = array_values($outer->classes);
+        $outer->pairs = array_values($outer->pairs);
+
+        return [$outer, $line];
     }
 
     /**
