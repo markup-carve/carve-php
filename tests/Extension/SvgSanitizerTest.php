@@ -139,6 +139,79 @@ final class SvgSanitizerTest extends TestCase
         );
     }
 
+    public function testXlinkPrefixIsBoundOnTheRoot(): void
+    {
+        // carve#6782: a written xlink:href with no xmlns:xlink in scope gets the XLink declaration on the root.
+        $open = '<svg xmlns="http://www.w3.org/2000/svg"';
+        $decl = 'xmlns:xlink="http://www.w3.org/1999/xlink"';
+        self::assertSame(
+            ['svg' => $open . ' ' . $decl . '><use xlink:href="#a"/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><use xlink:href="#a"/></svg>'),
+        );
+        self::assertSame($open . ' ' . $decl . ' xlink:href="#a" id="r"/>', SvgSanitizer::sanitize('<svg xlink:href="#a" id="r"/>')['svg']);
+        self::assertSame(
+            $open . ' xmlns:xlink="urn:x"><use xlink:href="#a"/></svg>',
+            SvgSanitizer::sanitize('<svg xmlns:xlink="urn:x"><use xlink:href="#a"/></svg>')['svg'],
+        );
+        self::assertSame(
+            $open . '><use xlink:href="#a" xmlns:xlink="urn:x"/></svg>',
+            SvgSanitizer::sanitize('<svg><use xlink:href="#a" xmlns:xlink="urn:x"/></svg>')['svg'],
+        );
+        self::assertSame(
+            $open . '><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g></svg>')['svg'],
+        );
+        // A declaration inside a subtree binds only that subtree.
+        self::assertSame(
+            $open . ' ' . $decl . '><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g><use xlink:href="#b"/></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g><use xlink:href="#b"/></svg>')['svg'],
+        );
+        // Nothing is added when the xlink attribute is dropped.
+        self::assertSame(
+            $open . '><use/><use/></svg>',
+            SvgSanitizer::sanitize('<svg><use xlink:href="https://e/x"/><use XLINK:HREF="#a"/></svg>')['svg'],
+        );
+        self::assertSame($open . '/>', SvgSanitizer::sanitize('<svg><script><use xlink:href="#a"/></script></svg>')['svg']);
+    }
+
+    public function testPrefixedNameInAnotherSpellingIsDropped(): void
+    {
+        // carve#6783: only lower-case xmlns: declares a namespace, and prefixes are case-sensitive.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg XMLNS:XLINK="http://www.w3.org/1999/xlink"><rect/></svg>'),
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve"/>',
+            SvgSanitizer::sanitize('<svg Xmlns:xlink="urn:x" XML:SPACE="preserve" data-a:b="1" aria-x:y="2" xml:space="preserve"/>')['svg'],
+        );
+    }
+
+    public function testNamespaceDeclarationWithWhitespaceIsDropped(): void
+    {
+        // carve#6783: whitespace only; carve#6811: whitespace or U+00A0 anywhere, literal or as a reference.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg xmlns:xlink=" "><rect/></svg>'),
+        );
+        $values = [
+            "\t", " \n ", "\r", '&#32;', '&#x20;&#9;', '&#xA;', '&#13;', '&#x0D;', ' urn:x', 'urn:x ',
+            'urn: x', "urn:x\tb",
+            "\u{A0}", "urn:\u{A0}x", '&#160;', 'urn:&#xA0;x', '&#32;urn:x', 'urn:&nbsp;x', ' urn:x ',
+        ];
+        foreach ($values as $value) {
+            self::assertSame(
+                ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><g/></svg>', 'ok' => true],
+                SvgSanitizer::sanitize('<svg><g xmlns:xlink="' . $value . '"/></svg>'),
+                $value,
+            );
+        }
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns:xlink="urn:x"/></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink="urn:x"/></svg>')['svg'],
+        );
+    }
+
     public function testStyleWithACssImageFunctionIsDropped(): void
     {
         // carve#6760: C2-H-162 blanks these in the core renderer; carve-js kept them.
