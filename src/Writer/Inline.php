@@ -3064,7 +3064,7 @@ final class Inline
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of link text would read as a footnote reference.
         if (
-            $this->noteDepth === 0 && !isset($this->caseEightLinks[$path]) && self::leadsWithCaretText($children)
+            $this->noteDepth === 0 && !isset($this->caseEightLinks[$path]) && !self::keyIsContent($node) && self::leadsWithCaretText($children)
             && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')
         ) {
             $inner = '\\' . $inner;
@@ -3167,7 +3167,7 @@ final class Inline
     {
         $trace = $this->w->repairTrace;
         $plain = $trace?->decode($inner)['source'] ?? $inner;
-        $like = Chars::fold($plain) === $key ? null : $this->labelLike($plain, $key, $children);
+        $like = Chars::fold($plain) === $key ? null : ($trace === null ? self::escapedLike($plain, $key) : $this->labelLike($plain, $key, $children));
         if ($like === null) {
             return $inner;
         }
@@ -3191,6 +3191,17 @@ final class Inline
         }
 
         return null;
+    }
+
+    /**
+     * C2-I-078, C2-I-079: a collapsed or shortcut reference whose key, its content, starts with a caret; the writer spells
+     * that caret through the key.
+     *
+     * @param array<mixed> $node
+     */
+    private static function keyIsContent(array $node): bool
+    {
+        return in_array($node['refForm'] ?? '', ['collapsed', 'shortcut'], true) && str_starts_with((string)($node['key'] ?? ''), '^');
     }
 
     /**

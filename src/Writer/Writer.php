@@ -1311,23 +1311,23 @@ final class Writer
             [$repaired, $spans] = $scoped;
         } else {
             $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
-            $repaired = $planner->repair() ?? self::passSettled($planner, $tree, $layout, $options, $treePrint);
+            $repaired = $planner->repair() ?? self::passSettled($planner, $tree, $options, $treePrint);
         }
         if ($repaired === null) {
             // C2-W-088: where the kind rounds end with a node that did not read back, rounds that escape only the
             // reported openers write the group again.
             $openers = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->reportedOpenersAfter($planner);
-            $repaired = $openers->repair() ?? self::passSettled($openers, $tree, $layout, $options, $treePrint);
+            $repaired = $openers->repair() ?? self::passSettled($openers, $tree, $options, $treePrint);
             $spans = null;
             if ($repaired === null) {
                 // C2-W-125: where every form loses a node, the passes by kind and by reported opener run again and
                 // retest the escapes they placed together.
                 $byKind = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->chargedAfter($openers)->retestingAfter(null);
-                $repaired = $byKind->repair() ?? self::passSettled($byKind, $tree, $layout, $options, $treePrint);
+                $repaired = $byKind->repair() ?? self::passSettled($byKind, $tree, $options, $treePrint);
                 if ($repaired === null) {
                     $last = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))
                         ->reportedOpenersAfter($byKind)->retestingAfter($byKind);
-                    $repaired = $last->repair() ?? self::passSettled($last, $tree, $layout, $options, $treePrint);
+                    $repaired = $last->repair() ?? self::passSettled($last, $tree, $options, $treePrint);
                 }
             }
         }
@@ -1355,26 +1355,21 @@ final class Writer
 
     /**
      * C2-W-075 (carve#6813): a pass that stops on a loss settles where its loss is only one of the temporary reference
-     * forms: written with the verbatim reference texts, its escapes read back as the tree. The form returned spells the
-     * references from the tree; the verbatim texts go back after the rounds (carve-js `passSettled`).
+     * forms: written with the verbatim reference texts, its escapes read back as the tree (carve-js `passSettled`).
      *
      * @param \MarkupCarve\Carve\Writer\RepairPlanner $pass
      * @param array<string, mixed> $tree
-     * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      * @param string $treePrint
      */
-    private static function passSettled(RepairPlanner $pass, array $tree, ?array $layout, array $options, string $treePrint): ?string
+    private static function passSettled(RepairPlanner $pass, array $tree, array $options, string $treePrint): ?string
     {
         if (self::$verbatimLayout === null) {
             return null;
         }
-        $escapes = $pass->lastEscapes();
-        if (!self::readsBack(self::bareSource($tree, self::$verbatimLayout, $options, $escapes), $treePrint, $options)) {
-            return null;
-        }
+        $verbatim = self::bareSource($tree, self::$verbatimLayout, $options, $pass->lastEscapes());
 
-        return self::bareSource($tree, $layout, $options, $escapes);
+        return self::readsBack($verbatim, $treePrint, $options) ? $verbatim : null;
     }
 
     /**
