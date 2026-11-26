@@ -215,6 +215,7 @@ final class Carve
             // The parse findings name nodes of the resolved document, which a transformed view does not hold.
             $findingsRoot = $view ?? new Node('document');
             if ($view !== null) {
+                SnippetExpander::carry($doc, $view);
                 $doc = $view;
                 SnippetExpander::refuseTransformed($doc);
                 $facts = Resolver::resolve($doc, $source, $opts, true)->facts;

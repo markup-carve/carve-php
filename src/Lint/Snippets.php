@@ -57,7 +57,7 @@ final class Snippets
      *
      * @return array<string, true>
      */
-    private static function usedNames(Node $document): array
+    public static function usedNames(Node $document): array
     {
         $names = [];
         $pending = [$document];

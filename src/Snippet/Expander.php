@@ -203,6 +203,24 @@ final class Expander
     }
 
     /**
+     * C2-N-093, C2-N-094: the findings and the budget of the pass go on with the view a document transform returned,
+     * also with a new root.
+     *
+     * @param \MarkupCarve\Carve\Node $from
+     * @param \MarkupCarve\Carve\Node $view
+     *
+     * @return void
+     */
+    public static function carry(Node $from, Node $view): void
+    {
+        foreach (['snippetLosses', 'snippetBudget'] as $key) {
+            if (isset($from->layout[$key])) {
+                $view->layout[$key] = $from->layout[$key];
+            }
+        }
+    }
+
+    /**
      * C2-N-094: the derived-text budget the pass left on `$doc`, its remainder and whether it was reported, or null.
      *
      * @param \MarkupCarve\Carve\Node $doc
