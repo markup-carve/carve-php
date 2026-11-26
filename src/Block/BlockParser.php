@@ -2007,6 +2007,11 @@ final class BlockParser
         if ($marker === null || $value < 0) {
             return false;
         }
+        // An id in the attribute line above refuses the definition as one in the marker does.
+        $p = $this->pending;
+        if ($p !== null && $p->depth === count($this->stack) - 1 && $p->attrs?->id !== null) {
+            return false;
+        }
         $f = new Frame(Frame::SNIPPET_DEF, $j);
         $f->value = substr($this->s, $marker[0], $marker[1] - $marker[0]);
         $f->spans = [$value, $this->le];
