@@ -687,13 +687,14 @@ final class Blocks
             return 0;
         }
         if (self::isCommentLine($node) && $this->isOpenContainer($before)) {
+            if (self::isRegionMarker($node)) {
+                // A region marker closes the container, so it follows a closed block directly, as at top level; a fence
+                // the container ends with keeps its closer and one blank line (C2-W-034, C2-W-123).
+                return $this->takesLineBelow($before) || $this->lastFence($before) !== null ? 1 : 0;
+            }
             // C2-W-123 writes the final fence open when a comment follows it.
             if ($this->lastFence($before) !== null) {
                 return 0;
-            }
-            if (self::isRegionMarker($node)) {
-                // A region marker closes the container, so it follows a closed block directly, as at top level.
-                return $this->takesLineBelow($before) ? 1 : 0;
             }
             // C2-B-138: an ordinary comment line stays in the open container.
             $this->w->lose($path, 'comment', null);
@@ -780,7 +781,10 @@ final class Blocks
      */
     private function markFenceBeforeComment(array $node, string $path, ?array $next): void
     {
-        if (!self::isCommentLine($next) || !$this->isOpenContainer($node) || $this->lastFence($node) === null) {
+        if (
+            $next === null || !self::isCommentLine($next) || self::isRegionMarker($next) || !$this->isOpenContainer($node)
+            || $this->lastFence($node) === null
+        ) {
             return;
         }
         $at = $node;
@@ -1643,6 +1647,8 @@ final class Blocks
         $this->verbatim($lines, $inner);
         if (!isset($this->w->openFences[$path])) {
             $this->w->emit($inner, $run);
+        } elseif (self::endsInBlankLine($lines)) {
+            $this->w->lose($path, Inline::str($node, 'type'), 'value');
         }
         if ($withCaption && ($node['type'] ?? '') === 'code_block') {
             $this->caption($node['caption'] ?? null, $path . '/caption', $prefix);
@@ -1791,7 +1797,21 @@ final class Blocks
         $this->verbatim($lines, $inner);
         if (!isset($this->w->openFences[$path])) {
             $this->w->emit($inner, $run);
+        } elseif (self::endsInBlankLine($lines)) {
+            $this->w->lose($path, 'comment', 'value');
         }
+    }
+
+    /**
+     * C2-B-113: an open fence drops the blank lines at the end of its body, so its value cannot end in one (C2-W-123).
+     *
+     * @param array<string> $lines
+     *
+     * @return bool
+     */
+    private static function endsInBlankLine(array $lines): bool
+    {
+        return $lines !== [] && trim((string)end($lines), " \t") === '';
     }
 
     /**
