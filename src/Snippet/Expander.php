@@ -320,9 +320,7 @@ final class Expander
             if ($node->type === 'snippet_use' || ($definitions && $node->type === 'snippet_definition')) {
                 return true;
             }
-            self::eachList($node, static function (array &$nodes) use (&$pending): void {
-                array_push($pending, ...$nodes);
-            });
+            array_push($pending, ...self::kids($node));
         }
 
         return false;
@@ -333,12 +331,13 @@ final class Expander
      *
      * @param \MarkupCarve\Carve\Node $node
      * @param callable $visit
+     * @param bool $children Whether `children` is one of the lists.
      *
      * @return void
      */
-    public static function eachList(Node $node, callable $visit): void
+    public static function eachList(Node $node, callable $visit, bool $children = true): void
     {
-        if ($node->children !== null && $node->children !== []) {
+        if ($children && $node->children !== null && $node->children !== []) {
             $visit($node->children);
         }
         foreach ($node->f as $key => $value) {
@@ -508,9 +507,19 @@ final class Expander
 
     private function walkNode(Node $node): void
     {
-        self::eachList($node, function (array &$nodes): void {
-            $this->walkRange($nodes, 0, count($nodes));
-        });
+        if ($node->children !== null && $node->children !== []) {
+            $this->walkRange($node->children, 0, count($node->children));
+        }
+        foreach ($node->f as $value) {
+            // Most nodes hold no node outside `children`; the closure walk runs only for one that does.
+            if (is_array($value) || $value instanceof Node) {
+                self::eachList($node, function (array &$nodes): void {
+                    $this->walkRange($nodes, 0, count($nodes));
+                }, false);
+
+                return;
+            }
+        }
     }
 
     /**
@@ -697,15 +706,38 @@ final class Expander
 
     private function markNotes(Node $node): void
     {
-        // A link is marked too: its mark moves out of a use only where the link stands outside that copy (C2-H-215).
-        if ($node->type === 'footnote_ref' || $node->type === 'inline_footnote' || $node->type === 'link') {
-            $node->layout['snippetMark'] = $this->current;
-        }
-        self::eachList($node, function (array &$nodes): void {
-            foreach ($nodes as $child) {
-                $this->markNotes($child);
+        $pending = [$node];
+        while ($pending !== []) {
+            $next = array_pop($pending);
+            // A link is marked too: its mark moves out of a use only where the link stands outside that copy (C2-H-215).
+            if ($next->type === 'footnote_ref' || $next->type === 'inline_footnote' || $next->type === 'link') {
+                $next->layout['snippetMark'] = $this->current;
             }
-        });
+            array_push($pending, ...self::kids($next));
+        }
+    }
+
+    /**
+     * The child nodes of `$node` in every list, `children` first.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return array<\MarkupCarve\Carve\Node>
+     */
+    private static function kids(Node $node): array
+    {
+        $out = $node->children ?? [];
+        foreach ($node->f as $value) {
+            if (is_array($value) || $value instanceof Node) {
+                self::eachList($node, static function (array &$nodes) use (&$out): void {
+                    array_push($out, ...$nodes);
+                }, false);
+
+                break;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -731,9 +763,7 @@ final class Expander
             if ($next->type === 'footnote_ref' || $next->type === 'inline_footnote' || $next->type === 'snippet_use') {
                 return false;
             }
-            self::eachList($next, static function (array &$nodes) use (&$pending): void {
-                array_push($pending, ...$nodes);
-            });
+            array_push($pending, ...self::kids($next));
         }
 
         return true;

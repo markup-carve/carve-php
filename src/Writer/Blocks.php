@@ -2019,6 +2019,21 @@ final class Blocks
             $this->w->lose($path, 'snippet_definition', null);
         }
         unset($node['attrs'], $node['lang'], $node['dir']);
+        // C2-B-236: the value keeps the spaces behind the one space of the marker, which go on the marker line as written.
+        $spaced = $node['children'];
+        $first = $spaced[0] ?? null;
+        $value = is_array($first) && ($first['type'] ?? null) === 'text' && is_string($first['value'] ?? null) ? $first['value'] : '';
+        $lead = strspn($value, " \t");
+        if ($lead > 0 && ($lead < strlen($value) || count($spaced) > 1)) {
+            $marker .= substr($value, 0, $lead);
+            if ($lead < strlen($value)) {
+                $first['value'] = substr($value, $lead);
+                $spaced[0] = $first;
+            } else {
+                array_shift($spaced);
+            }
+            $node['children'] = $spaced;
+        }
         $this->textLeaf($node, $path, $prefix, $marker, '');
     }
 
