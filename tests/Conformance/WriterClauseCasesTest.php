@@ -24,10 +24,7 @@ final class WriterClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [
-        'CC-2165' => 'markup-carve/carve#6772 (carve-php line): escape rounds read references from the tree',
-        'CC-2166' => 'markup-carve/carve#6772 (carve-php line): escape rounds read references from the tree',
-    ];
+    private const KNOWN_FAIL = [];
 
     /**
      * @var array<string>
