@@ -1260,10 +1260,11 @@ final class Carve
      *
      * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree
      * @param \MarkupCarve\Carve\Options $opts
+     * @param bool $expand Run the snippet expansion (C2-N-091); the editor bridge keeps the authored uses.
      *
      * @return array{0: \MarkupCarve\Carve\Node, 1: string|null, 2: \MarkupCarve\Carve\Resolve\Facts|null}
      */
-    private static function resolvedTree(Node|array $tree, Options $opts): array
+    private static function resolvedTree(Node|array $tree, Options $opts, bool $expand = true): array
     {
         $source = $tree instanceof Node ? self::sourceOf($tree) : null;
         $doc = $source !== null ? Extensions::copy($tree) : self::readTree($tree, self::readerExtensions($opts->extensions));
@@ -1272,7 +1273,9 @@ final class Carve
         }
         $gc = self::collectorOff();
         try {
-            SnippetExpander::expand($doc, $opts->roundtrip, $source);
+            if ($expand) {
+                SnippetExpander::expand($doc, $opts->roundtrip, $source);
+            }
             $facts = Resolver::resolve($doc, $source, $opts, true)->facts;
         } finally {
             if ($gc) {
