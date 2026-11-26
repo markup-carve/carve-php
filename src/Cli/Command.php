@@ -1295,7 +1295,8 @@ HELP;
         $positions = [];
         foreach ($entries as $finding) {
             $name = $display;
-            if ($finding->file !== null && $root !== null && !str_starts_with($finding->file, '/')) {
+            $included = $finding->file !== null && $root !== null && !str_starts_with($finding->file, '/');
+            if ($included) {
                 $name = $finding->file;
                 if (!isset($sources[$name])) {
                     $sources[$name] = (string)@file_get_contents($root . '/' . $name);
@@ -1304,7 +1305,25 @@ HELP;
             $positions[$name] ??= ['offset' => 0, 'line' => 1, 'column' => 1];
             [$line, $column] = self::location($sources[$name], $finding->startOffset, $positions[$name]);
             if ($json) {
-                $rows[] = array_merge($finding->toArray(), ['file' => $name, 'line' => $line, 'column' => $column]);
+                // C2-T-020: `file` only names an included file; the command line places each include site in its file.
+                $row = $finding->toArray();
+                if ($included) {
+                    $row['file'] = $name;
+                } else {
+                    unset($row['file']);
+                }
+                $row += ['line' => $line, 'column' => $column];
+                if ($finding->includedBy !== null) {
+                    $row['includedBy'] = [];
+                    foreach ($finding->includedBy as $site) {
+                        $siteName = $site['file'] ?? $display;
+                        $sources[$siteName] ??= (string)@file_get_contents($root . '/' . $siteName);
+                        $positions[$siteName] ??= ['offset' => 0, 'line' => 1, 'column' => 1];
+                        $at = self::location($sources[$siteName], $site['range']['startOffset'], $positions[$siteName]);
+                        $row['includedBy'][] = $site + ['line' => $at[0], 'column' => $at[1]];
+                    }
+                }
+                $rows[] = $row;
 
                 continue;
             }

@@ -75,6 +75,24 @@ final class CommandTest extends TestCase
         $this->assertSame("carve[usage]: option rules: invalid rule nope\n", $err);
     }
 
+    /**
+     * C2-T-020: `file` names an included file only, and such an entry carries the include sites with their lines.
+     */
+    public function testC2T020LintJsonFileOnlyOnIncludedEntries(): void
+    {
+        [$status, $out] = self::call(['lint', '--json', $this->dir . '/main.crv']);
+        $this->assertSame(1, $status);
+        $entries = array_column(json_decode($out, true, 16, JSON_THROW_ON_ERROR)['files'][0]['diagnostics'], null, 'code');
+        $top = $entries['heading-level-skip'];
+        $this->assertArrayNotHasKey('file', $top);
+        $this->assertArrayNotHasKey('includedBy', $top);
+        $this->assertSame([3, 1], [$top['line'], $top['column']]);
+        $child = $entries['empty-link-destination'];
+        $this->assertSame('child.crv', $child['file']);
+        $this->assertSame([3, 1], [$child['line'], $child['column']]);
+        $this->assertSame([['range' => ['startOffset' => 12, 'endOffset' => 27], 'line' => 5, 'column' => 1]], $child['includedBy']);
+    }
+
     public function testDiagnosticsAndErrors(): void
     {
         [$status, $out] = self::call(['diagnostics'], "```js\nx");
