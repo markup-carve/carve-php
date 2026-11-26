@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Import;
 
+use DOMDocument;
 use MarkupCarve\Carve\Import\HtmlNode;
 use MarkupCarve\Carve\Import\HtmlParser;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -34,23 +35,51 @@ final class LegacyParserRepairsTest extends TestCase
             'comment and doctype untouched' => ['<!-- c --><p>a</p>', '! c ,p[#a]'],
             'end tag prefix in a textarea' => ['<textarea>a</textareas>b</textarea>', 'textarea[#a</textareas>b]'],
             'tags and entities in RCDATA' => ['<title>a<b>c</b>&amp;</x></title>', 'title[#a<b>c</b>&</x>]'],
-            'unclosed textarea' => ['<p>a</p><textarea>b</p>c', 'p[#a],textarea[#b</p>c]'],
             'tags and entities in raw text' => ['<xmp>a&amp;<i>b</i></xmp>', 'xmp[#a&amp;<i>b</i>]'],
             'end tags in a script' => ['<script>a</b>&amp;&lt;</scripts></script>x', 'script[#a</b>&amp;&lt;</scripts>],#x'],
             'end tag in a style' => ['<style class="k">p{}</x></style>', 'style[#p{}</x>]'],
+            'MathML text integration point' => ['<math><mi><textarea>a</b></textarea></mi></math>', 'math[mi[textarea[#a</b>]]]'],
+            'MathML closed by an ancestor end tag' => ['<i><math></i><title><!x></title>', 'i[math[]],title[#<!x>]'],
+            'marker name in an attribute value' => ['<script data-id="carve-import-raw">a</b></script>', 'script[#a</b>]'],
+        ];
+    }
+
+    /**
+     * Shapes the raw text repair gets right that libxml 2.14 and later, which needs no repair, reads its own way.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function oldLibxmlInputs(): array
+    {
+        return [
+            'unclosed textarea' => ['<p>a</p><textarea>b</p>c', 'p[#a],textarea[#b</p>c]'],
             'SVG title is not RCDATA' => [
                 '<svg><title><b>a</b></title></svg><textarea>b</i></textarea>',
                 'svg[title[b[#a]]],textarea[#b</i>]',
             ],
-            'MathML text integration point' => ['<math><mi><textarea>a</b></textarea></mi></math>', 'math[mi[textarea[#a</b>]]]'],
-            'MathML closed by an ancestor end tag' => ['<i><math></i><title><!x></title>', 'i[math[]],title[#<!x>]'],
             'stray end tag in SVG' => ['<svg><g></x><title><b>a</b></title></svg>', 'svg[g[title[b[#a]]]]'],
             'MathML glyph stays foreign' => [
                 '<math><mi><mglyph><textarea>a</b></textarea></mglyph></mi></math>',
                 'math[mi[mglyph[textarea[#a]]]]',
             ],
-            'marker name in an attribute value' => ['<script data-id="carve-import-raw">a</b></script>', 'script[#a</b>]'],
         ];
+    }
+
+    #[DataProvider('oldLibxmlInputs')]
+    public function testLegacyTreeOnOldLibxml(string $html, string $expected): void
+    {
+        $probe = new DOMDocument();
+        @$probe->loadHTML('<xmp>&amp;</xmp>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        if ($probe->textContent !== '&') {
+            $this->markTestSkipped('libxml 2.14 or later tokenizes raw text itself');
+        }
+        $this->assertSame($expected, self::shape(HtmlParser::parse($html, true)));
+    }
+
+    #[DataProvider('oldLibxmlInputs')]
+    public function testHtml5TreeAgreesOnOldLibxmlShapes(string $html, string $expected): void
+    {
+        $this->testHtml5TreeAgrees($html, $expected);
     }
 
     #[DataProvider('inputs')]
