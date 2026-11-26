@@ -463,7 +463,7 @@ final class TableReader
             [$value, $other] = $style === null ? [null, false] : self::styleWidth($style);
             $widths[] = $value;
             if ($style !== null && ($value === null || $other)) {
-                $this->context->report($col, 'import-attribute-dropped', 'Column style dropped: no width or another declaration');
+                $this->context->report($col, 'import-attribute-dropped', 'Column style dropped: no width, another or an important one');
             }
         }
         $out = [];
@@ -475,7 +475,8 @@ final class TableReader
     }
 
     /**
-     * C2-M-041, C2-B-212: the fraction of the last `width: N%` declaration, and whether any other declaration stands.
+     * C2-M-041, C2-B-212: the fraction the applying `width` declaration gives, the last one marked important or else
+     * the last one, and whether the style must be reported: any other declaration, no width or an important width.
      *
      * @param string $style
      *
@@ -484,7 +485,8 @@ final class TableReader
     private static function styleWidth(string $style): array
     {
         $ws = " \t\n\f\r";
-        $width = null;
+        $last = null;
+        $important = null;
         $count = 0;
         foreach (explode(';', $style) as $piece) {
             if (trim($piece, $ws) === '') {
@@ -496,15 +498,21 @@ final class TableReader
                 continue;
             }
             $value = trim(substr($piece, $colon + 1), $ws);
-            if (preg_match('/\A([0-9]+(?:\.[0-9]+)?)%\z/', $value, $m) !== 1) {
-                continue;
+            if (preg_match('/\A(.*?)[ \t\n\f\r]*![ \t\n\f\r]*important\z/is', $value, $m) === 1) {
+                $important = $m[1];
+            } else {
+                $last = $value;
             }
+        }
+        $value = $important ?? $last;
+        $width = null;
+        if ($value !== null && preg_match('/\A([0-9]+(?:\.[0-9]+)?)%\z/', $value, $m) === 1) {
             $n = (float)$m[1];
             if ($n > 0 && $n <= 100) {
                 $width = $n / 100;
             }
         }
 
-        return [$width, $count > ($width === null ? 0 : 1)];
+        return [$width, $width === null || $important !== null || $count > 1];
     }
 }

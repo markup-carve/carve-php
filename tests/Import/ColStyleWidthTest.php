@@ -55,7 +55,8 @@ final class ColStyleWidthTest extends TestCase
         return [
             'tab and form feed around the pieces' => ["\twidth\f:\t25%\t;", '25', false],
             'empty pieces are skipped' => [';; width: 25% ;;', '25', false],
-            'a later width that is out of range keeps the earlier one' => ['width: 25%; width: 150%', '25', true],
+            // carve-js#5574: the last width declaration applies, also where it gives no width.
+            'a later width that is out of range gives no width' => ['width: 25%; width: 150%', null, true],
             'a piece without a colon is another declaration' => ['width: 25%; bogus', '25', true],
             'zero gives no width' => ['width: 0%', null, true],
             'the property name compares without case' => ['Width: 25%', '25', false],
