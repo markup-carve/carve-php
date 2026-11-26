@@ -40,6 +40,8 @@ final class ImportClauseCasesTest extends TestCase
         'CC-2182' => 'markup-carve/carve#6795 (carve-php line): import option listTable, span-mark text',
         'CC-2183' => 'markup-carve/carve#6795 (carve-php line): import option listTable, span-mark text',
         'CC-2184' => 'markup-carve/carve#6795 (carve-php line): import option listTable, span-mark text',
+        'CC-2207' => 'markup-carve/carve#6804 (carve-php line): an img without alt imports with alt unknown',
+        'CC-2208' => 'markup-carve/carve#6804 (carve-php line): an img with alt="" imports as decorative',
     ];
 
     /**

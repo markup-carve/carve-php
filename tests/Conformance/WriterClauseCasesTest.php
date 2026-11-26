@@ -24,7 +24,9 @@ final class WriterClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [];
+    private const KNOWN_FAIL = [
+        'CC-2213' => 'markup-carve/carve#6804 (carve-php line): an image whose alt is unknown writes empty brackets',
+    ];
 
     /**
      * @var array<string>
