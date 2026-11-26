@@ -93,24 +93,19 @@ final class ListTable
     }
 
     /**
-     * The cells of a row: the items of its first list, the last one taking the row's other blocks.
+     * The cells of a row: the items of its one list; a row item that holds anything else is no row (C2-X-078).
      *
      * @return array<\MarkupCarve\Carve\Node>|null
      */
     private static function rowCells(Node $row): ?array
     {
-        $first = $row->children[0] ?? null;
-        if ($first === null || $first->type !== 'list') {
+        $blocks = $row->children ?? [];
+        if (count($blocks) !== 1 || $blocks[0]->type !== 'list') {
             return null;
         }
-        $items = array_map(Extensions::copy(...), $first->children ?? []);
-        if ($items === []) {
-            return null;
-        }
-        $last = $items[count($items) - 1];
-        $last->children = [...($last->children ?? []), ...array_slice($row->children ?? [], 1)];
+        $items = array_map(Extensions::copy(...), $blocks[0]->children ?? []);
 
-        return $items;
+        return $items === [] ? null : $items;
     }
 
     private static function attrs(?Node $node): ?Attrs
@@ -132,9 +127,6 @@ final class ListTable
         $value = AuthorAttrs::value($attrs, $key);
         if ($value === null) {
             return 0;
-        }
-        if ($value === '') {
-            return 1;
         }
 
         return preg_match('/^\d+$/', $value) === 1 && (int)$value <= self::MAX_ROWS ? (int)$value : 0;
