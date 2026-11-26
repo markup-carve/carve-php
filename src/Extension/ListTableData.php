@@ -18,6 +18,8 @@ final class ListTableData
      * @param int $head
      * @param int $headCols
      * @param int $width
+     * @param array<string> $aligns
+     * @param array<string> $valigns
      */
     public function __construct(
         public readonly array $rows,
@@ -26,6 +28,8 @@ final class ListTableData
         public readonly int $head,
         public readonly int $headCols,
         public readonly int $width,
+        public readonly array $aligns = [],
+        public readonly array $valigns = [],
     ) {
     }
 }
