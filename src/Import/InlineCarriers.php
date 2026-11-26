@@ -452,9 +452,10 @@ final class InlineCarriers
 
     /**
      * Whether the node gives an inline by itself: a text, a comment or raw element kept as raw HTML, a ranged comment
-     * with text, or an element the import keeps a node for when its content gives none (C2-M-069).
+     * with text, or a block without children other than an empty inline container without attributes. Null for an
+     * inline element, which `keeps()` decides once its content is walked.
      */
-    private function holds(HtmlNode $node): bool
+    private function holds(HtmlNode $node): ?bool
     {
         if ($node->isText()) {
             return $node->name !== '';
@@ -480,23 +481,30 @@ final class InlineCarriers
             return $node->children === [] && ($node->attrs !== [] || !isset(self::EMPTY_DROPPED[$node->name]));
         }
 
-        return $this->keepsShell($node);
+        return null;
     }
 
     /**
-     * Whether the inline reader keeps a node for the element without its content. The read is a probe: its reports
-     * and the keys it records are taken back.
+     * C2-M-069: whether the inline reader keeps a node for the element. When its content gives no inline, the element
+     * is read whole, with the descendants already found empty skipped; otherwise it is read without its content, which
+     * counts on its own. The read is a probe: its reports and the keys it records are taken back.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param bool $contentHolds
+     * @param \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, true> $empty
      */
-    private function keepsShell(HtmlNode $node): bool
+    private function keeps(HtmlNode $node, bool $contentHolds, SplObjectStorage $empty): bool
     {
-        $shell = $node;
-        if ($node->children !== []) {
-            $shell = clone $node;
-            $shell->children = [];
+        $read = $node;
+        if ($contentHolds) {
+            $read = clone $node;
+            $read->children = [];
         }
         $context = $this->context;
         [$diagnostics, $anchorKeys, $definitions] = [$context->diagnostics, $context->anchorKeys, $context->definitions];
-        $kept = $this->reader->inline($shell) !== [];
+        $this->reader->skip = $empty;
+        $kept = $this->reader->inline($read) !== [];
+        $this->reader->skip = null;
         [$context->diagnostics, $context->anchorKeys, $context->definitions] = [$diagnostics, $anchorKeys, $definitions];
 
         return $kept;
@@ -521,6 +529,51 @@ final class InlineCarriers
     }
 
     /**
+     * Records a `comment-end` span or a range start at its place; a claimed end gives nothing, other nodes as `holds()`.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param int $place
+     * @param array<string, true> $pending The ids of the starts that no end has claimed yet.
+     */
+    private function enter(HtmlNode $node, int $place, array &$pending): ?bool
+    {
+        $id = $node->attr('data-comment-id') ?? "\0";
+        if ($node->isElement('span') && ($node->classes()[0] ?? '') === 'comment-end') {
+            $this->ends[$id][] = [$place, $node];
+            if (isset($pending[$id])) {
+                unset($pending[$id]);
+
+                return false;
+            }
+        } elseif (self::isRangeStart($node)) {
+            $pending[$id] = true;
+        }
+
+        return $this->holds($node);
+    }
+
+    /**
+     * Decides an inline element once its content is walked, counting it in `held`; one that gives nothing and holds
+     * nothing is left out of later probes.
+     *
+     * @param \MarkupCarve\Carve\Import\HtmlNode $node
+     * @param int $held The inlines found so far.
+     * @param int $before The inlines found before the element's content.
+     * @param \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, true> $empty
+     */
+    private function settle(HtmlNode $node, int &$held, int $before, SplObjectStorage $empty): bool
+    {
+        $kept = $this->keeps($node, $held > $before, $empty);
+        if ($kept) {
+            $held++;
+        } elseif ($held === $before) {
+            $empty[$node] = true;
+        }
+
+        return $kept;
+    }
+
+    /**
      * One walk of the document for every ranged comment: each node's place in document order and the last place
      * of its descendants, and the `comment-end` spans by `data-comment-id` in that order. Only what the import keeps
      * counts as an inline: the walk skips the content of opaque elements, and an end a start before it claims is dropped.
@@ -538,38 +591,41 @@ final class InlineCarriers
         }
         $this->order = new SplObjectStorage();
         $this->ends = [];
-        $this->holding = [0];
+        $own = [];
+        $held = 0;
+        /** @var \SplObjectStorage<\MarkupCarve\Carve\Import\HtmlNode, true> $empty */
+        $empty = new SplObjectStorage();
         $pending = [];
         $count = 0;
-        $stack = [[$root, false]];
+        $stack = [[$root, false, 0]];
         while ($stack !== []) {
-            [$at, $closing] = array_pop($stack);
+            [$at, $closing, $before] = array_pop($stack);
             if ($closing) {
-                $this->order[$at] = [$this->order[$at][0], $count - 1];
+                $first = $this->order[$at][0];
+                $this->order[$at] = [$first, $count - 1];
+                if ($own[$first] === null) {
+                    $own[$first] = $this->settle($at, $held, $before, $empty);
+                }
 
                 continue;
             }
             $this->order[$at] = [$count, $count];
-            $end = $at->isElement('span') && ($at->classes()[0] ?? '') === 'comment-end';
-            $id = $at->attr('data-comment-id') ?? "\0";
-            $claimed = $end && isset($pending[$id]);
-            if ($claimed) {
-                unset($pending[$id]);
-            }
-            $this->holding[$count + 1] = $this->holding[$count] + (!$claimed && $this->holds($at) ? 1 : 0);
-            if ($end) {
-                $this->ends[$id][] = [$count, $at];
-            } elseif (self::isRangeStart($at)) {
-                $pending[$id] = true;
+            $own[$count] = $this->enter($at, $count, $pending);
+            if ($own[$count] === true) {
+                $held++;
             }
             $count++;
-            $stack[] = [$at, true];
+            $stack[] = [$at, true, $held];
             if (self::isOpaque($at)) {
                 continue;
             }
             for ($i = count($at->children) - 1; $i >= 0; $i--) {
-                $stack[] = [$at->children[$i], false];
+                $stack[] = [$at->children[$i], false, 0];
             }
+        }
+        $this->holding = [0];
+        foreach ($own as $i => $gives) {
+            $this->holding[$i + 1] = $this->holding[$i] + ($gives ? 1 : 0);
         }
 
         return $this->order;

@@ -45,6 +45,16 @@ final class RangedCommentDroppedEmptyTest extends TestCase
             'kept anchor' => ['<a id="u"></a>', "{#n#}[]{#u}y\n", [$lost]],
             'kept span with a title' => ['<span title="x"></span>', "{#n#}[]{title=x}y\n", [$lost]],
             'kept span around a dropped em' => ['<span title="t"><em></em></span>', "{#n#}[]{title=t}y\n", [$lost]],
+            'autolink around a dropped em' => [
+                '<a data-carve-autolink href="u"><em></em></a>',
+                "{#n#}y\n",
+                ['import-carrier-ignored'],
+            ],
+            'kept span around nested dropped elements' => [
+                '<span title="t"><em><b></b></em></span>',
+                "{#n#}[]{title=t}y\n",
+                [$lost],
+            ],
             'kept cite with a title' => [
                 '<cite title="x"></cite>',
                 "{#n#}[]{title=x}y\n",
