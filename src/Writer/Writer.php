@@ -1067,6 +1067,12 @@ final class Writer
             $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
             $repaired = $planner->repair();
         }
+        if ($repaired === null) {
+            // C2-W-088: where the kind rounds end with a node that did not read back, rounds that escape only the
+            // reported openers write the group again.
+            $repaired = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->reportedOpenersAfter($planner)->repair();
+            $spans = null;
+        }
 
         if ($repaired === null) {
             // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the

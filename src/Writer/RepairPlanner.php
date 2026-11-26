@@ -382,6 +382,18 @@ final class RepairPlanner
     private ?array $settledEscapes = null;
 
     /**
+     * C2-W-088: rounds that escape only the reported openers, which write a group again where its kind rounds end with
+     * a node of the tree that did not read back. They go on from the characters those rounds read (C2-W-133).
+     */
+    public function reportedOpenersAfter(?self $kindRounds): self
+    {
+        $this->kindRounds = false;
+        $this->read = $kindRounds->read ?? 0;
+
+        return $this;
+    }
+
+    /**
      * The candidate of the starting escapes and its `ReadbackRound::inspect()`, when the caller already has them.
      *
      * @param array{

@@ -36,6 +36,24 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * C2-W-088: where the kind rounds end with a node that did not read back, rounds that escape only the reported
+     * openers write the group again. A generated variant of the carve#6813 family, which those rounds write.
+     *
+     * @return void
+     */
+    public function testReportedOpenerRoundsWriteWhereTheKindRoundsStop(): void
+    {
+        $source = (string)file_get_contents(dirname(__DIR__) . '/fixtures/writer/reported-openers-fallback.txt');
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $tree = TreeEncoder::decodedForWriter(Carve::parse($source));
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+        $this->assertTrue(TreeEquality::equal($tree, $read));
+    }
+
+    /**
      * @return array<string, array{string, string}>
      */
     public static function verbatim(): array
