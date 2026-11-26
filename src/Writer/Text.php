@@ -26,6 +26,11 @@ use MarkupCarve\Carve\Snippet\Syntax;
  * The escapes of a text node (C2-W-088 to C2-W-099), decided from the contexts of `data/escape-contexts.json` before the
  * text is written: each character that a context can make an opener at its position takes a backslash, from the
  * characters around it in the written output, and from nothing that a later parse finds.
+ *
+ * @phpstan-type WriteState array{
+ *     array<string, array<int, true>>|null, array<string, array<int, true>>, array<string, array<int, true>>,
+ *     array<string, true>|null, array<string, array<int, true>>, int, bool, bool, bool, bool, bool, bool, bool, bool, bool
+ * }
  */
 final class Text
 {
@@ -352,6 +357,34 @@ final class Text
      * @var array<string, array{int, string}>
      */
     private static array $blockReads = [];
+
+    /**
+     * The public state a write reads and sets, for `WriteMemo`.
+     *
+     * @return WriteState
+     */
+    public static function writeState(): array
+    {
+        return [
+            self::$recorded, self::$recordedDecided, self::$recordedPairs, self::$captionTexts, self::$recordedOwn,
+            self::$tickKindRounds, self::$undecided, self::$caseFive, self::$gluedElsewhere, self::$closesFence,
+            self::$cellTicks, self::$cellKinds, self::$conservative, self::$suppliedTree, self::$bareSigils,
+        ];
+    }
+
+    /**
+     * @phpstan-param WriteState $state
+     *
+     * @param array<mixed> $state `writeState()`.
+     */
+    public static function restoreWriteState(array $state): void
+    {
+        [
+            self::$recorded, self::$recordedDecided, self::$recordedPairs, self::$captionTexts, self::$recordedOwn,
+            self::$tickKindRounds, self::$undecided, self::$caseFive, self::$gluedElsewhere, self::$closesFence,
+            self::$cellTicks, self::$cellKinds, self::$conservative, self::$suppliedTree, self::$bareSigils,
+        ] = $state;
+    }
 
     public static function isPunct(string $c): bool
     {
