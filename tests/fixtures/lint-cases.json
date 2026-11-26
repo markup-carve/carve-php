@@ -1,0 +1,2328 @@
+{
+ "source": "carve-js 2b8b95c1 v2/lint/lint.test.mjs CASES and corpus-cases.json; findings of that engine; 0.2 pinned lint corrections",
+ "cases": {
+  "deprecated-continuation-marker": {
+   "trigger": "- a\n+\nb",
+   "near": "- a\n\nb",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-continuation-marker",
+     "/children/0/children/0/children/0",
+     4,
+     5,
+     "The plus continuation marker was removed in 0.2 and is text here. Put the block after a blank line, indented past the list marker."
+    ]
+   ]
+  },
+  "thematic-break-spelling": {
+   "trigger": "___",
+   "near": "***",
+   "options": {},
+   "findings": [
+    [
+     "thematic-break-spelling",
+     "/children/0",
+     0,
+     3,
+     "This line of \"___\" is text in Carve 0.2. Write \"***\" for a thematic break."
+    ]
+   ]
+  },
+  "setext-heading-underline": {
+   "trigger": "A\n---",
+   "near": "= A",
+   "options": {},
+   "findings": [
+    [
+     "setext-heading-underline",
+     "/children/0",
+     2,
+     5,
+     "Carve has no underline heading: this run of hyphens is text. Write the heading with a leading `=`."
+    ]
+   ]
+  },
+  "deprecated-spaced-thematic-break": {
+   "trigger": "- - -",
+   "near": "***",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-spaced-thematic-break",
+     "/children/0/children/0/children/0/children/0/children/0",
+     0,
+     5,
+     "A spaced thematic break was removed in 0.2; this line is a list item (or text). Write the unspaced star form."
+    ]
+   ]
+  },
+  "block-marker-as-text": {
+   "trigger": "~~~js\nx\n~~~",
+   "near": "```js\nx\n```",
+   "options": {},
+   "findings": [
+    [
+     "block-marker-as-text",
+     "/children/0",
+     0,
+     5,
+     "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
+    ]
+   ]
+  },
+  "block-marker-as-text#2": {
+   "trigger": "{.x\npara",
+   "near": "{.x}\npara",
+   "options": {},
+   "findings": [
+    [
+     "block-marker-as-text",
+     "/children/0",
+     0,
+     3,
+     "This line begins like an attribute line but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
+    ]
+   ]
+  },
+  "html-comment-renders-as-text": {
+   "trigger": "<!-- x -->",
+   "near": "%% x",
+   "options": {},
+   "findings": [
+    [
+     "html-comment-renders-as-text",
+     "/children/0",
+     0,
+     10,
+     "This HTML comment renders as visible text. Use %% for one line or %%% for a comment block."
+    ]
+   ]
+  },
+  "bare-html-tag": {
+   "trigger": "<b>x</b>",
+   "near": "[x](/b)",
+   "options": {},
+   "findings": [
+    [
+     "bare-html-tag",
+     "/children/0",
+     0,
+     3,
+     "This bare HTML tag is escaped as text; use a raw HTML block if markup is intended."
+    ]
+   ]
+  },
+  "empty-reference-definition": {
+   "trigger": "[a]:",
+   "near": "[a]: /u",
+   "options": {},
+   "findings": [
+    [
+     "empty-reference-definition",
+     "/children/0",
+     0,
+     4,
+     "This line is a label and a colon with nothing after it, so it is text and defines nothing. Add a destination, or remove the line."
+    ]
+   ]
+  },
+  "table-shaped-paragraph": {
+   "trigger": "| a | b",
+   "near": "| a | b |",
+   "options": {},
+   "findings": [
+    [
+     "table-shaped-paragraph",
+     "/children/0",
+     0,
+     7,
+     "This table-shaped line lacks a closing pipe and renders as paragraph text; close the table row."
+    ]
+   ]
+  },
+  "blockquote-marker-without-space": {
+   "trigger": ">x",
+   "near": "> x",
+   "options": {},
+   "findings": [
+    [
+     "blockquote-marker-without-space",
+     "/children/0",
+     0,
+     2,
+     "A blockquote marker must be either bare \">\" or followed by a space. This line renders as literal text; write \"> x\" to quote it."
+    ]
+   ]
+  },
+  "indented-code-block": {
+   "trigger": "a\n\n    b\n",
+   "near": "a\n\n   b\n",
+   "options": {},
+   "findings": [
+    [
+     "indented-code-block",
+     "/children/1",
+     7,
+     8,
+     "Four-space indentation does not make a code block in Carve; this renders as a paragraph. Use a ``` fence."
+    ]
+   ]
+  },
+  "unattached-block-attribute": {
+   "trigger": "{.x}",
+   "near": "{.x}\ntext",
+   "options": {},
+   "findings": [
+    [
+     "unattached-block-attribute",
+     "/children/0",
+     0,
+     4,
+     "This attribute line reaches no block: a blank line or the end of its container follows, so the line is text (C2-B-192). Move it directly above the block it describes, or delete it."
+    ]
+   ]
+  },
+  "empty-include-path": {
+   "trigger": "{{ }}",
+   "near": "{{ file.crv }}",
+   "options": {},
+   "findings": [
+    [
+     "empty-include-path",
+     "/children/0",
+     0,
+     5,
+     "This \"{{ }}\" looks like an include directive with no path, so it renders as literal text. Add a path (for example {{ chapter.crv }}) or remove the braces."
+    ]
+   ]
+  },
+  "comment-splits-table-row": {
+   "trigger": "| a |\n%% x\n+ b |",
+   "near": "| a |\n+ b |\n%% x",
+   "options": {},
+   "findings": [
+    [
+     "comment-splits-table-row",
+     "/children/0/children/0/children/0",
+     6,
+     10,
+     "This comment stands between a table row and its continuation, so it belongs after the whole row. Move it above the row or below the continuation."
+    ]
+   ]
+  },
+  "include-attributes-unused": {
+   "trigger": "{.wide}\n{{ a.crv }}",
+   "near": "{.wide}\n{{ a.js @code }}",
+   "options": {},
+   "findings": [
+    [
+     "include-attributes-unused",
+     "/children/0",
+     0,
+     19,
+     "The attributes above this include apply to nothing, because it has no @code option. Remove them or move them into the included file."
+    ]
+   ]
+  },
+  "include-lines-table-rows-hint": {
+   "trigger": "{table}\n{{ d.csv @lines:1-2 @code:csv }}",
+   "near": "{table}\n{{ d.csv @rows:1-2 @code:csv }}",
+   "options": {},
+   "findings": [
+    [
+     "include-lines-table-rows-hint",
+     "/children/0",
+     17,
+     27,
+     "@lines counts physical lines. Use @rows to select records of this table."
+    ]
+   ]
+  },
+  "table-row-count-clamped": {
+   "trigger": "{table header-rows=5}\n```csv\na,b\nc,d\n```",
+   "near": "{table header-rows=2}\n```csv\na,b\nc,d\n```",
+   "options": {},
+   "findings": [
+    [
+     "table-row-count-clamped",
+     "/children/0",
+     7,
+     20,
+     "header-rows=5 asks for more rows than the table has, so it takes 2. Write header-rows=2."
+    ]
+   ]
+  },
+  "link-gap-before-destination": {
+   "trigger": "[x] (/u)",
+   "near": "[x](/u)",
+   "options": {},
+   "findings": [
+    [
+     "link-gap-before-destination",
+     "/children/0",
+     2,
+     5,
+     "The gap after this link label keeps the link as text; write ]( with no space."
+    ]
+   ]
+  },
+  "deprecated-bare-underline": {
+   "trigger": "a _x_ b",
+   "near": "a {_x_} b",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-bare-underline",
+     "/children/0",
+     2,
+     5,
+     "A bare underscore pair is text in 0.2. Write the braced underline, or the slash pair for emphasis."
+    ]
+   ]
+  },
+  "deprecated-bare-strike": {
+   "trigger": "a ~x~ b",
+   "near": "a {~x~} b",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-bare-strike",
+     "/children/0",
+     2,
+     5,
+     "A bare tilde pair is text in 0.2. Write the braced strike."
+    ]
+   ]
+  },
+  "deprecated-bare-highlight": {
+   "trigger": "a =x= b",
+   "near": "a {=x=} b",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-bare-highlight",
+     "/children/0",
+     2,
+     5,
+     "A bare equals pair is text in 0.2. Write the braced highlight."
+    ]
+   ]
+  },
+  "markdown-strong-double-star": {
+   "trigger": "**bold**",
+   "near": "*bold*",
+   "options": {},
+   "findings": [
+    [
+     "markdown-strong-double-star",
+     "/children/0",
+     0,
+     8,
+     "Markdown `**strong**` is literal text in Carve, asterisks included. Carve strong is a single `*`."
+    ]
+   ]
+  },
+  "markdown-strikethrough-double-tilde": {
+   "trigger": "~~x~~",
+   "near": "{~x~}",
+   "options": {},
+   "findings": [
+    [
+     "markdown-strikethrough-double-tilde",
+     "/children/0",
+     0,
+     5,
+     "Markdown `~~strikethrough~~` is literal text in Carve. Carve strikethrough is the braced `{~x~}`."
+    ]
+   ]
+  },
+  "a11y/image-alt": {
+   "trigger": "![](/x)",
+   "near": "![x](/x)",
+   "options": {},
+   "findings": [
+    [
+     "a11y/image-alt",
+     "/children/0/children/0",
+     0,
+     7,
+     "image has empty alternative text and is not marked decorative"
+    ]
+   ]
+  },
+  "empty-link-destination": {
+   "trigger": "[x]()",
+   "near": "[x](/u)",
+   "options": {},
+   "findings": [
+    [
+     "empty-link-destination",
+     "/children/0/children/0",
+     0,
+     5,
+     "This link has an empty destination."
+    ]
+   ]
+  },
+  "deprecated-loose-attribute": {
+   "trigger": "{loose}\n- a\n- b",
+   "near": "- a\n- b",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-loose-attribute",
+     "/children/0",
+     0,
+     15,
+     "The loose attribute was removed in 0.2 and is a plain attribute here. A list is loose when a blank line stands between two of its items."
+    ]
+   ]
+  },
+  "heading-level-skip": {
+   "trigger": "# One\n\n### Two",
+   "near": "# One\n\n## Two",
+   "options": {},
+   "findings": [
+    [
+     "heading-level-skip",
+     "/children/1",
+     7,
+     14,
+     "This heading skips from level 1 to 3; use the next heading level for a continuous outline."
+    ]
+   ]
+  },
+  "duplicate-reference-url": {
+   "trigger": "[a]: /u\n\n[b]: /u",
+   "near": "[a]: /u\n\n[b]: /v",
+   "options": {},
+   "findings": [
+    [
+     "duplicate-reference-url",
+     "/children/1",
+     9,
+     16,
+     "This reference definition repeats an earlier URL."
+    ]
+   ]
+  },
+  "deprecated-separator-row": {
+   "trigger": "| a |\n|---|",
+   "near": "|= a |",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-separator-row",
+     "/children/0/children/0/children/1",
+     6,
+     11,
+     "The separator row was removed in 0.2 and is a row of dashes here. Mark the header cells with the header mark and delete this row."
+    ]
+   ]
+  },
+  "frontmatter-shaped-thematic-break": {
+   "trigger": "---",
+   "near": "---\ntitle: x\n---",
+   "options": {},
+   "findings": [
+    [
+     "frontmatter-shaped-thematic-break",
+     "/children/0",
+     0,
+     3,
+     "Three hyphens on line 1 open frontmatter, not a thematic break. Write three stars for a break."
+    ]
+   ]
+  },
+  "unused-link-reference-definition": {
+   "trigger": "[a]: /u",
+   "near": "[a]: /u\n\n[a][]",
+   "options": {},
+   "findings": [
+    [
+     "unused-link-reference-definition",
+     "/children/0",
+     0,
+     7,
+     "This link reference definition is unused."
+    ]
+   ]
+  },
+  "unresolved-reference-link": {
+   "trigger": "[a][b]",
+   "near": "[b]: /u\n\n[a][b]",
+   "options": {},
+   "findings": [
+    [
+     "unresolved-reference-link",
+     "/children/0/children/0",
+     0,
+     6,
+     "Reference link [a][b] has no matching link definition or heading; it renders as literal text."
+    ]
+   ]
+  },
+  "unresolved-footnote": {
+   "trigger": "See [^a].",
+   "near": "[^a]: Note.\n\nSee [^a].",
+   "options": {},
+   "findings": [
+    [
+     "unresolved-footnote",
+     "/children/0/children/1",
+     4,
+     8,
+     "Footnote reference [^a] has no matching definition; it renders as literal text."
+    ]
+   ]
+  },
+  "unused-footnote-definition": {
+   "trigger": "[^a]: Note.",
+   "near": "[^a]: Note.\n\nSee [^a].",
+   "options": {},
+   "findings": [
+    [
+     "unused-footnote-definition",
+     "/children/0",
+     0,
+     4,
+     "Footnote definition [^a] is never referenced, so it is omitted from the rendered document."
+    ]
+   ]
+  },
+  "broken-fragment-link": {
+   "trigger": "[x](#no)",
+   "near": "# yes\n\n[x](#yes)",
+   "options": {},
+   "findings": [
+    [
+     "broken-fragment-link",
+     "/children/0/children/0",
+     0,
+     8,
+     "Link to \"#no\" matches no id in this document, so the link goes nowhere."
+    ]
+   ]
+  },
+  "broken-crossref": {
+   "trigger": "</#no>",
+   "near": "# yes\n\n</#yes>",
+   "options": {},
+   "findings": [
+    [
+     "broken-crossref",
+     "/children/0/children/0",
+     0,
+     6,
+     "Cross-reference </#no> has no matching heading id; it renders as the literal text \"</#no>\"."
+    ]
+   ]
+  },
+  "deprecated-cell-alignment": {
+   "trigger": "|< a |",
+   "near": "|={<} a |",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/0/children/0/children/0",
+     1,
+     2,
+     "The table cell alignment prefix \"<\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{<}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ]
+   ]
+  },
+  "deprecated-indented-line-under-heading": {
+   "trigger": "# Heading\n  continuation",
+   "near": "# Heading\ncontinuation",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-indented-line-under-heading",
+     "/children/0",
+     10,
+     24,
+     "This indented line directly below a heading is part of the heading in 0.2; in 0.1 it started a paragraph. Remove the indent to make it a separate block again; if it then reads as a list marker or another opener and a paragraph is meant, escape its first character."
+    ]
+   ]
+  },
+  "description-term-multi-line": {
+   "trigger": ":: term\n   : desc",
+   "near": ":: term\n: desc",
+   "options": {},
+   "findings": [
+    [
+     "description-term-multi-line",
+     "/children/0/children/0",
+     11,
+     17,
+     "This line continues the term above, so its `:` is term text and opens no description. Put the description mark at the column of the term mark."
+    ]
+   ]
+  },
+  "figure-group-empty": {
+   "trigger": "::: figure\ntext\n:::",
+   "near": "::: figure\n| a |\n^ cap\n:::",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-empty",
+     "/children/0",
+     0,
+     19,
+     "This \"::: figure\" group holds no captionable panel; the panels wrapper renders around the preserved content only."
+    ]
+   ]
+  },
+  "figure-group-nested": {
+   "trigger": "::: figure\n::: figure\n:::\n:::",
+   "near": "::: figure\n| a |\n^ cap\n:::",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-nested",
+     "/children/0/children/0",
+     11,
+     25,
+     "A \"::: figure\" inside a figure group is a figure group of its own and not a panel of the outer group. Move it out of the enclosing group."
+    ]
+   ]
+  },
+  "figure-group-single-panel": {
+   "trigger": "::: figure\n| a |\n^ cap\n:::",
+   "near": "::: figure\n| a |\n^ cap\n| b |\n^ cap\n:::",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-single-panel",
+     "/children/0",
+     0,
+     26,
+     "This \"::: figure\" group holds a single panel; a plain captioned figure renders the same content without the group wrapper."
+    ]
+   ]
+  },
+  "figure-group-opener-metadata": {
+   "trigger": "::: figure \"T\"\ntext\n:::",
+   "near": "::: figure\ntext\n:::",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-opener-metadata",
+     "/children/0",
+     0,
+     14,
+     "A \"::: figure\" opener carrying a quoted title or [label] is not a figure group; it is a plain container with the class \"figure\" (C2-B-127). Drop the title or label to open a figure group, and use a caption line below it."
+    ]
+   ]
+  },
+  "platform-issue-reference": {
+   "trigger": "See #123.",
+   "near": "See item 123.",
+   "options": {
+    "platforms": [
+     "github"
+    ]
+   },
+   "findings": [
+    [
+     "platform-issue-reference",
+     "/children/0/children/0",
+     4,
+     8,
+     "GitHub re-linkifies a hash-number in published output, so \"#123\" becomes a link that notifies or references something unrelated; move the example into a fenced code block, or rewrite it as \"item 1\" / \"point 1\""
+    ]
+   ]
+  },
+  "platform-mention-token": {
+   "trigger": "See @bob.",
+   "near": "See Bob.",
+   "options": {
+    "platforms": [
+     "github"
+    ]
+   },
+   "findings": [
+    [
+     "platform-mention-token",
+     "/children/0/children/1",
+     4,
+     8,
+     "GitHub re-linkifies a mention token in published output, so \"@bob\" becomes a link that notifies or references something unrelated; move the example into a fenced code block, or strip the sigil and rephrase"
+    ]
+   ]
+  },
+  "braced-comment-in-a-template-source": {
+   "trigger": "{% if x %}",
+   "near": "{% note %}",
+   "options": {},
+   "findings": [
+    [
+     "braced-comment-in-a-template-source",
+     "/children/0/children/0",
+     0,
+     10,
+     "This braced comment is a template tag. Liquid, Nunjucks, or Twig source may have reached Carve as text; the tag is parsed as an invisible comment."
+    ]
+   ]
+  },
+  "caption-looking-paragraph": {
+   "trigger": "| a |\nTable: cap",
+   "near": "| a |\n^ cap",
+   "options": {},
+   "findings": [
+    [
+     "caption-looking-paragraph",
+     "/children/1",
+     6,
+     16,
+     "This caption-looking paragraph sits next to a table or image; use a ^ caption line."
+    ]
+   ]
+  },
+  "carve-version-unsupported": {
+   "trigger": "---\ncarve: 0.3\n---",
+   "near": "---\ncarve: 0.2\n---",
+   "options": {},
+   "findings": [
+    [
+     "carve-version-unsupported",
+     "/children/0",
+     0,
+     18,
+     "document declares Carve 0.3; this engine implements 0.2, so constructs added after that version will not render as intended"
+    ]
+   ]
+  },
+  "consumed-key-near-miss": {
+   "trigger": "{tabel}\n```csv\na,b\n```\n",
+   "near": "{table}\n```csv\na,b\n```\n",
+   "options": {},
+   "findings": [
+    [
+     "consumed-key-near-miss",
+     "/children/0",
+     8,
+     22,
+     "\"tabel\" is not a consumed key here; did you mean {table}?"
+    ]
+   ]
+  },
+  "delimited-table-wide-row": {
+   "trigger": "{table}\n```csv\na,b\nc,d,e\n```",
+   "near": "{table}\n```csv\na,b\nc,d\n```",
+   "options": {},
+   "findings": [
+    [
+     "delimited-table-wide-row",
+     "/children/0",
+     0,
+     28,
+     "A CSV/TSV record has more fields than the first record; the table keeps the extra columns."
+    ]
+   ]
+  },
+  "deprecated-table-attribute": {
+   "trigger": "{header-rows=1}\n| a |",
+   "near": "{header-cols=1}\n| a |",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-table-attribute",
+     "/children/0",
+     0,
+     21,
+     "`header-rows` on a pipe table no longer makes the cells of its rows header cells in 0.2: they keep the kind they are written with. Mark header cells with the header mark."
+    ]
+   ]
+  },
+  "djot-emphasis-underscore": {
+   "trigger": "a _x_ b",
+   "near": "a /x/ b",
+   "options": {
+    "rules": {
+     "djot-emphasis-underscore": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-emphasis-underscore",
+     "/children/0",
+     2,
+     5,
+     "Djot emphasis `_x_` is literal text in Carve. Carve emphasis is `/x/`."
+    ]
+   ]
+  },
+  "djot-heading-continuation": {
+   "trigger": "# h\ntext",
+   "near": "# h\n\ntext",
+   "options": {
+    "rules": {
+     "djot-heading-continuation": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-heading-continuation",
+     "/children/1",
+     4,
+     8,
+     "Djot folds the line(s) below a heading INTO it (a plain line, or one with the same number of `#`); Carve takes only lines indented past the heading marker into the heading (C2-B-154), so a line at the marker column is a separate block and the heading id changes."
+    ]
+   ]
+  },
+  "djot-highlight-braces": {
+   "trigger": "{=x=}",
+   "near": "=x=",
+   "options": {
+    "rules": {
+     "djot-highlight-braces": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-highlight-braces",
+     "/children/0/children/0",
+     0,
+     5,
+     "Djot highlight `{=x=}` is also Carve highlight. The bare `=x=` is literal text in Carve."
+    ]
+   ]
+  },
+  "djot-intraword-underscore": {
+   "trigger": "a_x_b",
+   "near": "a _x_ b",
+   "options": {
+    "rules": {
+     "djot-intraword-underscore": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-intraword-underscore",
+     "/children/0",
+     1,
+     4,
+     "Djot emphasizes this intraword `_x_`; the migration leaves it literal, so the emphasis is lost. Brace it as `{/x/}` if it was meant."
+    ]
+   ]
+  },
+  "djot-plus-bullet": {
+   "trigger": "+ a",
+   "near": "- a",
+   "options": {
+    "rules": {
+     "djot-plus-bullet": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-plus-bullet",
+     "/children/0",
+     0,
+     3,
+     "Djot/Markdown `+` bullet is not a Carve bullet, so this line is a paragraph. Write `-` or `*`."
+    ]
+   ]
+  },
+  "djot-subscript-tilde": {
+   "trigger": "a ~x~ b",
+   "near": "a {,x,} b",
+   "options": {
+    "rules": {
+     "djot-subscript-tilde": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-subscript-tilde",
+     "/children/0",
+     2,
+     5,
+     "Djot subscript `~x~` is literal text in Carve. Carve subscript is the braced `{,x,}`."
+    ]
+   ]
+  },
+  "djot-subscript-tilde-braced": {
+   "trigger": "{~x~}",
+   "near": "{,x,}",
+   "options": {
+    "rules": {
+     "djot-subscript-tilde-braced": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-subscript-tilde-braced",
+     "/children/0/children/0",
+     0,
+     5,
+     "Djot subscript `{~x~}` renders as *strikethrough* in Carve."
+    ]
+   ]
+  },
+  "djot-superscript-caret": {
+   "trigger": "a ^x^ b",
+   "near": "a {^x^} b",
+   "options": {
+    "rules": {
+     "djot-superscript-caret": "on"
+    }
+   },
+   "findings": [
+    [
+     "djot-superscript-caret",
+     "/children/0",
+     2,
+     5,
+     "Djot superscript `^x^` is literal text in Carve — Carve superscript is the braced `{^x^}` only."
+    ]
+   ]
+  },
+  "figure-group-panel-number": {
+   "trigger": "::: figure\n| a |\n^ # cap\n:::",
+   "near": "::: figure\n| a |\n^ cap\n:::",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-panel-number",
+     "/children/0/children/0",
+     11,
+     24,
+     "A \"#\" placeholder in a panel caption stays literal: panels are not numbering units, the group caption carries the number (and panel ids resolve with its letter)."
+    ]
+   ]
+  },
+  "footnote-labels-differ-only-in-whitespace": {
+   "trigger": "[^a b]: one\n\n[^a  b]: two",
+   "near": "[^a b]: one\n\n[^c d]: two",
+   "options": {},
+   "findings": [
+    [
+     "footnote-labels-differ-only-in-whitespace",
+     "/children/1",
+     13,
+     25,
+     "Footnote definition [^a  b] normalizes to the same key as [^a b]; the first definition wins. Normalized key: a b."
+    ]
+   ]
+  },
+  "heading-marker-mixed": {
+   "trigger": "= One\n\n# Two",
+   "near": "= One\n\n= Two",
+   "options": {},
+   "findings": [
+    [
+     "heading-marker-mixed",
+     "/children/0",
+     0,
+     5,
+     "This document mixes the two heading markers. carve fmt rewrites the hash to the equals sign."
+    ]
+   ]
+  },
+  "quote-fence-ends-the-quote-above": {
+   "trigger": "> a\n::: >\nb\n:::",
+   "near": "> a\n> ::: >\nb\n:::",
+   "options": {},
+   "findings": [
+    [
+     "quote-fence-ends-the-quote-above",
+     "",
+     4,
+     9,
+     "A \"::: >\" opener at the column of the quote above it ENDS that quote and opens a sibling one; the two render as adjacent blockquotes, not one nested in the other. Write \"> ::: >\" to nest it, or leave a blank line to make two quotes deliberate."
+    ]
+   ]
+  },
+  "region-marker-renders-as-text": {
+   "trigger": "#region x",
+   "near": "%% #region x",
+   "options": {},
+   "findings": [
+    [
+     "region-marker-renders-as-text",
+     "/children/0",
+     0,
+     9,
+     "This line renders as text and is not a region marker for a Carve include. Use \"%% #region name\"."
+    ]
+   ]
+  },
+  "semantic-attribute-outside-span": {
+   "trigger": "{mark=foo}\n# H",
+   "near": "[x]{mark=foo}",
+   "options": {},
+   "findings": [
+    [
+     "semantic-attribute-outside-span",
+     "/children/0",
+     0,
+     14,
+     "\"mark\" is a semantic span attribute (PART 9 §10) and only applies to an ordinary [content]{attrs} span; on heading it stays a raw attribute and renders as mark=\"foo\"."
+    ]
+   ]
+  },
+  "semantic-attribute-value-ignored": {
+   "trigger": "[x]{mark=foo}",
+   "near": "[x]{mark}",
+   "options": {},
+   "findings": [
+    [
+     "semantic-attribute-value-ignored",
+     "/children/0/children/0",
+     0,
+     13,
+     "Value on the semantic attribute \"mark\" is discarded: it selects the <mark> element and reaches no output. Only abbr, dfn and time carry a value (as title or datetime)."
+    ]
+   ]
+  },
+  "table-column-arity": {
+   "trigger": "{widths=10}\n| a | b |",
+   "near": "{widths=10,20}\n| a | b |",
+   "options": {},
+   "findings": [
+    [
+     "table-column-arity",
+     "/children/0",
+     1,
+     7,
+     "widths supplies 1 column entries for a 2-column table; the unset tail is valid but may be accidental."
+    ]
+   ]
+  },
+  "table-attribute-invalid": {
+   "trigger": "{widths=x}\n| a |",
+   "near": "{widths=10}\n| a |",
+   "options": {},
+   "findings": [
+    [
+     "table-attribute-invalid",
+     "/children/0",
+     1,
+     9,
+     "The value of widths is not valid, so the table ignores the whole attribute. Correct every entry, or remove the attribute."
+    ]
+   ]
+  },
+  "table-column-overlap": {
+   "trigger": "{aligns=left}\n|={>} a |= b |",
+   "near": "{aligns=left}\n|= a |= b |",
+   "options": {},
+   "findings": [
+    [
+     "table-column-overlap",
+     "/children/0",
+     1,
+     7,
+     "Column 1 supplies the same alignment axis both in the table and in a table attribute; the in-table marker wins."
+    ]
+   ]
+  },
+  "table-marker-run-padding": {
+   "trigger": "|{.x}> a |",
+   "near": "|>{.x} a |",
+   "options": {},
+   "findings": [
+    [
+     "table-marker-run-padding",
+     "/children/0/children/0/children/0/children/0",
+     1,
+     9,
+     "\"{.x}>\" writes a cell's attribute block before its alignment marker, which Carve no longer reads as one. The block is part of the cell's marker run and the run ends at a space, so with the \">\" glued to it there is no run: the braces are content and the cell is neither attributed nor aligned. Write \">{.x} \" to align it, or \"{.x} >\" to keep the \">\" as content deliberately."
+    ]
+   ]
+  },
+  "table-row-without-closing-pipe": {
+   "trigger": "| a | b",
+   "near": "| a | b |",
+   "options": {
+    "rules": {
+     "table-row-without-closing-pipe": "on"
+    }
+   },
+   "findings": []
+  },
+  "table-width-total": {
+   "trigger": "{widths=60,60}\n| a | b |",
+   "near": "{widths=50,50}\n| a | b |",
+   "options": {},
+   "findings": [
+    [
+     "table-width-total",
+     "/children/0",
+     1,
+     7,
+     "The specified table column widths total more than 100%."
+    ]
+   ]
+  },
+  "tight-list-item-with-blank-line": {
+   "trigger": "- a\n\n  b\n- c",
+   "near": "- a\n\n- c",
+   "options": {
+    "rules": {
+     "tight-list-item-with-blank-line": "on"
+    }
+   },
+   "findings": [
+    [
+     "tight-list-item-with-blank-line",
+     "/children/0",
+     0,
+     12,
+     "A blank line inside an item no longer makes the list loose. Put a blank line between the items if every item should render as a paragraph."
+    ]
+   ]
+  },
+  "uneven-list-indent": {
+   "trigger": "  - a\n- b",
+   "near": "- a\n- b",
+   "options": {},
+   "findings": [
+    [
+     "uneven-list-indent",
+     "/children/0/children/1",
+     6,
+     9,
+     "This marker stands left of every open list and continues the list above it. Align it with the markers of that list."
+    ]
+   ]
+  },
+  "a11y/image-alt#2": {
+   "trigger": "- ![]()\n\n  ^ cap\n  ^ cap\n",
+   "near": "- \n\n  ^ cap\n  ^ cap\n",
+   "options": {},
+   "findings": [
+    [
+     "a11y/image-alt",
+     "/children/0/children/0/children/0/children/0",
+     2,
+     7,
+     "image has empty alternative text and is not marked decorative"
+    ]
+   ]
+  },
+  "bare-html-tag#2": {
+   "trigger": "[a <x]> b](u)\n",
+   "near": "[a  b](u)\n",
+   "options": {},
+   "findings": []
+  },
+  "bidi-control-in-source": {
+   "trigger": "a‮b\n",
+   "near": "ab\n",
+   "options": {},
+   "findings": [
+    [
+     "bidi-control-in-source",
+     "/children/0/children/0",
+     1,
+     4,
+     "Bidi override/isolate control U+202E is preserved by canonical Carve but not written to the text and code of presentation output; remove it unless intentional."
+    ]
+   ]
+  },
+  "block-marker-as-text#3": {
+   "trigger": "- ~~~\nx\n~~~\n",
+   "near": "- x\nx\n\n",
+   "options": {},
+   "findings": [
+    [
+     "block-marker-as-text",
+     "/children/0/children/0/children/0",
+     2,
+     5,
+     "This line begins like a tilde fence but parsed as plain text - the block did not open. Check this line's syntax and any unterminated fence above it."
+    ]
+   ]
+  },
+  "block-opener-overindented": {
+   "trigger": "- a\n   - b\n",
+   "near": "- a\n   \n",
+   "options": {},
+   "findings": [
+    [
+     "block-opener-overindented",
+     "/children/0/children/0/children/1",
+     7,
+     10,
+     "This list is indented 1 column(s) past the content column of list item, and it still opens a list, measured from its own line. Remove the indentation to make the structure explicit, or escape the opener to keep the line as text."
+    ]
+   ]
+  },
+  "block-opener-without-blank-line": {
+   "trigger": "- a\n# H\n",
+   "near": "- a\n\n",
+   "options": {},
+   "findings": [
+    [
+     "block-opener-without-blank-line",
+     "/children/0/children/0/children/0",
+     4,
+     5,
+     "This line looks like a heading but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
+    ]
+   ]
+  },
+  "blockquote-marker-without-space#2": {
+   "trigger": ">+\nq\n",
+   "near": "\nq\n",
+   "options": {},
+   "findings": [
+    [
+     "blockquote-marker-without-space",
+     "/children/0",
+     0,
+     2,
+     "A blockquote marker must be either bare \">\" or followed by a space. This line renders as literal text; write \"> +\" to quote it."
+    ]
+   ]
+  },
+  "braced-span-opener-as-text": {
+   "trigger": "{*a {**} b*}\n",
+   "near": "{*a *} b*}\n",
+   "options": {},
+   "findings": [
+    [
+     "braced-span-opener-as-text",
+     "/children/0/children/0/children/0",
+     4,
+     6,
+     "This braced span did not open: the delimiter inside it closed a span that started before it. Escape that delimiter."
+    ]
+   ]
+  },
+  "broken-crossref#2": {
+   "trigger": "{^</#{^>^}\n",
+   "near": "{^^}\n",
+   "options": {},
+   "findings": [
+    [
+     "broken-crossref",
+     "/children/0/children/0/children/0",
+     2,
+     8,
+     "Cross-reference </#{^> has no matching heading id; it renders as the literal text \"</#{^>\"."
+    ]
+   ]
+  },
+  "broken-fragment-link#2": {
+   "trigger": "[^u]: see [x](#nope)\n\nBody.\n",
+   "near": "[^u]: see \n\nBody.\n",
+   "options": {},
+   "findings": [
+    [
+     "broken-fragment-link",
+     "/children/0/children/0/children/1",
+     10,
+     20,
+     "Link to \"#nope\" matches no id in this document, so the link goes nowhere."
+    ]
+   ]
+  },
+  "colon-fence-length-mismatch": {
+   "trigger": "- :::\n  :::e\n  ::::\nl\n",
+   "near": "- :::\n  :::e\n\nl\n",
+   "options": {},
+   "findings": [
+    [
+     "colon-fence-length-mismatch",
+     "/children/0/children/0/children/0",
+     15,
+     19,
+     "Bare 4-colon fence has a different width from the innermost 3-colon div opened at 1:3; it closes the container."
+    ]
+   ]
+  },
+  "comment-fence-closer-with-text": {
+   "trigger": "%%%\nx\n%%% not a closer\n%%%\nafter",
+   "near": "%%%\nx\n\n%%%\nafter",
+   "options": {},
+   "findings": [
+    [
+     "comment-fence-closer-with-text",
+     "/children/0",
+     6,
+     22,
+     "This line starts with a percent run and holds other text, so it is content of the comment block and does not close it. Put the closing run alone on its line."
+    ]
+   ]
+  },
+  "comment-in-reference-label": {
+   "trigger": "[x][a %% b]",
+   "near": "[x]",
+   "options": {},
+   "findings": [
+    [
+     "comment-in-reference-label",
+     "/children/0/children/1",
+     5,
+     11,
+     "A line comment starts inside this reference label and takes the rest of the line, so the brackets are text. Move the comment out of the label, or escape the percent signs."
+    ]
+   ]
+  },
+  "comment-line-in-line-block": {
+   "trigger": "::: |\n`\n%%\n:::\n",
+   "near": "::: |\n`\n\n:::\n",
+   "options": {},
+   "findings": [
+    [
+     "comment-line-in-line-block",
+     "/children/0/children/1",
+     8,
+     10,
+     "A line comment is text inside a line block. Use the braced comment."
+    ]
+   ]
+  },
+  "comment-shaped-emphasis": {
+   "trigger": "/*a*/ b\n",
+   "near": " b\n",
+   "options": {},
+   "findings": [
+    [
+     "comment-shaped-emphasis",
+     "/children/0/children/0",
+     0,
+     5,
+     "This emphasis looks like a C comment; use Carve comment syntax if you meant a comment."
+    ]
+   ]
+  },
+  "definition-in-container": {
+   "trigger": "1. x\n [r]: /u\n",
+   "near": "1. x\n \n",
+   "options": {},
+   "findings": [
+    [
+     "definition-in-container",
+     "/children/0/children/0/children/0",
+     6,
+     13,
+     "A definition is recognized only at column 0 outside every container, so this line is text. Move it to the top level."
+    ]
+   ]
+  },
+  "definition-term-block-folded": {
+   "trigger": ":: > x\n",
+   "near": ":: c\n# H\n",
+   "options": {},
+   "findings": [
+    [
+     "definition-term-block-folded",
+     "/children/0/children/0",
+     3,
+     4,
+     "A quote mark or list marker after the term mark is term text. Put the intended block on a `: ` description line at the list column, such as `: > text` or `: - item`."
+    ]
+   ]
+  },
+  "deprecated-bare-highlight#2": {
+   "trigger": "=a<=>=b=\n",
+   "near": "=a<=>\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-bare-highlight",
+     "/children/0",
+     5,
+     8,
+     "A bare equals pair is text in 0.2. Write the braced highlight."
+    ]
+   ]
+  },
+  "deprecated-bare-strike#2": {
+   "trigger": "~a~‍b~\n",
+   "near": "‍b~\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-bare-strike",
+     "/children/0",
+     0,
+     8,
+     "A bare tilde pair is text in 0.2. Write the braced strike."
+    ]
+   ]
+  },
+  "deprecated-bare-underline#2": {
+   "trigger": "a/_y_\n",
+   "near": "a/\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-bare-underline",
+     "/children/0",
+     2,
+     5,
+     "A bare underscore pair is text in 0.2. Write the braced underline, or the slash pair for emphasis."
+    ]
+   ]
+  },
+  "deprecated-cell-alignment#2": {
+   "trigger": "|=> Price |= Item |= Size |= Mood |\n| 12 |< pen |>^ big |~~ ok |\n|?v 3 | ink |>{.num} 9 | fine |\n",
+   "near": "|={>} Price |= Item |= Size |= Mood |\n| 12 |={<} pen |{>^} big |{~~} ok |\n|{?v} 3 | ink |{> .num} 9 | fine |\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/0/children/0/children/0",
+     2,
+     3,
+     "The table cell alignment prefix \">\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{>}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/0/children/1",
+     42,
+     43,
+     "The table cell alignment prefix \"<\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{<}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/0/children/2",
+     49,
+     51,
+     "The table cell alignment prefix \">^\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{>^}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/0/children/3",
+     57,
+     59,
+     "The table cell alignment prefix \"~~\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{~~}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/1/children/0",
+     66,
+     68,
+     "The table cell alignment prefix \"?v\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{?v}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ],
+    [
+     "deprecated-cell-alignment",
+     "/children/0/children/1/children/1/children/2",
+     78,
+     85,
+     "The table cell alignment prefix \">{.num}\" is the deprecated 0.1.13 spelling, removed in 0.2.0. Alignment symbols now lead the cell's attribute block: write \"{> .num}\". In 0.2 the old prefix is cell text, so the formatter leaves it; the upgrade tool rewrites it."
+    ]
+   ]
+  },
+  "deprecated-continuation-marker#2": {
+   "trigger": "> q\n+\n",
+   "near": "> q\n\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-continuation-marker",
+     "/children/0/children/0",
+     4,
+     5,
+     "The plus continuation marker was removed in 0.2 and is text here. Put the block after a blank line, indented past the list marker."
+    ]
+   ]
+  },
+  "deprecated-indented-line-under-heading#2": {
+   "trigger": "-{#k} {#h}\n # h\n",
+   "near": "-{#k} {#h}\n\n",
+   "options": {},
+   "findings": []
+  },
+  "deprecated-loose-attribute#2": {
+   "trigger": "***\n\n{loose}\n1. Note text.\n",
+   "near": "***\n\n\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-loose-attribute",
+     "/children/1",
+     5,
+     26,
+     "The loose attribute was removed in 0.2 and is a plain attribute here. A list is loose when a blank line stands between two of its items."
+    ]
+   ]
+  },
+  "deprecated-separator-row#2": {
+   "trigger": "| a |\n|---|\n|= b |\n",
+   "near": "| a |\n\n|= b |\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-separator-row",
+     "/children/0/children/0/children/1",
+     6,
+     11,
+     "The separator row was removed in 0.2 and is a row of dashes here. Mark the header cells with the header mark and delete this row."
+    ]
+   ]
+  },
+  "deprecated-spaced-thematic-break#2": {
+   "trigger": "- x\n* * *\n",
+   "near": "- x\n\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-spaced-thematic-break",
+     "/children/1/children/0/children/0/children/0/children/0",
+     4,
+     9,
+     "A spaced thematic break was removed in 0.2; this line is a list item (or text). Write the unspaced star form."
+    ]
+   ]
+  },
+  "deprecated-substitution-arrow": {
+   "trigger": "[{~a ~> b]~}\n",
+   "near": "[\n",
+   "options": {},
+   "findings": [
+    [
+     "deprecated-substitution-arrow",
+     "/children/0/children/1",
+     1,
+     12,
+     "The substitution arrow was removed in 0.2; this is a strike span. Write a deletion directly followed by an insertion."
+    ]
+   ]
+  },
+  "description-separator-below-content-column": {
+   "trigger": "::: box\n   :: t\n: d\n:::\n",
+   "near": ":: t\n: a\n : b\n",
+   "options": {},
+   "findings": [
+    [
+     "description-separator-below-content-column",
+     "/children/0/children/1",
+     16,
+     19,
+     "This description starts at column 1, below the column 4 of the definition list above, so it adds no entry to that list. Indent it to column 4 to continue the list."
+    ]
+   ]
+  },
+  "description-term-multi-line#2": {
+   "trigger": ":: t\n   :\tx\n",
+   "near": ":: t\n:\tx\n",
+   "options": {},
+   "findings": [
+    [
+     "description-term-multi-line",
+     "/children/0/children/0",
+     8,
+     11,
+     "This line continues the term above, so its `:` is term text and opens no description. Put the description mark at the column of the term mark."
+    ]
+   ]
+  },
+  "emphasis-as-heading": {
+   "trigger": "{#p}\n::: noprint\n/x/\n:::\n\na\n\n:: t\n: d\n",
+   "near": "{#p}\n::: noprint\n\n:::\n\na\n\n:: t\n: d\n",
+   "options": {},
+   "findings": [
+    [
+     "emphasis-as-heading",
+     "/children/0/children/0",
+     17,
+     20,
+     "This emphasized paragraph looks like a heading."
+    ]
+   ]
+  },
+  "emphasis-marker-before-attributes": {
+   "trigger": "a*{_k=b_}\n",
+   "near": "a\n",
+   "options": {},
+   "findings": [
+    [
+     "emphasis-marker-before-attributes",
+     "/children/0",
+     1,
+     9,
+     "This * closes no span, so it and the attribute block after it stay text. Brace the span you mean ({*text*}{…}) to attach the block, or escape the * to keep both as text."
+    ]
+   ]
+  },
+  "empty-link-destination#2": {
+   "trigger": "[w[HTML](u)]()\n\n*[HTML]: t\n",
+   "near": "\n\n*[HTML]: t\n",
+   "options": {},
+   "findings": [
+    [
+     "empty-link-destination",
+     "/children/0/children/0",
+     0,
+     14,
+     "This link has an empty destination."
+    ]
+   ]
+  },
+  "empty-reference-definition#2": {
+   "trigger": "[^a]:\n  body",
+   "near": "\n  body",
+   "options": {},
+   "findings": [
+    [
+     "empty-reference-definition",
+     "/children/0",
+     0,
+     5,
+     "This line is a label and a colon with nothing after it, so it is text and defines nothing. Add a destination, or remove the line."
+    ]
+   ]
+  },
+  "fence-closer-indented": {
+   "trigger": "- ```\n  x\n   ```\n",
+   "near": "- ```\n x\n \n",
+   "options": {},
+   "findings": [
+    [
+     "fence-closer-indented",
+     "/children/0/children/0/children/0",
+     13,
+     16,
+     "This line closes the block opened on line 1 although it is indented differently. If it is content, make the outer fence longer."
+    ]
+   ]
+  },
+  "figure-group-empty#2": {
+   "trigger": "- x\n+\n::: figure\n![a](b.png)\n:::\n^ cap\n- c\n",
+   "near": "- x\n+\n\n",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-empty",
+     "/children/1",
+     6,
+     38,
+     "This \"::: figure\" group holds no captionable panel; the panels wrapper renders around the preserved content only."
+    ]
+   ]
+  },
+  "figure-group-nested#2": {
+   "trigger": "::: figure\n:::: figure\n![one](a.png)\n^ (a) One\n::::\n:::\n^ Figure #: Outer only\n",
+   "near": "::: figure\n\n:::\n^ Figure #: Outer only\n",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-nested",
+     "/children/0/children/0",
+     11,
+     51,
+     "A \"::: figure\" inside a figure group is a figure group of its own and not a panel of the outer group. Move it out of the enclosing group."
+    ]
+   ]
+  },
+  "figure-group-opener-metadata#2": {
+   "trigger": "- x\n+\n::: figure \"t\"\nhi\n:::\n^ cap\n- c\n",
+   "near": "- x\n+\n\nhi\n:::\n^ cap\n- c\n",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-opener-metadata",
+     "/children/1",
+     6,
+     20,
+     "A \"::: figure\" opener carrying a quoted title or [label] is not a figure group; it is a plain container with the class \"figure\" (C2-B-127). Drop the title or label to open a figure group, and use a caption line below it."
+    ]
+   ]
+  },
+  "figure-group-single-panel#2": {
+   "trigger": "::: figure\n![one](a.png)\n^ (a) One\n:::\n\n\n^ Figure #: Detached\n",
+   "near": "\n\n\n^ Figure #: Detached\n",
+   "options": {},
+   "findings": [
+    [
+     "figure-group-single-panel",
+     "/children/0",
+     0,
+     38,
+     "This \"::: figure\" group holds a single panel; a plain captioned figure renders the same content without the group wrapper."
+    ]
+   ]
+  },
+  "footnotes-placement-in-container": {
+   "trigger": "Intro[^a].\n\n> ::: footnotes\n> :::\n\n[^a]: only note\n",
+   "near": "Intro[^a].\n\n> \n\n[^a]: only note\n",
+   "options": {},
+   "findings": [
+    [
+     "footnotes-placement-in-container",
+     "/children/1/children/0",
+     14,
+     33,
+     "This \"::: footnotes\" marker is inside a container, where it does not place: it renders as a plain typed div and the endnotes section goes where it would without the marker. Move the marker to document level, or delete it to accept the default position."
+    ]
+   ]
+  },
+  "frontmatter-shaped-thematic-break#2": {
+   "trigger": "---\n---\n\ntext",
+   "near": "\n\ntext",
+   "options": {},
+   "findings": [
+    [
+     "frontmatter-shaped-thematic-break",
+     "/children/0",
+     0,
+     7,
+     "Three hyphens on line 1 open frontmatter, not a thematic break. Write three stars for a break."
+    ]
+   ]
+  },
+  "github-alert-marker": {
+   "trigger": "# Troubleshooting a 502 Response\n\nA 502 response from nginx usually means it could not get a valid response from the upstream application.\n\n> [!WARNING]\n> Reload nginx only after validating the configuration. An invalid configuration can interrupt traffic.\n\n```nginx\nlocation / {\n    proxy_pass http://127.0.0.1:3000;\n    proxy_set_header Host $host;\n}\n```\n\n## Checks\n\n- Confirm the application is running and listening on `127.0.0.1:3000`.\n- Check the nginx error log for connection failures or upstream timeouts.\n\nAfter making a change, repeat the [Checks](#checks).",
+   "near": "# Troubleshooting a 502 Response\n\nA 502 response from nginx usually means it could not get a valid response from the upstream application.\n\n> \n> Reload nginx only after validating the configuration. An invalid configuration can interrupt traffic.\n\n```nginx\nlocation / {\n    proxy_pass http://127.0.0.1:3000;\n    proxy_set_header Host $host;\n}\n```\n\n## Checks\n\n- Confirm the application is running and listening on `127.0.0.1:3000`.\n- Check the nginx error log for connection failures or upstream timeouts.\n\nAfter making a change, repeat the [Checks](#checks).",
+   "options": {},
+   "findings": [
+    [
+     "github-alert-marker",
+     "/children/2/children/0",
+     142,
+     152,
+     "This github alert marker stays literal in a Carve quote; use an admonition fence."
+    ]
+   ]
+  },
+  "glob-shaped-strong": {
+   "trigger": "glob *.js or src/* and 5 *3 and 4* 2",
+   "near": "glob  and 5 *3 and 4* 2",
+   "options": {},
+   "findings": [
+    [
+     "glob-shaped-strong",
+     "/children/0/children/1",
+     5,
+     18,
+     "This strong span looks like a file glob; escape the asterisk if you meant a glob."
+    ]
+   ]
+  },
+  "heading-closing-hashes": {
+   "trigger": "# a #\n",
+   "near": "# a \n",
+   "options": {},
+   "findings": [
+    [
+     "heading-closing-hashes",
+     "/children/0",
+     4,
+     5,
+     "The closing \"#\" run is heading text in Carve, not a closing marker. Delete it."
+    ]
+   ]
+  },
+  "heading-level-skip#2": {
+   "trigger": "# H1\n\n### H3\n\ncontent\n",
+   "near": "# H1\n\n\n\ncontent\n",
+   "options": {},
+   "findings": [
+    [
+     "heading-level-skip",
+     "/children/1",
+     6,
+     12,
+     "This heading skips from level 1 to 3; use the next heading level for a continuous outline."
+    ]
+   ]
+  },
+  "heading-trailing-attribute": {
+   "trigger": "# A {.c}",
+   "near": "# A ",
+   "options": {},
+   "findings": [
+    [
+     "heading-trailing-attribute",
+     "/children/0",
+     4,
+     8,
+     "Trailing \"{.c}\" on a heading is literal text in Carve, not an attribute block. Move it to a \"{.c}\" line directly above the heading."
+    ]
+   ]
+  },
+  "indented-code-block#2": {
+   "trigger": "p\n\n    q\n",
+   "near": "p\n\n   q\n",
+   "options": {},
+   "findings": [
+    [
+     "indented-code-block",
+     "/children/1",
+     7,
+     8,
+     "Four-space indentation does not make a code block in Carve; this renders as a paragraph. Use a ``` fence."
+    ]
+   ]
+  },
+  "link-gap-before-destination#2": {
+   "trigger": "[a]\\(b) and f(x) and (see above) and [a] (b) and [a](b c)\n\n[[a]\\(u)]{.c}\n\n[`a`]\\(b)\n\n\\[/a](b)/\n\n[a]\\(b(xy)d) and [a]\\()\n",
+   "near": "[a]\\(b) and f(x) and (see above) and [ab) and [a](b c)\n\n[[a]\\(u)]{.c}\n\n[`a`]\\(b)\n\n\\[/a](b)/\n\n[a]\\(b(xy)d) and [a]\\()\n",
+   "options": {},
+   "findings": [
+    [
+     "link-gap-before-destination",
+     "/children/0",
+     39,
+     42,
+     "The gap after this link label keeps the link as text; write ]( with no space."
+    ]
+   ]
+  },
+  "list-item-block-overindented": {
+   "trigger": "- a\n\n   > b\n",
+   "near": "- a\n\n  > b\n",
+   "options": {},
+   "findings": [
+    [
+     "list-item-block-overindented",
+     "/children/0/children/0/children/1",
+     8,
+     11,
+     "This block opener is past the list item's canonical content column 3; it now parses structurally and the formatter will canonicalize it. Dedent it to column 3 for an explicit structural spelling, or escape the opener to preserve the literal meaning used by older readers."
+    ]
+   ]
+  },
+  "list-item-body-below-content-column": {
+   "trigger": "- a\n\n b",
+   "near": "- a\n\n\tb",
+   "options": {},
+   "findings": [
+    [
+     "list-item-body-below-content-column",
+     "/children/0/children/0/children/1",
+     6,
+     7,
+     "This line is indented past the list marker but short of the item's text, and it belongs to the item. Indent it to the text, or move it to the column of the list to end the item."
+    ]
+   ]
+  },
+  "list-marker-below-content-column": {
+   "trigger": "- a\n  - b\n * c\n",
+   "near": "- a\n  - b\n  * c\n",
+   "options": {},
+   "findings": [
+    [
+     "list-marker-below-content-column",
+     "/children/0/children/0/children/2/children/0",
+     11,
+     14,
+     "This list marker starts at column 2, between the columns of two open lists, so it is read at the column of the deeper list. Start it at column 3 to make that explicit, or at column 1 to put it in the outer list."
+    ]
+   ]
+  },
+  "list-marker-without-blank-line": {
+   "trigger": "> p\n- x\n",
+   "near": "> p\n\n",
+   "options": {},
+   "findings": [
+    [
+     "list-marker-without-blank-line",
+     "/children/0/children/0",
+     4,
+     7,
+     "This list marker is part of the preceding paragraph; add a blank line before the list."
+    ]
+   ]
+  },
+  "markdown-definition-paragraph": {
+   "trigger": "a\n: x\n",
+   "near": "> :: t\n : d\n",
+   "options": {},
+   "findings": [
+    [
+     "markdown-definition-paragraph",
+     "/children/0",
+     2,
+     5,
+     "This markdown definition remains paragraph text; use a :: term line before the definition."
+    ]
+   ]
+  },
+  "markdown-strikethrough-double-tilde#2": {
+   "trigger": "**a** ~~b~~ ^^c^^\n",
+   "near": "**a**  ^^c^^\n",
+   "options": {},
+   "findings": [
+    [
+     "markdown-strikethrough-double-tilde",
+     "/children/0",
+     6,
+     11,
+     "Markdown `~~strikethrough~~` is literal text in Carve. Carve strikethrough is the braced `{~x~}`."
+    ]
+   ]
+  },
+  "markdown-strong-double-star#2": {
+   "trigger": "**a** ~~b~~ ^^c^^\n",
+   "near": " ~~b~~ ^^c^^\n",
+   "options": {},
+   "findings": [
+    [
+     "markdown-strong-double-star",
+     "/children/0",
+     0,
+     5,
+     "Markdown `**strong**` is literal text in Carve, asterisks included. Carve strong is a single `*`."
+    ]
+   ]
+  },
+  "non-descriptive-link-text": {
+   "trigger": "[click here]() and [a named one]{#k}\n\n![logo]()\n",
+   "near": " and [a named one]{#k}\n\n![logo]()\n",
+   "options": {},
+   "findings": [
+    [
+     "non-descriptive-link-text",
+     "/children/0/children/0",
+     0,
+     14,
+     "Use descriptive link text or a specific aria-label."
+    ]
+   ]
+  },
+  "ordered-list-kind-split": {
+   "trigger": "i.  x\nb.  y\n",
+   "near": "i.  x\n\n",
+   "options": {},
+   "findings": [
+    [
+     "ordered-list-kind-split",
+     "/children/1",
+     6,
+     11,
+     "A lone i starts a roman list and any other single letter an alphabetic one, so this list splits after its first item."
+    ]
+   ]
+  },
+  "ordered-marker-right-aligned": {
+   "trigger": " 9. a\n10. b",
+   "near": " \n10. b",
+   "options": {},
+   "findings": [
+    [
+     "ordered-marker-right-aligned",
+     "/children/0/children/1",
+     6,
+     11,
+     "This marker sits left of its list, so it is a sibling item that moves the list's column. Write the ordered markers left-aligned, as the formatter does."
+    ]
+   ]
+  },
+  "references-placement-in-container": {
+   "trigger": "See [@x].\n\n> ::: references\n> :::\n\n[@x]: Source\n",
+   "near": "See [@x].\n\n> \n\n[@x]: Source\n",
+   "options": {},
+   "findings": []
+  },
+  "setext-heading-underline#2": {
+   "trigger": "x\n\n---\n---\n",
+   "near": "x\n\n---\n\n",
+   "options": {},
+   "findings": [
+    [
+     "setext-heading-underline",
+     "/children/1",
+     7,
+     10,
+     "Carve has no underline heading: this run of hyphens is text. Write the heading with a leading `=`."
+    ]
+   ]
+  },
+  "sigil-after-letter": {
+   "trigger": "ü@bob\n",
+   "near": "ü @bob\n",
+   "options": {},
+   "findings": [
+    [
+     "sigil-after-letter",
+     "/children/0",
+     2,
+     3,
+     "A mention or tag does not start directly after a letter or number. Put a space or punctuation before it."
+    ]
+   ]
+  },
+  "table-row-attribute-as-cell": {
+   "trigger": "| Value |\n| {.x} |\n",
+   "near": "| Value |\n\n",
+   "options": {},
+   "findings": [
+    [
+     "table-row-attribute-as-cell",
+     "/children/0/children/0/children/1",
+     10,
+     18,
+     "A row attribute is the brace block glued after the closing pipe. Here it is cell content."
+    ]
+   ]
+  },
+  "table-row-cell-count": {
+   "trigger": "|= h |\n| |x |\n",
+   "near": "|= h |\n\n",
+   "options": {},
+   "findings": [
+    [
+     "table-row-cell-count",
+     "/children/0/children/1/children/0",
+     7,
+     13,
+     "This table row has 2 cells; the header has 1. Add or remove a cell to match the table."
+    ]
+   ]
+  },
+  "table-shaped-paragraph#2": {
+   "trigger": "| a\n| b |\n",
+   "near": "\n| b |\n",
+   "options": {},
+   "findings": [
+    [
+     "table-shaped-paragraph",
+     "/children/0",
+     0,
+     3,
+     "This table-shaped line lacks a closing pipe and renders as paragraph text; close the table row."
+    ]
+   ]
+  },
+  "table-span-marker-blocked": {
+   "trigger": "|= H |\n| ^ |\n| a |",
+   "near": "|= H |\n||\n| a |",
+   "options": {},
+   "findings": [
+    [
+     "table-span-marker-blocked",
+     "/children/0/children/1/children/0/children/0",
+     8,
+     11,
+     "The \"^\" span marker cannot extend a cell. It stands in the first row of its group: head, body or foot. It is a cell that holds \"^\" as text; escape it as \"\\^\" to say so, or remove it."
+    ]
+   ]
+  },
+  "table-span-marker-attribute": {
+   "trigger": "|= H |\n|={.x} ^ |\n| a |",
+   "near": "|= H |\n|= ^ |\n| a |",
+   "options": {},
+   "findings": [
+    [
+     "table-span-marker-attribute",
+     "/children/0/children/0/children/1/children/0",
+     8,
+     16,
+     "This \"^\" joins the cell above it, so its attribute block applies to no cell and carve fmt drops it. Move the attributes to the cell it joins, or remove them."
+    ]
+   ]
+  },
+  "thematic-break-spelling#2": {
+   "trigger": "a\n\n___\n\nb",
+   "near": "a\n\n\n\nb",
+   "options": {},
+   "findings": [
+    [
+     "thematic-break-spelling",
+     "/children/1",
+     3,
+     6,
+     "This line of \"___\" is text in Carve 0.2. Write \"***\" for a thematic break."
+    ]
+   ]
+  },
+  "unattached-block-attribute#2": {
+   "trigger": "- b\n{.x}\n",
+   "near": "- b\n\n",
+   "options": {},
+   "findings": []
+  },
+  "unattached-caption": {
+   "trigger": "^ p\n",
+   "near": "\n",
+   "options": {},
+   "findings": [
+    [
+     "unattached-caption",
+     "/children/0",
+     0,
+     3,
+     "This caption line is not directly below an image, table, code block, quote, math block, figure group or code include, so it is text. If a blank line separates it from such a block, remove the blank line; otherwise escape the caret."
+    ]
+   ]
+  },
+  "unattached-inline-attribute": {
+   "trigger": "# A {.c}",
+   "near": "# A ",
+   "options": {},
+   "findings": [
+    [
+     "unattached-inline-attribute",
+     "/children/0",
+     4,
+     8,
+     "This attribute block is attached to nothing and renders as text. Glue it to a span, link or code span, or escape the brace."
+    ]
+   ]
+  },
+  "unclosed-braced-comment": {
+   "trigger": "a {% oops\n| b |\nc %}\n",
+   "near": "a \n| b |\nc %}\n",
+   "options": {},
+   "findings": [
+    [
+     "unclosed-braced-comment",
+     "/children/0",
+     2,
+     9,
+     "This braced comment is not closed before the next block starts, so it stays text. Close it inside its block, or use %% line comments."
+    ]
+   ]
+  },
+  "unclosed-inline-emphasis": {
+   "trigger": "*a `b` c\n",
+   "near": "a `b` c\n",
+   "options": {},
+   "findings": [
+    [
+     "unclosed-inline-emphasis",
+     "/children/0/children/0",
+     0,
+     1,
+     "This strong (or: emphasis) opener is unclosed in its paragraph; add a closer."
+    ]
+   ]
+  },
+  "unresolved-footnote#2": {
+   "trigger": "*[^[g]*] b*\n",
+   "near": "**] b*\n",
+   "options": {},
+   "findings": [
+    [
+     "unresolved-footnote",
+     "/children/0/children/0/children/0",
+     1,
+     6,
+     "Footnote reference [^[g] has no matching definition; it renders as literal text."
+    ]
+   ]
+  },
+  "unresolved-reference-link#2": {
+   "trigger": "# [g][h]\\\n",
+   "near": "# \\\n",
+   "options": {},
+   "findings": [
+    [
+     "unresolved-reference-link",
+     "/children/0/children/0",
+     2,
+     8,
+     "Reference link [g][h] has no matching link definition or heading; it renders as literal text."
+    ]
+   ]
+  },
+  "unused-footnote-definition#2": {
+   "trigger": "[^n]: # H\n\n[H][]\n",
+   "near": "\n\n[H][]\n",
+   "options": {},
+   "findings": [
+    [
+     "unused-footnote-definition",
+     "/children/0",
+     0,
+     4,
+     "Footnote definition [^n] is never referenced, so it is omitted from the rendered document."
+    ]
+   ]
+  },
+  "unused-link-reference-definition#2": {
+   "trigger": "[Text][REF]\n\n[ref]: /u\n",
+   "near": "[Text][REF]\n\n\n",
+   "options": {},
+   "findings": [
+    [
+     "unused-link-reference-definition",
+     "/children/1",
+     13,
+     22,
+     "This link reference definition is unused."
+    ]
+   ]
+  },
+  "block-opener-without-blank-line#6198": {
+   "trigger": "para\n>",
+   "near": "para\nplain",
+   "options": [],
+   "findings": [
+    [
+     "block-opener-without-blank-line",
+     "/children/0",
+     5,
+     6,
+     "This line looks like a quote but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
+    ]
+   ]
+  },
+  "caption-looking-paragraph#6200": {
+   "trigger": ": key\n|",
+   "near": ": key\nplain",
+   "options": [],
+   "findings": []
+  },
+  "blockquote-marker-without-space#6202": {
+   "trigger": ">\t",
+   "near": "> ",
+   "options": [],
+   "findings": [
+    [
+     "blockquote-marker-without-space",
+     "/children/0",
+     0,
+     1,
+     "A blockquote marker must be bare `>` or followed by a space. This line is literal text; write `> ` to quote it."
+    ]
+   ]
+  },
+  "block-opener-without-blank-line#6203": {
+   "trigger": "para\n*[x]: y",
+   "near": "para\nplain",
+   "options": [],
+   "findings": [
+    [
+     "block-opener-without-blank-line",
+     "/children/0",
+     5,
+     10,
+     "This line looks like a definition but directly follows text, so it is part of the paragraph or caption above it. Add a blank line before it."
+    ]
+   ]
+  },
+  "fence-closer-indented#6213": {
+   "trigger": "````\n  ```",
+   "near": "````\n````",
+   "options": [],
+   "findings": []
+  },
+  "bare-html-tag#6214": {
+   "trigger": "| <i> |",
+   "near": "| text |",
+   "options": [],
+   "findings": [
+    [
+     "bare-html-tag",
+     "/children/0/children/0/children/0",
+     2,
+     5,
+     "This bare HTML tag is escaped as text; use a raw HTML block if markup is intended."
+    ]
+   ]
+  },
+  "bare-html-tag#6215": {
+   "trigger": ":: a <b>",
+   "near": ":: a text",
+   "options": [],
+   "findings": []
+  },
+  "indented-code-block#6216": {
+   "trigger": "\t1. w.\n\n    :",
+   "near": "1. w.\n\n:",
+   "options": [],
+   "findings": []
+  },
+  "list-marker-without-blank-line#6217": {
+   "trigger": "| w | w |\n^ w\n- ::",
+   "near": "| w | w |\n^ w\nplain",
+   "options": [],
+   "findings": []
+  },
+  "definition-in-container#6218": {
+   "trigger": "| w | w |\n^ w\n[^w]: %%",
+   "near": "| w | w |\n^ w\nplain",
+   "options": [],
+   "findings": []
+  },
+  "comment-fence-closer-with-text#6219": {
+   "trigger": "> %%%%\n> %%%% x",
+   "near": "> %%%%\n> plain",
+   "options": [],
+   "findings": [
+    [
+     "comment-fence-closer-with-text",
+     "/children/0/children/0",
+     7,
+     15,
+     "This line starts with a percent run and holds other text, so it is content of the comment block and does not close it. Put the closing run alone on its line."
+    ]
+   ]
+  },
+  "description-term-multi-line#6220": {
+   "trigger": "> :: w\n>    : w",
+   "near": "> :: w\n> : w",
+   "options": [],
+   "findings": [
+    [
+     "description-term-multi-line",
+     "/children/0/children/0/children/0",
+     12,
+     15,
+     "This line continues the term above, so its `:` is term text and opens no description. Put the description mark at the column of the term mark."
+    ]
+   ]
+  },
+  "fence-closer-indented#6221": {
+   "trigger": "> ```\n>   ```",
+   "near": "> ```\n> ```",
+   "options": [],
+   "findings": [
+    [
+     "fence-closer-indented",
+     "/children/0/children/0",
+     10,
+     13,
+     "This line closes the block opened on line 1 although it is indented differently. If it is content, make the outer fence longer."
+    ]
+   ]
+  },
+  "blockquote-marker-without-space#6226": {
+   "trigger": "a\n> %% x",
+   "near": "a\n> text",
+   "options": [],
+   "findings": []
+  },
+  "github-alert-marker#6227": {
+   "trigger": "> :: a\n> :: t2\n>: key\n> > [!NOTE]",
+   "near": "> :: a\n> plain",
+   "options": [],
+   "findings": [
+    [
+     "github-alert-marker",
+     "/children/1",
+     26,
+     33,
+     "This spelling does not create a GitHub alert in Carve; use an admonition fence for an alert."
+    ]
+   ]
+  },
+  "unattached-block-attribute#6255": {
+   "trigger": "{#id .c k=v}\n{#id .c k=v}\n\n",
+   "near": "{#id}\n# heading",
+   "options": [],
+   "findings": [
+    [
+     "unattached-block-attribute",
+     "/children/0",
+     0,
+     12,
+     "A blank line follows this attribute line, so it is text. Remove the blank line if you mean to attach it to a following block."
+    ]
+   ]
+  },
+  "bare-html-tag#6215-caption": {
+   "trigger": "| x | y |\n^ <i>",
+   "near": "| x | y |\n^ text",
+   "options": {},
+   "findings": []
+  },
+  "block-marker-as-text#6184": {
+   "trigger": "a\n~~~js",
+   "near": "a\nplain",
+   "options": {},
+   "findings": []
+  }
+ }
+}

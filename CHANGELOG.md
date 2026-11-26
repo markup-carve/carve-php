@@ -9,10 +9,13 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Breaking
+
+- Carve 0.2 replaces 0.1. The 0.2 engine moves to the package root: namespace `MarkupCarve\Carve2` becomes `MarkupCarve\Carve`, the entry class `Carve2` becomes `Carve`, and the program `carve2` becomes `carve`. See `docs/migration.md`.
+- The 0.1 engine is removed: `CarveConverter`, its parser, AST nodes, renderers (HTML, Markdown, plain text, ANSI, Carve), extensions, lint, Markdown, Djot and BBCode importers, ProseMirror bridge and the 0.1 `carve` commands. Markdown, plain text and ANSI output return as 0.2 writers.
+
 ### Fixes
 
-- HTML import and `carve fmt` write a `|` in table cell text with its backslash directly instead of searching for a shorter spelling. A table with pipes in many cells took seconds and grew faster than its row count; a 73-row table now converts in 0.6s instead of 6s. The written Carve drops escapes the search had left behind and renders the same (#5473).
-- On PHP 8.2 and 8.3, HTML import keeps a processing instruction whose text holds `--` or ends in `-` (`<?a--b>`) as a `{% ?a--b %}` comment, the way the HTML5 path reads it. It used to depend on libxml: 2.9 dropped it and 2.15 kept it (#5473).
 - `convert()` renders a list with a blank line before a nested list on the fast HTML path again, as fast as the tight shape; it had fallen back to the full parser (carve#6026).
 - A fence after a closed `+`-attached fence keeps its blank lines and the lines after them as payload; only the attached fence ends at a line that misses its host. Documents that hit this nested every later container and, on carve-bench `large.crv`, needed 149 MB and wrote 1.64 MB of HTML; now 69 MB and 650 KB (#5215).
 

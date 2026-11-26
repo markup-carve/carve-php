@@ -2,52 +2,63 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, next2]
   pull_request:
-    branches: [main]
+    branches: [main, next2]
 
-# PRs cancel their own superseded runs; every other event gets a unique group,
-# because GitHub keeps only one pending run per group and would drop main pushes.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Each job declares timeout-minutes so a hung step fails fast
-# instead of inheriting the 360-minute GitHub default.
 jobs:
-  # Reject spec pins that are not reachable from spec main (carve#1740).
-  # Fleet pin currency is checked separately by the spec repository at tag time.
-  spec-pin:
+  import-lowest:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    name: spec pin is reachable from spec main
-
     steps:
       - uses: actions/checkout@v6
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          submodules: recursive
+          php-version: '8.2'
+          coverage: none
+      - name: Install lowest supported dependencies
+        run: composer update --prefer-lowest --prefer-stable --no-progress
+      - name: Run import tests
+        run: vendor/bin/phpunit tests/Import
 
-      # The checkout above is shallow (no fetch-depth), so the script deepens
-      # the submodule before asking - see the comment in it for why a depth-1
-      # clone cannot answer the ancestry question either way.
-      - name: Spec pin ancestry
-        run: ./scripts/check-spec-pin-ancestry.sh tests/spec
+  # The libxml fallback on libxml below 2.14 (HTML4 parser), as Debian 12 and Ubuntu 24.04 ship it; the runners have 2.14+.
+  import-old-libxml:
+    runs-on: ubuntu-latest
+    container: php:8.5-cli
+    timeout-minutes: 20
+    steps:
+      # Without git the checkout downloads the archive, which leaves out the export-ignored tests.
+      - name: Install git and unzip
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip git
+      - uses: actions/checkout@v6
+      - name: Install composer
+        run: |
+          curl -sS https://getcomposer.org/installer | php -- --quiet --install-dir=/usr/local/bin --filename=composer
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+      - name: The image still has the HTML4 parser
+        run: |
+          php -r '$d = new DOMDocument(); @$d->loadHTML("<p>a<wbr>b</p>"); if ($d->getElementsByTagName("wbr")->item(0)->childNodes->length === 0) { fwrite(STDERR, "this image has libxml 2.14 or later: pin an older one\n"); exit(1); } echo "libxml ", LIBXML_DOTTED_VERSION, PHP_EOL;'
+      - name: Run import tests
+        run: php -d memory_limit=1G vendor/bin/phpunit tests/Import tests/Conformance/ImportClauseCasesTest.php
 
-  tests:
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
-      # Maintainer decision: PRs run only the supported min and max PHP;
-      # pushes to main run the full range.
+      fail-fast: false
       matrix:
-        php: ${{ github.event_name == 'pull_request' && fromJSON('["8.2", "8.5"]') || fromJSON('["8.2", "8.3", "8.4", "8.5"]') }}
+        php: ['8.2', '8.5']
 
     name: PHP ${{ matrix.php }}
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -58,45 +69,36 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
-      # Run tests in parallel. Include-conformance tests require the spec
-      # submodule checked out above.
+      - name: Generated tables are current
+        run: composer tables-check
+
       - name: Run tests
-        run: composer test-parallel
+        run: composer test
 
-  tooling:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    name: Coding Standards
+      - name: Fuzz smoke (crash, hang, memory and time properties)
+        if: matrix.php == '8.5'
+        timeout-minutes: 10
+        run: composer fuzz -- smoke
 
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
+      - name: Install into a scratch consumer and call every public entry
+        if: matrix.php == '8.2'
+        run: scripts/consumer-smoke.sh
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          coverage: none
+      - name: Writer gates on generated inputs (held for candidate 12)
+        if: false
+        run: |
+          php scripts/writer-gates.php tokens 3
+          php scripts/writer-gates.php lines 2
+          php scripts/writer-gates.php random 20000 1
 
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+      - name: Check older JS differential corpus (held for candidate 12)
+        if: false
+        run: python3 oracle/verify_corpus.py
 
+      # Dom\HTMLDocument and grapheme_str_split exist from PHP 8.4; 8.2 runs the fallbacks in the tests above.
       - name: Run PHPStan
+        if: matrix.php == '8.5'
         run: composer stan
 
-      - name: Check source with Mago
-        run: |
-          archive="$RUNNER_TEMP/mago-1.58.2.tar.gz"
-          curl --fail --location --silent --show-error --retry 3 --retry-all-errors --retry-delay 2 \
-            https://github.com/carthage-software/mago/releases/download/1.58.2/mago-1.58.2-x86_64-unknown-linux-gnu.tar.gz \
-            --output "$archive"
-          echo "80b6e6ed3cd2fe2da348f9cd83d23e638f2ccd44988d48bebd766c20ccd30dc2  $archive" | sha256sum --check
-          tar -xzf "$archive" -C "$RUNNER_TEMP"
-          ./scripts/check-mago.sh "$RUNNER_TEMP/mago-1.58.2-x86_64-unknown-linux-gnu/mago"
-
-      - name: Run PHP CS Fixer
+      - name: Check coding standards
         run: composer cs-check
-
-      - name: Check cyclomatic complexity
-        run: composer complexity-check

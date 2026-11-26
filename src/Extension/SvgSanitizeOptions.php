@@ -5,47 +5,46 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Extension;
 
 /**
- * Options for {@see SvgSanitizer::sanitize()}.
- *
- * Each flag gates a small set of constructs that are safe only in some
- * contexts. All default OFF, so the out-of-the-box posture is the strict
- * presentational allowlist. Mirrors carve-js `SanitizeSvgOptions`.
+ * Provisional. Options for `SvgSanitizer::sanitize()`, the same as carve-js `SanitizeSvgOptions`. Every flag defaults to off.
  */
 final class SvgSanitizeOptions
 {
     /**
-     * @param bool $allowStyle Keep the `style` **attribute** (value scrubbed of
-     *   `url()`/`expression()`/…). The `<style>` *element* is always dropped
-     *   regardless — its selectors can reach the whole page and its text can
-     *   carry `@import`/`url()`.
-     * @param bool $allowLinks Keep `<a>` elements and external `href`/`xlink:href`
-     *   (safe schemes only).
-     * @param bool $allowAnimation Keep SMIL animation elements (`<animate>`,
-     *   `<set>`, …).
-     * @param bool $allowExternalImages Keep `<image>` and its external raster
-     *   `href` (safe schemes only; note `data:` is still rejected as a dangerous
-     *   scheme).
+     * @param bool $allowStyle Keep the `style` attribute when its value cannot fetch or execute. The `<style>` element
+     *   is always dropped.
+     * @param bool $allowLinks Keep `<a>` and its external `href` (safe schemes only).
+     * @param bool $allowAnimation Keep the SMIL elements `animate`, `animateTransform`, `animateMotion`, `set` and
+     *   `mpath`.
+     * @param bool $allowExternalImages Keep `<image>` and its external `href` (safe schemes only; `data:` stays
+     *   refused).
+     * @param array{deny?: array<string>, allow?: array<string>}|null $urlPolicy The scheme policy of
+     *   C2-H-128; null is the default deny list.
      */
     public function __construct(
         public bool $allowStyle = false,
         public bool $allowLinks = false,
         public bool $allowAnimation = false,
         public bool $allowExternalImages = false,
+        public ?array $urlPolicy = null,
     ) {
     }
 
     /**
-     * Build options from an associative array (unknown keys ignored).
+     * @param array<string, mixed> $options The constructor's parameter names as keys; unknown keys are ignored.
      *
-     * @param array<string, bool> $options
+     * @return self
      */
     public static function fromArray(array $options): self
     {
+        $policy = $options['urlPolicy'] ?? null;
+
+        /** @var array{deny?: array<string>, allow?: array<string>}|null $policy */
         return new self(
             allowStyle: (bool)($options['allowStyle'] ?? false),
             allowLinks: (bool)($options['allowLinks'] ?? false),
             allowAnimation: (bool)($options['allowAnimation'] ?? false),
             allowExternalImages: (bool)($options['allowExternalImages'] ?? false),
+            urlPolicy: is_array($policy) ? $policy : null,
         );
     }
 }

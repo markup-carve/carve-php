@@ -2,3 +2,12 @@ parameters:
 	level: 9
 	paths:
 		- src/
+	ignoreErrors:
+		# carve-php#5627: the readonly `document` of an import result is unset in the constructor and set once by
+		# `__get()` on first read (PHP's lazy initialization of a readonly property), which PHPStan does not model.
+		-
+			identifiers:
+				- property.uninitializedReadonly
+				- unset.readOnlyProperty
+				- property.readOnlyAssignNotInConstructor
+			path: src/Import/ImportResult.php

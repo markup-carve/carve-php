@@ -1,0 +1,512 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Import;
+
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Cli\Command;
+use MarkupCarve\Carve\OptionError;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Markdown, GFM and Djot import through the HTML hub, as carve-js#5074.
+ */
+final class HubImporterTest extends TestCase
+{
+    public function testNonOneOrderedMarkerAfterReferenceDefinitionRemainsParagraph(): void
+    {
+        $this->assertSame("10\\) y\n", self::source("[a]: /x\n10) y\n", 'markdown'));
+        $this->assertSame("2\\. y\n", self::source("[label]: /destination\n2. y\n", 'markdown'));
+        $this->assertSame("> 12\\) y\n", self::source("> [a]: /x\n> 12) y\n", 'markdown'));
+        $this->assertSame("- 3\\. y\n", self::source("- [a]: /x\n  3. y\n", 'markdown'));
+        $this->assertSame("```\n[a]: /x\n10) y\n```\n", self::source("```\n[a]: /x\n10) y\n```\n", 'markdown'));
+        $this->assertSame(
+            "```=html\n<div>\n[a]: /x\n10) y\n</div>\n```\n",
+            self::source("<div>\n[a]: /x\n10) y\n</div>\n", 'markdown'),
+        );
+        $this->assertSame("> ```\n> code\n> ```\n\n2\\. y\n", self::source("> ```\n> code\n[a]: /x\n2. y\n", 'markdown'));
+        $this->assertSame("> ```=html\n> <div>\n> ```\n\n2\\. y\n", self::source("> <div>\n[a]: /x\n2. y\n", 'markdown'));
+        $this->assertSame("- ```\n  code\n  ```\n\n2\\. y\n", self::source("- ```\n  code\n[a]: /x\n2. y\n", 'markdown'));
+    }
+
+    public function testEmptyHubDocumentKeepsTheFinalLineEnding(): void
+    {
+        foreach (['markdown', 'gfm', 'djot', 'html'] as $format) {
+            $this->assertSame("\n", Carve::importDocument('', ['from' => $format])->source);
+        }
+        $this->assertSame("\n", Carve::importDocument("[^a]: note\n", ['from' => 'gfm'])->source);
+        $this->assertSame("\n", Carve::importDocument('<input type="checkbox">', ['from' => 'html'])->source);
+        $this->assertSame("\n", Carve::format(''));
+    }
+
+    private static function source(string $input, string $from): string
+    {
+        return Carve::importDocument($input, ['from' => $from])->source;
+    }
+
+    public function testMarkdownHeadingAtMinimumDependencyVersion(): void
+    {
+        $this->assertSame("= Hi\n", self::source("# Hi\n", 'markdown'));
+    }
+
+    public function testKeepsARawHtmlBlockAndInlineHtmlRaw(): void
+    {
+        $this->assertSame(
+            "```=html\n<div>\n*a*\n</div>\n```\n\nx `<b>`{=html}y`</b>`{=html}\n",
+            self::source("<div>\n*a*\n</div>\n\nx <b>y</b>\n", 'markdown'),
+        );
+    }
+
+    public function testRestoresARawBlockThatATightListItemReadsInline(): void
+    {
+        $this->assertSame("- a\n  `<!--x-->`{=html}\n- b\n", self::source("- a\n  <!--x-->\n- b\n", 'markdown'));
+        $this->assertSame("- a\n  `<div>\n  x`{=html}\n- b\n", self::source("- a\n  <div>\n  x\n- b\n", 'markdown'));
+    }
+
+    public function testKeepsTheNoteOfANonAsciiFootnoteLabel(): void
+    {
+        $this->assertSame("x[^%C3%A9]\n\n[^%C3%A9]: note\n", self::source("x[^é]\n\n[^é]: note\n", 'gfm'));
+        $this->assertSame(
+            "x[^%E6%97%A5%E6%9C%AC]\n\n[^%E6%97%A5%E6%9C%AC]: note word\n",
+            self::source("x[^日本]\n\n[^日本]: note word\n", 'gfm'),
+        );
+    }
+
+    public function testKeepsAScriptBlockOfGfmRawInsteadOfTagFilteredText(): void
+    {
+        $this->assertSame("```=html\n<script>a()</script>\n```\n", self::source("<script>a()</script>\n", 'gfm'));
+    }
+
+    public function testKeepsATightListTightWhenAnItemHoldsASecondBlock(): void
+    {
+        $this->assertSame("- a\n\n  > b\n- c\n", self::source("* a\n  > b\n* c\n", 'markdown'));
+        $this->assertSame("- a\n\n- b\n", self::source("* a\n\n* b\n", 'markdown'));
+    }
+
+    public function testWritesFrontmatterMathAndAnAdmonitionDirective(): void
+    {
+        $this->assertSame(
+            "---\ntitle: a\n---\n\n\$`x` and\n\n\$\$`\\sum`\n\n::: note \"Head\"\nbody\n:::\n",
+            self::source("---\ntitle: a\n---\n\n\$x\$ and\n\n\$\$\n\\sum\n\$\$\n\n:::note[Head]\nbody\n:::\n", 'markdown'),
+        );
+    }
+
+    public function testReadsTomlFrontmatterAndLeavesAnUnclosedFenceToMarkdown(): void
+    {
+        $this->assertSame("---toml\na = 1\n---\n\nx\n", self::source("+++\na = 1\n+++\nx\n", 'markdown'));
+        $this->assertSame("***\n\na\n", self::source("---\na\n", 'markdown'));
+    }
+
+    public function testSkipsALeadingByteOrderMarkBeforeTheFrontmatterFence(): void
+    {
+        foreach (['markdown', 'gfm'] as $format) {
+            $this->assertSame("---\nx: y\n---\n\nz\n", self::source("\u{FEFF}---\nx: y\n---\nz\n", $format));
+            $this->assertSame("---toml\na = 1\n---\n\nz\n", self::source("\u{FEFF}+++\r\na = 1\r\n+++\r\nz\r\n", $format));
+            $this->assertSame("***\n\na\n", self::source("\u{FEFF}---\na\n", $format));
+            $this->assertSame("z\n", self::source("\u{FEFF}z\n", $format));
+        }
+    }
+
+    public function testReadsMathAsMicromarkDoes(): void
+    {
+        $this->assertSame("\$`a b` and \$`c`\n", self::source("\$\$ a b \$\$ and \$c\$\n", 'markdown'));
+        $this->assertSame("\$5\n", self::source("\\\$5\n", 'markdown'));
+        $this->assertSame("a \$ b\n", self::source("a \$ b\n", 'markdown'));
+        $this->assertSame("\$\$`x\ny`\n\nafter\n", self::source("\$\$\nx\ny\n\$\$\$\nafter\n", 'markdown'));
+    }
+
+    public function testReadsNestedContainerDirectivesAndTheirAttributes(): void
+    {
+        $this->assertSame(
+            "{#a .x}\n:::: warning\nout\n\n{.y}\n::: box\nin\n:::\n::::\n",
+            self::source("::::warning{#a .x}\nout\n\n:::box{.y}\nin\n:::\n::::\n", 'markdown'),
+        );
+        // As in micromark, the outer directive is asked first, so the first closing run closes it.
+        $this->assertSame(
+            "{#a .x}\n:::: warning\nout\n\n{.y}\n::: box\nin\n:::\n::::\n\n\\:::\n",
+            self::source(":::warning{#a .x}\nout\n\n:::box{.y}\nin\n:::\n:::\n", 'markdown'),
+        );
+        $this->assertSame(":::name{bad\n", self::source(":::name{bad\n", 'markdown'));
+    }
+
+    public function testReadsAGfmFootnoteWithoutThePointerAtTheNotesLabel(): void
+    {
+        $this->assertSame("x[^1]\n\n[^1]: note\n", self::source("x[^1]\n\n[^1]: note\n", 'gfm'));
+    }
+
+    public function testReadsAGithubAlertAsAnAdmonition(): void
+    {
+        $this->assertSame("::: note\nhi\n:::\n", self::source("> [!NOTE]\n> hi\n", 'gfm'));
+        $this->assertSame("::: danger\nx\n:::\n", self::source("> [!CAUTION]\n> x\n", 'gfm'));
+        $this->assertSame("> [!NOTE]\n> hi\n", self::source("> [!NOTE]\n> hi\n", 'markdown'));
+    }
+
+    public function testKeepsAZeroStartAndRawContentOfDjot(): void
+    {
+        $this->assertSame("{start=0}\n. a\n. b\n", self::source("0. a\n1. b\n", 'djot'));
+        $this->assertSame(
+            "`<a>`{=html} and\n\n```=latex\n\\x\n```\n",
+            self::source("`<a>`{=html} and\n\n``` =latex\n\\x\n```\n", 'djot'),
+        );
+    }
+
+    /**
+     * djot.js 0.3.2 decides a Djot autolink: an email when the content matches `[^:]@`, else a URL when it matches
+     * `[a-zA-Z]:` (carve-php#5706, #5707). Outputs as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotAutolinkProvider(): array
+    {
+        return [
+            'scheme with an at sign' => ["a <mailto:a@b> b\n", "a [mailto:a@b](mailto:mailto:a@b) b\n"],
+            'url scheme with an at sign' => ["<http://x@y>\n", "[http://x@y](mailto:http://x@y)\n"],
+            'tel with an at sign' => ["<tel:a@b.c>\n", "[tel:a@b.c](mailto:tel:a@b.c)\n"],
+            'email without a dot' => ["a <a@b> b\n", "a [a@b](mailto:a@b) b\n"],
+            'email with a query' => ["<a@b?subject=x>\n", "[a@b?subject=x](mailto:a@b?subject=x)\n"],
+            'colon right before the at sign' => ["<a:@b>\n", "[a:\\@b](a:@b)\n"],
+            'scheme not at the start' => ["<1a:b>\n", "[1a:b](1a:b)\n"],
+            'quoted local part' => ["<\"a\"@c.d>\n", "[\\\"a\\\"\\@c.d](mailto:\"a\"@c.d)\n"],
+            'attributes after the email' => ["<a@b>{.c}\n", "[a@b](mailto:a@b){.c}\n"],
+            'two in a row' => ["<a@b><c:d>\n", "[a@b](mailto:a@b)[c:d](c:d)\n"],
+        ];
+    }
+
+    #[DataProvider('djotAutolinkProvider')]
+    public function testLinksADjotAutolinkAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    /**
+     * djot.js closes a `[` only with a `]` before `(`, `[` or `{`; a closing emphasis or quote drops the `[` inside it
+     * (carve#6665). Outputs as carve-js next2 renders them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotBracketProvider(): array
+    {
+        return [
+            'lone bracket in link text' => ["[a [b] c](x)\n", "<p>[a <a href=\"x\">b] c</a></p>\n"],
+            'lone bracket in image text' => ["![a [b] c](x)\n", "<p>![a <a href=\"x\">b] c</a></p>\n"],
+            'lone bracket in reference text' => ["[a [b] c][r]\n\n[r]: /u\n", "<p>[a <a href=\"/u\">b] c</a></p>\n"],
+            'bracket closed before a link' => ["x [a] [b](y) z\n", "<p>x [a] <a href=\"y\">b</a> z</p>\n"],
+            'span inside link text' => ["[a [b]{.k} c](x)\n", "<p><a href=\"x\">a <span class=\"k\">b</span> c</a></p>\n"],
+            'bracket inside emphasis' => ["[a _[b]_ c](x)\n", "<p><a href=\"x\">a <em>[b]</em> c</a></p>\n"],
+            'bracket inside quotes' => ["[a \"[b]\" c](x)\n", "<p><a href=\"x\">a “[b]” c</a></p>\n"],
+            'opener after a closed delimiter' => ["[a [*b*~](x)\n", "<p>[a <a href=\"x\"><strong>b</strong>~</a></p>\n"],
+            'lone bracket before a link closer' => ["[a] b](x)\n", "<p><a href=\"x\">a] b</a></p>\n"],
+        ];
+    }
+
+    #[DataProvider('djotBracketProvider')]
+    public function testClosesADjotBracketAsDjotJsDoes(string $input, string $html): void
+    {
+        $this->assertSame($html, Carve::render(self::source($input, 'djot')) . "\n");
+    }
+
+    /**
+     * After `][` the link text closes only with its label, at the `]` that finds it as the last open `[`; an empty label
+     * takes the link's text content; `]{` closes a span with or without attributes (carve#6665). Sources as carve-js
+     * next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotReferenceBracketProvider(): array
+    {
+        return [
+            'label that never closes' => ["[a][[b]\n", "\\[a]\\[[b]\n"],
+            'label holding a link' => ["[a][b[c]](x) d]\n\n[b[c]](x) d]: /u\n", "a\n\n\\[b[c\\]](x) d]: /u\n"],
+            'label holding verbatim' => ["[a][b `]` c]\n\n[b `]` c]: /u\n", "a\n\n[b `]` c]: /u\n"],
+            'collapsed label with a bracket' => ["][r]][](x)\n\n[r]: y\n", "]r](x)\n"],
+            'collapsed label with an escape' => ["[a \\[b][]\n\n[a [b]: /u\n", "[a \\[b](/u)\n"],
+            'span before a failed attribute' => ["[r]{=x}\n", "[r]{}{=x}\n"],
+            'span before emphasis in braces' => ["[a]{_b_}\n", "[a]{}/b/\n"],
+        ];
+    }
+
+    #[DataProvider('djotReferenceBracketProvider')]
+    public function testClosesADjotReferenceLabelAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    /**
+     * djot.js ends a list marker at any white space, glues no attributes to it, and reads only `[ ]`, `[x]` and `[X]`
+     * one space after a bullet as a task box (carve-php#5972). Sources as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotListMarkerProvider(): array
+    {
+        return [
+            'span after a bullet' => ["- [r]{.c}\n", "- [r]{.c}\n"],
+            'attributes on an ordered marker' => ["1.{.c}\n", "[1.]{.c}\n"],
+            'attributes on a roman marker' => ["(x){.c}\n", "[(x)]{.c}\n"],
+            'failed block on a bullet' => ["-{=x}\n", "-{=x}\n"],
+            'other task character' => ["- [-] a\n", "- \\[-] a\n"],
+            'attributes on a task box' => ["- [ ]{.c} a\n", "- [ ]{.c} a\n"],
+            'tab after a bullet' => ["-\ta\n", "- a\n"],
+            'tab after a task box' => ["- [ ]\ta\n", "- [ ] a\n"],
+            'tab before a task box' => ["-\t[ ] a\n", "- \\[ ] a\n"],
+            'tab after an ordered marker' => ["1)\tb\n", ". b\n"],
+            'box text after an uppercase marker' => ["A. [x] y\n", "A.  \\[x] y\n"],
+            'box text after a roman marker' => ["- a\n\nII. [ ] y\n", "- a\n\nII.  \\[ ] y\n"],
+        ];
+    }
+
+    /**
+     * djot.js keeps a single roman letter open as roman or alphabetic until a later item of the list narrows it, and
+     * reads it as roman at the end of the list (carve#6696). Sources as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotRomanOrAlphaProvider(): array
+    {
+        return [
+            'alpha after a continuation paragraph' => ["i. one\n\n   more\n\nj. two\n", "{start=9}\na. one\n\n   more\n\nb. two\n"],
+            'alpha after a nested list' => ["i. one\n\n   - sub\n\nj. two\n", "{start=9}\na. one\n   - sub\nb. two\n"],
+            'alpha after a lazy line' => ["i. one\nlazy\nj. two\n", "{start=9}\na. one\n   lazy\nb. two\n"],
+            'alpha after an ambiguous item' => ["i. one\nv. two\nj. three\n", "{start=9}\na. one\nb. two\nc. three\n"],
+            'roman before a decimal list' => ["(I) one\n\n(1) two\n", "I.  one\n. two\n"],
+            'roman before a lowercase item' => ["I. one\ni. two\n", "I.  one\ni. two\n"],
+            'roman by a later numeral' => ["i. one\nii. two\n", "i. one\nii. two\n"],
+            'roman before a heading' => ["i. one\n# h\nj. two\n", "i. one\n\n= h\n\nj. two\n"],
+            'roman before a line after a fence' => ["i. ```\n   code\n   ```\nlazy\nj. two\n", "i. ```\n   code\n   ```\n\nlazy\nj. two\n"],
+            'alpha after a heading item' => ["i. # h\nlazy\nj. two\n", "{start=9}\na. = h\n     lazy\nb. two\n"],
+            'alpha after inline code' => ["i. ``` foo ```\nlazy\nj. two\n", "{start=9}\na. ` foo `\n   lazy\nb. two\n"],
+            'roman after a fence in a nested item' => [
+                "i. one\n\n   - ```\n     code\n     ```\nlazy\nj. two\n",
+                "i. one\n   - ```\n     code\n     ```\n\nlazy\nj. two\n",
+            ],
+            'alpha after an unclosed fence' => ["i. ```\n   c\nj. two\n", "{start=9}\na. ```\n   c\n   ```\nb. two\n"],
+        ];
+    }
+
+    #[DataProvider('djotRomanOrAlphaProvider')]
+    public function testSettlesARomanOrAlphaDjotMarkerAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    #[DataProvider('djotListMarkerProvider')]
+    public function testReadsADjotListMarkerAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    /**
+     * djot.js renders an image with an undefined reference as `<img>` with only its own attributes, which the HTML
+     * importer does not keep as an image (carve#6693). Sources as carve-js next2 writes them.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function djotUndefinedImageProvider(): array
+    {
+        return [
+            'alone' => ["![a][r]\n", "\n"],
+            'in text' => ["x ![a][r] y\n", "x  y\n"],
+            'with attributes' => ["![a][r]{.c}\n", "[]{.c}\n"],
+            'with its own src and alt' => ["![a][r]{src=foo alt=bar}\n", "![bar](foo)\n"],
+            'collapsed label' => ["![a][]\n", "\n"],
+            'defined with an empty destination' => ["![a][b]\n\n[b]:\n", "![a]()\n"],
+        ];
+    }
+
+    #[DataProvider('djotUndefinedImageProvider')]
+    public function testDropsADjotImageWithAnUndefinedReferenceAsDjotJsDoes(string $input, string $expected): void
+    {
+        $this->assertSame($expected, self::source($input, 'djot'));
+    }
+
+    /**
+     * djot.js gives an image the text of its content as alt: escapes, code, nested images and line breaks included.
+     */
+    public function testWritesADjotImageAltAsDjotJsDoes(): void
+    {
+        $this->assertSame("![a\nc](x)\n", self::source("![a\nc](x)\n", 'djot'));
+        $this->assertSame("![a \\[b c](x)\n", self::source("![a \\[b c](x)\n", 'djot'));
+        $this->assertSame("![a c i](x)\n", self::source("![a `c` ![i](j)](x)\n", 'djot'));
+    }
+
+    public function testKeepsDjotAbbreviationsPastTheLibraryPatternLimit(): void
+    {
+        $definitions = '';
+        for ($i = 1; $i <= 5000; $i++) {
+            $definitions .= '*[K-' . $i . "]: v\n";
+        }
+
+        $this->assertSame("[HTML]{abbr=h} x\n", self::source("HTML x\n\n" . $definitions . "*[HTML]: h\n", 'djot'));
+    }
+
+    public function testWritesOnlyAnAuthoredDjotHeadingId(): void
+    {
+        $this->assertSame("= Head\n\ntext\n", self::source("# Head\n\ntext\n", 'djot'));
+        $this->assertSame("{#mine}\n= Head\n", self::source("{#mine}\n# Head\n", 'djot'));
+    }
+
+    public function testReportsNoWhitespaceNormalizationForTheLibrariesLineBreaks(): void
+    {
+        $this->assertSame([], Carve::importDocument("- a\n- b\n", ['from' => 'djot'])->diagnostics);
+        $this->assertSame([], Carve::importDocument("> a\n> b\n", ['from' => 'markdown'])->diagnostics);
+    }
+
+    /**
+     * carve#6638, carve#6639: a destination with whitespace is written as is and reported; a title with line breaks
+     * folds them to spaces and only the title is reported (C2-I-067, C2-I-069, C2-W-117).
+     */
+    public function testKeepsTheLinkTailAndReportsWhatCarveCannotSpell(): void
+    {
+        $djot = Carve::importDocument("[closed](hello *a\nb*)\n", ['from' => 'djot']);
+        $this->assertSame("[closed](hello *ab*)\n", $djot->source);
+        $this->assertSame(['structure-unspellable'], array_map(static fn ($d): string => $d->code, $djot->diagnostics));
+
+        $markdown = Carve::importDocument("[foo]: /url '\ntitle\nline1\nline2\n'\n\n[foo]\n", ['from' => 'markdown']);
+        $this->assertSame("[foo](/url \" title line1 line2 \")\n", $markdown->source);
+        $this->assertSame(['field-unspellable'], array_map(static fn ($d): string => $d->code, $markdown->diagnostics));
+        $this->assertSame('<p><a href="/url" title=" title line1 line2 ">foo</a></p>', Carve::toHtml($markdown->source));
+    }
+
+    public function testBracesAnEmphasisAroundALinkWhoseTailReadsAsText(): void
+    {
+        $result = Carve::importDocument('<p><em><a href="/u(r)l x">txt</a></em></p>');
+        $this->assertSame("{/[txt](/u(r)l x)/}\n", $result->source);
+    }
+
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function entries(): array
+    {
+        return [
+            'markdown' => ['markdown', "# Hi *there*\n", "= Hi /there/\n"],
+            'gfm' => ['gfm', "~~gone~~\n", "{-gone-}\n"],
+            'djot' => ['djot', "_hi_ *there*\n", "/hi/ *there*\n"],
+            'html' => ['html', '<p><em>hi</em></p>', "/hi/\n"],
+            'Laravel example' => ['markdown', "**bold**\n", "*bold*\n"],
+        ];
+    }
+
+    #[DataProvider('entries')]
+    public function testImportsAndWritesTheSourceWithTheEngineWriter(string $from, string $input, string $expected): void
+    {
+        $result = Carve::importDocument($input, ['from' => $from]);
+        $this->assertSame($expected, $result->source);
+        $this->assertSame('document', $result->tree->type);
+    }
+
+    public function testRefusesAnUnknownFormatOrOption(): void
+    {
+        $refused = [['from' => 'bbcode'], ['from' => 'markdown', 'adapter' => 'word'], ['from' => 'gfm', 'strictLosses' => 'yes']];
+        foreach ($refused as $options) {
+            try {
+                Carve::importDocument('a', $options);
+                $this->fail('no OptionError for ' . json_encode($options));
+            } catch (OptionError) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    public function testStrictLossesMakesEachLossAnError(): void
+    {
+        $result = Carve::importDocument("[a](javascript:x)\n", ['from' => 'markdown', 'strictLosses' => true]);
+        $this->assertNotSame([], $result->diagnostics);
+        foreach ($result->diagnostics as $entry) {
+            $this->assertSame('error', $entry->severity);
+            $this->assertSame(-1, $entry->startOffset);
+        }
+    }
+
+    public function testAllowLossesAndMaxLossesReachTheHtmlImporter(): void
+    {
+        $input = "[a](javascript:x) [b](javascript:y)\n";
+        $allowed = Carve::importDocument($input, ['from' => 'markdown', 'allowLosses' => ['import-destination-denied']]);
+        $this->assertSame([], $allowed->diagnostics);
+        $capped = Carve::importDocument($input, ['from' => 'markdown', 'maxLosses' => 1]);
+        $this->assertCount(1, $capped->diagnostics);
+        $this->assertSame(1, $capped->suppressedDiagnostics);
+    }
+
+    /**
+     * @return array<string, array{string, string, array<string>}>
+     */
+    public static function djotDestinations(): array
+    {
+        return [
+            'denied image is the only item content' => ["- ![](data:x)\n", "- %%\n", ['import-destination-denied']],
+            'denied link keeps its text' => ["[l](data:y)\n", "l\n", ['import-destination-denied']],
+            'denied image with alt' => ["a ![x](javascript:alert(1)) c\n", "a x c\n", ['import-destination-denied']],
+            'denied reference link in a quote' => ["> [t][r]\n>\n> [r]: vbscript:x\n", "> t\n", ['import-destination-denied']],
+            'denied autolink' => ["<javascript:x>\n", "javascript:x\n", ['import-destination-denied']],
+            'allowed link' => ["[l](https://e.com)\n", "[l](https://e.com)\n", []],
+        ];
+    }
+
+    /**
+     * carve-php#5698, C2-M-051, C2-M-082: the library does not blank a Djot destination, so a denied one is reported.
+     *
+     * @param string $input
+     * @param string $expected
+     * @param array<string> $codes
+     */
+    #[DataProvider('djotDestinations')]
+    public function testReportsADeniedDjotDestination(string $input, string $expected, array $codes): void
+    {
+        $result = Carve::importDocument($input, ['from' => 'djot']);
+        $this->assertSame($expected, $result->source);
+        $this->assertSame($codes, array_values(array_unique(array_map(static fn ($d): string => $d->code, $result->diagnostics))));
+    }
+
+    /**
+     * @return array<string, array{string, string, string, array<string>}>
+     */
+    public static function emptiedItems(): array
+    {
+        return [
+            'denied image is the only content' => ["- ![](data:x)\n", 'markdown', "- %%\n", ['import-destination-denied']],
+            'denied image under gfm' => ["- ![](javascript:x)\n", 'gfm', "- %%\n", ['import-destination-denied']],
+            'bare marker' => ["-\n", 'markdown', "- %%\n", []],
+            'second item empty' => ["- a\n-\n", 'markdown', "- a\n- %%\n", []],
+            'ordered' => ["1.\n", 'markdown', ". %%\n", []],
+            'in a quote' => ["> -\n", 'markdown', "> - %%\n", []],
+            'nested' => ["- - ![](data:x)\n", 'markdown', "- - %%\n", ['import-destination-denied']],
+            'djot description' => [": t\n\n", 'djot', ":: t\n: %%\n", []],
+        ];
+    }
+
+    /**
+     * carve#6428, C2-A-186, C2-W-057: an item the library leaves empty is written as a marker plus a comment.
+     *
+     * @param string $input
+     * @param string $from
+     * @param string $expected
+     * @param array<string> $codes
+     */
+    #[DataProvider('emptiedItems')]
+    public function testWritesAnEmptiedItemAsAMarkerAndAComment(string $input, string $from, string $expected, array $codes): void
+    {
+        $result = Carve::importDocument($input, ['from' => $from]);
+        $this->assertSame($expected, $result->source);
+        $this->assertSame($codes, array_values(array_unique(array_map(static fn ($d): string => $d->code, $result->diagnostics))));
+    }
+
+    public function testCommandLineImportsEachHubFormat(): void
+    {
+        foreach (['markdown' => "*a*\n", 'gfm' => "~~a~~\n", 'djot' => "_a_\n"] as $from => $input) {
+            $in = fopen('php://memory', 'r+');
+            $out = fopen('php://memory', 'r+');
+            $err = fopen('php://memory', 'r+');
+            $this->assertNotFalse($in);
+            $this->assertNotFalse($out);
+            $this->assertNotFalse($err);
+            fwrite($in, $input);
+            rewind($in);
+            $this->assertSame(0, Command::main(['import', '--from=' . $from], $in, $out, $err));
+            rewind($out);
+            $this->assertSame($from === 'gfm' ? "{-a-}\n" : "/a/\n", stream_get_contents($out));
+        }
+    }
+}

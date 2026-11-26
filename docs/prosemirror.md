@@ -1,276 +1,257 @@
 # ProseMirror / Tiptap bridge
 
-Carve AST to a ProseMirror document and back, without a Node runtime.
+Carve to a ProseMirror document and back, in PHP, without a Node runtime.
 
 ```php
-use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 
-$document = (new CarveConverter())->parse($source);
+$source = "# Notes\n\nSome *bold* text.\n";
 
-$renderer = new ProseMirrorRenderer();
-$json = $renderer->renderJson($document);      // hand this to a Tiptap editor
+$json = (new ProseMirrorRenderer())->renderJson(Carve::parse($source)); // editor.commands.setContent(JSON.parse(json))
 
-$back = (new ProseMirrorToCarve())->convertJson($json);
-(new CarveConverter())->render($back);          // HTML
-CarveConverter::carve()->getRenderer()->render($back);  // Carve source
+$back = (new ProseMirrorToCarve())->convert($json);                    // editor.getJSON(), as JSON or decoded
+assert($back === Carve::format($source));
 ```
 
-The point of the pair: an editor in the browser, and PHP rendering the stored
-document to HTML, PDF or DOCX in queue workers and CLI commands where no Node
-runtime exists.
+The pair lets a PHP application edit documents in a Tiptap editor in the browser and store, render or convert them
+on the server: in queue workers, CLI commands and request handlers where no Node runtime exists.
 
-## This is the import route; the HTML path is the fallback
+## The schema
 
-The other way into an editor is to render Carve to HTML and let Tiptap's
-`parseHTML` re-derive the document. That works and is worth keeping - it is
-how you load content an extension understands but this engine has no node
-for. It is not the recommended route, for one
-reason: fidelity there is bounded by what each extension's `parseHTML` claims,
-so an attribute no extension declares is dropped **silently**. For a stored
-document format, silent attribute loss on load is the failure you cannot
-recover from, because nothing records that it happened.
+The bridge writes and reads the schema of the Carve 0.2 Tiptap kit in
+[carve-grammars](https://github.com/markup-carve/carve-grammars) (`tiptap/tree.js`, editor extensions in
+`tiptap/extensions.js`). It is a port of that file, function for function, so a document the browser kit loads and one
+this bridge renders are the same JSON, and either side reads what the other saved.
 
-The bridge builds from the AST instead, and reports what it could not carry -
-`droppedTypes()` for content that is gone, `degradedTypes()` for a node type
-that is gone while its text survives. Prefer it for anything you intend to
-store and read back.
+- Each ProseMirror node and mark keeps the tree fields the editor does not own in a `carve` attribute. Attributes,
+  list markers, table sections, footnote keys and the rest travel there, so the way back rebuilds each node exactly.
+- Inline containers become marks (`bold`, `italic`, `link`, `carveSpan`, ...) carrying an instance id and depth, so
+  two abutting spans stay apart and nesting order holds.
+- A node the editor content model cannot hold becomes an atom, `carveBlock` or `carveInline`, carrying the whole node.
+  Nothing is dropped: `ProseMirrorToCarve::toTree()` of a rendered document gives the tree back.
+- Keys of `carve` that start with `$` are the kit's own bookkeeping. No tree field starts with `$`.
+- A `soft_break`, the line end inside a wrapped paragraph, is the inline leaf `carveSoftBreak`. The kit renders it
+  as `<span data-carve-soft-break> </span>`, so the editor shows a space and the cursor passes it as one character,
+  and the way back saves it as `soft_break`. Copy and paste inside the editor keeps it. Plain text pasted from outside
+  is lossy: its line ends arrive as spaces, so the pasted paragraph saves as one line.
 
-Abbreviation and citation definitions are block nodes in the editor document.
-`carveAbbreviationDefinition` keeps each authored line in place, including
-shadowed definitions. `carveCitationDefinition` keeps its key, attributes and
-inline entry content. The bridge still reads older documents that carry
-abbreviation definitions only in the `doc` attributes. When both forms are
-present, the nodes determine the definitions so edits in the editor survive.
-New documents carry definitions only as nodes, so deleting the last node also
-deletes its definition.
+A ProseMirror node or mark with no Carve node, such as a mark an application extension added, is an error
+(`InvalidArgumentException`), not a skip, unless the `mapping` option gives it one. See
+[Application nodes](#application-nodes).
 
-## The wire shape, not only the names
+`tests/fixtures/prosemirror/kit-wire.json` holds what `tree.js` produces at the commit named in its `_provenance`,
+for one input per node and mark type, and `KitWireTest` checks both directions against it. Refresh it when the kit
+changes, and bump the commit.
 
-`resources/prosemirror-wire-fixtures.json` is a copy of the fixture set
-carve-grammars publishes: one Carve source per construct and the exact
-ProseMirror document a bridge must produce for it, attribute names included.
-`WireFixturesTest` asserts both directions against it.
+## Editor documents
 
-The map alone was not enough. It named the node a Carve type becomes and left
-the attributes to each implementation, so this bridge wrote `carveRef` and
-`tight` where carve-grammars wrote `ref` and nothing at all - each perfectly
-round-tripping on its own, and neither able to read the other's documents
-without loss. Refresh the fixtures the way the map is refreshed: copy them, and
-bump the commit in `_provenance`.
-
-The class slot carries a list of authored entries: `attrs.class` is
-`["a", "b", "c"]` for `{class="a  b" .c}`, because a `class=V` value splits
-into class tokens (markup-carve/carve#4205). Entries, including an empty
-string, survive both bridge directions (#2585). Older string-valued `class`
-attributes remain readable as one entry. Editor schemas must accept the list;
-the pinned schema map's "space separated" description predates this change.
-
-## Where the names come from
-
-Node and mark names are **not** defined here. They come from
-`resources/prosemirror-schema-map.json`, a copy of the map published by
-[carve-grammars](https://github.com/markup-carve/carve-grammars), which owns the
-`CarveKit` schema and the serializer. Restating the mapping in each engine is how
-implementations drift - carve-php once emitted `citation-group` while everything
-else spelled it with underscores.
-
-Refresh the copy from upstream and bump the `commit` in its `_provenance` block.
-`ProseMirrorCorpusTest` fails if this engine grows a node type the map has no
-decision for.
-
-### Adding an entry by hand is a divergence, and has to be declared
-
-That corpus assertion is satisfied by a *local* entry, which is what let six
-decisions accumulate here while `_provenance.commit` named a file holding none of
-them. So a second check asks the other question:
-
-```bash
-php scripts/check-schema-map.php --grammars <a carve-grammars checkout>
-```
-
-It compares every decision this copy states - `kind`, `pm`, `accepts`, whether a
-type is unmapped, and the carrier node names - against the map at
-`_provenance.commit`, and the pinned map against carve-grammars `main`. Any
-difference has to be named in `_provenance.divergences` with a reason, and an
-entry there that no longer differs is refused, so the list cannot only grow.
-
-The decision is the subject, not the commit distance: carve-grammars merges
-continuously, so a gate on distance would be red from any open pull request over
-there. The distance is printed as a number, along with the entries whose prose
-differs from the pin without their decision differing.
-
-CI runs this check daily rather than on pull requests, because carve-grammars
-`main` moves independently of this repository. A red run opens or updates one
-tracking issue, and the next green run closes it.
-
-A new editor node still belongs in carve-grammars first. A declaration is how a
-type this engine already produces gets a decision in the meantime.
-
-## What the editor model cannot hold
-
-Roughly a third of Carve's node types have no ProseMirror equivalent. The bridge
-never guesses; it reports, in two categories:
+Content the editor makes carries no `carve` attribute and gets the Carve defaults: a new list is tight with `-` or `.`
+markers, a new table row lands in the section of the row before it, an empty trailing paragraph is dropped.
 
 ```php
-$renderer->droppedTypes();    // ['comment' => 'comments are not represented …']
-$renderer->degradedTypes();   // ['soft_break' => 'a soft break is whitespace …']
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$doc = ['type' => 'doc', 'content' => [
+    ['type' => 'heading', 'attrs' => ['level' => 2], 'content' => [['type' => 'text', 'text' => 'Title']]],
+    ['type' => 'paragraph', 'content' => [
+        ['type' => 'text', 'text' => 'bold', 'marks' => [['type' => 'bold']]],
+    ]],
+]];
+assert((new ProseMirrorToCarve())->convert($doc) === "== Title\n\n*bold*\n");
 ```
 
-- **Dropped** - the content is gone: smart typography, and a caption NUMBER,
-  which is a resolution artifact rather than editor content. A destination with
-  a denied scheme (`javascript:`, `data:` and the rest of the PART 9 section 25
-  list) is blanked to `""` exactly where the HTML target blanks it, in link and
-  image destinations, reference definitions and authored attributes, and is
-  reported as `destination-denied`: the editor resolves those URLs when it
-  renders them. Comments, figures
-  with captions, frontmatter, cross-references, line blocks, inline footnotes
-  and raw passthrough are all carried.
-- **Degraded** - the node type is gone but the text survives: a soft break becomes
-  a space, a smart quote becomes its glyph, an escaped character becomes the
-  character. Dropping these instead would run words together or lose a character.
+`convert()` writes with `Carve::write()` and takes its options. `toTree()` returns the tree as decoded AST JSON, and
+`toTreeWithOrigins()` also says, for each top-level block, which loaded block it came from (`null` for a block the
+editor added), and gives the `pointers` of [Editor positions for findings](#editor-positions-for-findings).
 
-Ask the renderer rather than trusting this list: which types land where is a
-property of one bridge at one version, and both directions of that list move.
+## Application nodes
 
-An application storing documents should assert both are empty rather than trust
-them:
+Pass `mapping` to give the application's own nodes and marks a Carve node. The same table goes to both directions:
+`new ProseMirrorToCarve(['mapping' => $mapping])` and `new ProseMirrorRenderer(['mapping' => $mapping])`, and to the
+Tiptap kit's `proseMirrorToTree(json, { mapping })` and `treeToProseMirror(tree, { mapping })` in the browser.
+
+A placeholder token (an inline atom) and a `textStyle` mark with a color, saved and loaded:
 
 ```php
-$json = $renderer->renderJson($document);
-if ($renderer->droppedTypes() !== []) {
-    throw new RuntimeException('editor cannot hold: ' . implode(', ', array_keys($renderer->droppedTypes())));
-}
+use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$mapping = [
+    'nodes' => ['placeholderToken' => ['as' => 'span', 'class' => 'placeholder', 'attributes' => ['name']]],
+    'marks' => ['textStyle' => ['as' => 'span', 'class' => 'text-style', 'attributes' => ['color']]],
+];
+$doc = ['type' => 'doc', 'content' => [['type' => 'paragraph', 'content' => [
+    ['type' => 'text', 'text' => 'Dear '],
+    ['type' => 'placeholderToken', 'attrs' => ['name' => 'first']],
+    ['type' => 'text', 'text' => ', '],
+    ['type' => 'text', 'text' => 'red', 'marks' => [['type' => 'textStyle', 'attrs' => ['color' => '#f00']]]],
+]]]];
+
+$source = (new ProseMirrorToCarve(['mapping' => $mapping]))->convert($doc);
+assert($source === "Dear []{.placeholder name=first}, [red]{.text-style color=#f00}\n");
+
+$loaded = (new ProseMirrorRenderer(['mapping' => $mapping]))->renderSource($source);
+assert($loaded['content'][0]['content'] === $doc['content'][0]['content']);
 ```
 
-Going the other way, an unknown ProseMirror name is an **error**, not a skip: an
-editor that grew a node nobody mapped is exactly where silent loss is worst.
-What the payload carried but the Carve source cannot is reported in the same two
-categories, keyed by attribute rather than by node type:
+A declared entry has:
+
+- `as`: `span` (inline) or `div` (block). A mark is always a `span` around the text it covers.
+- `class`: the one class that names the type in Carve.
+- `attributes`: the ProseMirror attributes to keep, each as a key/value pair: a string as it is, any other value as
+  JSON. On load the value is a string.
+- `content`: `true` for a node with content (inlines in a span, blocks in a div). Without it the node is an atom.
+- `carve`: `true` when the editor's node type has a `carve` attribute (`addAttributes: () => ({ carve: { default:
+  null, rendered: false } })`). The renderer then records a top-level node's place in the loaded document, so
+  `toTreeWithOrigins()` reports its origin and the kit's `serializeToCarve(..., { source })` keeps its text after an
+  edit elsewhere. Without it the node has no `carve` attribute, which ProseMirror's schema check would reject, and
+  a top-level host node counts as new. A callback entry takes `carve` too.
+
+Only a span or div of exactly that shape loads back as the application type: the one class, the listed keys and
+nothing else. Any other span or div stays a kit node, so nothing it carries is lost. `ignoredAttributes()` lists an
+attribute of a declared node that its entry does not name.
+
+For anything else an entry is a pair of closures. `toTree` gets the ProseMirror node and helpers (`position`,
+`'block'` or `'inline'`; `blocks` and `inlines`, which convert the node's `content`) and returns a tree node.
+`fromTree` gets the tree node and the same helpers (there `blocks` and `inlines` load tree children) and returns the
+ProseMirror node, or null for a tree node that is not its own. For a mark, `toTree` gets the mark and returns the
+inline container without `children`, and `fromTree` returns the mark or null. Each class uses its own half:
+`ProseMirrorToCarve` calls `toTree` and throws without it, `ProseMirrorRenderer` calls `fromTree` and without it
+loads the tree node as a kit node. A type that is neither in the kit nor in `mapping` still throws.
+
+### Kit shapes
+
+A `toTree` closure, or code that rewrites a document before `convert()`, can also produce kit shapes. Every shape
+below is input the bridge reads, the same as the output it writes:
+
+- Any kit node or mark with a `carve` attribute: its keys without a `$` are tree fields, copied onto the Carve node
+  as they stand. `attrs` (`classes`, `keyValues`, `id`) is the usual field to fill.
+- `carveDiv` (block) and the `carveSpan` mark (inline) are the general containers: give them the application's
+  name as a class and its data as key/value pairs.
+- `carveBlock` and `carveInline` atoms carry one whole Carve node in `carve`, for a node that is not a div or a
+  span (an extension node, a raw block).
+- Keys starting with `$` are the kit's bookkeeping, such as `$index` or `$id`. Leave them out of what an application
+  builds.
+
+A mention node and a poll widget, mapped before saving:
 
 ```php
-$converter->droppedAttributes();   // ['data-team' => 'a mention has no Carve spelling …']
-$converter->degradedAttributes();  // ['id' => 'the name has no Carve mention spelling …']
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$mention = ['type' => 'mention', 'attrs' => ['id' => '7', 'label' => 'Ann']];
+$poll = ['type' => 'poll', 'attrs' => ['question' => 'Lunch?']];
+
+$asSpan = static fn (array $node): array => [
+    'type' => 'text',
+    'text' => $node['attrs']['label'],
+    'marks' => [['type' => 'carveSpan', 'attrs' => ['carve' => [
+        'attrs' => ['classes' => ['mention'], 'keyValues' => [['data-id', $node['attrs']['id']]]],
+    ]]]],
+];
+$asDiv = static fn (array $node): array => [
+    'type' => 'carveDiv',
+    'attrs' => ['carve' => ['attrs' => ['classes' => ['poll']]]],
+    'content' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => $node['attrs']['question']]]]],
+];
+
+$doc = ['type' => 'doc', 'content' => [
+    ['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Hi '], $asSpan($mention)]],
+    $asDiv($poll),
+]];
+assert((new ProseMirrorToCarve())->convert($doc) === "Hi [Ann]{.mention data-id=7}\n\n::: poll\nLunch?\n:::\n");
 ```
 
-carve-rs and carve-grammars key and word each row the same way, so an
-application can compare the reports of two engines
-(markup-carve/carve-php#2167).
+To find out which names the kit reads, `ProseMirrorToCarve::carveTypeFor($name)` gives the Carve tree type of a
+node or mark name (`'tableHeader'` gives `'table_cell'`), or null for a name the kit does not map. `proseMirrorNames()`
+lists them all. `carveBlock` and `carveInline` give null, since they carry a node of any type.
 
-Editor layout is not content and appears in neither report. The schema map's
-`layoutAttributes` names it, currently Tiptap's `colwidth`: the converter leaves
-it out of the Carve tree, as carve-grammars does.
+## Editor positions for findings
+
+A lint or export finding carries the tree path of its node (`Diagnostic::$path`). After `toTree()` or `convert()`,
+`pointerFor($path)` gives the JSON pointer of the ProseMirror node or mark that tree node came from, which the editor
+turns into a position to mark:
+
+```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$doc = ['type' => 'doc', 'content' => [
+    ['type' => 'heading', 'attrs' => ['level' => 1], 'content' => [['type' => 'text', 'text' => 'Title']]],
+    ['type' => 'heading', 'attrs' => ['level' => 3], 'content' => [['type' => 'text', 'text' => 'Too deep']]],
+]];
+$bridge = new ProseMirrorToCarve();
+[$finding] = Carve::lint($bridge->convert($doc));
+assert($finding->code === 'heading-level-skip' && $finding->path === '/children/1');
+assert($bridge->pointerFor($finding->path) === '/content/1');
+```
+
+A tree node with no ProseMirror node of its own (a span mark cell, a table section, the content of a `carveBlock`)
+gets the pointer of its nearest ancestor that has one. An inline container made from a mark points at that mark on
+the first text it covers (`/content/0/content/3/marks/0`). `toTreeWithOrigins()['pointers']` has the whole map, tree
+path => pointer; the kit returns the same map from `proseMirrorToTreeWithOrigins()` and resolves a path with
+`proseMirrorPointer(pointers, path)`.
+
+## Content from a stock Tiptap editor
+
+The way back also reads what a Tiptap setup without the kit's own content makes:
+
+- A cell's `colspan` and `rowspan` attributes are the Carve spans: the cell's counts and the `<` and `^` marks of the
+  cells it covers. On load the counts go to those attributes, so the editor shows the merged cell. A row span stops
+  at the end of its table group, and a cell that spans rows and columns keeps only its columns, since a `^` below a
+  cell of more than one column joins nothing.
+- In a table without a head, the leading rows whose cells are all `tableHeader` are the head, as they are when the
+  written source is parsed.
+- A block-level `image` (Tiptap's Image default) is an image paragraph, the tree of `![alt](src)`.
+
+`ignoredAttributes()` lists every attribute the last save did not read, with the JSON pointer of its node or mark.
+Examples are the `textAlign` of a TextAlign extension, a link's `target` and the `colwidth` of a resized column. Null
+values and the defaults the kit's Link gives every link are not listed. A host that must not lose editor state can
+refuse the save:
+
+```php
+use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
+
+$doc = ['type' => 'doc', 'content' => [
+    ['type' => 'paragraph', 'attrs' => ['textAlign' => 'center'], 'content' => [['type' => 'text', 'text' => 'x']]],
+]];
+$bridge = new ProseMirrorToCarve();
+$source = $bridge->convert($doc);
+assert($bridge->ignoredAttributes() === [
+    ['path' => '/content/0', 'type' => 'paragraph', 'attribute' => 'textAlign', 'value' => 'center'],
+]);
+```
+
+The decoded tree of `toTree()` goes to `Carve::render()` and to the Markdown, plain text and ANSI exporters as it
+is, with no `Carve::decodeTree()` in between.
+
+## Destinations the editor would resolve
+
+The editor renders a link mark's `href` and an image's `src` into the page. A destination the URL policy denies
+(`javascript:`, `data:` and the rest of the default deny list, or the host's `urlPolicy`) is `null` there and kept in
+`carve`, so the editor never resolves it and the round trip still gives the same tree. `blanked()` lists the
+destinations of the last `render()`:
+
+```php
+use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
+
+$renderer = new ProseMirrorRenderer(['urlPolicy' => ['allow' => ['https']]]);
+$renderer->renderSource('[ok](https://a.example) [no](javascript:alert(1))');
+assert($renderer->blanked() === ['javascript:alert(1)']);
+```
+
+Every other field lives in the `carve` attribute, which the kit stores as data (`data-carve`) and never turns into
+a live URL or HTML attribute.
 
 ## Fidelity
 
-`ProseMirrorCorpusTest` sweeps the whole spec corpus. The strict gate is narrow on
-purpose: a document whose types the editor model fully covers, with nothing
-dropped and nothing degraded, must come back as **byte-identical canonical
-Carve**. Documents that lose something are allowed to differ, because they must.
+`RoundTripTest` checks Carve to ProseMirror JSON and back on every conformance input of the pinned spec and on 1,000
+documents generated from them (nested in quotes and list items): the tree comes back the same, and `convert()` writes
+the same source as `Carve::write()` of the parsed tree. `EditorDocumentsTest` does the same for every Carve input of
+the 0.1 bridge tests.
 
-Measured at the pinned spec:
+## Moving from the 0.1 bridge
 
-| | count |
-|---|---|
-| corpus documents | 1695 |
-| fully covered, byte-identical HTML | 1317 |
-| surviving the round trip, covered or not | 1662 |
-| fully covered but differing (each one a bug worth fixing) | 0 |
-| threw | 0 |
-
-The test fails when a count moves the wrong way. The population must equal the
-number of `::: compare` blocks in the pinned spec's examples, so a partial
-checkout cannot pass on a smaller corpus. The fully-covered count has the floor
-`MINIMUM_LOSSLESS` (809) and the surviving count has `MINIMUM_SURVIVING` (1024).
-The surviving count is the one that guards fidelity: a document leaves the
-fully-covered row when the renderer starts reporting a loss it used to hide,
-even though its round trip did not change. The differing row has the ceiling
-`MAXIMUM_COVERED_BUT_DIFFERING` (0), and no document may throw. Both floors sit
-several hundred documents below the measurement, so they catch a large
-regression rather than a single document.
-
-## Application node types
-
-An application's own editor node survives as an attributed container - no library
-change needed:
-
-```
-{#calc-1 .calculation data-label="Wärmebedarf" data-unit=kWh}
-::: calculation
-42
-:::
-```
-
-becomes a `carveDiv` carrying `data-label` and `data-unit` in its attrs, and comes
-back with them intact. Nodes that subclass `Node` instead can be registered with
-`AstCodec::register()` for the JSON codec; the bridge itself needs the upstream map
-to know the name, so a genuinely new editor node belongs in carve-grammars first.
-
-An editor node the application registered on `ProseMirrorToCarve` arrives in
-Carve as an ordinary span, div or paragraph, told apart by its class. Register
-the way back on the renderer, or it comes out as a `carveSpan` mark or a classed
-paragraph:
-
-```php
-$renderer = (new ProseMirrorRenderer())->register(
-    fn (Node $node): bool => $node instanceof Span && $node->hasClass('placeholder-token'),
-    fn (Node $node): array => [
-        'type' => 'placeholderToken',
-        'attrs' => ['label' => $node->getAttribute('label')],
-    ],
-);
-```
-
-The first matching registration wins. The render closure returns the node, or
-null to leave it out, and its second argument renders the node's children for a
-container. A matched node is not reported in `droppedTypes()` or
-`degradedTypes()`.
-
-## Shape differences worth knowing
-
-- **Source positions.** The renderer leaves `carvePos` out, as carve-grammars
-  does, so a stored editor document does not change when text above a block
-  moves. Call `withSourcePositions()` when the document comes back through the
-  Carve writer and was parsed with position tracking (`CarveConverter::carve()`):
-  the writer places collected definitions by those positions.
-- **Marks.** Carve nests emphasis as elements (`Strong > Text`); ProseMirror hangs
-  marks off the text node. Coming back, adjacent runs of the same mark are merged,
-  or `*bold with /italic/ inside*` would return as three `<strong>` elements.
-- **Content-bearing nodes.** `code` is a mark in ProseMirror but a node holding its
-  text in Carve; a code block likewise. Both are translated explicitly.
-- **Tables.** ProseMirror marks header *cells*; Carve also flags the *row*, which
-  is what puts it in `<thead>`. A table caption is state on the table, not a child,
-  so it travels as a leading `carveCaption` node.
-- **Lists.** Looseness is content, not styling: without carrying `tight`, a loose
-  list comes back tight and its items lose their paragraphs.
-- **Reference links.** A link mark carries `href`, which is what a link renders
-  by rather than what it was written as. For a collapsed reference that reaches
-  a heading the mark also carries `carveHeadingRef`, `carveRef` and
-  `carveRawRef`, so this:
-
-  ```
-  # *bold* heading
-
-  [*bold* heading][]
-  ```
-
-  comes back spelled as it was written instead of as
-  `[*bold* heading](#bold-heading)`, which would bake a generated id into the
-  source on every pass. The spelling is re-derived on the way back, not trusted:
-  a reference resolves by the heading's rendered text, so an editor that retypes
-  the visible text gets its edit kept and the link falls back to the inline
-  form. A `[text][label]` reference is **not** carried, because it resolves
-  against a `[label]: url` definition the editor model does not hold - written
-  back without one it would be literal text, not a link - so it is written
-  inline and reported in `degradedTypes()`.
-
-- **Mention labels.** Tiptap's mention extension stores a display name, and a
-  mention name is ASCII with interior dots and nothing else - so a label an
-  editor produced (`Mark Scherer`, `o'brien`) is written as the link form,
-  `[Mark Scherer](/u/42){.mention}`, which keeps the label, the href and the
-  class. Attributes and markup inside the label take the same route, for the same
-  reason. It reads back as a **link carrying `class="mention"`**, not as a
-  `carveMention` node, and nothing is reported dropped or degraded: an editor
-  that builds its mentions from a node type needs a parse rule on the class,
-  while one that styles by class already matches.
+The class names are the same; the schema and the calls changed. See the ProseMirror section of
+[the migration guide](migration.md).

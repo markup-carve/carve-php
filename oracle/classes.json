@@ -1,0 +1,26 @@
+{
+  "classes": {
+    "lone-hard-break": {
+      "clause": "C2-B-140",
+      "reason": "a paragraph of a hard break and no comment is not one of only comments; the clause does not decide (_SPEC_GAPS G2)"
+    },
+    "note-soft-break": {
+      "clause": "C2-H-045",
+      "reason": "the body of an inline footnote is one paragraph, and its soft break is a line break; carve-js drops it"
+    },
+    "unexpanded-include-paragraph": {
+      "clause": "C2-H-133",
+      "reason": "candidate 3: an unexpanded include is laid out as a paragraph at its place (bare in a tight item); carve-js 7a23a91b writes it with p on its own lines"
+    }
+  },
+  "cases": {
+    "137": "lone-hard-break",
+    "141": "unexpanded-include-paragraph",
+    "889": "note-soft-break",
+    "1028": "unexpanded-include-paragraph",
+    "1059": "unexpanded-include-paragraph",
+    "1520": "unexpanded-include-paragraph",
+    "2330": "unexpanded-include-paragraph",
+    "2773": "unexpanded-include-paragraph"
+  }
+}

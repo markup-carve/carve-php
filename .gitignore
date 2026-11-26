@@ -9,9 +9,6 @@
 /docs/.vitepress/dist/
 /docs/.vitepress/grammars/
 # Documentation
-/fuzz/crash-*
-/fuzz/minimized-*
-# Fuzz testing artifacts
 /.idea/
 # IDE and editor specific files #
 /nbproject/
@@ -21,9 +18,6 @@
 /.phpunit.cache/
 /phpunit.phar
 /.phpunit.result.cache
-/tests/benchmark_alternatives/results/
-/tests/benchmark/results/
-/examples/output/
 /tmp/
 /vendor/
 vendor/

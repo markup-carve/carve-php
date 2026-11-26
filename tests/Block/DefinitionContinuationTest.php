@@ -1,0 +1,86 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Block;
+
+use MarkupCarve\Carve\Carve;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * carve#6507, C2-B-083 and C2-B-084: link and abbreviation definitions continue on indented lines.
+ */
+final class DefinitionContinuationTest extends TestCase
+{
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function documents(): array
+    {
+        return [
+            'a title line and an attribute block line form the tail' => [
+                "[a]: /u\n  \"T\"\n  {.c}\n\n[a]\n",
+                '<p><a href="/u" title="T" class="c">a</a></p>',
+            ],
+            'a title below an attribute block line is no tail' => [
+                "[a]: /u\n  {.c}\n  \"T\"\n\n[a]\n",
+                "<p>\u{201C}T\u{201D}</p>\n<p><a href=\"/u\" class=\"c\">a</a></p>",
+            ],
+            'a second attribute block line is an attribute line of the next block' => [
+                "[a]: /u\n  \"T\"\n  {.c}\n  {.d}\nP\n\n[a]\n",
+                "<p class=\"d\">P</p>\n<p><a href=\"/u\" title=\"T\" class=\"c\">a</a></p>",
+            ],
+            'a block glued to the title is no tail' => [
+                "[a]: /u\n  \"T\"{.c}\n\n[a]\n",
+                "<p>\u{201C}T\u{201D}{.c}</p>\n<p><a href=\"/u\">a</a></p>",
+            ],
+            'the attribute line and the tail block merge in order' => [
+                "{.a k=1}\n[a]: /u\n  {.b k=2}\n\n[a]\n",
+                '<p><a href="/u" class="a b" k="2">a</a></p>',
+            ],
+            'a blank line ends an expansion' => [
+                "*[X]: a\n  b\n\n  c\n\nX\n",
+                "<p>c</p>\n<p><abbr title=\"a b\">X</abbr></p>",
+            ],
+            'an expansion takes every indented line' => [
+                "*[X]: a\n  - b\n  > c\n\nX\n",
+                '<p><abbr title="a - b &gt; c">X</abbr></p>',
+            ],
+            'a comment-only line ends an expansion (carve#6514)' => [
+                "*[X]: a\n  %% note\n  b\n\nX\n",
+                "<p>b</p>\n<p><abbr title=\"a\">X</abbr></p>",
+            ],
+            'a comment-only line ends a link definition (carve#6514)' => [
+                "[a]: /u\n%% c\n  \"T\"\n\n[a]\n",
+                "<p>\u{201C}T\u{201D}</p>\n<p><a href=\"/u\">a</a></p>",
+            ],
+            'an indented fence line ends an expansion' => [
+                "*[X]: a\n  b\n  ```\n  c\n  ```\n\nX\n",
+                "<pre><code>c\n</code></pre>\n<p><abbr title=\"a b\">X</abbr></p>",
+            ],
+            'an indented thematic break ends an expansion' => [
+                "*[X]: a\n  ***\n\nX\n",
+                "<hr>\n<p><abbr title=\"a\">X</abbr></p>",
+            ],
+            'an indented div fence ends an expansion' => [
+                "*[X]: a\n  ::: x\n  b\n  :::\n\nX\n",
+                "<div class=\"x\">\n  <p>b</p>\n</div>\n<p><abbr title=\"a\">X</abbr></p>",
+            ],
+        ];
+    }
+
+    #[DataProvider('documents')]
+    public function testRender(string $source, string $html): void
+    {
+        $this->assertSame($html, Carve::toHtml($source));
+    }
+
+    public function testTheDefinitionEndsWithItsLastLine(): void
+    {
+        $def = Carve::parse("*[X]: a\n  b\n\nX\n")->children[0] ?? null;
+
+        $this->assertNotNull($def);
+        $this->assertSame([0, 11], [$def->start, $def->end]);
+    }
+}

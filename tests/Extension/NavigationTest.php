@@ -1,0 +1,482 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Extension;
+
+use Closure;
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\DocumentTransform;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
+use MarkupCarve\Carve\Extension\Navigation;
+use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\RenderError;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
+
+/**
+ * The carve-js reference cases of markup-carve/carve-js#5073 (test/navigation-extensions.test.ts and the registered
+ * transform cases of test/document-transforms.test.ts).
+ */
+final class NavigationTest extends TestCase
+{
+    /**
+     * @var string
+     */
+    private const DOC = "= Intro\n\nText.\n\n== Usage\n\n=== Deep\n\n== Next\n";
+
+    /**
+     * The 0.2 extension conformance rows EXT-104 through EXT-106 (EXT-105 and EXT-106 as carve next2 697d37a66 checks them).
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function copiedTitleCases(): array
+    {
+        return [
+            'EXT-104' => [
+                "{#a}\n= A </#b>\n\n{#b}\n== B </#c>\n\n{#c}\n== C\n",
+                '<h1><span class="section-number">1</span> A <a href="#b">Section 1.1 - B C</a>',
+            ],
+            'EXT-105' => [
+                "{#h0}\n= T0 </#h1> </#h2>\n\n{#h1}\n= T1 </#h2> </#h3>\n\n{#h2}\n= T2 </#h3> </#h4>\n",
+                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2   &lt;/#h3&gt;</a> '
+                    . '<a href="#h2">Section 3 - T2 &lt;/#h3&gt; &lt;/#h4&gt;</a></h1>',
+            ],
+            'EXT-106' => [
+                "{#a}\n= Ref </#a>\n",
+                '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref </a></h1>',
+            ],
+        ];
+    }
+
+    #[DataProvider('copiedTitleCases')]
+    public function testCopiedTitleConformance(string $source, string $expected): void
+    {
+        self::assertStringContainsString($expected, self::html($source, Navigation::headingNumbers()));
+    }
+
+    public function testCopiedTitleOutputAndMemoryStayLinear(): void
+    {
+        $memoryBefore = memory_get_usage(true);
+        $sizes = [];
+        foreach ([1, 40, 160, 320] as $references) {
+            $source = "{#a}\n= Ref\n\n" . str_repeat('See </#a>.\n\n', $references);
+            $html = self::html($source, Navigation::headingNumbers());
+            self::assertSame($references, substr_count($html, '<a href="#a">'));
+            $sizes[] = strlen($html);
+        }
+        self::assertLessThan($sizes[2] * 2.1, $sizes[3]);
+        self::assertLessThan(64 * 1024 * 1024, memory_get_usage(true) - $memoryBefore);
+    }
+
+    /**
+     * carve#6540 ruling A: a cross-reference inside a copied title is a link with its target's untrimmed plain title
+     * (carve#6701), never a second copy.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function copiedTitleHeadingCases(): array
+    {
+        return [
+            'next two headings' => [
+                "{#h0}\n= T0 </#h1> </#h2>\n\n{#h1}\n= T1 </#h2> </#h3>\n\n{#h2}\n= T2 </#h3> </#h4>\n\n"
+                    . "{#h3}\n= T3 </#h4> </#h5>\n",
+                '<h1><span class="section-number">1</span> T0 <a href="#h1">Section 2 - T1 T2   T3  </a> '
+                    . '<a href="#h2">Section 3 - T2 T3   &lt;/#h4&gt;</a></h1>',
+            ],
+            'self reference' => [
+                "{#a}\n= Ref </#a>\n",
+                '<h1><span class="section-number">1</span> Ref <a href="#a">Section 1 - Ref Ref </a></h1>',
+            ],
+            'paragraph reference' => [
+                "{#a}\n= A </#b>\n\n{#b}\n= B _</#a>_\n\nSee </#b>.\n",
+                '<p>See <a href="#b">Section 2 - B _A _</a>.</p>',
+            ],
+        ];
+    }
+
+    #[DataProvider('copiedTitleHeadingCases')]
+    public function testCopiedTitleHoldsNoSecondCopy(string $source, string $expected): void
+    {
+        self::assertStringContainsString($expected, self::html($source, Navigation::headingNumbers()));
+    }
+
+    /**
+     * carve-js#5309: the toc renderers are registered through `renderers`, not carried by the definitions.
+     *
+     * @var array<string, string>
+     */
+    private const TOC_RENDERERS = ['carve.toc' => 'standard', 'carve.tocPlacement' => 'standard'];
+
+    private static function html(string $source, ExtensionDefinition ...$extensions): string
+    {
+        return Carve::render($source, ['extensions' => $extensions, 'renderers' => self::TOC_RENDERERS]);
+    }
+
+    private static function suffix(string $name, string $text): ExtensionDefinition
+    {
+        return new ExtensionDefinition($name, '1', documentTransform: static function (Node $view) use ($text): Node {
+            $paragraph = $view->children[0] ?? null;
+            if ($paragraph !== null && $paragraph->type === 'paragraph') {
+                $node = new Node('text');
+                $node->f['value'] = $text;
+                $paragraph->children = [...($paragraph->children ?? []), $node];
+            }
+
+            return $view;
+        });
+    }
+
+    public function testRegisteredTransformsRunInRegistrationOrder(): void
+    {
+        $options = ['extensions' => [self::suffix('host.first', '1'), self::suffix('host.second', '2')]];
+        $this->assertSame('<p>a12</p>', Carve::render('a', $options));
+        $this->assertSame('<p>a12</p>', Carve::toHtml('a', $options));
+        $this->assertSame('<p>a12</p>', Carve::render(Carve::parse('a'), $options));
+        $this->assertSame('<p>a12</p>', Carve::renderWithDiagnostics('a', $options)->html);
+        $noop = new DocumentTransform('third', static fn (Node $view): Node => $view);
+        $this->assertSame('<p>a12</p>', Carve::renderWithDocumentTransforms('a', [$noop], $options)->html);
+        $failing = new ExtensionDefinition('host.broken', '1', documentTransform: static function (): Node {
+            throw new RuntimeException('boom');
+        });
+        $result = Carve::renderWithDiagnostics('a', ['extensions' => [$failing]]);
+        $this->assertSame('<p>a</p>', $result->html);
+        $this->assertSame(['extension-transform-failed'], $result->codes());
+        $this->expectException(RenderError::class);
+        Carve::render('a', ['extensions' => [$failing], 'strictLosses' => true]);
+    }
+
+    public function testTheAuthoredTreeAndAPlainRenderStayUnchanged(): void
+    {
+        $tree = Carve::parse(self::DOC);
+        $before = Carve::encodeTree($tree);
+        $extensions = [Navigation::tableOfContents(), Navigation::headingNumbers(), Navigation::headingPermalinks()];
+        Carve::render($tree, ['extensions' => $extensions]);
+        $this->assertSame($before, Carve::encodeTree($tree));
+        $this->assertStringNotContainsString('toc', Carve::render(self::DOC));
+    }
+
+    public function testTheIssueExample(): void
+    {
+        $this->assertSame(implode("\n", [
+            '<nav class="toc" aria-label="Table of contents">',
+            '  <ul>',
+            '    <li><a href="#Intro">Intro</a>',
+            '      <ul>',
+            '        <li><a href="#Usage">Usage</a></li>',
+            '      </ul>',
+            '    </li>',
+            '  </ul>',
+            '</nav>',
+            '<section id="Intro">',
+            '  <h1><span class="section-number">1</span> Intro <a href="#Intro" class="permalink" aria-label="Permalink">¶</a></h1>',
+            '  <section id="Usage">',
+            '    <h2><span class="section-number">1.1</span> Usage <a href="#Usage" class="permalink" aria-label="Permalink">¶</a></h2>',
+            '    <p>See <a href="#Usage">Section 1.1 - Usage</a>.</p>',
+            '  </section>',
+            '</section>',
+        ]), self::html(
+            "= Intro\n\n== Usage\n\nSee </#Usage>.\n",
+            Navigation::headingNumbers(),
+            Navigation::headingPermalinks(),
+            Navigation::tableOfContents(),
+        ));
+    }
+
+    public function testTableOfContents(): void
+    {
+        $list = "<ul>\n  <li><a href=\"#Intro\">Intro</a>\n    <ul>\n      <li><a href=\"#Usage\">Usage</a>\n        <ul>\n"
+            . "          <li><a href=\"#Deep\">Deep</a></li>\n        </ul>\n      </li>\n      <li><a href=\"#Next\">Next</a></li>\n"
+            . "    </ul>\n  </li>\n</ul>";
+        $indented = implode("\n", array_map(static fn (string $line): string => '  ' . $line, explode("\n", $list)));
+        $html = self::html(self::DOC, Navigation::tableOfContents());
+        $this->assertStringStartsWith(
+            "<nav class=\"toc\" aria-label=\"Table of contents\">\n{$indented}\n</nav>\n<section id=\"Intro\">",
+            $html,
+        );
+        $this->assertSame($html, Carve::render(self::DOC, [
+            'extensions' => [Navigation::tableOfContents()],
+            'renderers' => self::TOC_RENDERERS,
+            'mode' => 'static',
+        ]));
+        $result = Carve::renderWithDiagnostics(self::DOC, ['extensions' => [Navigation::tableOfContents()->withoutRenderers()]]);
+        $this->assertStringStartsWith("<div class=\"toc\">\n{$indented}\n</div>\n", $result->html);
+        $this->assertSame(['extension-fallback-rendered'], $result->codes());
+        $this->assertSame('<p>text</p>', self::html("text\n", Navigation::tableOfContents()));
+        $this->assertStringContainsString(
+            '<li><a href="#start">A <span>b</span> c</a></li>',
+            self::html("{#start}\n= A [b]{#inner} c[^n]\n\n[^n]: note\n", Navigation::tableOfContents()),
+        );
+    }
+
+    public function testTableOfContentsOptions(): void
+    {
+        $toc = Navigation::tableOfContents(minLevel: 2, maxLevel: 2, listType: 'ol', cssClass: 'contents', position: 'bottom');
+        // The 0.2 sections close at the end of the document, so the last section holds a table placed at the bottom.
+        $this->assertStringEndsWith(
+            "    <nav class=\"contents\" aria-label=\"Table of contents\">\n      <ol>\n        <li><a href=\"#Usage\">Usage</a></li>\n"
+            . "        <li><a href=\"#Next\">Next</a></li>\n      </ol>\n    </nav>\n  </section>\n</section>",
+            self::html(self::DOC, $toc),
+        );
+        $this->assertStringStartsWith(
+            "<details class=\"toc\" open>\n  <summary>On &lt;this&gt; page</summary>\n"
+            . "  <ul>\n    <li><a href=\"#A\">A</a></li>\n  </ul>\n</details>\n",
+            self::html("= A\n", Navigation::tableOfContents(collapsible: true, summary: 'On <this> page', open: true)),
+        );
+        $named = Carve::render("= A\n", [
+            'extensions' => [Navigation::tableOfContents()],
+            'renderers' => self::TOC_RENDERERS,
+            'labels' => ['tocNav' => 'Contents'],
+        ]);
+        $this->assertStringStartsWith('<nav class="toc" aria-label="Contents">', $named);
+        $bare = Carve::render("= A\n", [
+            'extensions' => [Navigation::tableOfContents()],
+            'renderers' => self::TOC_RENDERERS,
+            'labels' => ['tocNav' => ''],
+        ]);
+        $this->assertStringStartsWith('<nav class="toc">', $bare);
+    }
+
+    public function testTocPlacement(): void
+    {
+        $html = self::html(self::DOC . "\n{depth=2 .side}\n::: toc\n:::\n", Navigation::tocPlacement());
+        $this->assertStringContainsString(
+            "    <nav class=\"toc side\" aria-label=\"Table of contents\">\n      <ul>\n        <li><a href=\"#Intro\">Intro</a>\n"
+            . "          <ul>\n            <li><a href=\"#Usage\">Usage</a></li>\n            <li><a href=\"#Next\">Next</a></li>\n"
+            . "          </ul>\n        </li>\n      </ul>\n    </nav>",
+            $html,
+        );
+        $this->assertStringNotContainsString('depth=', $html);
+        $html = self::html(self::DOC . "\n{from=3 to=2}\n::: toc \"On this page\"\n:::\n", Navigation::tocPlacement());
+        $this->assertStringContainsString(
+            "<nav class=\"toc\" aria-labelledby=\"toc-title-1\">\n      <p class=\"admonition-title\" id=\"toc-title-1\">On this page</p>\n"
+            . "      <ul>\n        <li><a href=\"#Usage\">Usage</a>\n",
+            $html,
+        );
+        $this->assertStringNotContainsString('#Intro', $html);
+        $html = self::html("= Top\n\n::: note\n= Inside\n:::\n\n> = Quoted\n\n::: toc\n:::\n", Navigation::tocPlacement());
+        $this->assertStringContainsString('<li><a href="#Top">Top</a></li>', $html);
+        $this->assertStringNotContainsString('<a href="#Inside">', $html);
+        $this->assertStringNotContainsString('<a href="#Quoted">', $html);
+        $this->assertStringContainsString(
+            "  <p>Intro text.</p>\n  <nav class=\"toc\"",
+            self::html("= A\n\n::: toc\nIntro text.\n:::\n", Navigation::tocPlacement()),
+        );
+    }
+
+    /**
+     * @return array<string, array{\Closure(): \MarkupCarve\Carve\Extension\ExtensionDefinition, string, string, string|null}>
+     */
+    public static function tocRendererCases(): array
+    {
+        $toc = static fn (): ExtensionDefinition => Navigation::tableOfContents();
+        $placement = static fn (): ExtensionDefinition => Navigation::tocPlacement();
+
+        return [
+            'toc default' => [$toc, 'carve.toc', "= A\n\n== B\n", null],
+            'toc static' => [$toc, 'carve.toc', "= A\n\n== B\n", 'static'],
+            'placement default' => [$placement, 'carve.tocPlacement', "::: toc\n:::\n\n= A\n\n== B\n", null],
+            'placement static' => [$placement, 'carve.tocPlacement', "::: toc\n:::\n\n= A\n\n== B\n", 'static'],
+        ];
+    }
+
+    /**
+     * carve-js#5309, EXT-117 to EXT-123: without a `renderers` entry the fallback is written and reported in both modes
+     * (C2-X-052, C2-X-035); with `standard` the bundled renderer writes the `<nav>`.
+     *
+     * @param \Closure(): \MarkupCarve\Carve\Extension\ExtensionDefinition $make
+     * @param string $name
+     * @param string $source
+     * @param string|null $mode
+     */
+    #[DataProvider('tocRendererCases')]
+    public function testTocRendererComesFromTheRenderersOption(Closure $make, string $name, string $source, ?string $mode): void
+    {
+        $list = "  <ul>\n    <li><a href=\"#A\">A</a>\n      <ul>\n        <li><a href=\"#B\">B</a></li>\n      </ul>\n"
+            . "    </li>\n  </ul>\n";
+        $sections = "<section id=\"A\">\n  <h1>A</h1>\n  <section id=\"B\">\n    <h2>B</h2>\n  </section>\n</section>";
+        $options = ['extensions' => [$make()]] + ($mode === null ? [] : ['mode' => $mode]);
+
+        $fallback = Carve::renderWithDiagnostics($source, $options);
+        $this->assertSame("<div class=\"toc\">\n{$list}</div>\n{$sections}", $fallback->html);
+        $this->assertSame(['extension-fallback-rendered'], $fallback->codes());
+
+        $rendered = Carve::renderWithDiagnostics($source, $options + ['renderers' => [$name => 'standard']]);
+        $this->assertSame("<nav class=\"toc\" aria-label=\"Table of contents\">\n{$list}</nav>\n{$sections}", $rendered->html);
+        $this->assertSame([], $rendered->codes());
+    }
+
+    public function testTocPlacementFallbackAndCore(): void
+    {
+        $fallback = Carve::render("= A\n\n::: toc\n:::\n", ['extensions' => [Navigation::tocPlacement()]]);
+        $this->assertStringContainsString(
+            "<div class=\"toc\">\n    <ul>\n      <li><a href=\"#A\">A</a></li>\n    </ul>\n  </div>",
+            $fallback,
+        );
+        $this->assertStringNotContainsString("<div class=\"toc\">\n    <div", $fallback);
+        $core = Carve::render("= A\n\n::: toc\n:::\n");
+        $this->assertStringContainsString('<div class="toc">', $core);
+        $this->assertStringNotContainsString('<ul>', $core);
+    }
+
+    public function testHeadingPermalinks(): void
+    {
+        $this->assertSame(
+            "<section id=\"My-Heading\">\n"
+            . "  <h1>My Heading <a href=\"#My-Heading\" class=\"permalink\" aria-label=\"Permalink\">¶</a></h1>\n</section>",
+            self::html("= My Heading\n", Navigation::headingPermalinks()),
+        );
+        $html = self::html("= A\n\n== B\n", Navigation::headingPermalinks(
+            symbol: '#',
+            cssClass: 'p',
+            ariaLabel: 'Link',
+            levels: [2],
+            prepend: true,
+            showOnHover: true,
+            copyToClipboard: true,
+        ));
+        $this->assertStringContainsString('<h1>A</h1>', $html);
+        $this->assertStringContainsString(
+            '<h2><span class="permalink-wrapper permalink-hover">'
+            . '<a href="#B" class="p" aria-label="Link" data-permalink-copy="">#</a></span> B</h2>',
+            $html,
+        );
+        $this->assertStringContainsString(
+            '<p>See <a href="#A">A</a> and <a href="#A">A</a>.</p>',
+            self::html("= A\n\nSee [A][] and </#A>.\n", Navigation::headingPermalinks()),
+        );
+    }
+
+    public function testHeadingNumbers(): void
+    {
+        $html = self::html(self::DOC . "\nSee </#Deep>.\n", Navigation::headingNumbers());
+        $this->assertStringContainsString('<h1><span class="section-number">1</span> Intro</h1>', $html);
+        $this->assertStringContainsString('<h3><span class="section-number">1.1.1</span> Deep</h3>', $html);
+        $this->assertStringContainsString('<h2><span class="section-number">1.2</span> Next</h2>', $html);
+        $this->assertStringContainsString('<section id="Deep">', $html);
+        $this->assertStringContainsString('<p>See <a href="#Deep">Section 1.1.1 - Deep</a>.</p>', $html);
+        $source = "= Title\n\n== A\n\n{.unnumbered}\n== B\n\n> = Quoted\n\n== C\n\nSee </#C> and </#B>.\n";
+        $html = self::html($source, Navigation::headingNumbers(minLevel: 2, label: '§', crossref: 'number'));
+        $this->assertStringContainsString('<h1>Title</h1>', $html);
+        $this->assertStringContainsString('<h2><span class="section-number">1</span> A</h2>', $html);
+        $this->assertStringContainsString('<h2 class="unnumbered">B</h2>', $html);
+        $this->assertStringContainsString('<h1 id="Quoted">Quoted</h1>', $html);
+        $this->assertStringContainsString('<h2><span class="section-number">2</span> C</h2>', $html);
+        $this->assertStringContainsString('See <a href="#C">§ 2</a> and <a href="#B">B</a>.', $html);
+        $this->assertStringContainsString('See <a href="#C">C</a>', self::html($source, Navigation::headingNumbers(crossref: 'title')));
+        $this->assertStringContainsString(
+            '<li><a href="#A">A</a></li>',
+            self::html("= A\n", Navigation::headingNumbers(), Navigation::tableOfContents()),
+        );
+    }
+
+    public function testHeadingNumbersCountDepthNotLevel(): void
+    {
+        $skipped = self::html("= A\n\n=== C\n\n== B\n\n==== D\n", Navigation::headingNumbers());
+        $this->assertStringContainsString('<h3><span class="section-number">1.1</span> C</h3>', $skipped);
+        $this->assertStringContainsString('<h2><span class="section-number">1.2</span> B</h2>', $skipped);
+        $this->assertStringContainsString('<h4><span class="section-number">1.2.1</span> D</h4>', $skipped);
+        $leading = self::html("== B\n\n= A\n\n== C\n", Navigation::headingNumbers());
+        $this->assertStringContainsString('<h2><span class="section-number">1</span> B</h2>', $leading);
+        $this->assertStringContainsString('<h1><span class="section-number">2</span> A</h1>', $leading);
+        $this->assertStringContainsString('<h2><span class="section-number">2.1</span> C</h2>', $leading);
+    }
+
+    public function testHeadingNumbersSkipNoteAndListItemHeadings(): void
+    {
+        $html = self::html("= A\n\n::: note\n== N\n:::\n\n- item\n\n  == L\n\n== B\n", Navigation::headingNumbers());
+        $this->assertStringContainsString('<h2 id="N">N</h2>', $html);
+        $this->assertStringContainsString('<h2 id="L">L</h2>', $html);
+        $this->assertStringContainsString('<h2><span class="section-number">1.1</span> B</h2>', $html);
+    }
+
+    public function testAnExplicitDisplayModeStaysWithTheCore(): void
+    {
+        $tree = json_decode(Carve::encodeTree(Carve::parse("== C\n\nSee </#C>.\n")), true);
+        foreach ($tree['children'][1]['children'] as $at => $child) {
+            if ($child['type'] === 'xref') {
+                $tree['children'][1]['children'][$at]['display'] = 'page';
+            }
+        }
+        $html = Carve::render(Carve::decodeTree((string)json_encode($tree)), ['extensions' => [Navigation::headingNumbers()]]);
+        $this->assertStringNotContainsString('Section 1 - C', $html);
+    }
+
+    public function testHeadingReference(): void
+    {
+        $this->assertStringContainsString(
+            '<a href="#Setup" class="heading-ref">Setup</a> <a href="#Setup" class="heading-ref">here</a> <a href="https://x.org">Doc</a>',
+            self::html("= Setup\n\n[Setup][] [here][Setup] [Doc][]\n\n[Doc]: https://x.org\n", Navigation::headingReference()),
+        );
+        $this->assertStringContainsString(
+            '<a href="#Setup" class="a b">Setup</a>',
+            self::html("= Setup\n\n[Setup][]\n", Navigation::headingNumbers(), Navigation::headingReference('a b')),
+        );
+    }
+
+    public function testExternalLinks(): void
+    {
+        $this->assertSame(
+            '<p><a href="https://x.org" rel="noopener noreferrer" target="_blank">a</a> '
+            . '<a href="http://y.org" rel="noopener noreferrer" target="_blank">http://y.org</a> '
+            . '<a href="/local">b</a> <a href="#top">c</a></p>',
+            self::html("[a](https://x.org) <http://y.org> [b](/local) [c](#top)\n", Navigation::externalLinks()),
+        );
+        $this->assertSame(
+            '<p><a href="https://x.org" rel="noopener nofollow">a</a></p>',
+            self::html("[a](https://x.org){TARGET=self}\n", Navigation::externalLinks(target: '', rel: 'noopener', nofollow: true)),
+        );
+    }
+
+    public function testLinkPolicy(): void
+    {
+        $this->assertSame(
+            '<p>a https://sub.bad.org pic <a href="https://ok.org" rel="nofollow ugc">b</a></p>',
+            self::html(
+                "[a](https://bad.org/x) <https://sub.bad.org> ![pic](https://bad.org/i.png) [b](https://ok.org)\n",
+                Navigation::linkPolicy(deniedDomains: ['bad.org'], rel: ['nofollow', 'ugc']),
+            ),
+        );
+        $this->assertSame(
+            '<p><a href="https://me.org/x">a</a> b <a href="/p">c</a> d</p>',
+            self::html(
+                "[a](https://me.org/x) [b](https://you.org) [c](/p) [d](//you.org/x)\n",
+                Navigation::linkPolicy(allowExternal: false, baseHost: 'ME.org.'),
+            ),
+        );
+        $this->assertSame('<p>c e</p>', self::html("[c](/p) [e](#x)\n", Navigation::linkPolicy(allowInternal: false)));
+        $this->assertSame(
+            '<p>a b <a href="https://ok.org">c</a></p>',
+            self::html(
+                "[a](http://2130706433/) [b](http://0x7f.0.0.1/x) [c](https://ok.org)\n",
+                Navigation::linkPolicy(deniedDomains: ['127.0.0.1']),
+            ),
+        );
+        $this->assertSame('<p>x y</p>', self::html("[x](doc/page) [y](a/b:c)\n", Navigation::linkPolicy(allowInternal: false)));
+        $source = "[a](https://docs.ok.org) [b](https://other.org) [m](mailto:x@ok.org)\n";
+        $this->assertSame(
+            '<p><a href="https://docs.ok.org">a</a> b <a href="mailto:x@ok.org">m</a></p>',
+            self::html($source, Navigation::linkPolicy(allowedDomains: ['ok.org'])),
+        );
+        $this->assertSame(
+            '<p><a href="https://docs.ok.org">a</a> <a href="https://other.org">b</a> m</p>',
+            self::html($source, Navigation::linkPolicy(allowedSchemes: ['https'])),
+        );
+    }
+
+    public function testAutolink(): void
+    {
+        $this->assertSame(
+            '<p>Visit <a href="https://x.org/a">https://x.org/a</a>. Mail <a href="mailto:a@b.co">a@b.co</a>, or '
+            . '<a href="mailto:c@d.org">mailto:c@d.org</a>!</p>',
+            self::html("Visit https://x.org/a. Mail a@b.co, or mailto:c@d.org!\n", Navigation::autolink()),
+        );
+        $source = "`https://x.org` [https://y.org](/p) xhttps://z.org\n";
+        $this->assertSame(Carve::render($source), self::html($source, Navigation::autolink()));
+        $this->assertSame(
+            '<p>http://x.org <a href="https://y.org">https://y.org</a> a@b.co</p>',
+            self::html("http://x.org https://y.org a@b.co\n", Navigation::autolink(['https'])),
+        );
+    }
+}

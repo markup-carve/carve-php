@@ -1,0 +1,454 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Extension;
+
+use DOMDocument;
+use DOMXPath;
+use MarkupCarve\Carve\Extension\SvgSanitizeOptions;
+use MarkupCarve\Carve\Extension\SvgSanitizer;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
+
+final class SvgSanitizerTest extends TestCase
+{
+    /**
+     * @throws \RuntimeException
+     *
+     * @return array<string, array{string, array<string, mixed>, string, bool}>
+     */
+    public static function parityRows(): array
+    {
+        $path = dirname(__DIR__) . '/fixtures/svg-sanitize/parity.json';
+        /** @var array<array{from: string, src: string, opts: array<string, mixed>, svg: string, ok: bool}> $rows */
+        $rows = json_decode((string)file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        // carve-js rows a js-first ruling changed (carve#6763, #6765, #6774), each naming its ticket.
+        $deltaPath = dirname(__DIR__) . '/fixtures/svg-sanitize/parity-js-first.json';
+        /** @var array<array{index: int, tickets: array<string>, src: string, svg: string, ok: bool}> $deltas */
+        $deltas = json_decode((string)file_get_contents($deltaPath), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($deltas as $delta) {
+            $row = $rows[$delta['index']];
+            if ($row['src'] !== $delta['src']) {
+                throw new RuntimeException('parity-js-first row ' . $delta['index'] . ' names another source');
+            }
+            $rows[$delta['index']] = ['svg' => $delta['svg'], 'ok' => $delta['ok']] + $row;
+        }
+        $out = [];
+        foreach ($rows as $i => $row) {
+            $out[$row['from'] . ' ' . $i] = [$row['src'], $row['opts'], $row['svg'], $row['ok']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param string $source
+     * @param array<string, mixed> $opts
+     * @param bool $ok
+     * @param string $svg
+     */
+    #[DataProvider('parityRows')]
+    public function testOutputEqualsCarveJs(string $source, array $opts, string $svg, bool $ok): void
+    {
+        self::assertSame(['svg' => $svg, 'ok' => $ok], SvgSanitizer::sanitize($source, $opts));
+    }
+
+    public function testEveryKeptOutputIsInertInAnHtmlParser(): void
+    {
+        $checked = 0;
+        foreach (self::parityRows() as [$source, $opts]) {
+            $result = SvgSanitizer::sanitize($source, $opts);
+            if (!$result['ok']) {
+                self::assertSame('', $result['svg']);
+
+                continue;
+            }
+            $checked++;
+            $document = new DOMDocument();
+            @$document->loadHTML('<body>' . $result['svg'] . '</body>');
+            foreach ((new DOMXPath($document))->query('//*') ?: [] as $element) {
+                self::assertNotContains(strtolower($element->nodeName), ['script', 'foreignobject', 'style', 'iframe'], $source);
+                foreach ($element->attributes ?? [] as $attribute) {
+                    self::assertStringStartsNotWith('on', strtolower($attribute->name), $source);
+                }
+            }
+        }
+        self::assertGreaterThan(500, $checked);
+    }
+
+    public function testScriptIsDroppedWithItsSubtree(): void
+    {
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><circle r="5"/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><script>alert(1)</script><circle r="5"/></svg>'),
+        );
+    }
+
+    public function testRootXmlnsInsideAValueIsKept(): void
+    {
+        // carve#6755: the carve-js regex cut the quote here and turned the rect's id text into an onload attribute.
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" id="a xmlns=b"><rect id="x onload=alert(1) y"/></svg>',
+            SvgSanitizer::sanitize('<svg id="a xmlns=b"><rect id="x onload=alert(1) y"/></svg>')['svg'],
+        );
+    }
+
+    public function testRootXmlnsAttributesAreReplacedByName(): void
+    {
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><rect/></svg>',
+            SvgSanitizer::sanitize('<svg xmlns="x" XMLNS="y" xmlns:xlink="http://www.w3.org/1999/xlink"><rect/></svg>')['svg'],
+        );
+        $valueless = SvgSanitizer::sanitize('<svg xmlns><rect/></svg>')['svg'];
+        self::assertSame('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', $valueless);
+    }
+
+    public function testValuelessAttributesAreDropped(): void
+    {
+        // carve#6774: XML has no valueless attributes, and none of the allowed ones is boolean.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"/>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg id/>'),
+        );
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><rect width fill/></svg>'),
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" class="a"><g aria-label="x"><circle r="1"/></g></svg>',
+            SvgSanitizer::sanitize('<svg data-x class="a" role><g aria-hidden aria-label="x"><circle r="1" DATA-Y/></g></svg>')['svg'],
+        );
+    }
+
+    public function testEmptyPrefixedNamespaceDeclarationIsDropped(): void
+    {
+        // carve#6779: Namespaces in XML 1.0 forbids undeclaring a prefix.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg xmlns:xlink=""><rect/></svg>'),
+        );
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><g/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink=\'\'/></svg>'),
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns:xlink="http://www.w3.org/1999/xlink"/></svg>',
+            SvgSanitizer::sanitize('<svg xmlns:xlink=""><g xmlns:xlink="http://www.w3.org/1999/xlink"/></svg>')['svg'],
+        );
+    }
+
+    public function testXlinkPrefixIsBoundOnTheRoot(): void
+    {
+        // carve#6782: a written xlink:href with no xmlns:xlink in scope gets the XLink declaration on the root.
+        $open = '<svg xmlns="http://www.w3.org/2000/svg"';
+        $decl = 'xmlns:xlink="http://www.w3.org/1999/xlink"';
+        self::assertSame(
+            ['svg' => $open . ' ' . $decl . '><use xlink:href="#a"/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><use xlink:href="#a"/></svg>'),
+        );
+        self::assertSame($open . ' ' . $decl . ' xlink:href="#a" id="r"/>', SvgSanitizer::sanitize('<svg xlink:href="#a" id="r"/>')['svg']);
+        self::assertSame(
+            $open . ' xmlns:xlink="urn:x"><use xlink:href="#a"/></svg>',
+            SvgSanitizer::sanitize('<svg xmlns:xlink="urn:x"><use xlink:href="#a"/></svg>')['svg'],
+        );
+        self::assertSame(
+            $open . '><use xlink:href="#a" xmlns:xlink="urn:x"/></svg>',
+            SvgSanitizer::sanitize('<svg><use xlink:href="#a" xmlns:xlink="urn:x"/></svg>')['svg'],
+        );
+        self::assertSame(
+            $open . '><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g></svg>')['svg'],
+        );
+        // A declaration inside a subtree binds only that subtree.
+        self::assertSame(
+            $open . ' ' . $decl . '><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g><use xlink:href="#b"/></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink="urn:x"><use xlink:href="#a"/></g><use xlink:href="#b"/></svg>')['svg'],
+        );
+        // Nothing is added when the xlink attribute is dropped.
+        self::assertSame(
+            $open . '><use/><use/></svg>',
+            SvgSanitizer::sanitize('<svg><use xlink:href="https://e/x"/><use XLINK:HREF="#a"/></svg>')['svg'],
+        );
+        self::assertSame($open . '/>', SvgSanitizer::sanitize('<svg><script><use xlink:href="#a"/></script></svg>')['svg']);
+    }
+
+    public function testPrefixedNameInAnotherSpellingIsDropped(): void
+    {
+        // carve#6783: only lower-case xmlns: declares a namespace, and prefixes are case-sensitive.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg XMLNS:XLINK="http://www.w3.org/1999/xlink"><rect/></svg>'),
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve"/>',
+            SvgSanitizer::sanitize('<svg Xmlns:xlink="urn:x" XML:SPACE="preserve" data-a:b="1" aria-x:y="2" xml:space="preserve"/>')['svg'],
+        );
+    }
+
+    public function testNamespaceDeclarationWithWhitespaceIsDropped(): void
+    {
+        // carve#6783: whitespace only; carve#6811: whitespace or U+00A0 anywhere, literal or as a reference.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg xmlns:xlink=" "><rect/></svg>'),
+        );
+        $values = [
+            "\t", " \n ", "\r", '&#32;', '&#x20;&#9;', '&#xA;', '&#13;', '&#x0D;', ' urn:x', 'urn:x ',
+            'urn: x', "urn:x\tb",
+            "\u{A0}", "urn:\u{A0}x", '&#160;', 'urn:&#xA0;x', '&#32;urn:x', 'urn:&nbsp;x', ' urn:x ',
+        ];
+        foreach ($values as $value) {
+            self::assertSame(
+                ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><g/></svg>', 'ok' => true],
+                SvgSanitizer::sanitize('<svg><g xmlns:xlink="' . $value . '"/></svg>'),
+                $value,
+            );
+        }
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns:xlink="urn:x"/></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns:xlink="urn:x"/></svg>')['svg'],
+        );
+    }
+
+    public function testChildDefaultNamespaceWithWhitespaceIsDropped(): void
+    {
+        // carve#6843: the carve#6811 rule on a child's default namespace declaration.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><g><rect/></g><g/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><g xmlns=" "><rect/></g><g xmlns="&#160;urn:x"/></svg>'),
+        );
+        $values = [
+            ' ', "\t", " \n ", "\r", '&#32;', '&#x20;&#9;', '&#xA;', '&#13;', '&#x0D;', ' urn:x',
+            'urn:x ',
+            'urn: x', "urn:x\tb", "\u{A0}", "urn:\u{A0}x", '&#160;', 'urn:&#xA0;x', '&#32;urn:x', 'urn:&nbsp;x',
+            '&nbsp;', ' http://www.w3.org/2000/svg',
+        ];
+        foreach ($values as $value) {
+            foreach (['<g xmlns="%s"/>', "<g><g><symbol xmlns='%s'><g/></symbol></g></g>", '<g><text xmlns="%s">t</text></g>'] as $shape) {
+                $shell = sprintf($shape, '');
+                $expected = str_replace([" xmlns=''", ' xmlns=""'], '', $shell);
+                self::assertSame(
+                    ['svg' => '<svg xmlns="http://www.w3.org/2000/svg">' . str_replace("'", '"', $expected) . '</svg>', 'ok' => true],
+                    SvgSanitizer::sanitize('<svg>' . sprintf($shape, $value) . '</svg>'),
+                    $value . ' in ' . $shape,
+                );
+            }
+        }
+        // An empty default declaration is a legal undeclaration; a clean value stays.
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns=""/><g xmlns="urn:x"/><g xmlns="http://www.w3.org/2000/svg"/></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns=""/><g xmlns="urn:x"/><g xmlns="http://www.w3.org/2000/svg"/></svg>')['svg'],
+        );
+    }
+
+    public function testStyleWithACssImageFunctionIsDropped(): void
+    {
+        // carve#6760: C2-H-162 blanks these in the core renderer; carve-js kept them.
+        $styles = [
+            'cursor:image-set("https://e.example/p.png" 1x),auto',
+            'background:-webkit-image-set("https://e.example/p.png" 1x)',
+            "background:image('https://e.example/p.png')",
+            'background:src("https://e.example/p.png")',
+            'background:IMAGE\\2d set("https://e.example/p.png" 1x)',
+        ];
+        foreach ($styles as $style) {
+            $result = SvgSanitizer::sanitize("<svg style='" . $style . "'/>", ['allowStyle' => true]);
+            self::assertSame('<svg xmlns="http://www.w3.org/2000/svg"/>', $result['svg'], $style);
+        }
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" style="fill:red;cursor:pointer"/>',
+            SvgSanitizer::sanitize('<svg style="fill:red;cursor:pointer"/>', ['allowStyle' => true])['svg'],
+        );
+    }
+
+    public function testAnHrefAnimationKeepsOnlyLocalReferences(): void
+    {
+        $opts = ['allowAnimation' => true];
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><set attributeName="href"/></use></svg>',
+            SvgSanitizer::sanitize('<svg><use href="#x"><set attributeName="href" to="evil.svg#x"/></use></svg>', $opts)['svg'],
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><animate attributeName="xlink:href" dur="1s"/></use></svg>',
+            SvgSanitizer::sanitize(
+                '<svg><use href="#x"><animate attributeName="xlink:href" values="#a;evil.svg#x" dur="1s"/></use></svg>',
+                $opts,
+            )['svg'],
+        );
+        $local = '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><animate attributeName="HREF" values="#a;#b;"/></use></svg>';
+        self::assertSame($local, SvgSanitizer::sanitize($local, $opts)['svg']);
+    }
+
+    public function testOptionsObjectAndArrayAgree(): void
+    {
+        $source = '<svg><a href="https://example.com/"><text>x</text></a><a href="mailto:a@b.c"><text>y</text></a></svg>';
+        $policy = ['allow' => ['HTTPS']];
+        $expected = '<svg xmlns="http://www.w3.org/2000/svg"><a href="https://example.com/"><text>x</text></a>'
+            . '<a><text>y</text></a></svg>';
+
+        self::assertSame($expected, SvgSanitizer::sanitize($source, new SvgSanitizeOptions(allowLinks: true, urlPolicy: $policy))['svg']);
+        self::assertSame($expected, SvgSanitizer::sanitize($source, ['allowLinks' => true, 'urlPolicy' => $policy])['svg']);
+    }
+
+    public function testInvalidUtf8IsReadAsReplacementCharacters(): void
+    {
+        self::assertSame(
+            ['svg' => "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>a\u{FFFD}b</text></svg>", 'ok' => true],
+            SvgSanitizer::sanitize("<svg><text>a\xFFb</text></svg>"),
+        );
+    }
+
+    public function testQuotedLocalUrlReferencesAreKept(): void
+    {
+        // carve#6763
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="url(\'#g\')"/><rect fill="url(&quot;#g&quot;)"/>'
+                . '<rect fill="url( #g)"/></svg>',
+            SvgSanitizer::sanitize('<svg><rect fill="url(\'#g\')"/><rect fill=\'url("#g")\'/><rect fill="url( #g)"/></svg>')['svg'],
+        );
+        // A URL keeps a leading no-break space, so these name a relative resource, not the fragment.
+        $relative = ["url(\u{A0}#g)", "url('\u{A0}#g')", "url(\u{3000}'#g')", "url( '\u{A0} #g')"];
+        foreach (["url('https://e.example/p#g')", 'url( "//e.example/x")', "url(' x#g')", "url('#g') url(x)", ...$relative] as $remote) {
+            self::assertSame(
+                '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
+                SvgSanitizer::sanitize('<svg><rect fill="' . htmlspecialchars($remote) . '"/></svg>')['svg'],
+                $remote,
+            );
+        }
+    }
+
+    public function testOutputHoldsOnlyXmlCharacters(): void
+    {
+        // carve#6764
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><text>&amp;#0;</text><text>a&amp;#x1;b</text></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><text>&#0;</text><text>a&#x1;b</text></svg>'),
+        );
+        $kept = '<svg xmlns="http://www.w3.org/2000/svg"><text>&#9;&#x20;&#xD7FF;&#xFFFD;&#x10FFFF;&#00065;</text></svg>';
+        self::assertSame($kept, SvgSanitizer::sanitize($kept)['svg']);
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><text>&amp;#xD800;&amp;#xFFFE;&amp;#x110000;&amp;#99999999;</text></svg>',
+            SvgSanitizer::sanitize('<svg><text>&#xD800;&#xFFFE;&#x110000;&#99999999;</text></svg>')['svg'],
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg" id="ab"><text>xyz</text></svg>',
+            SvgSanitizer::sanitize("<svg id=\"a\u{1}b\"><text>x\u{0}y\u{FFFE}z</text></svg>")['svg'],
+        );
+        // Dropped before the style check, so it cannot join `ur` and `l(` after the check.
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"/>',
+            SvgSanitizer::sanitize("<svg style=\"background:ur\u{1}l(https://e.example/p)\"/>", ['allowStyle' => true])['svg'],
+        );
+    }
+
+    public function testXmlCharacterVariantsLoadAsXml(): void
+    {
+        $bad = ['&#0;', '&#x1;', '&#xB;', '&#x1F;', '&#xD800;', '&#xFFFE;', '&#65535;', '&#x110000;'];
+        $bad = [...$bad, "\u{0}", "\u{1}", "\u{B}", "\u{1F}", "\u{FFFE}", "\u{FFFF}"];
+        $good = ['&#9;', '&#xA;', '&#32;', '&#x1F600;', "\u{1F600}", 'a', '&amp;', '&lt;', '&nbsp;', '&'];
+        mt_srand(6764);
+        $kept = 0;
+        for ($i = 0; $i < 1000; $i++) {
+            $text = '';
+            for ($n = mt_rand(1, 5); $n > 0; $n--) {
+                $pool = mt_rand(0, 1) === 1 ? $bad : $good;
+                $text .= $pool[mt_rand(0, count($pool) - 1)];
+            }
+            $source = mt_rand(0, 1) === 1
+                ? '<svg><text>' . $text . '</text></svg>'
+                : '<svg><rect id="' . str_replace('"', '&quot;', $text) . '"/></svg>';
+            $result = SvgSanitizer::sanitize($source);
+            if (!$result['ok']) {
+                continue;
+            }
+            $kept++;
+            $document = new DOMDocument();
+            self::assertTrue(@$document->loadXML($result['svg']), $source);
+        }
+        self::assertGreaterThan(900, $kept);
+    }
+
+    public function testAnimateTransformAndAnimateMotionAreKeptUnderAllowAnimation(): void
+    {
+        // carve#6765
+        $opts = ['allowAnimation' => true];
+        $animation = '<animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="1s"/>';
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><rect>' . $animation . '</rect></svg>',
+            SvgSanitizer::sanitize('<svg><rect>' . $animation . '</rect></svg>', $opts)['svg'],
+        );
+        $motion = '<svg xmlns="http://www.w3.org/2000/svg"><path id="p"/>'
+            . '<circle><animateMotion dur="2s"><mpath href="#p"/></animateMotion></circle></svg>';
+        self::assertSame($motion, SvgSanitizer::sanitize($motion, $opts)['svg']);
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><use href="#x"><animateMotion/></use></svg>',
+            SvgSanitizer::sanitize('<svg><use href="#x"><animateMotion onbegin="alert(1)" href="evil.svg#x"/></use></svg>', $opts)['svg'],
+        );
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>',
+            SvgSanitizer::sanitize('<svg><rect><animateTransform attributeName="transform"/></rect></svg>')['svg'],
+        );
+    }
+
+    public function testMalformedInputIsRefused(): void
+    {
+        foreach (['', 'x<svg/>', '<svg><rect></svg>', '<svg/><svg/>', '<SVG/>', '<svg><g>', '<svg a="b>'] as $source) {
+            self::assertSame(['svg' => '', 'ok' => false], SvgSanitizer::sanitize($source), $source);
+        }
+    }
+
+    /**
+     * Token and attribute boundaries: comment, CDATA and processing-instruction closers, quotes, a bare `<`, and the
+     * characters an attribute run skips.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function tokenShapes(): array
+    {
+        $root = '<svg xmlns="http://www.w3.org/2000/svg">';
+
+        return [
+            'unclosed comment' => ['<svg><!-- x</svg>', ''],
+            'comment closer overlapping its opener' => ['<svg><!--></svg>-->', ''],
+            'comment holding a tag' => ['<svg><!-- <g> --><g/></svg>', $root . '<g/></svg>'],
+            'unclosed CDATA section' => ['<svg><![CDATA[ x</svg>', ''],
+            'CDATA section holding a close tag' => ['<svg><text><![CDATA[</text>]]></text></svg>', $root . '<text/></svg>'],
+            'processing-instruction closer overlapping its opener' => ['<svg><?></svg>?>', ''],
+            'quoted greater-than in a value' => [
+                '<svg><g class="a>b" id=\'c>d\'/></svg>',
+                $root . '<g class="a&gt;b" id="c&gt;d"/></svg>',
+            ],
+            'bare less-than in a tag' => ['<svg><g <rect/></svg>', ''],
+            'unclosed quote' => ['<svg><g class="a></svg>', ''],
+            'unclosed single quote' => ["<svg><g class='a id=b></g></svg>", ''],
+            'close tag with an attribute' => ['<svg><g></g x></g></svg>', $root . '<g/></svg>'],
+            'close tag ending in a no-break space' => ["<svg><g></g\u{A0}></svg>", $root . '<g/></svg>'],
+            'doctype' => ['<!DOCTYPE svg><svg/>', '<svg xmlns="http://www.w3.org/2000/svg"/>'],
+            'bare values ending at a no-break space' => [
+                "<svg><g class=a\u{A0}id=b fill=red/></svg>",
+                $root . '<g class="a" id="b" fill="red"/></svg>',
+            ],
+            'characters skipped between attributes' => ['<svg><g 1x="2" é="3" id="4"/></svg>', $root . '<g x="2" id="4"/></svg>'],
+            'empty bare value' => ['<svg><g id= /></svg>', $root . '<g id=""/></svg>'],
+            'name with a colon and a dot' => [
+                '<svg><g xml:space="preserve" data-a.b="c"/></svg>',
+                $root . '<g xml:space="preserve" data-a.b="c"/></svg>',
+            ],
+            'tag case' => ['<svg><LinearGradient/><lineargradient/><linearGradient/></svg>', $root . '<linearGradient/></svg>'],
+            'text after the root' => ['<svg></svg>x', ''],
+            'whitespace around the root' => ["\u{FEFF}\u{3000} <svg/>\u{A0}", '<svg xmlns="http://www.w3.org/2000/svg"/>'],
+        ];
+    }
+
+    /**
+     * @param string $source
+     * @param string $svg Empty when the input is refused.
+     */
+    #[DataProvider('tokenShapes')]
+    public function testTokenShapes(string $source, string $svg): void
+    {
+        self::assertSame(['svg' => $svg, 'ok' => $svg !== ''], SvgSanitizer::sanitize($source));
+    }
+}

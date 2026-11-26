@@ -1,0 +1,176 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Writer;
+
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeEncoder;
+use MarkupCarve\Carve\Json\TreeEquality;
+use MarkupCarve\Carve\Writer\Writer;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * C2-W-088, C2-W-075: the rounds read every reference as written from the tree, and the verbatim texts go back after
+ * them where the output still reads back (markup-carve/carve#6802, carve#6772). Outputs are carve-js `next2`.
+ */
+final class VerbatimReferenceRoundsTest extends TestCase
+{
+    /**
+     * A verbatim text past the inline depth cap kept the rounds from bracing the nested strongs it holds, so they
+     * repeated a state and the write was refused.
+     *
+     * @return void
+     */
+    public function testReferencesPastTheDepthCapWrite(): void
+    {
+        $source = str_repeat("[a *[a][x]*[x]: /u\n", 122);
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $tree = TreeEncoder::decodedForWriter(Carve::parse($source));
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+        $this->assertTrue(TreeEquality::equal($tree, $read));
+    }
+
+    /**
+     * C2-W-088: where the kind rounds end with a node that did not read back, rounds that escape only the reported
+     * openers write the group again. A generated variant of the carve#6813 family, which those rounds write.
+     *
+     * @return void
+     */
+    public function testReportedOpenerRoundsWriteWhereTheKindRoundsStop(): void
+    {
+        $source = (string)file_get_contents(dirname(__DIR__) . '/fixtures/writer/reported-openers-fallback.txt');
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $tree = TreeEncoder::decodedForWriter(Carve::parse($source));
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+        $this->assertTrue(TreeEquality::equal($tree, $read));
+    }
+
+    /**
+     * C2-W-088 (carve#6813): no output of the rounds reads back on 122 collapsed references past the depth cap, so the
+     * paragraph is written as authored (CC-2323).
+     *
+     * @return void
+     */
+    public function testAuthoredBlockWhereTheRoundsLose(): void
+    {
+        $source = str_repeat("[a *[a][]*[x]: /u\n", 122);
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($source, $result->source);
+    }
+
+    /**
+     * A source that is not UTF-8 has its sidecar `source` in base64, and the fallback reads the bytes it encodes.
+     *
+     * @return void
+     */
+    public function testAuthoredBlockOfABase64Source(): void
+    {
+        $source = str_repeat("[a *[a][]*[x]: /u\n", 122) . "\n\xFF\n";
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertNotContains('writer-refused', array_map(static fn ($d): string => $d->code, $result->diagnostics));
+        $this->assertStringStartsWith(str_repeat("[a *[a][]*[x]: /u\n", 122), $result->source);
+    }
+
+    /**
+     * Under `normalize` the writer reads no sidecar (C2-W-127), so there is no authored source either.
+     *
+     * @return void
+     */
+    public function testNoAuthoredBlockUnderNormalize(): void
+    {
+        $result = Writer::formatWithDiagnostics(str_repeat("[a *[a][]*[x]: /u\n", 122), ['normalize' => true]);
+
+        $this->assertSame(['writer-refused'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+    }
+
+    /**
+     * A supplied tree without a sidecar has no authored source to fall back to, and keeps the refusal (C2-W-117).
+     *
+     * @return void
+     */
+    public function testNoAuthoredBlockWithoutASidecar(): void
+    {
+        $tree = TreeEncoder::decodedForWriter(Carve::parse(str_repeat("[a *[a][]*[x]: /u\n", 122)));
+
+        $result = Writer::writeWithDiagnostics($tree);
+
+        $this->assertSame(['writer-refused'], array_map(static fn ($d): string => $d->code, $result->diagnostics));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function verbatim(): array
+    {
+        return [
+            'authored backslash' => ["a [b \\* c][k] d\n\n[k]: /u\n", "a [b \\* c][k] d\n\n[k]: /u\n"],
+            'quote prefix on the later line' => ["> q [b\n> \\[c][k] d\n\n[k]: /u\n", "> q [b\n> \\[c][k] d\n\n[k]: /u\n"],
+            'cell' => ["| [a\\]b][k] | x |\n\n[k]: /u\n", "| [a\\]b][k] | x |\n\n[k]: /u\n"],
+            'image' => ["[*a*][k] and ![\\*i][k]\n\n[k]: /u\n", "[*a*][k] and ![\\*i][k]\n\n[k]: /u\n"],
+            'line-end blanks' => ["- [x  \n  \\_y][k]\n\n[k]: /u\n", "- [x\n  \\_y][k]\n\n[k]: /u\n"],
+        ];
+    }
+
+    #[DataProvider('verbatim')]
+    public function testVerbatimTextGoesBackAfterTheRounds(string $source, string $expected): void
+    {
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($expected, $result->source);
+    }
+
+    /**
+     * carve#6772: the rounds read the reference from the tree on every pass, so the slash before it keeps its backslash
+     * and a second pass gives the same bytes.
+     *
+     * @return void
+     */
+    public function testEscapesBesideAReferenceAreStable(): void
+    {
+        $once = Writer::format("^[/\\`[`[/[^]]][<]\n");
+        $this->assertSame("^\\[\\/\\`[\\`\\[\\/\\[^\\]\\]][<]\n", $once);
+        $this->assertSame($once, Writer::format($once));
+    }
+
+    /**
+     * C2-W-075: each block decides its own verbatim texts. Forty blocks whose verbatim text does not read back come
+     * before one whose text does; that one keeps its authored backslashes.
+     *
+     * @return void
+     */
+    public function testEachBlockDecidesItsVerbatimTexts(): void
+    {
+        $failing = "^[/\\`[`[/[^]]][<]\n\n";
+        $source = str_repeat($failing, 40) . "[a\\-b\\.][k]\n\n[<]: /u\n\n[k]: /k\n";
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertStringContainsString("\n[a\\-b\\.][k]\n", $result->source);
+        $this->assertStringContainsString("^\\[\\/\\`[\\`\\[\\/\\[^\\]\\]][<]\n", $result->source);
+    }
+
+    /**
+     * C2-W-127: `normalize` writes every reference from the tree.
+     *
+     * @return void
+     */
+    public function testNormalizeWritesFromTheTree(): void
+    {
+        $this->assertSame("a [b * c][k] d\n\n[k]: /u\n", Writer::format("a [b \\* c][k] d\n\n[k]: /u\n", ['normalize' => true]));
+    }
+}

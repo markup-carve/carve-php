@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Extension;
 
+use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Html\UrlPolicy;
+
 /**
- * Sanitizes SVG with a tokenizer for ImgFenceExtension or standalone use.
+ * Provisional. A standalone SVG sanitizer, the port of carve-js `sanitizeSvg` (extensions/blocks/svg-sanitize.ts).
  *
- * Drops disallowed elements with their subtrees, filters attributes and
- * URL/style values, and escapes retained text. The default options reject
- * links, animation, external images, and style attributes; hosts may enable
- * these through SvgSanitizeOptions. Script, foreignObject, style elements,
- * event handlers, and dangerous URL schemes remain disallowed.
- *
- * Port of carve-js `src/svg-sanitize.ts`.
+ * A tokenizer, not a regex scrub: an element off the allowlist is dropped with its subtree, an attribute off the
+ * allowlist and every `on*` handler is dropped, URL and style values are checked, and only the survivors are written
+ * again. The output holds no `<script>`, `<foreignObject>`, `<style>`, event handler, dangerous or external URL, or
+ * active CSS. Output bytes equal carve-js on the same input, except for the fixes of carve#6755,
+ * carve#6760 and carve#6761.
  */
 final class SvgSanitizer
 {
@@ -23,102 +24,211 @@ final class SvgSanitizer
     private const SVG_NS = 'http://www.w3.org/2000/svg';
 
     /**
-     * Presentational SVG element allowlist. Deliberately excludes script,
-     * foreignObject, style, a, image, metadata, and SMIL — those are gated by
-     * an option or dropped outright.
+     * @var string
+     */
+    private const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+    /**
+     * The only prefixed names written, each exactly in this spelling: prefixes are case-sensitive and the root binds
+     * `xlink` when needed (carve#6782, carve#6783).
      *
+     * @var array<string, true>
+     */
+    private const PREFIXED_NAMES = ['xlink:href' => true, 'xmlns:xlink' => true, 'xml:space' => true];
+
+    /**
+     * A namespace name that is empty or holds XML whitespace or U+00A0 once its references are read is no URI
+     * reference libxml2 accepts (carve#6779, carve#6783, carve#6811).
+     *
+     * @var string
+     */
+    private const UNWRITABLE_NAMESPACE = '~^\z|[ \t\n\r\x{A0}]~u';
+
+    /**
+     * JavaScript's `\s` and `String.prototype.trim()` set; `\s` in PCRE is ASCII only.
+     *
+     * @var string
+     */
+    private const WS = '[' . self::WS_CHARS . ']';
+
+    /**
+     * @var string
+     */
+    private const WS_CHARS = '\t\n\x0B\f\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
+
+    /**
+     * Raw characters outside the XML 1.0 `Char` production (carve#6764); valid UTF-8 holds no surrogates.
+     *
+     * @var string
+     */
+    private const NON_XML_CHAR = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x{FFFE}\x{FFFF}]/u';
+
+    /**
+     * The single-byte part of `NON_XML_CHAR`.
+     *
+     * @var string
+     */
+    private const NON_XML_BYTES = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F"
+        . "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F";
+
+    /**
+     * Removed before a scheme is read; a probe class, so it is wider than what a target may emit.
+     *
+     * @var string
+     */
+    private const SCHEME_STRIP = '/[\x00-\x20\x{7F}-\x{9F}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}'
+        . '\x{3000}\x{FEFF}]/u';
+
+    /**
+     * Stands in for a decoded lone surrogate, which UTF-8 cannot hold: like the surrogate, it is no letter, no
+     * whitespace and no probe-removed character.
+     *
+     * @var string
+     */
+    private const SURROGATE_STANDIN = "\u{E000}";
+
+    /**
+     * The text before a token, then the token: a comment, CDATA section or processing instruction up to its first
+     * closer, a close tag (group 3), or any other tag (group 4 names an open tag) up to a `>` outside quotes. It stops
+     * at a `<` none of these closes.
+     *
+     * @var string
+     */
+    private const TOKEN = '~\G([^<]*+)(<(?:!--(?:[^-]++|-(?!->))*+-->|!\[CDATA\[(?:[^\]]++|\](?!\]>))*+\]\]>'
+        . '|\?(?:[^?]++|\?(?!>))*+\?>|/([A-Za-z][A-Za-z0-9_:.-]*+)' . self::WS . '*+>'
+        . '|(?!!--|!\[CDATA\[|\?)([A-Za-z][A-Za-z0-9_:.-]*+)?(?:[^"\'<>]++|"[^"]*+"|\'[^\']*+\')*+>))~u';
+
+    /**
+     * Small enough that `preg_match_all` over it stays under the PCRE match limit.
+     *
+     * @var int
+     */
+    private const BATCH_BYTES = 8192;
+
+    /**
+     * @var string
+     */
+    private const CLOSE_TAG = '~^</([A-Za-z][A-Za-z0-9_:.-]*)' . self::WS . '*>\z~u';
+
+    /**
+     * @var string
+     */
+    private const NAME_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_:.-';
+
+    /**
+     * One attribute (name, then a double-quoted, single-quoted or bare value) or a run of skipped characters. An
+     * unclosed quote runs to the end. Every repeat is over one class, so a long run stays under the PCRE match limit.
+     *
+     * @var string
+     */
+    private const ATTR = '~\G' . self::WS . '*+(?:([A-Za-z_:][A-Za-z0-9_:.-]*+)(?:' . self::WS . '*+=' . self::WS
+        . '*+(?:"([^"]*+)"?|\'([^\']*+)\'?|([^>' . self::WS_CHARS . ']*+)))?|[^A-Za-z_:' . self::WS_CHARS . ']++)~u';
+
+    /**
+     * @var string
+     */
+    private const TRIM = '~^' . self::WS . '+|' . self::WS . '+\z~u';
+
+    /**
+     * @var string
+     */
+    private const WS_RUN = '~' . self::WS . '+~u';
+
+    /**
+     * @var string
+     */
+    private const SELF_CLOSED_TAIL = '~/>' . self::WS . '*\z~u';
+
+    /**
+     * @var string
+     */
+    private const CLOSED_TAIL = '~</svg>' . self::WS . '*\z~iu';
+
+    /**
+     * @var string
+     */
+    private const CSS_ESCAPE = '~\\\\([0-9a-fA-F]{1,6}' . self::WS . '?|.)~su';
+
+    /**
      * @var array<string>
      */
     private const ALLOWED_TAGS = [
-        'svg', 'g', 'defs', 'symbol', 'use', 'title', 'desc', 'switch',
-        'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
-        'text', 'tspan', 'textPath',
-        'marker', 'linearGradient', 'radialGradient', 'stop', 'clipPath', 'mask', 'pattern',
-        'filter', 'feGaussianBlur', 'feOffset', 'feBlend', 'feColorMatrix',
-        'feComponentTransfer', 'feFuncA', 'feFuncR', 'feFuncG', 'feFuncB',
-        'feComposite', 'feFlood', 'feMerge', 'feMergeNode', 'feMorphology',
-        'feTile', 'feTurbulence', 'feDropShadow', 'feImage', 'feDisplacementMap',
+        'svg', 'g', 'defs', 'symbol', 'use', 'title', 'desc',
+        'switch', 'path', 'rect', 'circle', 'ellipse', 'line',
+        'polyline', 'polygon', 'text', 'tspan', 'textPath', 'marker',
+        'linearGradient', 'radialGradient', 'stop', 'clipPath', 'mask',
+        'pattern', 'filter', 'feGaussianBlur', 'feOffset', 'feBlend',
+        'feColorMatrix', 'feComponentTransfer', 'feFuncA', 'feFuncR',
+        'feFuncG', 'feFuncB', 'feComposite', 'feFlood', 'feMerge',
+        'feMergeNode', 'feMorphology', 'feTile', 'feTurbulence',
+        'feDropShadow', 'feImage', 'feDisplacementMap',
     ];
 
     /**
+     * Looked up in lower case like carve-js, so the two camel-case names never match there either.
+     *
      * @var array<string>
      */
-    private const LINK_TAGS = ['a'];
+    private const ANIMATION_TAGS = ['animate', 'animatetransform', 'animatemotion', 'set', 'mpath'];
 
     /**
-     * @var array<string>
-     */
-    private const ANIMATION_TAGS = ['animate', 'animateTransform', 'animateMotion', 'set', 'mpath'];
-
-    /**
-     * @var array<string>
-     */
-    private const EXTERNAL_IMAGE_TAGS = ['image'];
-
-    /**
-     * Attribute-name allowlist (case-insensitive). Geometry + presentation only.
+     * Matched in lower case.
      *
      * @var array<string>
      */
     private const ALLOWED_ATTRS = [
-        'd', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r',
-        'rx', 'ry',
-        'width', 'height', 'viewbox', 'points', 'transform', 'pathlength',
-        'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-linecap',
-        'stroke-linejoin', 'stroke-miterlimit', 'stroke-dasharray', 'stroke-dashoffset',
-        'stroke-opacity', 'opacity', 'color', 'offset', 'stop-color', 'stop-opacity',
-        'gradientunits', 'gradienttransform', 'spreadmethod', 'patternunits',
-        'patterntransform', 'patterncontentunits', 'clippathunits', 'maskunits',
-        'maskcontentunits', 'markerwidth', 'markerheight', 'markerunits', 'orient',
-        'refx', 'refy', 'preserveaspectratio', 'font-family', 'font-size', 'font-weight',
-        'font-style', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'word-spacing',
-        'clip-path', 'clip-rule', 'mask', 'marker-start', 'marker-mid', 'marker-end',
-        'stddeviation', 'in', 'in2', 'result', 'mode', 'operator', 'values', 'type',
-        'flood-color', 'flood-opacity', 'attributename', 'begin', 'dur', 'from', 'to',
-        'repeatcount', 'keytimes', 'keysplines', 'calcmode', 'additive', 'accumulate',
-        'class', 'id', 'role', 'xmlns', 'xmlns:xlink', 'xml:space', 'version',
+        'd', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx',
+        'cy', 'r', 'rx', 'ry', 'width', 'height', 'viewbox',
+        'points', 'transform', 'pathlength', 'fill', 'fill-opacity',
+        'fill-rule', 'stroke', 'stroke-width', 'stroke-linecap',
+        'stroke-linejoin', 'stroke-miterlimit', 'stroke-dasharray',
+        'stroke-dashoffset', 'stroke-opacity', 'opacity', 'color', 'offset',
+        'stop-color', 'stop-opacity', 'gradientunits', 'gradienttransform',
+        'spreadmethod', 'patternunits', 'patterntransform', 'patterncontentunits',
+        'clippathunits', 'maskunits', 'maskcontentunits', 'markerwidth',
+        'markerheight', 'markerunits', 'orient', 'refx', 'refy',
+        'preserveaspectratio', 'font-family', 'font-size', 'font-weight',
+        'font-style', 'text-anchor', 'dominant-baseline', 'letter-spacing',
+        'word-spacing', 'clip-path', 'clip-rule', 'mask', 'marker-start',
+        'marker-mid', 'marker-end', 'stddeviation', 'in', 'in2',
+        'result', 'mode', 'operator', 'values', 'type',
+        'flood-color', 'flood-opacity', 'attributename', 'begin', 'dur',
+        'from', 'to', 'repeatcount', 'keytimes', 'keysplines',
+        'calcmode', 'additive', 'accumulate', 'class', 'id', 'role',
+        'xmlns', 'xmlns:xlink', 'xml:space', 'version',
     ];
 
     /**
-     * Reference-carrying attrs get URL scrubbing rather than a value passthrough.
-     *
-     * @var array<string>
-     */
-    private const URL_ATTRS = ['href', 'xlink:href'];
-
-    /**
-     * Kept byte-identical to the core renderer's DANGEROUS_URL_SCHEMES
-     * (HtmlRenderer::DANGEROUS_VALUE_SCHEMES): script / inline-content /
-     * local-file vectors plus the OS protocol-handler / command-execution
-     * schemes (CVE-2026-20841 class). Must not drift narrower.
+     * The same list as the core renderer's default deny list, kept separately as in carve-js.
      *
      * @var array<string>
      */
     private const DANGEROUS_URL_SCHEMES = [
-        'javascript', 'vbscript', 'data', 'file',
-        'ms-msdt', 'ms-office', 'ms-word', 'ms-excel', 'ms-powerpoint', 'ms-access',
-        'ms-visio', 'ms-project', 'ms-publisher', 'ms-infopath', 'ms-spd', 'ms-search',
-        'search-ms', 'ms-cxh', 'ms-cxh-full', 'shell', 'vscode', 'vscode-insiders', 'jar',
+        'javascript', 'vbscript', 'data', 'file', 'ms-msdt',
+        'ms-office', 'ms-word', 'ms-excel', 'ms-powerpoint', 'ms-access',
+        'ms-visio', 'ms-project', 'ms-publisher', 'ms-infopath', 'ms-spd',
+        'ms-search', 'search-ms', 'ms-cxh', 'ms-cxh-full', 'shell',
+        'vscode', 'vscode-insiders', 'jar',
     ];
 
     /**
-     * Attributes whose value is a paint/filter/animation REFERENCE. These may
-     * only carry local `#id` refs or literals — never a non-local `url()` or any
-     * absolute URL. SMIL value lists (`values`, `from`, `to`, `by`) are validated
-     * per `;`-separated segment so a later entry cannot smuggle a remote target.
+     * Values that may only hold a local `#id` reference or a literal; SMIL lists are checked per `;` entry.
      *
      * @var array<string>
      */
     private const REF_VALUE_ATTRS = [
         'fill', 'stroke', 'filter', 'clip-path', 'mask',
-        'marker-start', 'marker-mid', 'marker-end',
-        'color', 'stop-color', 'flood-color',
-        'values', 'from', 'to', 'by',
+        'marker-start', 'marker-mid', 'marker-end', 'color', 'stop-color',
+        'flood-color', 'values', 'from', 'to', 'by',
     ];
 
     /**
-     * Named character references that can obfuscate a URL scheme (form a `:`,
-     * `/`, whitespace, `(`, or `&`). Numeric refs are handled generically.
+     * @var array<string>
+     */
+    private const ANIMATION_VALUE_ATTRS = ['values', 'from', 'to', 'by'];
+
+    /**
+     * The named references that can spell a scheme; decoded for checks only, never for output.
      *
      * @var array<string, string>
      */
@@ -133,420 +243,636 @@ final class SvgSanitizer
         'amp' => '&',
         'quot' => '"',
         'apos' => "'",
-        'nbsp' => ' ',
+        'nbsp' => "\u{A0}",
     ];
 
     /**
-     * Unicode whitespace/separator class stripped before a scheme probe, so a
-     * leading NBSP / line separator cannot hide a dangerous scheme. Mirrors the
-     * carve-js SCHEME_STRIP_RE character class.
-     *
-     * @var string
+     * @var array<string>
      */
-    private const SCHEME_STRIP_RE = '/[\x{00}-\x{20}\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}]/u';
+    private array $out = [];
 
     /**
-     * `url(...)` whose content does not begin with `#` — a NON-LOCAL reference.
-     *
-     * @var string
+     * @var array<string>
      */
-    private const NONLOCAL_URL_RE = '/url\(\s*[\'"]?\s*(?!#)/i';
+    private array $dropStack = [];
 
     /**
-     * Any absolute-URL scheme (`https:`, `ms-msdt:`, …).
-     *
-     * @var string
+     * @var array<array{string, int, bool}> Name, the output index where its content starts, and whether it wrote
+     *   `xmlns:xlink`.
      */
-    private const ABSOLUTE_SCHEME_RE = '/^[a-zA-Z][a-zA-Z0-9+.-]*:/';
+    private array $kept = [];
 
     /**
-     * One tag / comment / CDATA / DOCTYPE / PI / text token at a time.
-     *
-     * @var string
+     * An `xlink:href` was written with no `xmlns:xlink` in scope (carve#6782).
      */
-    private const TOKEN_RE = '~<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<!(?:DOCTYPE|doctype)[^>]*>|<\?[\s\S]*?\?>|<\/([A-Za-z][\w:.-]*)\s*>|<([A-Za-z][\w:.-]*)((?:"[^"]*"|\'[^\']*\'|[^>"\'])*?)(\/?)>~';
+    private bool $bindXlink = false;
 
     /**
-     * One attribute (name plus optional quoted/unquoted value) at a time.
-     *
-     * @var string
+     * The tag being opened wrote `xlink:href` or `xmlns:xlink`.
      */
-    private const ATTR_RE = '/([A-Za-z_:][\w:.-]*)(?:\s*=\s*("([^"]*)"|\'([^\']*)\'|[^\s"\'>]+))?/';
+    private bool $xlinkUsed = false;
+
+    private bool $xlinkDeclared = false;
+
+    /**
+     * The kept open elements that wrote `xmlns:xlink`.
+     */
+    private int $xlinkScopes = 0;
+
+    private bool $sawRoot = false;
+
+    private bool $rootSelfClosed = false;
+
+    /**
+     * The lists above keyed by entry, built once: `in_array()` over the attribute list cost more than the rest of
+     * an attribute's checks.
+     *
+     * @var array<string, array<string, true>>
+     */
+    private static array $sets = [];
+
+    private function __construct(private SvgSanitizeOptions $opts)
+    {
+        self::$sets = self::$sets ?: [
+            'tags' => array_fill_keys(self::ALLOWED_TAGS, true),
+            'animationTags' => array_fill_keys(self::ANIMATION_TAGS, true),
+            'attrs' => array_fill_keys(self::ALLOWED_ATTRS, true),
+            'refValueAttrs' => array_fill_keys(self::REF_VALUE_ATTRS, true),
+            'animationValueAttrs' => array_fill_keys(self::ANIMATION_VALUE_ATTRS, true),
+            'dangerousSchemes' => array_fill_keys(self::DANGEROUS_URL_SCHEMES, true),
+        ];
+    }
 
     /**
      * Sanitize an SVG source string.
      *
-     * @param string $source The raw SVG source.
-     * @param \MarkupCarve\Carve\Extension\SvgSanitizeOptions|array<string, bool> $opts
+     * @param string $source
+     * @param \MarkupCarve\Carve\Extension\SvgSanitizeOptions|array<string, mixed> $opts
      *
-     * @return array{svg: string, ok: bool} `svg` is meaningful only when `ok` is
-     *   true. When false, callers should fall back to showing the source, never
-     *   the raw input.
+     * @return array{svg: string, ok: bool} `ok` is true when the input is one well-formed `<svg>` root; when it is
+     *   false, `svg` is empty and a caller shows the source as text, never the input.
      */
     public static function sanitize(string $source, SvgSanitizeOptions|array $opts = []): array
     {
-        $options = $opts instanceof SvgSanitizeOptions ? $opts : SvgSanitizeOptions::fromArray($opts);
+        $state = new self($opts instanceof SvgSanitizeOptions ? $opts : SvgSanitizeOptions::fromArray($opts));
 
-        $src = trim($source);
-        $out = '';
-        $lastIndex = 0;
-        /** @var array<string> $dropStack names of DROPPED open elements (subtree being discarded) */
-        $dropStack = [];
-        /** @var array<string> $kept names of KEPT open elements — matched on close */
-        $kept = [];
-        $sawSvgRoot = false;
-        $rootSelfClosed = false;
-
-        $count = preg_match_all(
-            self::TOKEN_RE,
-            $src,
-            $matches,
-            PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL,
-        );
-        if ($count === false) {
-            return ['svg' => '', 'ok' => false];
-        }
-
-        foreach ($matches as $m) {
-            $full = (string)$m[0][0];
-            $index = (int)$m[0][1];
-
-            // Text between the previous token and this one.
-            if ($index > $lastIndex) {
-                $between = substr($src, $lastIndex, $index - $lastIndex);
-                if (!$sawSvgRoot) {
-                    if (trim($between) !== '') {
-                        return ['svg' => '', 'ok' => false];
-                    }
-                } elseif ($dropStack === []) {
-                    $out .= self::escapeText($between);
-                }
-            }
-            $lastIndex = $index + strlen($full);
-
-            $endName = $m[1][0] ?? null;
-            $startName = $m[2][0] ?? null;
-
-            if ($endName !== null) {
-                // Closing tag. Must match the most recent open element — kept or
-                // dropped. A mismatch means malformed SVG → reject. Tag names are
-                // matched CASE-SENSITIVELY (a data-URI SVG parses as XML).
-                if ($dropStack !== []) {
-                    $d = array_pop($dropStack);
-                    if ($d !== $endName) {
-                        return ['svg' => '', 'ok' => false];
-                    }
-                } else {
-                    $open = array_pop($kept);
-                    if ($open === null || $open !== $endName) {
-                        return ['svg' => '', 'ok' => false];
-                    }
-                    $out .= '</' . $endName . '>';
-                }
-
-                continue;
-            }
-            if ($startName === null) {
-                // Comment / CDATA / DOCTYPE / PI — dropped entirely.
-                continue;
-            }
-
-            $selfClose = ($m[4][0] ?? null) === '/';
-            $allowed = self::tagAllowed($startName, $options);
-            $isRoot = $kept === [] && $dropStack === [] && !$sawSvgRoot;
-
-            if ($isRoot && $startName !== 'svg') {
-                // First element is not a lowercase `<svg>` root (XML is
-                // case-sensitive, so only the exact `svg` element is the root).
-                return ['svg' => '', 'ok' => false];
-            }
-            if (!$isRoot && $kept === [] && $dropStack === [] && $sawSvgRoot) {
-                // A second element at the top level: not a single <svg> root.
-                return ['svg' => '', 'ok' => false];
-            }
-
-            if ($dropStack !== []) {
-                // Already discarding a subtree; track nesting by name.
-                if (!$selfClose) {
-                    $dropStack[] = $startName;
-                }
-
-                continue;
-            }
-            if (!$allowed) {
-                if (!$selfClose) {
-                    $dropStack[] = $startName;
-                }
-
-                continue;
-            }
-
-            if ($isRoot) {
-                $sawSvgRoot = true;
-                $rootSelfClosed = $selfClose;
-            }
-            $attrs = self::sanitizeAttrs((string)($m[3][0] ?? ''), $options, $startName);
-            if ($isRoot) {
-                // Force the canonical SVG namespace on the root: drop any author
-                // `xmlns` and inject ours. `xmlns:xlink` is left intact (the
-                // regex only matches the bare `xmlns=`).
-                $stripped = preg_replace('/\s+xmlns\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $attrs) ?? $attrs;
-                $attrs = ' xmlns="' . self::SVG_NS . '"' . $stripped;
-            }
-            $out .= '<' . $startName . $attrs . ($selfClose ? '/>' : '>');
-            if (!$selfClose) {
-                $kept[] = $startName;
-            }
-        }
-
-        // Trailing text.
-        if ($lastIndex < strlen($src) && $sawSvgRoot && $dropStack === []) {
-            $out .= self::escapeText(substr($src, $lastIndex));
-        }
-
-        // Well-formedness: a single closed <svg> root, balanced, nothing open.
-        if (!$sawSvgRoot || $kept !== [] || $dropStack !== []) {
-            return ['svg' => '', 'ok' => false];
-        }
-        $tailOk = $rootSelfClosed
-            ? preg_match('~/>\s*$~', $out) === 1
-            : preg_match('~</svg>\s*$~i', $out) === 1;
-        if (preg_match('~^<svg[\s/>]~i', $out) !== 1 || !$tailOk) {
-            return ['svg' => '', 'ok' => false];
-        }
-
-        return ['svg' => $out, 'ok' => true];
+        return $state->run($source);
     }
 
-    private static function tagAllowed(string $name, SvgSanitizeOptions $opts): bool
+    /**
+     * @param string $source
+     *
+     * @return array{svg: string, ok: bool}
+     */
+    private function run(string $source): array
     {
-        $n = strtolower($name);
-        if (in_array($name, self::ALLOWED_TAGS, true) || in_array($n, self::ALLOWED_TAGS, true)) {
+        $fail = ['svg' => '', 'ok' => false];
+        $src = self::clean($source);
+        $cursor = 0;
+        // A short input is read in one pass; a longer one a token at a time, so memory does not grow with its
+        // token count.
+        $batched = strlen($src) <= self::BATCH_BYTES;
+        $tokens = [];
+        if ($batched) {
+            preg_match_all(self::TOKEN, $src, $tokens, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+        }
+        $i = 0;
+        while (true) {
+            if ($batched) {
+                if (!isset($tokens[$i])) {
+                    break;
+                }
+                $m = $tokens[$i++];
+            } else {
+                $found = preg_match(self::TOKEN, $src, $m, PREG_UNMATCHED_AS_NULL, $cursor);
+                if ($found !== 1) {
+                    $m = $found === false ? self::scanToken($src, $cursor) : null;
+                    if ($m === null) {
+                        break;
+                    }
+                }
+            }
+            $cursor += strlen($m[0]);
+            if (!$this->consumeToken($m[1], $m[2], $m[3], $m[4])) {
+                return $fail;
+            }
+        }
+        // The tokens stop early only at a `<` that does not close.
+        $rest = (string)substr($src, $cursor);
+        if (str_contains($rest, '<') || !$this->consumeText($rest) || !$this->sawRoot || $this->kept || $this->dropStack) {
+            return $fail;
+        }
+        if ($this->bindXlink) {
+            $rootOpen = strlen('<svg xmlns="' . self::SVG_NS . '"');
+            $this->out[0] = substr_replace($this->out[0], ' xmlns:xlink="' . self::XLINK_NS . '"', $rootOpen, 0);
+        }
+        $svg = implode('', $this->out);
+        $tail = $this->rootSelfClosed ? self::SELF_CLOSED_TAIL : self::CLOSED_TAIL;
+        if (preg_match('~^<svg[\s/>]~i', $svg) !== 1 || preg_match($tail, $svg) !== 1) {
+            return $fail;
+        }
+
+        return ['svg' => $svg, 'ok' => true];
+    }
+
+    /**
+     * carve#6764: characters outside XML are dropped before any check, so a check never sees a value the output does
+     * not hold.
+     */
+    private static function clean(string $source): string
+    {
+        $src = self::validUtf8($source);
+        if (strcspn($src, self::NON_XML_BYTES) !== strlen($src) || str_contains($src, "\u{FFFE}") || str_contains($src, "\u{FFFF}")) {
+            $src = (string)preg_replace(self::NON_XML_CHAR, '', $src);
+        }
+
+        return self::trim($src);
+    }
+
+    private static function validUtf8(string $text): string
+    {
+        if (mb_check_encoding($text, 'UTF-8')) {
+            return $text;
+        }
+        $previous = mb_substitute_character();
+        mb_substitute_character(0xFFFD);
+        $text = mb_scrub($text, 'UTF-8');
+        mb_substitute_character($previous);
+
+        return $text;
+    }
+
+    private static function trim(string $text): string
+    {
+        if ($text === '') {
+            return $text;
+        }
+        // No `WS` character starts or ends at an ASCII byte outside the set.
+        $first = ord($text[0]);
+        $last = ord($text[-1]);
+        if (
+            $first < 0x80 && $first !== 0x20 && ($first < 0x09 || $first > 0x0D)
+            && $last < 0x80 && $last !== 0x20 && ($last < 0x09 || $last > 0x0D)
+        ) {
+            return $text;
+        }
+
+        return (string)preg_replace(self::TRIM, '', $text);
+    }
+
+    /**
+     * `TOKEN` without a regex over the token, for a token that exceeds the PCRE match limit (a long comment with PCRE
+     * JIT off).
+     *
+     * @return array{string, string, string, string|null, string|null}|null
+     */
+    private static function scanToken(string $src, int $cursor): ?array
+    {
+        $start = strpos($src, '<', $cursor);
+        $end = $start === false ? -1 : self::tokenEnd($src, $start);
+        if ($start === false || $end < 0) {
+            return null;
+        }
+        $token = substr($src, $start, $end - $start);
+        $closeName = preg_match(self::CLOSE_TAG, $token, $close) === 1 ? $close[1] : null;
+        $openName = ctype_alpha($token[1]) ? substr($token, 1, strspn($token, self::NAME_CHARS, 1)) : null;
+
+        return [substr($src, $cursor, $end - $cursor), substr($src, $cursor, $start - $cursor), $token, $closeName, $openName];
+    }
+
+    /**
+     * @return int The offset after the token, or -1 when it does not close.
+     */
+    private static function tokenEnd(string $src, int $start): int
+    {
+        foreach (['<!--' => '-->', '<![CDATA[' => ']]>', '<?' => '?>'] as $open => $close) {
+            if (substr_compare($src, $open, $start, strlen($open)) === 0) {
+                $at = strpos($src, $close, $start + strlen($open));
+
+                return $at === false ? -1 : $at + strlen($close);
+            }
+        }
+        $length = strlen($src);
+        $at = $start + 1;
+        while ($at < $length) {
+            $at += strcspn($src, '"\'<>', $at);
+            if ($at >= $length) {
+                return -1;
+            }
+            $char = $src[$at];
+            if ($char === '>') {
+                return $at + 1;
+            }
+            if ($char === '<') {
+                return -1;
+            }
+            $close = strpos($src, $char, $at + 1);
+            if ($close === false) {
+                return -1;
+            }
+            $at = $close + 1;
+        }
+
+        return -1;
+    }
+
+    /**
+     * @param string $text The text before the token.
+     * @param string $token
+     * @param string|null $closeName
+     * @param string|null $openName Null for a comment, CDATA section, processing instruction or other skipped tag.
+     */
+    private function consumeToken(string $text, string $token, ?string $closeName, ?string $openName): bool
+    {
+        if ($text !== '' && !$this->consumeText($text)) {
+            return false;
+        }
+        if ($closeName !== null) {
+            return $this->closeTag($closeName);
+        }
+        if ($openName === null) {
             return true;
         }
-        if ($opts->allowLinks && in_array($n, self::LINK_TAGS, true)) {
+        $selfClose = str_ends_with($token, '/>');
+
+        return $this->openTag($openName, (string)substr($token, strlen($openName) + 1, -($selfClose ? 2 : 1)), $selfClose);
+    }
+
+    private function consumeText(string $between): bool
+    {
+        if ($between === '') {
             return true;
         }
-        // Note: the `<style>` *element* is never allowed — its text can carry
-        // `@import`/`url()` that no attribute scrub would catch. `allowStyle`
-        // governs only the `style` attribute (see sanitizeAttrs()).
-        if ($opts->allowAnimation && in_array($n, self::ANIMATION_TAGS, true)) {
+        if (!$this->sawRoot) {
+            return self::trim($between) === '';
+        }
+        if (!$this->dropStack) {
+            $this->out[] = self::escapeText($between);
+        }
+
+        return true;
+    }
+
+    private function closeTag(string $name): bool
+    {
+        if ($this->dropStack) {
+            return array_pop($this->dropStack) === $name;
+        }
+        $frame = array_pop($this->kept);
+        if ($frame === null || $frame[0] !== $name) {
+            return false;
+        }
+        $this->xlinkScopes -= (int)$frame[2];
+        if (count($this->out) === $frame[1]) {
+            $opener = (string)array_pop($this->out);
+            $this->out[] = substr($opener, 0, -1) . '/>';
+            if ($name === 'svg') {
+                $this->rootSelfClosed = true;
+            }
+        } else {
+            $this->out[] = '</' . $name . '>';
+        }
+
+        return true;
+    }
+
+    private function openTag(string $name, string $raw, bool $selfClose): bool
+    {
+        $outside = !$this->kept && !$this->dropStack;
+        $isRoot = $outside && !$this->sawRoot;
+        if (($isRoot && $name !== 'svg') || ($outside && $this->sawRoot)) {
+            return false;
+        }
+        if ($this->dropStack || !$this->tagAllowed($name)) {
+            if (!$selfClose) {
+                $this->dropStack[] = $name;
+            }
+
             return true;
         }
-        if ($opts->allowExternalImages && in_array($n, self::EXTERNAL_IMAGE_TAGS, true)) {
+        if ($isRoot) {
+            $this->sawRoot = true;
+            $this->rootSelfClosed = $selfClose;
+        }
+        $attrs = $this->sanitizeAttrs($raw, $name, $isRoot);
+        if ($isRoot) {
+            $attrs = ' xmlns="' . self::SVG_NS . '"' . $attrs;
+        }
+        if ($this->xlinkUsed && !$this->xlinkDeclared && $this->xlinkScopes === 0) {
+            $this->bindXlink = true;
+        }
+        $this->out[] = '<' . $name . $attrs . ($selfClose ? '/>' : '>');
+        if (!$selfClose) {
+            $this->kept[] = [$name, count($this->out), $this->xlinkDeclared];
+            $this->xlinkScopes += (int)$this->xlinkDeclared;
+        }
+
+        return true;
+    }
+
+    private function tagAllowed(string $name): bool
+    {
+        $lower = strtolower($name);
+        if (isset(self::$sets['tags'][$name]) || isset(self::$sets['tags'][$lower])) {
             return true;
+        }
+
+        return ($this->opts->allowLinks && $lower === 'a')
+            || ($this->opts->allowAnimation && isset(self::$sets['animationTags'][$lower]))
+            || ($this->opts->allowExternalImages && $lower === 'image');
+    }
+
+    private function sanitizeAttrs(string $raw, string $tag, bool $isRoot): string
+    {
+        $this->xlinkUsed = $this->xlinkDeclared = false;
+        if ($raw === '') {
+            return '';
+        }
+        $lowerTag = strtolower($tag);
+        $externalHref = ($this->opts->allowLinks && $lowerTag === 'a') || ($this->opts->allowExternalImages && $lowerTag === 'image');
+        // Group 1 is the name (null for skipped characters); groups 2 to 4 are the value.
+        if (strlen($raw) <= self::BATCH_BYTES) {
+            preg_match_all(self::ATTR, $raw, $attrs, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL);
+        } else {
+            $attrs = self::namedAttrs($raw);
+        }
+        $animatesHref = stripos($raw, 'attributename') !== false && self::animatesHref($attrs);
+        $out = '';
+        $seen = [];
+        foreach ($attrs as $m) {
+            $name = $m[1];
+            if ($name === null || isset($seen[$name])) {
+                continue;
+            }
+            $value = $m[2] ?? $m[3] ?? $m[4];
+            $seen[$name] = true;
+            $lower = strtolower($name);
+            // carve#6755: the root's own xmlns goes by name; a regex over the written attributes also matched values.
+            if ($isRoot && $lower === 'xmlns') {
+                continue;
+            }
+            if ($animatesHref && $value !== null && isset(self::$sets['animationValueAttrs'][$lower]) && !self::localRefs($value)) {
+                continue;
+            }
+            $out .= $this->sanitizeAttribute($name, $lower, $value, $externalHref);
+        }
+
+        return $out;
+    }
+
+    /**
+     * A long attribute run, matched one attribute at a time; only named matches are kept, so memory follows the
+     * attribute count.
+     *
+     * @return array<array<string|null>> `ATTR` matches.
+     */
+    private static function namedAttrs(string $raw): array
+    {
+        $attrs = [];
+        $at = 0;
+        while (preg_match(self::ATTR, $raw, $m, PREG_UNMATCHED_AS_NULL, $at) === 1) {
+            $at += strlen($m[0]);
+            if ($m[1] !== null) {
+                $attrs[] = $m;
+            }
+        }
+
+        return $attrs;
+    }
+
+    /**
+     * carve#6761: an animation of `href` may only hold `#id` entries, like the `href` it changes.
+     *
+     * @param array<array<string|null>> $attrs `ATTR` matches.
+     */
+    private static function animatesHref(array $attrs): bool
+    {
+        foreach ($attrs as $m) {
+            $value = $m[2] ?? $m[3] ?? $m[4];
+            if ($m[1] !== null && $value !== null && strtolower($m[1]) === 'attributename') {
+                $target = strtolower(self::trim(self::normalizeForCheck($value)));
+                if ($target === 'href' || $target === 'xlink:href') {
+                    return true;
+                }
+            }
         }
 
         return false;
     }
 
-    private static function sanitizeAttrs(string $raw, SvgSanitizeOptions $opts, string $tag): string
+    private static function localRefs(string $value): bool
     {
-        // An external (non-`#fragment`) href passes only on the specific element
-        // its gate covers: `allowLinks` for `<a>`, `allowExternalImages` for
-        // `<image>`. Every other element (incl. fetch-capable `<use>` /
-        // `<feImage>`) keeps only local `#id` refs. Scheme is still checked so
-        // `javascript:`/`data:`/`file:` never survive.
-        $t = strtolower($tag);
-        $allowExternalHref = ($opts->allowLinks && $t === 'a') || ($opts->allowExternalImages && $t === 'image');
-        $out = '';
-        // Duplicate attributes are not well-formed XML (breaks the data-URI
-        // parse), so keep only the first occurrence of each name.
-        $seen = [];
-        foreach (self::parseAttrs($raw) as [$name, $value]) {
-            if (isset($seen[$name])) {
-                continue;
-            }
-            $seen[$name] = true;
-            $n = strtolower($name);
-            if (str_starts_with($n, 'on')) {
-                continue; // every event handler, always
-            }
-            if (in_array($n, self::URL_ATTRS, true)) {
-                if ($value === null) {
-                    continue;
-                }
-                // Normalize entity/CSS-escape obfuscation before deciding.
-                $decoded = self::normalizeForCheck($value);
-                $local = str_starts_with($decoded, '#');
-                if (!$local && !$allowExternalHref) {
-                    continue;
-                }
-                if (!self::schemeIsSafe($decoded)) {
-                    continue;
-                }
-                $out .= ' ' . $name . '="' . self::escapeAttr($value) . '"';
-
-                continue;
-            }
-            if ($n === 'style') {
-                if (!$opts->allowStyle || $value === null) {
-                    continue;
-                }
-                if (self::styleIsDangerous($value)) {
-                    continue;
-                }
-                $out .= ' ' . $name . '="' . self::escapeAttr($value) . '"';
-
-                continue;
-            }
-            if (str_starts_with($n, 'aria-') || str_starts_with($n, 'data-') || in_array($n, self::ALLOWED_ATTRS, true)) {
-                // A value may carry an external `url(...)` paint/filter ref or an
-                // absolute URL (esp. in a SMIL `values` list); drop the attribute
-                // rather than let the inlined SVG fetch/retarget a remote
-                // resource. Local `url(#id)` / `#id` refs are kept.
-                if (
-                    $value !== null
-                    && (in_array($n, self::REF_VALUE_ATTRS, true) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value))
-                ) {
-                    continue;
-                }
-                $out .= $value === null ? ' ' . $name : ' ' . $name . '="' . self::escapeAttr($value) . '"';
+        foreach (explode(';', self::normalizeForCheck($value)) as $segment) {
+            $segment = self::trim($segment);
+            if ($segment !== '' && !str_starts_with($segment, '#')) {
+                return false;
             }
         }
 
-        return $out;
+        return true;
+    }
+
+    private function sanitizeAttribute(string $name, string $lower, ?string $value, bool $externalHref): string
+    {
+        if (str_starts_with($lower, 'on')) {
+            return '';
+        }
+        if ($lower === 'href' || $lower === 'xlink:href') {
+            if ($lower === $name || $lower === 'href') {
+                $written = $this->sanitizeUrlAttribute($name, $value, $externalHref);
+                $this->xlinkUsed = $this->xlinkUsed || ($written !== '' && $name === 'xlink:href');
+
+                return $written;
+            }
+
+            return '';
+        }
+        if ($lower === 'style') {
+            return $this->opts->allowStyle && $value !== null && !self::styleIsDangerous($value)
+                ? ' ' . $name . '="' . self::escapeAttr($value) . '"' : '';
+        }
+        // Prefixed names only in the spellings of PREFIXED_NAMES (carve#6783).
+        if (!isset(self::$sets['attrs'][$lower])) {
+            if ((!str_starts_with($lower, 'aria-') && !str_starts_with($lower, 'data-')) || str_contains($name, ':')) {
+                return '';
+            }
+        } elseif ($name !== $lower && isset(self::PREFIXED_NAMES[$lower])) {
+            return '';
+        }
+        $declares = $name === 'xmlns:xlink';
+        if ($value === null || (($declares || $name === 'xmlns') && self::namespaceUnwritable($value, $declares))) {
+            return '';
+        }
+        if (isset(self::$sets['refValueAttrs'][$lower]) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value)) {
+            return '';
+        }
+        $this->xlinkDeclared = $this->xlinkDeclared || $declares;
+
+        return ' ' . $name . '="' . self::escapeAttr($value) . '"';
     }
 
     /**
-     * @return array<array{0: string, 1: string|null}> name/value pairs
+     * carve#6779: an empty prefixed declaration undeclares the prefix, which XML forbids; an empty default `xmlns=""`
+     * is a legal undeclaration (carve#6843).
      */
-    private static function parseAttrs(string $raw): array
+    private static function namespaceUnwritable(string $value, bool $prefixed): bool
     {
-        $out = [];
-        if (preg_match_all(self::ATTR_RE, $raw, $matches, PREG_SET_ORDER | PREG_UNMATCHED_AS_NULL) === false) {
-            return $out;
+        $decoded = self::decodeEntities($value);
+
+        return ($prefixed || $decoded !== '') && preg_match(self::UNWRITABLE_NAMESPACE, $decoded) === 1;
+    }
+
+    private function sanitizeUrlAttribute(string $name, ?string $value, bool $externalHref): string
+    {
+        if ($value === null) {
+            return '';
         }
-        foreach ($matches as $m) {
-            $name = (string)$m[1];
-            // Mirror carve-js: value = m[3] (dq body) ?? m[4] (sq body) ??
-            // (m[2] is set ? m[2] (unquoted) : null).
-            $value = $m[3] ?? $m[4] ?? ($m[2] ?? null);
-            $out[] = [$name, $value];
+        $decoded = self::normalizeForCheck($value);
+        if (!str_starts_with($decoded, '#') && !$externalHref) {
+            return '';
+        }
+        if (!self::schemeIsSafe($decoded) || !$this->urlAllowed($decoded)) {
+            return '';
         }
 
-        return $out;
+        return ' ' . $name . '="' . self::escapeAttr($value) . '"';
+    }
+
+    /**
+     * carve-js `isUrlAllowed`: the scheme of C2-H-159 against the `urlPolicy` lists.
+     */
+    private function urlAllowed(string $url): bool
+    {
+        $scheme = self::urlScheme($url);
+        if ($scheme === '') {
+            return true;
+        }
+        $policy = $this->opts->urlPolicy ?? [];
+        if (isset($policy['allow'])) {
+            return in_array($scheme, array_map(strtolower(...), $policy['allow']), true);
+        }
+
+        return !in_array($scheme, array_map(strtolower(...), $policy['deny'] ?? UrlPolicy::defaultDenyList()), true);
+    }
+
+    /**
+     * carve-js `urlScheme`: probe-removed characters are skipped, the first kept one must be a letter.
+     */
+    private static function urlScheme(string $url): string
+    {
+        $scheme = '';
+        foreach (mb_str_split($url) as $char) {
+            $code = mb_ord($char);
+            if (self::probeRemoved((int)$code)) {
+                continue;
+            }
+            if ($char === ':') {
+                return strtolower($scheme);
+            }
+            $ok = $scheme === '' ? ctype_alpha($char) : (ctype_alnum($char) || $char === '+' || $char === '-' || $char === '.');
+            if (!$ok) {
+                return '';
+            }
+            $scheme .= $char;
+        }
+
+        return '';
+    }
+
+    private static function probeRemoved(int $code): bool
+    {
+        if ($code > 32 && $code < 127) {
+            return false;
+        }
+        foreach (Tables::URL_PROBE_REMOVES as [$from, $to]) {
+            if ($code >= $from && $code <= $to) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function schemeIsSafe(string $url): bool
     {
-        $probe = self::stripSchemeWhitespace($url);
-        if (preg_match('/^([a-zA-Z][a-zA-Z0-9+.-]*):/', $probe, $m) !== 1) {
-            return true; // relative / fragment — safe
+        if (!str_contains($url, ':')) {
+            return true;
+        }
+        $probe = (string)preg_replace(self::SCHEME_STRIP, '', $url);
+        if (preg_match('~^([a-zA-Z][a-zA-Z0-9+.-]*):~', $probe, $m) !== 1) {
+            return true;
         }
 
-        return !in_array(strtolower($m[1]), self::DANGEROUS_URL_SCHEMES, true);
+        return !isset(self::$sets['dangerousSchemes'][strtolower($m[1])]);
     }
 
-    private static function stripSchemeWhitespace(string $value): string
+    private static function codePoint(int $cp): ?string
     {
-        $stripped = preg_replace(self::SCHEME_STRIP_RE, '', $value);
+        if ($cp < 0 || $cp > 0x10FFFF) {
+            return null;
+        }
 
-        return $stripped ?? $value;
+        return $cp >= 0xD800 && $cp <= 0xDFFF ? self::SURROGATE_STANDIN : (string)mb_chr($cp, 'UTF-8');
     }
 
-    /**
-     * Decode CSS escapes (`\72` → `r`, `\/` → `/`) so an escaped `url(` /
-     * `expression(` cannot slip past the needle checks.
-     */
+    private static function decodeEntities(string $value): string
+    {
+        if (!str_contains($value, '&')) {
+            return $value;
+        }
+
+        return (string)preg_replace_callback(
+            '~&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);~',
+            static function (array $m): string {
+                $body = $m[1];
+                if ($body[0] === '#') {
+                    $digits = ltrim(substr($body, ($body[1] === 'x' || $body[1] === 'X') ? 2 : 1), '0');
+                    $hex = $body[1] === 'x' || $body[1] === 'X';
+                    if (strlen($digits) > ($hex ? 6 : 7)) {
+                        return $m[0];
+                    }
+
+                    return self::codePoint($digits === '' ? 0 : ($hex ? (int)hexdec($digits) : (int)$digits)) ?? $m[0];
+                }
+
+                return self::NAMED_REFS[strtolower($body)] ?? $m[0];
+            },
+            $value,
+        );
+    }
+
     private static function decodeCssEscapes(string $value): string
     {
-        $result = preg_replace_callback(
-            '/\\\\([0-9a-f]{1,6}\s?|[\s\S])/i',
+        if (!str_contains($value, '\\')) {
+            return $value;
+        }
+
+        return (string)preg_replace_callback(
+            self::CSS_ESCAPE,
             static function (array $m): string {
                 $esc = $m[1];
-                if (preg_match('/^[0-9a-f]/i', $esc) === 1) {
-                    $cp = (int)hexdec(trim($esc));
-
-                    return $cp <= 0x10FFFF ? self::codePoint($cp) : '';
+                if (ctype_xdigit($esc[0])) {
+                    return self::codePoint((int)hexdec(self::trim($esc))) ?? '';
                 }
 
                 return $esc;
             },
             $value,
         );
-
-        return $result ?? $value;
     }
 
-    /**
-     * Decode XML/HTML character references (numeric `&#x61;`/`&#97;` + the named
-     * set) so an entity-encoded scheme is normalized before a URL/scheme check.
-     * Used ONLY for validation, never for output.
-     */
-    private static function decodeEntities(string $value): string
-    {
-        $result = preg_replace_callback(
-            '/&(#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/i',
-            static function (array $m): string {
-                $body = $m[1];
-                if ($body[0] === '#') {
-                    $cp = strtolower($body[1] ?? '') === 'x'
-                        ? (int)hexdec(substr($body, 2))
-                        : (int)substr($body, 1);
-
-                    return $cp >= 0 && $cp <= 0x10FFFF ? self::codePoint($cp) : $m[0];
-                }
-                $named = self::NAMED_REFS[strtolower($body)] ?? null;
-
-                return $named ?? $m[0];
-            },
-            $value,
-        );
-
-        return $result ?? $value;
-    }
-
-    private static function codePoint(int $cp): string
-    {
-        // Callers guarantee 0 <= $cp <= 0x10FFFF, so mb_chr() always encodes a
-        // string here (matching HtmlRenderer's guarded mb_chr usage).
-        return mb_chr($cp, 'UTF-8');
-    }
-
-    /**
-     * Full normalization for any URL/reference/style check: undo both entity and
-     * CSS-escape obfuscation.
-     */
     private static function normalizeForCheck(string $value): string
     {
         return self::decodeCssEscapes(self::decodeEntities($value));
     }
 
-    /**
-     * Blank a style value that can fetch or execute. Whole-value rejection, not
-     * CSS surgery. CSS escapes are decoded first so `u\72l(` folds to `url(`.
-     */
     private static function styleIsDangerous(string $value): bool
     {
-        $withoutComments = preg_replace('#/\*[\s\S]*?\*/#', '', $value) ?? $value;
-        $compact = self::normalizeForCheck($withoutComments);
-        $compact = strtolower($compact);
-        $compact = preg_replace('/\s+/', '', $compact) ?? $compact;
-
-        return str_contains($compact, 'expression(')
-            || str_contains($compact, 'url(')
-            || str_contains($compact, '@import')
-            || str_contains($compact, 'behavior:')
-            || str_contains($compact, '-moz-binding')
-            || str_contains($compact, 'javascript:');
-    }
-
-    private static function refAttrUnsafe(string $value): bool
-    {
-        $decoded = self::normalizeForCheck($value);
-        foreach (explode(';', $decoded) as $seg) {
-            $s = trim($seg);
-            if (preg_match(self::NONLOCAL_URL_RE, $s) === 1) {
-                return true;
-            }
-            $probe = self::stripSchemeWhitespace($s);
-            if (preg_match(self::ABSOLUTE_SCHEME_RE, $probe) === 1) {
-                return true;
-            }
-            // A leading `/` is a path reference: `//host/x` (protocol-relative)
-            // or `/abs/path` both fetch remotely.
-            if (str_starts_with($probe, '/')) {
+        $compact = (string)preg_replace('~/\*.*?\*/~s', '', $value);
+        $compact = (string)preg_replace(self::WS_RUN, '', mb_strtolower(self::normalizeForCheck($compact), 'UTF-8'));
+        // carve#6760: the core list of C2-H-162 (CSS image functions fetch from a bare string) plus `javascript:`.
+        foreach ([...Tables::URL_STYLE_PATTERNS, 'javascript:'] as $needle) {
+            if (str_contains($compact, $needle)) {
                 return true;
             }
         }
@@ -554,40 +880,93 @@ final class SvgSanitizer
         return false;
     }
 
-    /**
-     * For any other allowlisted attribute: reject a non-local `url()` or a
-     * denylisted dangerous scheme.
-     */
+    private static function nonLocalUrl(string $value): bool
+    {
+        if (stripos($value, 'url(') === false) {
+            return false;
+        }
+
+        // Atomic, so `(?!#)` cannot pass one character early on `url('#g')` (carve#6763). Only CSS whitespace is
+        // skipped: a URL keeps a leading no-break space, so `url(\u{A0}#g)` names another resource.
+        return preg_match('~url\((?>[\t\n\f\r ]*[\'"]?[\t\n\f\r ]*)(?!#)~i', $value) === 1;
+    }
+
+    private static function refAttrUnsafe(string $value): bool
+    {
+        foreach (explode(';', self::normalizeForCheck($value)) as $segment) {
+            $segment = self::trim($segment);
+            if (self::nonLocalUrl($segment)) {
+                return true;
+            }
+            if (!str_contains($segment, ':') && !str_contains($segment, '/')) {
+                continue;
+            }
+            $probe = (string)preg_replace(self::SCHEME_STRIP, '', $segment);
+            // A slash-led path (`//host/x`, `/abs`) fetches remotely like an absolute URL.
+            if (preg_match('~^[a-zA-Z][a-zA-Z0-9+.-]*:~', $probe) === 1 || str_starts_with($probe, '/')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function valueHasExternalRef(string $value): bool
     {
         $decoded = self::normalizeForCheck($value);
-        if (preg_match(self::NONLOCAL_URL_RE, $decoded) === 1) {
-            return true;
-        }
 
-        return !self::schemeIsSafe($decoded);
+        return self::nonLocalUrl($decoded) || !self::schemeIsSafe($decoded);
     }
 
     /**
-     * Escape a bare `&` but leave intact the entities valid in an XML document:
-     * the five predefined names (`amp lt gt quot apos`) and numeric refs. Other
-     * HTML named entities (`&nbsp;`, `&copy;`) are NOT defined in XML, so a
-     * `data:image/svg+xml` parse would fail on them — escape their `&`.
+     * Keeps the entities XML defines (the five names and numeric references to an XML `Char`) and escapes every other `&`.
      */
-    private static function escapeAmp(string $s): string
+    private static function escapeAmp(string $text): string
     {
-        $result = preg_replace('/&(?!#\d+;|#x[0-9a-fA-F]+;|(?:amp|lt|gt|quot|apos);)/', '&amp;', $s);
+        if (!str_contains($text, '&')) {
+            return $text;
+        }
 
-        return $result ?? $s;
+        return (string)preg_replace_callback(
+            '~&(#[0-9]+;|#x[0-9a-fA-F]+;|(?:amp|lt|gt|quot|apos);)?~',
+            static function (array $m): string {
+                $ref = $m[1] ?? '';
+                if ($ref === '') {
+                    return '&amp;';
+                }
+                if ($ref[0] !== '#') {
+                    return $m[0];
+                }
+
+                return self::isXmlCharRef($ref) ? $m[0] : '&amp;' . $ref;
+            },
+            $text,
+        );
     }
 
-    private static function escapeText(string $s): string
+    /**
+     * @param string $ref A numeric reference body such as `#x1F;`.
+     */
+    private static function isXmlCharRef(string $ref): bool
     {
-        return str_replace(['<', '>'], ['&lt;', '&gt;'], self::escapeAmp($s));
+        $hex = $ref[1] === 'x';
+        $digits = ltrim(substr($ref, $hex ? 2 : 1, -1), '0');
+        if (strlen($digits) > ($hex ? 6 : 7)) {
+            return false;
+        }
+        $cp = $digits === '' ? 0 : ($hex ? (int)hexdec($digits) : (int)$digits);
+
+        return $cp === 0x9 || $cp === 0xA || $cp === 0xD || ($cp >= 0x20 && $cp <= 0xD7FF)
+            || ($cp >= 0xE000 && $cp <= 0xFFFD) || ($cp >= 0x10000 && $cp <= 0x10FFFF);
     }
 
-    private static function escapeAttr(string $s): string
+    private static function escapeText(string $text): string
     {
-        return str_replace(['"', '<', '>'], ['&quot;', '&lt;', '&gt;'], self::escapeAmp($s));
+        return str_replace(['<', '>'], ['&lt;', '&gt;'], self::escapeAmp($text));
+    }
+
+    private static function escapeAttr(string $text): string
+    {
+        return str_replace(['"', '<', '>'], ['&quot;', '&lt;', '&gt;'], self::escapeAmp($text));
     }
 }

@@ -1,0 +1,86 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Writer;
+
+use MarkupCarve\Carve\Carve;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * C2-W-117 (carve-php#5939): a table group the written rows read back as another group is reported.
+ */
+final class UnreadTableGroupTest extends TestCase
+{
+    public function testAFootOnlyTableLedByHeaderCellsIsSpelled(): void
+    {
+        // carve#6664: an empty `body-rows` with a footer count of all the rows leaves no head (C2-B-187, C2-W-136).
+        $result = Carve::importHtml('<table><tfoot><tr><th>F</th></tr></tfoot></table>');
+        self::assertSame("{footer-rows=1 body-rows}\n|= F |\n", $result->source);
+        self::assertSame([], $result->diagnostics);
+    }
+
+    public function testAHeadOfDataCellsIsSpelledByTheCount(): void
+    {
+        $cell = [
+            'type' => 'table_cell',
+            'header' => false,
+            'children' => [
+                ['type' => 'cell_paragraph', 'children' => [['type' => 'text', 'value' => 'H']]],
+            ],
+        ];
+        $result = Carve::writeWithDiagnostics([
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'table',
+                    'columns' => [['type' => 'table_column']],
+                    'children' => [
+                        ['type' => 'table_head', 'children' => [['type' => 'table_row', 'children' => [$cell]]]],
+                    ],
+                ],
+            ],
+        ]);
+        // carve#6663: `header-rows` spells a head that holds data cells (C2-B-186, C2-W-066).
+        self::assertSame("{header-rows=1}\n| H |\n", $result->source);
+        self::assertSame([], $result->diagnostics);
+    }
+
+    public function testAnEmptyHeadIsReported(): void
+    {
+        $cell = [
+
+            'type' => 'table_cell',
+            'header' => false,
+            'children' => [
+                ['type' => 'cell_paragraph', 'children' => [['type' => 'text', 'value' => 'x']]],
+            ],
+        ];
+        $result = Carve::writeWithDiagnostics([
+
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                [
+                    'type' => 'table',
+                    'columns' => [['type' => 'table_column']],
+                    'children' => [
+                        ['type' => 'table_head', 'children' => []],
+                        ['type' => 'table_body', 'children' => [['type' => 'table_row', 'children' => [$cell]]]],
+                    ],
+                ],
+            ],
+        ]);
+        self::assertSame("| x |\n", $result->source);
+        $losses = array_map(static fn ($entry): array => [$entry->code, $entry->path], $result->diagnostics);
+        self::assertSame([['structure-unspellable', '/children/0/children/0']], $losses);
+    }
+
+    public function testARowWithNoCellIsReportedOnce(): void
+    {
+        $html = '<table><thead><tr><th>H</th></tr><tr></tr></thead><tbody><tr><td>a</td></tr></tbody></table>';
+        $codes = array_map(static fn ($entry): string => $entry->code, Carve::importHtml($html)->diagnostics);
+        self::assertSame(['structure-unspellable'], $codes);
+    }
+}

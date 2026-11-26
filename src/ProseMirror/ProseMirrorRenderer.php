@@ -5,1518 +5,799 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\ProseMirror;
 
 use Closure;
-use MarkupCarve\Carve\Extension\Frontmatter;
-use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
-use MarkupCarve\Carve\Node\Block\BlockExtension;
-use MarkupCarve\Carve\Node\Block\BlockNode;
-use MarkupCarve\Carve\Node\Block\BlockQuote;
-use MarkupCarve\Carve\Node\Block\CitationDefinition;
-use MarkupCarve\Carve\Node\Block\CodeBlock;
-use MarkupCarve\Carve\Node\Block\Comment;
-use MarkupCarve\Carve\Node\Block\DefinitionList;
-use MarkupCarve\Carve\Node\Block\Div;
-use MarkupCarve\Carve\Node\Block\Figure;
-use MarkupCarve\Carve\Node\Block\FigureGroup;
-use MarkupCarve\Carve\Node\Block\Footnote;
-use MarkupCarve\Carve\Node\Block\Heading;
-use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
-use MarkupCarve\Carve\Node\Block\ListBlock;
-use MarkupCarve\Carve\Node\Block\ListItem;
-use MarkupCarve\Carve\Node\Block\Paragraph;
-use MarkupCarve\Carve\Node\Block\RawBlock;
-use MarkupCarve\Carve\Node\Block\Table;
-use MarkupCarve\Carve\Node\Block\TableCell;
-use MarkupCarve\Carve\Node\Block\TableRow;
-use MarkupCarve\Carve\Node\Block\ThematicBreak;
-use MarkupCarve\Carve\Node\Document;
-use MarkupCarve\Carve\Node\Inline\Abbreviation;
-use MarkupCarve\Carve\Node\Inline\CellWrap;
-use MarkupCarve\Carve\Node\Inline\CitationGroup;
-use MarkupCarve\Carve\Node\Inline\Code;
-use MarkupCarve\Carve\Node\Inline\CriticComment;
-use MarkupCarve\Carve\Node\Inline\Emphasis;
-use MarkupCarve\Carve\Node\Inline\EscapedText;
-use MarkupCarve\Carve\Node\Inline\FootnoteRef;
-use MarkupCarve\Carve\Node\Inline\HeadingRef;
-use MarkupCarve\Carve\Node\Inline\Image;
-use MarkupCarve\Carve\Node\Inline\InlineExtension;
-use MarkupCarve\Carve\Node\Inline\Link;
-use MarkupCarve\Carve\Node\Inline\LiteralInline;
-use MarkupCarve\Carve\Node\Inline\Math;
-use MarkupCarve\Carve\Node\Inline\Mention;
-use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
-use MarkupCarve\Carve\Node\Inline\RawInline;
-use MarkupCarve\Carve\Node\Inline\RawText;
-use MarkupCarve\Carve\Node\Inline\Ruby;
-use MarkupCarve\Carve\Node\Inline\SmallCaps;
-use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
-use MarkupCarve\Carve\Node\Inline\SoftBreak;
-use MarkupCarve\Carve\Node\Inline\Span;
-use MarkupCarve\Carve\Node\Inline\Strong;
-use MarkupCarve\Carve\Node\Inline\Substitution;
-use MarkupCarve\Carve\Node\Inline\Symbol;
-use MarkupCarve\Carve\Node\Inline\Text;
-use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
-use MarkupCarve\Carve\Node\Node;
-use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Renderer\TableSpanGrid;
-use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
+use InvalidArgumentException;
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Html\UrlPolicy;
+use MarkupCarve\Carve\Node;
+use MarkupCarve\Carve\Options;
 
 /**
- * Renders a Carve AST as a ProseMirror (Tiptap) document.
+ * ProseMirror JSON of a Carve 0.2 tree, in the schema of the carve-grammars Tiptap kit (`tiptap/tree.js`).
  *
- * Names come from the published schema map, not from a table restated here, so
- * the output loads into an editor running CarveKit. See SchemaMap.
- *
- * Two shape differences do the real work:
- *
- * - **Marks.** Carve nests emphasis as elements (`Strong > Text`); ProseMirror
- *   hangs marks off the text node itself. Inline walking therefore carries the
- *   active mark set down and attaches it when it reaches text.
- * - **Type narrowing.** One Carve type can be several ProseMirror nodes - a
- *   `list` is a bulletList, orderedList or taskList - so the node's own state
- *   selects among the names the map lists.
- *
- * Types the editor model cannot represent are dropped rather than guessed at,
- * and every drop is recorded: `droppedTypes()` reports what a caller lost, which
- * is the difference between a bridge and a data-loss bug.
+ * `ProseMirrorToCarve::toTree()` of the result gives the same tree for any document: a node the editor content
+ * model cannot hold becomes an atom that carries it whole. A link or image destination the URL policy denies is
+ * null in the attribute the editor renders and kept in `carve`, so the editor never resolves it (carve#6009).
  */
-class ProseMirrorRenderer
+final class ProseMirrorRenderer
 {
-    /**
-     * The marks the published map admits on the empty-mark carrier.
-     *
-     * @var list<string>
-     */
-    private const EMPTY_MARK_TYPES = ['link', 'carveSpan', 'carveAbbreviation', 'carveInsert', 'carveDelete', 'carveSmallCaps'];
+    private int $id = 0;
+
+    private Options $options;
 
     /**
-     * @var array<string, string>
+     * @var array<string>
      */
-    private array $referenceDefinitionLines = [];
+    private array $blanked = [];
 
     /**
-     * @var array<string, array<string, string>>
+     * @var array{
+     *     nodes: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     *     marks: array<string, \MarkupCarve\Carve\ProseMirror\MappingEntry>,
+     * }
      */
-    private array $referenceDefinitionAttributes = [];
+    private array $mapping;
 
     /**
-     * @var array<string, string> carve type => reason
+     * @param array<string, mixed> $options `urlPolicy`, as for `Carve::render()`; `mapping`, the host's own
+     *   ProseMirror nodes and marks (docs/prosemirror.md).
      */
-    protected array $dropped = [];
-
-    /**
-     * @var array<string, string> carve type => reason
-     */
-    protected array $degraded = [];
-
-    private bool $sourcePositions = false;
-
-    /**
-     * Write each block's source position as `carvePos`. Off by default, as in
-     * carve-grammars; turn it on when the document goes back through the Carve
-     * writer, which places collected definitions by these positions.
-     */
-    public function withSourcePositions(bool $enabled = true): static
+    public function __construct(array $options = [])
     {
-        $this->sourcePositions = $enabled;
-
-        return $this;
+        $this->options = Options::from(array_intersect_key($options, ['urlPolicy' => true]));
+        $this->mapping = Kit::mapping($options['mapping'] ?? null);
     }
 
     /**
-     * @var array<int, array{0: \Closure(\MarkupCarve\Carve\Node\Node): bool, 1: \Closure(\MarkupCarve\Carve\Node\Node, \Closure(): array<int, array<string, mixed>>): (array<string, mixed>|null)}>
-     */
-    private array $factories = [];
-
-    /**
-     * Render an application's own nodes, the counterpart of
-     * `ProseMirrorToCarve::register()`.
+     * The denied destinations the last `render()` kept out of the editor's link and image attributes.
      *
-     * `$matches` picks the node, usually by class and attributes, because an
-     * application node arrives as an ordinary span, div or paragraph. `$render`
-     * returns the ProseMirror node, or null to leave it out; its second argument
-     * renders the node's children. The first matching registration wins, and a
-     * matched node is never reported in `droppedTypes()` or `degradedTypes()`.
-     *
-     * @param \Closure(\MarkupCarve\Carve\Node\Node): bool $matches
-     * @param \Closure(\MarkupCarve\Carve\Node\Node, \Closure(): array<int, array<string, mixed>>): (array<string, mixed>|null) $render
+     * @return array<string>
      */
-    public function register(Closure $matches, Closure $render): static
+    public function blanked(): array
     {
-        $this->factories[] = [$matches, $render];
-
-        return $this;
+        return $this->blanked;
     }
 
     /**
+     * The ProseMirror `doc` of `$tree`.
+     *
+     * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree A `document` tree, or its decoded AST JSON.
+     *
+     * @throws \InvalidArgumentException
+     *
      * @return array<string, mixed>
      */
-    public function render(Document $document): array
+    public function render(Node|array $tree): array
     {
-        $this->dropped = [];
-        $this->degraded = [];
-        $this->referenceDefinitionLines = [];
-        $this->referenceDefinitionAttributes = [];
-        foreach ($document->getChildren() as $child) {
-            if ($child instanceof LinkReferenceDefinition && $child->getAttributes() !== []) {
-                $line = '[' . $child->getLabel() . ']: ' . $this->blankDenied($child->getHref());
-                if ($child->getTitle() !== null) {
-                    $line .= ' "' . $child->getTitle() . '"';
+        if (is_array($tree) && ($tree['type'] ?? null) !== 'document') {
+            throw new InvalidArgumentException('ProseMirrorRenderer expects a Carve document tree');
+        }
+        // A copy, resolved as `Carve::render()` resolves its input (C2-T-005).
+        $resolve = Closure::bind(static fn (Node|array $t, Options $o): array => Carve::resolvedTree($t, $o, false), null, Carve::class);
+        [$doc] = $resolve($tree, Options::from([]));
+        $tree = Kit::map(Kit::decode(Carve::encodeTree($doc)));
+        if (($tree['type'] ?? null) !== 'document') {
+            throw new InvalidArgumentException('ProseMirrorRenderer expects a Carve document tree');
+        }
+        $this->id = 0;
+        $this->blanked = [];
+        $children = $this->list($tree['children'] ?? []);
+        $content = $this->blocks($children);
+        if ($children !== []) {
+            foreach ($content as $index => $node) {
+                // A host node keeps its place only when its schema has the `carve` attribute.
+                $host = $this->mapping['nodes'][Kit::str($node['type'] ?? null)] ?? null;
+                if ($host !== null && !$host->carve) {
+                    continue;
                 }
-                $this->referenceDefinitionLines[$child->getLabel()] = $line . ' ' . $this->renderAttributeRun($child);
-                $this->referenceDefinitionAttributes[$child->getLabel()] = $child->getAttributes();
+                $carve = Kit::carveOf($node);
+                $carve['$index'] = $index;
+                $attrs = Kit::map($node['attrs'] ?? null);
+                $attrs['carve'] = $carve;
+                $node['attrs'] = $attrs;
+                $content[$index] = $node;
             }
         }
 
-        $children = $document->getChildren();
-        $content = $this->renderBlocks($children);
-        // Programmatic documents may carry definitions only in the document
-        // map. Emit those as nodes too, without repeating authored lines.
-        $residual = [];
-        foreach ($document->getAbbreviationDefinitionsNotInTree() as $definition) {
-            $rendered = $this->renderBlock(new AbbreviationDefinition($definition['abbr'], $definition['expansion']));
-            if ($rendered !== null) {
-                $residual[] = $rendered;
-            }
-        }
-        if ($residual !== []) {
-            $content = $document->hasAbbreviationsBeforeBody()
-                ? array_merge($residual, $content)
-                : array_merge($content, $residual);
-        }
-
-        return ['type' => 'doc', 'content' => $content];
-    }
-
-    public function renderJson(Document $document, int $flags = 0): string
-    {
-        return (string)json_encode($this->render($document), $flags | JSON_THROW_ON_ERROR);
+        return [
+            'type' => 'doc',
+            'attrs' => ['carve' => Kit::carveAttr(Kit::fields($tree, ['children']))],
+            'content' => $content,
+        ];
     }
 
     /**
-     * What the last render could not represent, as type => reason.
+     * `render()` as JSON, for the editor's `setContent()`.
      *
-     * Empty means the document survived intact. A caller storing documents
-     * should assert on this rather than trust it.
-     *
-     * @return array<string, string>
+     * @param \MarkupCarve\Carve\Node|array<string, mixed> $tree
      */
-    public function droppedTypes(): array
+    public function renderJson(Node|array $tree): string
     {
-        return $this->dropped;
+        return Kit::encode($this->render($tree));
     }
 
     /**
-     * @return \Closure(\MarkupCarve\Carve\Node\Node, \Closure(): array<int, array<string, mixed>>): (array<string, mixed>|null)|null
+     * The ProseMirror `doc` of Carve source.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options Passed to `Carve::parse()`.
+     *
+     * @return array<string, mixed>
      */
-    private function factoryFor(Node $node): ?Closure
+    public function renderSource(string $source, array $options = []): array
     {
-        foreach ($this->factories as [$matches, $render]) {
-            if ($matches($node)) {
-                return $render;
+        return $this->render(Carve::parse($source, $options));
+    }
+
+    private function denied(mixed $url): bool
+    {
+        if (!is_string($url) || UrlPolicy::passes($url, $this->options)) {
+            return false;
+        }
+        $this->blanked[] = $url;
+
+        return true;
+    }
+
+    /**
+     * @return array<array<string, mixed>>
+     */
+    private function list(mixed $value): array
+    {
+        return is_array($value) && array_is_list($value) ? $value : [];
+    }
+
+    /**
+     * Blocks as ProseMirror nodes; an empty list becomes one empty paragraph, which the way back drops.
+     *
+     * @param array<array<string, mixed>> $children
+     *
+     * @return array<array<string, mixed>>
+     */
+    private function blocks(array $children): array
+    {
+        $out = array_map($this->block(...), $children);
+
+        return $out !== [] ? $out : [['type' => 'paragraph']];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private function block(array $node): array
+    {
+        $type = Kit::str($node['type'] ?? null);
+        if (array_key_exists('caption', $node) && $type !== 'caption') {
+            return $this->captioned($node);
+        }
+        $mapped = $this->loadMapped($node, 'block');
+        if ($mapped !== null) {
+            return $mapped;
+        }
+        if (isset(Kit::TEXTBLOCKS[$type])) {
+            return $this->textblock($node);
+        }
+        if (isset(Kit::CONTAINERS[$type])) {
+            return $this->container($node);
+        }
+        if (isset(Kit::CODE_BLOCKS[$type])) {
+            return $this->codeLike($node, Kit::CODE_BLOCKS[$type]);
+        }
+
+        return match ($type) {
+            'code_block' => $this->codeBlock($node),
+            'thematic_break' => ['type' => 'horizontalRule', 'attrs' => ['carve' => Kit::carveAttr(Kit::fields($node))]],
+            'list' => $this->listNode($node),
+            'definition_list' => $this->mixed($node, 'carveDefinitionList'),
+            'line_block' => $this->mixed($node, 'carveLineBlock'),
+            'table' => $this->table($node),
+            default => self::blockAtom($node),
+        };
+    }
+
+    /**
+     * The host node a tree node loads as, or null.
+     *
+     * @param array<string, mixed> $node
+     * @param string $position `block` or `inline`
+     *
+     * @return array<string, mixed>|null
+     */
+    private function loadMapped(array $node, string $position): ?array
+    {
+        foreach ($this->mapping['nodes'] as $name => $entry) {
+            if ($entry->as === null) {
+                $fromTree = $entry->fromTree;
+                $pm = $fromTree !== null ? $fromTree($node, [
+                    'position' => $position,
+                    'blocks' => fn (mixed $children): array => $this->blocks($this->list($children)),
+                    'inlines' => fn (mixed $children): array => $this->inlines($this->list($children)),
+                ]) : null;
+                if (is_array($pm)) {
+                    return Kit::map($pm);
+                }
+
+                continue;
             }
+            if (!Kit::declared($entry, $node, $position === 'block' ? 'div' : 'span', !$entry->content)) {
+                continue;
+            }
+            $pm = ['type' => $name];
+            $attrs = Kit::declaredAttrs($node);
+            if ($attrs !== []) {
+                $pm['attrs'] = $attrs;
+            }
+            $children = $this->list($node['children'] ?? null);
+            if ($children !== []) {
+                $pm['content'] = $position === 'block' ? $this->blocks($children) : $this->inlines($children);
+            }
+
+            return $pm;
         }
 
         return null;
     }
 
     /**
-     * A registered node's children: blocks when it holds blocks, inline
-     * content otherwise.
+     * The host mark an inline container loads as, or null.
      *
-     * @param \MarkupCarve\Carve\Node\Node $node
-     * @param array<int, array<string, mixed>> $marks
+     * @param array<string, mixed> $node
      *
-     * @return array<int, array<string, mixed>>
-     */
-    private function renderChildren(Node $node, array $marks): array
-    {
-        $children = $node->getChildren();
-        if ($children !== [] && $children[0] instanceof BlockNode) {
-            return array_values($this->renderBlocks($children));
-        }
-
-        return array_values($this->renderInlines($children, $marks));
-    }
-
-    /**
-     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    protected function renderBlocks(array $nodes): array
-    {
-        $out = [];
-        foreach ($nodes as $node) {
-            $rendered = $this->renderBlock($node);
-            if ($rendered !== null) {
-                $out[] = $rendered;
-            }
-        }
-
-        return $out;
-    }
-
-    /**
      * @return array<string, mixed>|null
      */
-    protected function renderBlock(Node $node): ?array
+    private function loadMappedMark(array $node): ?array
     {
-        $factory = $this->factoryFor($node);
-        if ($factory !== null) {
-            return $factory($node, fn (): array => $this->renderChildren($node, []));
-        }
+        foreach ($this->mapping['marks'] as $name => $entry) {
+            if ($entry->as === null) {
+                $fromTree = $entry->fromTree;
+                $mark = $fromTree !== null ? $fromTree($node) : null;
+                if (is_array($mark)) {
+                    return Kit::map($mark);
+                }
 
-        $type = $node->getType();
-        $this->noteUnrepresentableState($node);
-
-        // A section is a rendering wrapper, not editor content: hoist its
-        // children so the heading and body land at document level.
-        if ($type === 'section') {
-            $children = $this->renderBlocks($node->getChildren());
-            if ($children === []) {
-                return null;
+                continue;
             }
-            $section = ['type' => 'carveSection', 'content' => $children];
-            if ($this->sourcePositions && $node->getPos() !== null) {
-                $section['attrs'] = ['carvePos' => $node->getPos()->toWireArray()];
+            if (!Kit::declared($entry, $node, 'span', false)) {
+                continue;
             }
-            if ($node->getAttributes() !== []) {
-                $this->degraded['section'] = 'CarveKit cannot keep attributes on a section wrapper';
+            $mark = ['type' => $name];
+            $attrs = Kit::declaredAttrs($node);
+            if ($attrs !== []) {
+                $mark['attrs'] = $attrs;
             }
 
-            return $section;
+            return $mark;
         }
 
-        // A promoted image's attribute line crosses on a paragraph around it,
-        // the shape of the AST (CARVE-P12-043).
-        if ($node instanceof Image && $node->getBlockAttributeSplit() !== null) {
-            $split = $node->getBlockAttributeSplit();
-            $line = new Paragraph();
-            $line->setAttributesWithOrder($split['block'], $split['blockOrder']);
-            $image = clone $node;
-            foreach (array_keys($image->getAttributeEntries()) as $key) {
-                $image->removeAttribute((string)$key);
-            }
-            $image->setAttributeOrder([]);
-            $image->setAttributesWithOrder($split['own'], $split['ownOrder']);
-            $wrapper = ['type' => 'paragraph', 'attrs' => $this->attributesFor($line)];
-            $wrapper['content'] = $this->renderInlines([$image], []);
-
-            return $wrapper;
-        }
-
-        $name = $this->proseMirrorName($node);
-        if ($name === null) {
-            $this->dropped[$type] = SchemaMap::unmappedReason($type) ?? 'no ProseMirror name for this type';
-
-            return null;
-        }
-
-        $out = ['type' => $name];
-        $attrs = $this->attributesFor($node);
-        if ($attrs !== []) {
-            $out['attrs'] = $attrs;
-        }
-
-        if ($node instanceof Table && $node->hasCaption()) {
-            // A caption hangs off the table as state rather than as a child, so
-            // walking children alone loses it silently - the worst kind of loss,
-            // since nothing would report it. Emit it as the leading child.
-            $caption = $node->getCaption();
-            if ($caption !== null) {
-                $out['content'] = [
-                    ['type' => 'carveCaption', 'content' => $this->renderInlines($caption->getChildren(), [])],
-                    ...$this->renderTableRows($node),
-                ];
-
-                return $out;
-            }
-        }
-
-        if ($node instanceof CodeBlock || $node instanceof RawBlock || $node instanceof Comment) {
-            // The text lives in a property, not in children, so it has to be
-            // emitted as the single text child ProseMirror expects.
-            $code = $node->getContent();
-            $content = $code === '' ? [] : [['type' => 'text', 'text' => $code]];
-        } elseif ($node instanceof Table) {
-            $content = $this->renderTableRows($node);
-        } else {
-            $content = $this->isInlineContainer($node)
-                ? $this->renderInlines($node->getChildren(), [])
-                : $this->renderBlocks($node->getChildren());
-        }
-
-        if ($node instanceof Figure && isset($content[0]) && ($content[0]['type'] ?? null) === 'image') {
-            $content[0] = ['type' => 'paragraph', 'content' => [$content[0]]];
-        }
-
-        $content = $this->mergeTextNodes($content);
-
-        if ($node instanceof FigureGroup && $node->hasCaption()) {
-            // The GROUP caption is authored below the closing fence and hangs
-            // off the node as state, so walking children alone drops it. It
-            // rides as the TRAILING carveCaption child, which is the shape the
-            // published map describes and the shape the converter reads back.
-            $caption = $node->getCaption();
-            if ($caption !== null) {
-                $content[] = [
-                    'type' => 'carveCaption',
-                    'content' => $this->renderInlines($caption->getChildren(), []),
-                ];
-            }
-        }
-
-        if ($node instanceof Figure && $node->getShortCaption() !== null) {
-            // The short caption is state, not a child, so walking children
-            // alone loses it - the same shape as a table's caption. It rides as
-            // a second carveCaption flagged `short`, which is how the converter
-            // tells the two apart on the way back.
-            $content[] = [
-                'type' => 'carveCaption',
-                'attrs' => ['short' => true],
-                'content' => $this->renderInlines($node->getShortCaption(), []),
-            ];
-        }
-
-        if ($content !== []) {
-            $out['content'] = $content;
-        }
-
-        return $out;
+        return null;
     }
 
     /**
-     * A table's rows, with a cell for every column the ProseMirror editor
-     * model actually wants - one per NON-consumed grid entry, carrying the
-     * rowspan/colspan a span marker resolves to.
+     * A block with its caption: the tree keeps the caption as a field of the block.
      *
-     * carve-php#527: this engine's own tree keeps a real, empty `table_cell`
-     * for every `^`/`<` marker (carve-js parity, uniform row width), but
-     * ProseMirror's table is the OTHER shape - a merged cell with its own
-     * `colspan`/`rowspan`, and no node at all for the columns it covers.
-     * Walking `TableRow::getChildren()` node-for-node would therefore emit an
-     * extra `tableCell` for every placeholder, corrupting the editor's grid
-     * exactly the way it would corrupt HTML (`renderTable` in HtmlRenderer)
-     * or the Carve/ANSI/Markdown output (`TableSpanGrid` / `TableLayout`) -
-     * so this resolves the same grid those do and skips a consumed entry
-     * entirely rather than rendering it.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    protected function renderTableRows(Table $node): array
-    {
-        $grid = TableSpanGrid::resolve($node);
-
-        $tableRows = [];
-        foreach ($node->getChildren() as $child) {
-            if ($child instanceof TableRow) {
-                $tableRows[] = $child;
-            }
-        }
-
-        $rows = [];
-        foreach ($tableRows as $index => $row) {
-            $this->noteUnrepresentableState($row);
-            if ($row->getContinuationLines() > 0) {
-                $this->degraded['table_row'] = 'the editor has no continuation line, so the `+` lines join their cells';
-            }
-            $rowOut = ['type' => 'tableRow'];
-            // A row's own attributes. `renderTableRows` builds the row node
-            // directly rather than going through the generic block path, which
-            // is what attaches `attrs` everywhere else - so `{.head}` on a row
-            // was dropped across a round trip (carve-php#557 introduced this,
-            // carve-php#519 measured it).
-            $rowAttrs = $this->attributesFor($row);
-            if ($rowAttrs !== []) {
-                $rowOut['attrs'] = $rowAttrs;
-            }
-            $cells = [];
-            foreach ($grid[$index] as $column => $entry) {
-                $this->noteUnrepresentableState($entry['cell']);
-                if ($entry['skip']) {
-                    continue;
-                }
-                $rendered = $this->renderResolvedTableCell(
-                    $entry['cell'],
-                    $entry['rowspan'],
-                    $entry['colspan'],
-                );
-                if ($index === 0 && $node->getSeparatorWidths() !== null) {
-                    $widths = $node->getSeparatorWidths();
-                    $attrs = is_array($rendered['attrs'] ?? null) ? $rendered['attrs'] : [];
-                    $attrs['carveSeparatorWidths'] = array_slice($widths, $column, $entry['colspan']);
-                    $rendered['attrs'] = $attrs;
-                }
-                if ($entry['rowspan'] > 1 && $entry['colspan'] > 1) {
-                    $coveredRows = [];
-                    for ($offset = 1; $offset < $entry['rowspan']; $offset++) {
-                        $markers = [];
-                        for ($covered = 0; $covered < $entry['colspan']; $covered++) {
-                            $markers[] = isset($grid[$index + $offset][$column + $covered])
-                                ? $grid[$index + $offset][$column + $covered]['cell']->getSpanMarker()
-                                : null;
-                        }
-                        $coveredRows[] = $markers;
-                    }
-                    if (is_array($rendered['attrs'])) {
-                        $rendered['attrs']['carveCoveredRowMarkers'] = $coveredRows;
-                    }
-                }
-                $cells[] = $rendered;
-            }
-            if ($cells !== []) {
-                $rowOut['content'] = $cells;
-            }
-            $rows[] = $rowOut;
-        }
-
-        return $rows;
-    }
-
-    /**
-     * A single `tableCell`/`tableHeader` node with an EXPLICIT rowspan/colspan
-     * resolved by `TableSpanGrid`, rather than the cell's own stored value -
-     * see `renderTableRows`.
+     * @param array<string, mixed> $node
      *
      * @return array<string, mixed>
      */
-    protected function renderResolvedTableCell(TableCell $cell, int $rowspan, int $colspan): array
+    private function captioned(array $node): array
     {
-        $out = ['type' => $cell->isHeader() ? 'tableHeader' : 'tableCell'];
-        $attrs = $this->attributesFor($cell);
-        unset($attrs['colspan'], $attrs['rowspan']);
-        if ($colspan !== 1) {
-            $attrs['colspan'] = $colspan;
+        $caption = Kit::map($node['caption']);
+        unset($node['caption']);
+        $captionNode = $this->container($caption);
+        if ($this->list($caption['children'] ?? []) === []) {
+            $carve = Kit::carveOf($captionNode);
+            $carve['$empty'] = true;
+            $captionNode['attrs'] = ['carve' => $carve] + Kit::map($captionNode['attrs']);
         }
-        if ($rowspan !== 1) {
-            $attrs['rowspan'] = $rowspan;
-        }
-        if ($cell->hasExplicitAlignment() && $cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
-            $attrs['textAlign'] = $cell->getAlignment();
-        } elseif (in_array($cell->getAlignment(), [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)) {
-            $attrs['carveInheritedTextAlign'] = $cell->getAlignment();
-        }
-        if ($cell->hasExplicitVerticalAlignment() && $cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
-            $attrs['verticalAlign'] = $cell->getVerticalAlignment();
-        } elseif ($cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
-            $attrs['carveInheritedVerticalAlign'] = $cell->getVerticalAlignment();
-        }
-        $marker = $cell->getSpanMarker();
-        if ($marker !== null && $marker !== '' && $cell->getChildren() === []) {
-            $attrs['carveSpanMarker'] = $marker;
-        }
-        $out['attrs'] = $attrs;
 
-        $out['content'] = [['type' => 'paragraph', 'content' => $this->renderInlines($cell->getChildren(), [])]];
-
-        return $out;
+        return ['type' => 'carveCaptioned', 'content' => [$this->block($node), $captionNode]];
     }
 
     /**
-     * Inline content, flattening Carve's nested mark elements onto text nodes.
+     * @param array<string, mixed> $node
      *
-     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
-     * @param array<int, array<string, mixed>> $marks marks active from enclosing nodes
-     *
-     * @return array<int, array<string, mixed>>
+     * @return array<string, mixed>
      */
-    protected function renderInlines(array $nodes, array $marks): array
+    private static function blockAtom(array $node): array
     {
-        $this->noteMergeableSiblings($nodes);
+        return ['type' => 'carveBlock', 'attrs' => ['carve' => Kit::clean($node)]];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param array<array<string, mixed>> $marks
+     *
+     * @return array<string, mixed>
+     */
+    private static function inlineAtom(array $node, array $marks): array
+    {
+        return self::withMarks(['type' => 'carveInline', 'attrs' => ['carve' => Kit::clean($node)]], $marks);
+    }
+
+    /**
+     * @param array<string, mixed> $pm
+     * @param array<array<string, mixed>> $marks
+     *
+     * @return array<string, mixed>
+     */
+    private static function withMarks(array $pm, array $marks): array
+    {
+        if ($marks !== []) {
+            $pm['marks'] = $marks;
+        }
+
+        return $pm;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param array<string, mixed> $extra
+     *
+     * @return array<string, mixed>
+     */
+    private function textblock(array $node, array $extra = []): array
+    {
+        [$name, $owned] = Kit::TEXTBLOCKS[Kit::str($node['type'] ?? null)];
+        $carve = Kit::fields($node, ['children', ...$owned]) + $extra;
+        $children = $this->list($node['children'] ?? []);
+        // A loaded empty paragraph is content; only one the editor made is a placeholder.
+        if ($children === [] && $carve === []) {
+            $carve['$empty'] = true;
+        }
+        $attrs = ['carve' => Kit::carveAttr($carve)];
+        foreach ($owned as $key) {
+            if (array_key_exists($key, $node)) {
+                $attrs[$key] = $node[$key];
+            }
+        }
+        $content = $this->inlines($children);
+        $pm = ['type' => $name, 'attrs' => $attrs];
+        if ($content !== []) {
+            $pm['content'] = $content;
+        }
+
+        return $pm;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private function container(array $node): array
+    {
+        $type = Kit::str($node['type'] ?? null);
+        $type = isset(Kit::CONTAINERS[$type]) ? $type : 'caption';
+        [$name, $owned] = Kit::CONTAINERS[$type];
+        $title = $this->list($node['title'] ?? null);
+        $titled = isset(Kit::TITLED[$type]) && $title !== [];
+        $attrs = ['carve' => Kit::carveAttr(Kit::fields($node, ['children', ...$owned, ...($titled ? ['title'] : [])]))];
+        foreach ($owned as $key) {
+            if (array_key_exists($key, $node)) {
+                $attrs[$key] = $node[$key];
+            }
+        }
+        $content = $this->blocks($this->list($node['children'] ?? []));
+        if ($titled) {
+            $inlines = $this->inlines($title);
+            array_unshift($content, $inlines !== [] ? ['type' => 'carveTitle', 'content' => $inlines] : ['type' => 'carveTitle']);
+        }
+
+        return ['type' => $name, 'attrs' => $attrs, 'content' => $content];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param string $name
+     *
+     * @return array<string, mixed>
+     */
+    private function codeLike(array $node, string $name): array
+    {
+        $value = Kit::str($node['value'] ?? null);
+        $pm = ['type' => $name, 'attrs' => ['carve' => Kit::carveAttr(Kit::fields($node, ['value']))]];
+        if ($value !== '') {
+            $pm['content'] = [['type' => 'text', 'text' => $value]];
+        }
+
+        return $pm;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private function codeBlock(array $node): array
+    {
+        $value = Kit::str($node['value'] ?? null);
+        $newline = str_ends_with($value, "\n");
+        $text = $newline && !str_ends_with($value, "\n\n") ? substr($value, 0, -1) : $value;
+        $carve = Kit::fields($node, ['value', 'syntax']);
+        if (!$newline) {
+            $carve['$newline'] = false;
+        }
+        $pm = ['type' => 'codeBlock', 'attrs' => ['language' => $node['syntax'] ?? null, 'carve' => Kit::carveAttr($carve)]];
+        if ($text !== '') {
+            $pm['content'] = [['type' => 'text', 'text' => $text]];
+        }
+
+        return $pm;
+    }
+
+    private static function taskChecked(mixed $task): bool
+    {
+        $mark = is_array($task) ? ($task['mark'] ?? null) : null;
+
+        return $mark === 'x' || $mark === 'X';
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private function listNode(array $node): array
+    {
+        $items = $this->list($node['children'] ?? []);
+        if ($items === []) {
+            return self::blockAtom($node);
+        }
+        $tasks = true;
+        foreach ($items as $item) {
+            if (!array_key_exists('task', $item)) {
+                $tasks = false;
+            }
+        }
+        $marker = is_array($node['marker'] ?? null) ? $node['marker'] : [];
+        $type = $tasks ? 'taskList' : (($marker['kind'] ?? null) === 'ordered' ? 'orderedList' : 'bulletList');
+        $attrs = ['carve' => Kit::carveAttr(Kit::fields($node, ['children']))];
+        if ($type === 'orderedList') {
+            $attrs['start'] = $marker['start'] ?? 1;
+        }
+        $content = [];
+        foreach ($items as $item) {
+            $content[] = $this->listItem($item, $tasks);
+        }
+
+        return ['type' => $type, 'attrs' => $attrs, 'content' => $content];
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @param bool $tasks
+     *
+     * @return array<string, mixed>
+     */
+    private function listItem(array $item, bool $tasks): array
+    {
+        $itemFields = Kit::fields($item, ['children']);
+        $children = $this->list($item['children'] ?? []);
+        if ($children === []) {
+            $itemFields['$empty'] = true;
+        }
+        $itemAttrs = ['carve' => Kit::carveAttr($itemFields)];
+        if ($tasks) {
+            $itemAttrs['checked'] = self::taskChecked($item['task'] ?? null);
+        }
+        // Tiptap items start with a paragraph; an empty one, which the way back drops, leads any other block.
+        $blocks = $this->blocks($children);
+        if ($blocks[0]['type'] !== 'paragraph') {
+            array_unshift($blocks, ['type' => 'paragraph']);
+        }
+
+        return ['type' => $tasks ? 'taskItem' : 'listItem', 'attrs' => $itemAttrs, 'content' => $blocks];
+    }
+
+    /**
+     * Definition lists and line blocks: their children are their own node types and comments.
+     *
+     * @param array<string, mixed> $node
+     * @param string $name
+     *
+     * @return array<string, mixed>
+     */
+    private function mixed(array $node, string $name): array
+    {
+        $children = $this->list($node['children'] ?? []);
+        if ($children === []) {
+            return self::blockAtom($node);
+        }
+
+        return [
+            'type' => $name,
+            'attrs' => ['carve' => Kit::carveAttr(Kit::fields($node, ['children']))],
+            'content' => array_map($this->block(...), $children),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private function table(array $node): array
+    {
+        $sections = [];
+        $rows = [];
+        foreach ($this->list($node['children'] ?? []) as $index => $section) {
+            $sections[] = ($section['type'] ?? null) === 'comment'
+                ? ['$node' => Kit::clean($section)]
+                : $this->tableSection($section, $index, $rows);
+        }
+        if ($rows === [] || in_array([], array_column($rows, 'content'), true)) {
+            return self::blockAtom($node);
+        }
+        // ProseMirror tables are rectangular: short rows get marked padding cells, which the way back drops while empty.
+        $widths = Kit::gridWidths(array_map(
+            static fn (array $row): array => array_map(static function (array $cell): array {
+                $attrs = Kit::map($cell['attrs'] ?? null);
+
+                return [Kit::spanCount($attrs['colspan'] ?? null), Kit::spanCount($attrs['rowspan'] ?? null)];
+            }, Kit::nodes($row['content'])),
+            $rows,
+        ));
+        $width = $widths === [] ? 0 : max($widths);
+        $pad = ['type' => 'tableCell', 'attrs' => ['carve' => ['$pad' => true]], 'content' => [['type' => 'paragraph']]];
+        foreach ($rows as $i => $row) {
+            $content = Kit::nodes($row['content']);
+            for ($column = $widths[$i]; $column < $width; $column++) {
+                $content[] = $pad;
+            }
+            $rows[$i]['content'] = $content;
+        }
+        $carve = Kit::fields($node, ['children']);
+        $carve['$sections'] = $sections;
+        if ($this->bareSpans($node)) {
+            $carve['$bareSpans'] = true;
+        }
+
+        return ['type' => 'table', 'attrs' => ['carve' => $carve], 'content' => $rows];
+    }
+
+    /**
+     * Whether the table has counts and no mark cells: an imported span (C2-A-093), which saves back without marks.
+     *
+     * @param array<string, mixed> $node
+     */
+    private function bareSpans(array $node): bool
+    {
+        $counted = false;
+        foreach ($this->list($node['children'] ?? []) as $section) {
+            foreach ($this->list($section['children'] ?? []) as $row) {
+                foreach ($this->list($row['children'] ?? []) as $cell) {
+                    if (array_key_exists('span', $cell)) {
+                        return false;
+                    }
+                    $counted = $counted || ($cell['colspan'] ?? 1) > 1 || ($cell['rowspan'] ?? 1) > 1;
+                }
+            }
+        }
+
+        return $counted;
+    }
+
+    /**
+     * The `$sections` entry of a table section; its rows are appended to `$rows`.
+     *
+     * @param array<string, mixed> $section
+     * @param int $index
+     * @param array<array<string, mixed>> $rows
+     *
+     * @return array<string, mixed>
+     */
+    private function tableSection(array $section, int $index, array &$rows): array
+    {
+        $entry = ['type' => $section['type'] ?? null] + Kit::fields($section, ['children']);
+        $before = [];
+        $hasRow = false;
+        foreach ($this->list($section['children'] ?? []) as $row) {
+            if (($row['type'] ?? null) === 'comment') {
+                $before[] = Kit::clean($row);
+
+                continue;
+            }
+            $hasRow = true;
+            $carve = Kit::fields($row, ['children']);
+            $carve['$section'] = $index;
+            if ($before !== []) {
+                $carve['$before'] = $before;
+            }
+            $before = [];
+            // ProseMirror has no cell where a span mark stands: the covering cell's counts span it.
+            $cells = array_values(array_filter(
+                $this->list($row['children'] ?? []),
+                static fn (array $cell): bool => !array_key_exists('span', $cell),
+            ));
+            $content = array_map($this->cell(...), $cells);
+            $th = array_filter($content, static fn (array $c): bool => $c['type'] !== 'tableHeader') === [];
+            if (($section['type'] ?? null) !== 'table_head' && $content !== [] && $th) {
+                $carve['$th'] = true;
+            }
+            $rows[] = [
+                'type' => 'tableRow',
+                'attrs' => ['carve' => $carve],
+                'content' => $content,
+            ];
+        }
+        if ($before !== []) {
+            $entry['$after'] = $before;
+        }
+        if (!$hasRow) {
+            $entry['$empty'] = true;
+        }
+
+        return $entry;
+    }
+
+    /**
+     * @param array<string, mixed> $cell
+     *
+     * @return array<string, mixed>
+     */
+    private function cell(array $cell): array
+    {
+        $content = [];
+        foreach ($this->list($cell['children'] ?? []) as $child) {
+            $content[] = ($child['type'] ?? null) === 'cell_paragraph'
+                ? $this->textblock(['type' => 'paragraph'] + $child, ['$type' => 'cell_paragraph'])
+                : $this->block($child);
+        }
+        $carve = Kit::fields($cell, ['children', 'header', 'colspan', 'rowspan']);
+        if ($content === []) {
+            $carve['$empty'] = true;
+        }
+        $attrs = ['carve' => Kit::carveAttr($carve)];
+        foreach (['colspan', 'rowspan'] as $key) {
+            if (is_int($cell[$key] ?? null) && $cell[$key] > 1) {
+                $attrs[$key] = $cell[$key];
+            }
+        }
+
+        return [
+            'type' => ($cell['header'] ?? false) === true ? 'tableHeader' : 'tableCell',
+            'attrs' => $attrs,
+            'content' => $content !== [] ? $content : [['type' => 'paragraph']],
+        ];
+    }
+
+    /**
+     * @param array<array<string, mixed>> $children
+     *
+     * @return array<array<string, mixed>>
+     */
+    private function inlines(array $children): array
+    {
         $out = [];
-        foreach ($nodes as $node) {
-            $rawRef = UnresolvedReference::sourceOf($node);
-            if ($rawRef !== null) {
-                // The editor model has no unresolved reference: it holds text.
-                // Carrying the literal source keeps the characters, but not the
-                // fact that they are a reference - the writer escapes them on
-                // the way back (`\[a\]\[b\]`), so the document does not come
-                // back spelled as it was written. Say so rather than losing it
-                // silently (carve-php#519, carve-php#528).
-                $this->degraded[$node->getType()] = 'an unresolved reference has no editor counterpart, '
-                    . 'so it is carried as its literal source and comes back as escaped text';
-                $textNode = ['type' => 'text', 'text' => $rawRef];
-                if ($marks !== []) {
-                    $textNode['marks'] = $marks;
-                }
-                $out[] = $textNode;
-
-                continue;
-            }
-
-            $factory = $this->factoryFor($node);
-            if ($factory !== null) {
-                $rendered = $factory($node, fn (): array => $this->renderChildren($node, $marks));
-                if ($rendered !== null) {
-                    $out[] = $rendered;
-                }
-
-                continue;
-            }
-
-            $type = $node->getType();
-            $this->noteUnrepresentableState($node);
-
-            if ($node instanceof Text) {
-                $text = $node->getContent();
-                if ($text === '') {
-                    continue;
-                }
-                $textNode = ['type' => 'text', 'text' => $text];
-                if ($marks !== []) {
-                    $textNode['marks'] = $marks;
-                }
-                $out[] = $textNode;
-
-                continue;
-            }
-
-            // Types the editor model has no node for, but whose CONTENT is plain
-            // text: degrading them to text keeps the document readable, where
-            // dropping them would run words together or lose a character. This is
-            // recorded separately from a drop - the text survives, the node type
-            // does not, so an AST round-trip will not be identical.
-            $asText = $this->degradeToText($node);
-            if ($asText !== null) {
-                // Reported even where the text round-trips exactly - a soft
-                // break comes back as a newline now, and the NODE is still
-                // gone. Suppressing it would move documents into the
-                // fully-covered population without the bridge carrying any
-                // more than it did, which is a measurement moving rather than
-                // a bridge improving.
-                $this->degraded[$type] = SchemaMap::unmappedReason($type) ?? 'degraded to text';
-                if ($asText !== '') {
-                    $textNode = ['type' => 'text', 'text' => $asText];
-                    if ($marks !== []) {
-                        $textNode['marks'] = $marks;
-                    }
-                    $out[] = $textNode;
-                }
-
-                continue;
-            }
-
-            if ($node instanceof Comment) {
-                // Inline comment text is editable child content in CarveKit.
-                $inlineComment = [
-                    'type' => 'carveCommentInline',
-                    'attrs' => ['delimited' => $node->isDelimited()],
-                    'content' => $node->getContent() === '' ? [] : [['type' => 'text', 'text' => $node->getContent()]],
-                ];
-                if ($marks !== []) {
-                    $inlineComment['marks'] = $marks;
-                }
-                $out[] = $inlineComment;
-
-                continue;
-            }
-
-            if ($node instanceof Code || $node instanceof CriticComment) {
-                // Same asymmetry inline: Carve holds the text on the node, while
-                // ProseMirror wants a text node carrying a mark. Both of these
-                // have literal content and no children, so descending as a mark
-                // would emit an empty element and lose the text.
-                // A mark can carry attributes - the generic mark path below
-                // already does - so `` `code`{.cls} `` has somewhere to put
-                // them after all; omitting them dropped the class outright,
-                // which is a meaning loss, not a re-spelling (carve-php#519).
-                $ownMark = ['type' => (string)SchemaMap::nameFor($type)];
-                $ownAttrs = $this->attributesFor($node);
-                if ($ownAttrs !== []) {
-                    $ownMark['attrs'] = $ownAttrs;
-                }
-
-                $out[] = [
-                    'type' => 'text',
-                    'text' => $node->getContent(),
-                    'marks' => [...$marks, $ownMark],
-                ];
-
-                continue;
-            }
-
-            if ($node instanceof SmallCaps) {
-                $nestedMarks = $marks;
-                $attrs = $this->attributesFor($node);
-                if ($attrs !== []) {
-                    $this->degraded['small_caps'] = 'its authored attributes move to an enclosing span';
-                    $nestedMarks[] = ['type' => 'carveSpan', 'attrs' => $attrs];
-                }
-                $mark = ['type' => 'carveSmallCaps'];
-                $carrier = $this->emptyMarkCarrier($node, $mark);
-                if ($carrier !== null) {
-                    if ($nestedMarks !== []) {
-                        $carrier['marks'] = $nestedMarks;
-                    }
-                    $out[] = $carrier;
-
-                    continue;
-                }
-                foreach ($this->renderInlines($node->getChildren(), [...$nestedMarks, $mark]) as $child) {
-                    $out[] = $child;
-                }
-
-                continue;
-            }
-
-            if (SchemaMap::isMark($type)) {
-                // An abbreviation is authored as `[text]{abbr="..."}` - a span
-                // carrying one key - and the map gives it a mark of its own.
-                $isAbbreviation = $node instanceof Span && $node->getAttribute('abbr') !== null;
-                $mark = ['type' => $isAbbreviation ? 'carveAbbreviation' : (string)SchemaMap::nameFor($type)];
-                $attrs = $this->attributesFor($node);
-                if ($attrs !== []) {
-                    $mark['attrs'] = $attrs;
-                }
-
-                $carrier = $this->emptyMarkCarrier($node, $mark);
-                if ($carrier !== null) {
-                    if ($marks !== []) {
-                        $carrier['marks'] = $marks;
-                    }
-                    $out[] = $carrier;
-
-                    continue;
-                }
-                // Descend with this mark added rather than emitting a node.
-                foreach ($this->renderInlines($node->getChildren(), [...$marks, $mark]) as $child) {
-                    $out[] = $child;
-                }
-
-                continue;
-            }
-
-            $name = $this->proseMirrorName($node);
-            if ($name === null) {
-                // An unmapped inline still holds inline CONTENT, and the slot it
-                // sat in already accepts inline content, so its children stand
-                // in for it without inventing a shape. Reported as degraded and
-                // not dropped: the words survive where the node type does not.
-                // This is what the Carve, plain and ANSI renderers already do
-                // with these two types, so the bridge now agrees with them about
-                // what a ruby degrades to instead of losing the words outright.
-                $standIn = $this->renderInlines($this->degradeToInlines($node), $marks);
-                if ($standIn !== []) {
-                    $this->degraded[$type] = SchemaMap::unmappedReason($type)
-                        ?? 'kept as its own children, without the node';
-                    foreach ($standIn as $child) {
-                        $out[] = $child;
-                    }
-
-                    continue;
-                }
-
-                $this->dropped[$type] = SchemaMap::unmappedReason($type) ?? 'no ProseMirror name for this type';
-
-                continue;
-            }
-
-            $inline = ['type' => $name];
-            $attrs = $this->attributesFor($node);
-            if ($attrs !== []) {
-                $inline['attrs'] = $attrs;
-            }
-            if ($marks !== []) {
-                $inline['marks'] = $marks;
-            }
-            if ($node instanceof RawInline || $node instanceof LiteralInline) {
-                $content = $node->getContent();
-                if ($content !== '') {
-                    $inline['content'] = [['type' => 'text', 'text' => $content]];
-                }
-                $out[] = $inline;
-
-                continue;
-            }
-            // These editor atoms carry their nested content in attributes.
-            $children = $node instanceof Substitution || $node instanceof Ruby
-                ? []
-                : $this->renderInlines($node->getChildren(), []);
-            if ($children !== []) {
-                $inline['content'] = $children;
-            }
-            $out[] = $inline;
-        }
+        $this->pushInlines($children, [], [], $out);
 
         return $out;
     }
 
     /**
-     * Records two sibling marks the editor model cannot hold apart.
-     *
-     * A mark set carries no boundary, so `{/x/}{/y/}` comes back as one run:
-     * ProseMirrorToCarve::mergeAdjacentMarks() has to merge them, because a
-     * single Carve mark arrives as several text nodes and reassembling it
-     * needs the same rule. The HTML differs, so the document is not fully
-     * covered (carve-php#2014).
-     *
-     * The condition mirrors that merge: same class, same attributes, and not
-     * one of the two content-bearing marks, whose text rides on the node and
-     * which renderInlines() therefore emits one text node each.
-     *
-     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     * @param array<array<string, mixed>> $children
+     * @param array<array<string, mixed>> $marks
+     * @param array<string, true> $open
+     * @param array<array<string, mixed>> $out
      */
-    protected function noteMergeableSiblings(array $nodes): void
+    private function pushInlines(array $children, array $marks, array $open, array &$out): void
     {
-        $previous = null;
-        foreach ($nodes as $node) {
-            if ($this->factoryFor($node) !== null) {
-                $previous = null;
+        foreach ($children as $child) {
+            $inner = $this->list($child['children'] ?? null);
+            $hostMark = $inner !== [] ? $this->loadMappedMark($child) : null;
+            $hostName = Kit::str($hostMark['type'] ?? null);
+            if ($hostMark !== null && !isset($open[$hostName])) {
+                $this->pushInlines($inner, [...$marks, $hostMark], $open + [$hostName => true], $out);
 
                 continue;
             }
-            if (
-                $previous !== null
-                && SchemaMap::isMark($node->getType())
-                && !$node instanceof Code
-                && !$node instanceof CriticComment
-                && SchemaMap::isSameMark($previous, $node)
-            ) {
-                $this->degraded[$node->getType()] = 'a mark set carries no boundary, so two abutting '
-                    . 'spans of it come back as one run';
+            $hostNode = $this->loadMapped($child, 'inline');
+            if ($hostNode !== null) {
+                $out[] = self::withMarks($hostNode, $marks);
+
+                continue;
             }
-            $previous = $node;
+            $spec = Kit::MARKS[Kit::str($child['type'] ?? null)] ?? null;
+            if ($spec !== null && $inner !== [] && !isset($open[$spec[0]])) {
+                [$mark, $owned] = $spec;
+                $carve = Kit::fields($child, ['children', ...$owned]);
+                $carve['$id'] = ++$this->id;
+                $carve['$depth'] = count($marks);
+                $attrs = ['carve' => $carve];
+                foreach ($owned as $key) {
+                    $attrs[$key] = $child[$key] ?? null;
+                }
+                if ($mark === 'link' && $this->denied($attrs['href'] ?? null)) {
+                    $carve['href'] = $attrs['href'] ?? null;
+                    $attrs['carve'] = $carve;
+                    $attrs['href'] = null;
+                }
+                $this->pushInlines($inner, [...$marks, ['type' => $mark, 'attrs' => $attrs]], $open + [$mark => true], $out);
+
+                continue;
+            }
+            $out[] = $this->leaf($child, $marks);
         }
     }
 
     /**
-     * The plain text an unmodeled inline stands for, or null when it has none.
+     * @param array<string, mixed> $node
+     * @param array<array<string, mixed>> $marks
+     *
+     * @return array<string, mixed>
      */
-    protected function degradeToText(Node $node): ?string
+    private function leaf(array $node, array $marks): array
     {
-        return match (true) {
-            $node instanceof NonBreakingSpace => "\u{00A0}",
-                $node instanceof SoftBreak => "\n",
-            $node instanceof CellWrap => $node->visibleText(),
-            $node instanceof EscapedText => $node->getContent(),
-            $node instanceof RawText => $node->getContent(),
-            $node instanceof SmartPunctuation => $node->getGlyph(),
-            default => null,
+        return match ($node['type'] ?? null) {
+            'text' => Kit::str($node['value'] ?? null) === ''
+                ? self::inlineAtom($node, $marks)
+                : self::withMarks(['type' => 'text', 'text' => Kit::str($node['value'])], $marks),
+            'code' => $this->code($node, $marks),
+            'hard_break' => self::withMarks(['type' => 'hardBreak', 'attrs' => ['carve' => Kit::carveAttr(Kit::fields($node))]], $marks),
+            'soft_break' => self::withMarks(
+                ['type' => 'carveSoftBreak', 'attrs' => ['carve' => Kit::carveAttr(Kit::fields($node))]],
+                $marks,
+            ),
+            'image' => self::withMarks($this->image($node), $marks),
+            'math' => self::withMarks([
+
+                'type' => 'carveMath',
+                'attrs' => [
+                    'value' => $node['value'] ?? null,
+                    'display' => ($node['display'] ?? false) === true,
+                    'carve' => Kit::carveAttr(Kit::fields($node, ['value', 'display'])),
+                ],
+            ], $marks),
+            'footnote_ref' => self::withMarks([
+
+                'type' => 'carveFootnoteRef',
+                'attrs' => [
+                    'key' => $node['key'] ?? null,
+                    'carve' => Kit::carveAttr(Kit::fields($node, ['key', 'namespace'])),
+                ],
+            ], $marks),
+            default => self::inlineAtom($node, $marks),
         };
     }
 
     /**
-     * The inlines an unmodeled inline stands for once its own node is gone.
-     *
-     * @return array<\MarkupCarve\Carve\Node\Node>
-     */
-    protected function degradeToInlines(Node $node): array
-    {
-        return $node->getChildren();
-    }
-
-    /**
-     * Types the last render kept as text rather than as their own node.
-     *
-     * @return array<string, string>
-     */
-    public function degradedTypes(): array
-    {
-        return $this->degraded;
-    }
-
-    /**
-     * Narrow a Carve type to one ProseMirror name using the node's own state.
-     */
-    protected function proseMirrorName(Node $node): ?string
-    {
-        $type = $node->getType();
-
-        if ($node instanceof ListBlock) {
-            if ($this->isTaskList($node)) {
-                return 'taskList';
-            }
-
-            return $node->getListType() === 'ordered' ? 'orderedList' : 'bulletList';
-        }
-
-        if ($node instanceof ListItem) {
-            return $node->isTask() ? 'taskItem' : 'listItem';
-        }
-
-        if ($node instanceof TableCell) {
-            return $node->isHeader() ? 'tableHeader' : 'tableCell';
-        }
-
-        if ($node instanceof Div) {
-            if ($node->directiveKind() !== null) {
-                return (string)SchemaMap::nameFor('directive');
-            }
-            $class = (string)($node->getAttribute('class') ?? '');
-
-            return match (true) {
-                str_contains($class, 'tabs') => 'carveTabSet',
-                str_contains($class, 'tab') => 'carveTab',
-                default => 'carveDiv',
-            };
-        }
-
-        // A Mention answers `mention` for both flavors; the AST names the `#tag` one `tag`.
-        if ($node instanceof Mention && $node->getCssClass() === 'tag') {
-            $type = 'tag';
-        }
-
-        return SchemaMap::nameFor($type);
-    }
-
-    protected function isTaskList(ListBlock $list): bool
-    {
-        foreach ($list->getChildren() as $item) {
-            if ($item instanceof ListItem && $item->isTask()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * ProseMirror attrs for a node: the state the editor needs, plus the Carve
-     * attribute map (id, class and every data-*), which is how an application's
-     * own block types survive the trip.
+     * @param array<string, mixed> $node
+     * @param array<array<string, mixed>> $marks
      *
      * @return array<string, mixed>
      */
-    protected function attributesFor(Node $node): array
+    private function code(array $node, array $marks): array
     {
-        $attrs = [];
-
-        if ($this->sourcePositions && $node instanceof BlockNode && $node->getPos() !== null) {
-            $attrs['carvePos'] = $node->getPos()->toWireArray();
+        $value = Kit::str($node['value'] ?? null);
+        if ($value === '') {
+            return self::inlineAtom($node, $marks);
         }
+        $carve = Kit::fields($node, ['value']);
+        $carve['$id'] = ++$this->id;
+        $carve['$depth'] = count($marks);
 
-        if ($node instanceof Heading) {
-            $attrs['level'] = $node->getLevel();
-        } elseif ($node instanceof BlockQuote && $node->isFenced()) {
-            // Fenced and prefixed quotes share one semantic node, but the
-            // canonical writer preserves the authored spelling.
-            $attrs['carveFenced'] = true;
-        } elseif ($node instanceof ThematicBreak) {
-            $attrs['carveMarker'] = $node->char;
-        } elseif ($node instanceof Table && $node->getSeparatorWidths() !== null) {
-            // An author-choice field, so it rides a prefixed attribute the way
-            // `carveMarker` does. Without it the bridge is not identity on a
-            // table the author wrote with a separator row: the widths are gone
-            // and, worse, so is the PRESENCE, so the writer comes back with the
-            // `|=` header form (markup-carve/carve#2894).
-            $attrs['carveSeparatorWidths'] = $node->getSeparatorWidths();
-            $head = $node->getChildren()[0] ?? null;
-            if ($head instanceof TableRow) {
-                $attrs['carveSeparatorColumnCount'] = count($head->getChildren());
-                $attrs['carveSeparatorAligns'] = array_map(
-                    static fn (TableCell $cell): string => $cell->getAlignment(),
-                    array_values(array_filter($head->getChildren(), static fn ($cell): bool => $cell instanceof TableCell)),
-                );
-            }
-        } elseif ($node instanceof CodeBlock) {
-            $this->appendCodeBlockAttributes($node, $attrs);
-        } elseif ($node instanceof ListBlock) {
-            $this->appendListAttributes($node, $attrs);
-        } elseif ($node instanceof DefinitionList) {
-            // PART 9 §17 L7's consumed `loose` boolean, for the same reason as
-            // `carveTight` above and with one difference: it is UNDERIVABLE
-            // rather than merely lossy. A `<dl>` has no blank-line spelling for
-            // a one-block description at any entry count, so a description that
-            // came back without this key renders its content inline and the
-            // `<p>` the author asked for is gone.
-            //
-            // Set only when SPELLED, matching PART 12 §8's `const: true` shape:
-            // an ordinary definition list derives each wrapper from its
-            // description's block count and gains no key that means nothing to
-            // it.
-            if ($node->isLoose()) {
-                $attrs['carveLoose'] = true;
-            }
-        } elseif ($node instanceof ListItem) {
-            if ($node->isTask()) {
-                $attrs['checked'] = $node->isCompleted();
-                // tiptap's taskItem has only a box, so the extended
-                // states need the prefixed attribute, like `carveLoose` above.
-                $state = $node->getAuthoredTaskState();
-                if ($state !== null) {
-                    $attrs['carveTaskState'] = $state;
-                }
-            }
-        } elseif ($node instanceof TableCell) {
-            // The cell's OWN marker, not the one it inherits from the column.
-            // carve-rs writes `alignment` from `cell.align`, which its parser
-            // sets only where the cell carries a marker, so a body cell under
-            // an aligned header has no `alignment` there. This engine keeps the
-            // inherited value on the node for its HTML writer, so the flag is
-            // what separates the two - without it the bridge published an
-            // alignment carve-rs does not, and re-read it as a marker the
-            // author never wrote.
-            if ($node->hasExplicitAlignment() && $node->getAlignment() !== TableCell::ALIGN_DEFAULT) {
-                $attrs['alignment'] = $node->getAlignment();
-            }
-            if ($node->hasExplicitVerticalAlignment() && $node->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
-                $attrs['verticalAlignment'] = $node->getVerticalAlignment();
-            }
-        } elseif ($node instanceof Image) {
-            $attrs['src'] = $this->blankDenied($node->getSource());
-            $attrs['alt'] = $node->getAlt();
-            // An empty title is not the same as no title - corpus 108 pins that
-            // `[x](u "")` keeps `title=""`.
-            if ($node->getTitle() !== null) {
-                $attrs['title'] = $node->getTitle();
-            }
-            // An image takes a reference the way a link does, and its spelling
-            // is carried the same way - see the Link branch below. The
-            // converter re-confirms against the carveLinkRefDef nodes on the
-            // way back.
-            if ($node->getReferenceLabel() !== null) {
-                $attrs['carveRef'] = $node->getReferenceLabel();
-            }
-            if ($node->getRawReferenceLabel() !== null) {
-                $attrs['carveRawRef'] = $node->getRawReferenceLabel();
-            }
-        } elseif ($node instanceof Mention) {
-            // Mention extends Link, so this must come first or the Link branch
-            // swallows it and the css class never reaches the editor.
-            $attrs['href'] = $this->blankDenied($node->getDestination());
-            $attrs['cssClass'] = $node->getCssClass();
-        } elseif ($node instanceof Link) {
-            $this->appendLinkAttributes($node, $attrs);
-        } elseif ($node instanceof Math) {
-            $attrs['src'] = $node->getContent();
-            $attrs['display'] = $node->isDisplay();
-        } elseif ($node instanceof FootnoteRef || $node instanceof Footnote) {
-            // The label is the note's identity: it binds a reference to its
-            // definition and distinguishes two references to the same note.
-            // Without it every footnote in the document is the same anonymous
-            // one. `carveFootnote` declares the attribute; only this side was
-            // leaving it unset.
-            $attrs['label'] = $node->getLabel();
-        } elseif ($node instanceof Abbreviation) {
-            // The expansion is the whole point of an abbreviation; without it
-            // the mark says only "this was one" and the definition is gone.
-            $attrs['title'] = $node->getTitle();
-        } elseif ($node instanceof InlineExtension) {
-            // `carveSource` is the schema's lossless escape hatch: the exact
-            // directive the author wrote. Without it a `:kbd[x]` comes back as
-            // `:[x]`, which is not valid Carve at all.
-            $attrs['name'] = $node->getExtensionType();
-        } elseif ($node instanceof RawBlock || $node instanceof RawInline) {
-            $attrs['format'] = $node->getFormat();
-        } elseif ($node instanceof Comment) {
-            // CarveKit's shape: the text is the single text child (the
-            // codeBlock asymmetry, handled in renderBlock), and `block` is what
-            // distinguishes a `%% x` line comment from a fenced one on the way
-            // back - the same flag PART 12 publishes as `comment.block`.
-            $attrs['block'] = $node->getFenceLength() !== null;
-            // No parser puts a `{% x %}` at block level - it is inline by
-            // construction - but an ingested PART 12 payload can, and the
-            // Carve writer honours it there, so the block spelling has to
-            // carry the flag too or that document comes back as `%% x`.
-            $attrs['delimited'] = $node->isDelimited();
-        } elseif ($node instanceof Frontmatter) {
-            $attrs['content'] = $node->getContent();
-            $attrs['format'] = $node->getFormat();
-        } elseif ($node instanceof LinkReferenceDefinition) {
-            // The definition is what a `[text][label]` reference resolves
-            // against, so carrying it is what lets that reference keep its
-            // spelling (see the Link branch above).
-            $attrs['label'] = $node->getLabel();
-            $attrs['href'] = $this->blankDenied($node->getHref());
-            if ($node->getTitle() !== null) {
-                $attrs['title'] = $node->getTitle();
-            }
-        } elseif ($node instanceof AbbreviationDefinition) {
-            $attrs['abbr'] = $node->getAbbr();
-            $attrs['expansion'] = $node->getExpansion();
-        } elseif ($node instanceof CitationDefinition) {
-            $attrs['key'] = $node->getKey();
-        } elseif ($node instanceof Symbol) {
-            $attrs['name'] = $node->getName();
-        } elseif ($node instanceof Substitution) {
-            $attrs['old'] = $this->renderInlines($node->getOld()->getChildren(), []);
-            $attrs['new'] = $this->renderInlines($node->getNew()->getChildren(), []);
-        } elseif ($node instanceof HeadingRef) {
-            // The resolved href is a resolution artifact; the target is the
-            // authored identity, so only it is carried.
-            $attrs['target'] = $node->getTargetId();
-        } elseif ($node instanceof CitationGroup) {
-            $this->appendCitationGroupAttributes($node, $attrs);
-        } elseif ($node instanceof Div) {
-            $this->appendDivAttributes($node, $attrs);
-        } elseif ($node instanceof BlockExtension) {
-            $attrs['name'] = $node->getName();
-            if ($node->getVersion() !== null) {
-                $attrs['version'] = $node->getVersion();
-            }
-            if ($node->getPayload() !== null) {
-                $attrs['payload'] = $node->getPayload();
-            }
-        } elseif ($node instanceof Ruby) {
-            $pairs = [];
-            foreach ($node->getPairs() as $pair) {
-                $pairs[] = [
-                    'base' => $this->renderInlines($pair['base'], []),
-                    'annotation' => $this->renderInlines($pair['annotation'], []),
-                ];
-            }
-            $attrs['pairs'] = $pairs;
-        }
-
-        // Author attributes fill in around the structural ones; they never
-        // replace them. A link's destination comes from the link syntax, and an
-        // authored `{href=...}` is a plain attribute the HTML target already
-        // refuses to promote - so letting it win here would hand the editor a
-        // destination the document does not have, and writing that model back
-        // out would make it the real one.
-        $authored = $this->authoredAttributesFor($node);
-        if ($node instanceof Div && $node->directiveKind() !== null) {
-            $classes = $node->getClassEntries();
-            array_shift($classes);
-            if ($classes === []) {
-                unset($authored['class']);
-                if (is_array($authored['carveAttrOrder'] ?? null)) {
-                    $order = [];
-                    foreach ($authored['carveAttrOrder'] as $slot) {
-                        if (is_string($slot) && $slot !== '.class') {
-                            $order[] = $slot;
-                        }
-                    }
-                    if ($order === []) {
-                        unset($authored['carveAttrOrder']);
-                    } else {
-                        $authored['carveAttrOrder'] = $order;
-                    }
-                }
-            } else {
-                $authored['class'] = $classes;
-            }
-        }
-
-        return $attrs + $authored;
+        return ['type' => 'text', 'text' => $value, 'marks' => [...$marks, ['type' => 'code', 'attrs' => ['carve' => $carve]]]];
     }
 
     /**
-     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $node
-     * @param array<string, mixed> $attrs
-     */
-    private function appendCodeBlockAttributes(CodeBlock $node, array &$attrs): void
-    {
-        // An empty info string is not a language: emitting it would render
-        // class="language-".
-        $language = (string)$node->getLanguage();
-        if ($language !== '') {
-            $attrs['language'] = $language;
-        }
-        $header = $node->getHeader();
-        if ($header !== null) {
-            $attrs['carveHeader'] = $header;
-        }
-        $fenceLabel = $node->getLabel();
-        if ($fenceLabel !== null && $fenceLabel !== '') {
-            $attrs['carveLabel'] = $fenceLabel;
-        }
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Block\ListBlock $node
-     * @param array<string, mixed> $attrs
-     */
-    private function appendListAttributes(ListBlock $node, array &$attrs): void
-    {
-        // The writer reads exactly three things off a list to decide how to
-        // spell its markers - the marker character, the numbering style and
-        // the bare-dot flag - and the editor model holds none of them. All
-        // three used to be lost, two of them silently, because `1)` and
-        // `a.` render the same `<ol>` as `1.` (carve-php#519). Each is only
-        // set when it changes what the writer emits, so an ordinary list
-        // gains no key that means nothing to it.
-        if ($node->getListType() === 'ordered') {
-            $attrs['start'] = $node->getStart();
-            $attrs['carveBareMarker'] = $node->hasBareMarker();
-            // Alphabetic and roman numbering are not a re-spelling: without
-            // this, `a. apple` comes back `1. apple` and the visible label
-            // changes.
-            if ($node->getStyle() !== null) {
-                $attrs['carveOlType'] = $node->getStyle();
-            }
-        }
-        // Section 11: a different marker character starts a NEW list, so
-        // normalizing it can merge two sibling lists into one on re-parse
-        // (carve#286). That makes the marker structural, not decoration.
-        $marker = $node->getMarker();
-        if ($marker !== null && in_array($marker, [')', '*'], true)) {
-            $attrs['carveDelim'] = $marker;
-        }
-        // Looseness decides whether items render their paragraphs, so it is
-        // content, not styling: without it a loose list comes back tight.
-        $attrs['carveTight'] = $node->isTight();
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Inline\Link $node
-     * @param array<string, mixed> $attrs
-     */
-    private function appendLinkAttributes(Link $node, array &$attrs): void
-    {
-        $attrs['href'] = $this->blankDenied($node->getDestination());
-        if ($node->getTitle() !== null) {
-            $attrs['title'] = $node->getTitle();
-        }
-        // `<https://example.com>` and `[https://example.com](https://...)`
-        // are the same mark with the same destination, so the writer had
-        // nothing to choose by and always emitted the explicit spelling.
-        // The flag is the node's own identity in Carve, not decoration -
-        // an autolink is its own type (carve-php#519).
-        if ($node->isAutolink()) {
-            $attrs['carveAutolink'] = true;
-        }
-        if ($node->isFromHeadingReference()) {
-            $attrs['carveHeadingRef'] = true;
-        }
-        if ($node->isFromHeadingReference() || $node->getReferenceLabel() !== null) {
-            $referenceLabel = $node->getReferenceLabel();
-            if ($referenceLabel !== null) {
-                $attrs['carveRef'] = $referenceLabel;
-            }
-            $rawReferenceLabel = $node->getRawReferenceLabel();
-            if ($rawReferenceLabel !== null) {
-                $attrs['carveRawRef'] = $rawReferenceLabel;
-            }
-            if ($referenceLabel !== null && isset($this->referenceDefinitionLines[$referenceLabel])) {
-                $attrs['carveReferenceDefinition'] = $this->referenceDefinitionLines[$referenceLabel];
-            }
-        }
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Inline\CitationGroup $node
-     * @param array<string, mixed> $attrs
-     */
-    private function appendCitationGroupAttributes(CitationGroup $node, array &$attrs): void
-    {
-        $attrs['raw'] = $node->getRaw();
-        $attrs['integral'] = $node->isIntegral();
-        // An item's prefix, locator and suffix are inline ARRAYS living
-        // outside `children`, so a child walk cannot reach them - the same
-        // shape the PART 12 codec handles for the wire. Each rides as a
-        // ProseMirror inline array the converter rebuilds with its normal
-        // inline path.
-        $items = [];
-        foreach ($node->getItems() as $item) {
-            $encoded = [
-                'key' => $item['key'],
-                'suppressAuthor' => $item['suppressAuthor'],
-            ];
-            foreach (['prefix', 'locator', 'suffix'] as $inlineField) {
-                if (isset($item[$inlineField])) {
-                    $encoded[$inlineField] = $this->renderInlines($item[$inlineField], []);
-                }
-            }
-            foreach (['locatorLabel', 'locatorValue'] as $stringField) {
-                if (isset($item[$stringField])) {
-                    $encoded[$stringField] = $item[$stringField];
-                }
-            }
-            foreach (['number', 'useIndex'] as $integerField) {
-                if (isset($item[$integerField])) {
-                    $encoded[$integerField] = $item[$integerField];
-                }
-            }
-            if (isset($item['pos'])) {
-                $encoded['pos'] = $item['pos'];
-            }
-            $items[] = $encoded;
-        }
-        $attrs['items'] = $items;
-        // CarveKit's citation atom has one whole-group `integral` and no
-        // per-item mode, so a group whose items disagree (PART 12 §31) has
-        // nothing to ride in. The flag above is its summary and would claim
-        // every item is integral, so it says false and the marking on the
-        // items that carry it is reported rather than dropped in silence.
-        if (!$node->isIntegral()) {
-            foreach ($node->getItems() as $item) {
-                if (($item['mode'] ?? null) === 'integral') {
-                    $this->degraded['citation_group'] = 'the editor carries one integral flag for the '
-                        . 'whole group, so a group whose items disagree loses the per-item mode';
-
-                    break;
-                }
-            }
-        }
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Block\Div $node
-     * @param array<string, mixed> $attrs
-     */
-    private function appendDivAttributes(Div $node, array &$attrs): void
-    {
-        $directiveKind = $node->directiveKind();
-        if ($directiveKind !== null) {
-            $attrs['kind'] = $directiveKind;
-        }
-        // An empty label is a spelled slot, like the empty title below: the
-        // writer puts `::: note []` on a label whose whole content was a
-        // comment, so dropping it on `=== ''` brought the document back as
-        // `::: note` (corpus 518-…-10).
-        $label = $node->getLabel();
-        if ($label !== null) {
-            $attrs['label'] = $label;
-        }
-        // An empty title is meaningful - `::: note ""` suppresses the
-        // default heading - so only a missing one is left unset. Dropping
-        // it lost the container's heading outright, which is content, not
-        // spelling.
-        $header = $node->getHeader();
-        if ($header !== null) {
-            $attrs['title'] = $header;
-        }
-        // Which SPELLING the author used: the kind word on the opener, or
-        // an attribute run above a bare `:::`. One ProseMirror node serves
-        // both `div` and `admonition`, so without this the two cannot be
-        // told apart and an attributed div comes back as a typed one
-        // (markup-carve/carve-grammars#239).
-        if ($directiveKind === null) {
-            $attrs['carveTyped'] = $node->isTyped();
-        }
-    }
-
-    /**
-     * Blank a denied destination with the HTML target's own probe: the editor
-     * resolves this URL when it renders the mark (PART 9 section 25).
-     */
-    private function blankDenied(?string $url): ?string
-    {
-        if ($url === null) {
-            return null;
-        }
-        $blanked = HtmlRenderer::blankDangerousScheme($url);
-        if ($blanked !== $url) {
-            $this->recordDestinationDenied();
-        }
-
-        return $blanked;
-    }
-
-    private function recordDestinationDenied(): void
-    {
-        $this->dropped['destination-denied'] = 'a denied URL scheme is blanked, as the HTML target blanks it';
-    }
-
-    /**
+     * @param array<string, mixed> $node
+     *
      * @return array<string, mixed>
      */
-    private function authoredAttributesFor(Node $node): array
+    private function image(array $node): array
     {
-        $attrs = [];
-        $keyValues = [];
-        foreach ($node->getAttributes() as $key => $value) {
-            if (array_key_exists($key, $attrs)) {
-                continue;
-            }
-            if (
-                $node instanceof Link && $node->getReferenceLabel() !== null
-                && ($this->referenceDefinitionAttributes[$node->getReferenceLabel()][$key] ?? null) === $value
-            ) {
-                continue;
-            }
-            if ($node instanceof Span && $key === 'abbr') {
-                $attrs['title'] = $value;
-            } elseif ($key === 'id' || $key === 'class') {
-                $attrs[$key] = $key === 'class' ? $node->getClassEntries() : $value;
-            } elseif (HtmlRenderer::attributeValueHasDeniedScheme((string)$key, $value)) {
-                $keyValues[$key] = '';
-                $this->recordDestinationDenied();
-            } else {
-                $keyValues[$key] = $value;
-            }
-        }
-        if ($keyValues !== []) {
-            $attrs['carveKeyValues'] = $keyValues;
-        }
+        $denied = $this->denied($node['src'] ?? null);
 
-        // The run's SPELLING, which the three slots above cannot hold between
-        // them: `id`, `class` and one `carveKeyValues` bag are a map, and a map
-        // has no order, so `{key=c .a #b}` came back regrouped as `{.a #b key=c}`
-        // - the same document, a different source. The AST records the authored
-        // slots, so the wire carries them verbatim and the writer replays them
-        // (markup-carve/carve-grammars#240).
-        //
-        // Only where the run actually produced one of those three. An
-        // abbreviation's `abbr` becomes the mark's `title`, and a structural
-        // class the author never wrote has no slot, so neither gets an order
-        // naming a slot the reading side would not find.
-        $order = $node->getAttributeOrder();
-        if (
-            $order !== []
-            && (
-                array_key_exists('id', $attrs)
-                || array_key_exists('class', $attrs)
-                || array_key_exists('carveKeyValues', $attrs)
-            )
-        ) {
-            $attrs['carveAttrOrder'] = $order;
-        }
+        return [
 
-        return $attrs;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $content
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function mergeTextNodes(array $content): array
-    {
-        $merged = [];
-        foreach ($content as $item) {
-            $last = array_key_last($merged);
-            if (
-                $last !== null && ($item['type'] ?? null) === 'text' && ($merged[$last]['type'] ?? null) === 'text'
-                && ($item['marks'] ?? []) === [] && ($merged[$last]['marks'] ?? []) === []
-                && is_string($item['text'] ?? null) && is_string($merged[$last]['text'] ?? null)
-            ) {
-                $merged[$last]['text'] .= $item['text'];
-            } else {
-                $merged[] = $item;
-            }
-        }
-
-        return $merged;
-    }
-
-    /**
-     * The atom a MARK WITH NO CONTENT crosses as, or null when the node has
-     * content and travels as a mark on its text.
-     *
-     * @param \MarkupCarve\Carve\Node\Node $node
-     * @param array<string, mixed> $mark
-     *
-     * @return array<string, mixed>|null
-     */
-    private function emptyMarkCarrier(Node $node, array $mark): ?array
-    {
-        if ($node->getChildren() !== []) {
-            return null;
-        }
-        $markType = $mark['type'] ?? null;
-        if (!is_string($markType) || !in_array($markType, self::EMPTY_MARK_TYPES, true)) {
-            // Still nothing to attach the mark to, and now the only one left
-            // that way. Said out loud rather than dropped in silence, which is
-            // how the four above went unnoticed for as long as they did.
-            $this->degraded[$node->getType()] = 'a mark with no content has no text to carry it, and the '
-                . 'published schema names no carrier for this one';
-
-            return null;
-        }
-
-        $attrs = ['markType' => $markType];
-        if (($mark['attrs'] ?? []) !== []) {
-            $attrs['markAttrs'] = $mark['attrs'];
-        }
-
-        return ['type' => 'carveEmptyMark', 'attrs' => $attrs];
-    }
-
-    private function renderAttributeRun(Node $node): string
-    {
-        $parts = [];
-        foreach ($node->getAttributes() as $key => $value) {
-            if ($key === 'id') {
-                $parts[] = '#' . $value;
-            } elseif ($key === 'class') {
-                foreach ($node->getClassEntries() as $class) {
-                    $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
-                        ? '.' . $class
-                        : 'class="' . QuotedSlotEscaper::escape($class) . '"';
-                }
-            } else {
-                if (HtmlRenderer::attributeValueHasDeniedScheme((string)$key, (string)$value)) {
-                    $value = '';
-                    $this->recordDestinationDenied();
-                }
-                $parts[] = preg_match('/^[A-Za-z0-9_-]+$/', (string)$value) === 1
-                    ? $key . '=' . $value
-                    : $key . '="' . QuotedSlotEscaper::escape((string)$value) . '"';
-            }
-        }
-
-        return '{' . implode(' ', $parts) . '}';
-    }
-
-    /**
-     * Records state the editor model has no place for.
-     *
-     * A type can map cleanly and still lose something: the NODE survives, one
-     * of its fields does not. Those losses were invisible - the type never
-     * appeared in either report, because nothing was dropped or degraded to
-     * text - so a caller storing documents had no way to find out. Each entry
-     * names the field rather than the type alone.
-     */
-    protected function noteUnrepresentableState(Node $node): void
-    {
-        if ($node instanceof Table && $node->getSourceFormat() !== null) {
-            $this->degraded['table_source_format'] = 'the editor schema cannot preserve a CSV or TSV table source fence';
-        }
-        // An interleaved attribute run - `{key=c .a #b}` - is no longer one of
-        // these. ProseMirror attributes are still a map, but the authored slot
-        // order rides beside them in `carveAttrOrder` and the writer replays
-        // it, so the run comes back spelled as it was typed.
-        if ($node instanceof Span && $node->getAttribute('lang') !== null) {
-            $this->degraded['span'] = 'the language sigil and class slot share values but not source ordering in the editor shape';
-        }
-        if ($node instanceof Span && $node->getAttribute('abbr') !== null && $node->getAttribute('title') !== null) {
-            $this->degraded['span'] = 'an authored title collides with the abbreviation mark title used for its expansion';
-        }
-        // A span or a link with no content is no longer one of these either: a
-        // mark still cannot span zero characters, so the map names an atom that
-        // stands for the mark instead, and the bridge writes that.
-
-        if ($node instanceof Link && !$node instanceof Mention) {
-            if (array_key_exists('href', $node->getAttributes())) {
-                // Deliberately NOT carried: an authored `{href=...}` must never
-                // reach the editor as a destination, because writing that model
-                // back out would make it the document's real one - which is how
-                // carve-php#516 rewrote a destination to an attacker-supplied
-                // value. Dropping it is the safe choice, but it was a SILENT
-                // one, so a caller storing documents could not tell the
-                // attribute had gone (carve-php#519).
-                $this->degraded['link'] = 'an authored href attribute is not carried, because promoting it '
-                    . 'would change the link destination; it is dropped rather than round-tripped';
-            }
-        }
-
-        if ($node instanceof Emphasis || $node instanceof Strong) {
-            // `/*x*/` and `*/x/*` are the same tree; the editor model keeps
-            // marks as a set, not an order, so the writer picks one spelling
-            // and the author's is not recoverable. Rendering is unaffected -
-            // which is why this needs declaring rather than fixing: it is
-            // invisible in HTML and visible in the source (carve-php#519).
-            foreach ($node->getChildren() as $child) {
-                if ($child instanceof Emphasis || $child instanceof Strong) {
-                    $this->degraded['emphasis'] = 'nested emphasis and strong are an unordered mark set in '
-                        . 'the editor model, so the authored delimiter order is not preserved';
-
-                    break;
-                }
-            }
-        }
-
-        // A list declares nothing. Its style, marker and bare-dot flag all
-        // travel as their own keys now, and the grammar admits exactly two
-        // bullets and two ordered delimiters, all four of which are carried -
-        // `+` is not a bullet in Carve at all, so a guard for "some other
-        // marker" would be a branch that cannot run. Reporting a loss that no
-        // longer happens is as misleading as the silence this replaced.
-    }
-
-    protected function isInlineContainer(Node $node): bool
-    {
-        return in_array($node->getType(), [
-            'paragraph',
-            'heading',
-            'table_cell',
-            'definition_term',
-            'caption',
-            'citation_definition',
-        ], true);
+            'type' => 'image',
+            'attrs' => [
+                'src' => $denied ? null : $node['src'] ?? null,
+                'alt' => $node['alt'] ?? null,
+                'title' => $node['tooltip'] ?? null,
+                'carve' => Kit::carveAttr(Kit::fields($node, $denied ? ['alt', 'tooltip'] : ['src', 'alt', 'tooltip'])),
+            ],
+        ];
     }
 }

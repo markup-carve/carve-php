@@ -1,0 +1,66 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\Writer;
+
+use MarkupCarve\Carve\Carve;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * C2-W-088: a reported kind escapes every potential opener of that kind in the leaf block.
+ */
+final class KindEscapeTest extends TestCase
+{
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function sources(): array
+    {
+        return [
+            'brackets of a paragraph, not of the next' => ["\\[a] and [b]\n\n[c]\n\n[a]: /u\n", "\\[a] and \\[b]\n\n[c]\n\n[a]: /u\n"],
+            'slashes that can open' => ["\\/a/ and/or /b\n", "\\/a/ and/or \\/b\n"],
+            'a kind reported in link text' => ["\\:a: [\\:b:](/u) :c:\n", "\\:a\\: [\\:b\\:](/u) :c:\n"],
+            // carve#6461: a backslash of C2-W-125 takes its own escape and gives no kind.
+            'an escaped mark before a closer gives no kind' => ["{^a\\^}^} x^ y\n", "{^a\\^}^} x^ y\n"],
+            // carve#6391, ruled option 2: a single hyphen is no potential opener of the hyphen kind.
+            'a single hyphen stays bare beside an escaped hyphen run' => [
+                "é- [a]: /u\n:  >=\n](u)# ^}:x *é=}---2) \\---\$\nb\n",
+                "é- [a]: /u\n:  >=\n](u)# ^}:x *é=}---2) \\---\$\nb\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('sources')]
+    public function testFormat(string $source, string $canonical): void
+    {
+        self::assertSame($canonical, Carve::format($source));
+        self::assertSame(Carve::toHtml($source), Carve::toHtml($canonical));
+    }
+
+    public function testABracedOpenerSplitOverTextNodesIsEscapedToo(): void
+    {
+        $text = static fn (string $value): array => ['type' => 'text', 'value' => $value];
+        $tree = static fn (array ...$texts): array => [
+
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'children' => [
+                ['type' => 'paragraph', 'children' => $texts],
+            ],
+        ];
+
+        self::assertSame(
+            Carve::write($tree($text('{^a^} {^b'))),
+            Carve::write($tree($text('{^a^} '), $text('{'), $text('^b'))),
+        );
+    }
+
+    public function testABalancedLinkKeepsTheReportedEscapesOnly(): void
+    {
+        $source = "x [{*/x/[a]](u)\\[:\n\n[a]: /u\n";
+
+        self::assertSame(Carve::toHtml($source), Carve::toHtml(Carve::format($source)));
+    }
+}
