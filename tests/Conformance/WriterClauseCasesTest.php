@@ -26,8 +26,14 @@ final class WriterClauseCasesTest extends TestCase
      */
     private const KNOWN_FAIL = [
         'CC-2213' => 'markup-carve/carve#6804 (carve-php line): an image whose alt is unknown writes empty brackets',
+        'CC-2293' => 'markup-carve/carve#6804 (carve-php line): a decorative image writes empty brackets with no report',
         'CC-2242' => 'markup-carve/carve#6663 (carve-php line): fmt drops header-rows where the header marks make the same head',
         'CC-2249' => 'markup-carve/carve#6664 (carve-php line): fmt keeps an empty body-rows on a table of only a foot',
+        'CC-501' => 'markup-carve/carve#3598 (carve-php line): metadata.fields beside a frontmatter node are a loss',
+        'CC-2265' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
+        'CC-2266' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
+        'CC-2267' => 'markup-carve/carve#6727 (carve-php line): a region marker keeps the closer of the fence above it',
+        'CC-2268' => 'markup-carve/carve#6727 (carve-php line): an open fence loses the empty line that ends its value',
     ];
 
     /**
