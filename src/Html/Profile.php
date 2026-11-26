@@ -79,6 +79,19 @@ final class Profile
     private const NESTING_CONTAINERS = ['list' => true, 'block_quote' => true, 'div' => true, 'admonition' => true];
 
     /**
+     * Nodes that write nothing at their place but are still reported outside the profile (C2-H-129, C2-H-165).
+     * C2-H-178 exempts `abbreviation_def`.
+     *
+     * @var array<string, true>
+     */
+    private const REPORTED_SILENT = [
+        'comment' => true,
+        'link_reference_definition' => true,
+        'footnote' => true,
+        'citation_definition' => true,
+    ];
+
+    /**
      * @var array<string, true>|null
      */
     private ?array $allowedBlock = null;
@@ -198,7 +211,8 @@ final class Profile
             return false;
         }
 
-        return $this->allowedBlock === null || isset($this->allowedBlock[$type]) || !HtmlRenderer::visible($node);
+        return $this->allowedBlock === null || isset($this->allowedBlock[$type])
+            || (!HtmlRenderer::visible($node) && !isset(self::REPORTED_SILENT[$type]));
     }
 
     /**
@@ -251,7 +265,7 @@ final class Profile
      */
     public function inline(Node $node, int $depth, InlineRenderer $inline): string
     {
-        if ($this->allowsInline($node) || $node->type === 'comment') {
+        if ($this->allowsInline($node)) {
             return $inline->node($node, $depth);
         }
         $this->report($node);
@@ -287,6 +301,33 @@ final class Profile
             variant: $typeAllowed && $this->tooDeep($node) ? 1 : 0,
             node: $node,
         );
+    }
+
+    /**
+     * C2-H-165: a node that writes nothing at its place is still reported when it is outside the profile,
+     * and so is each comment of a paragraph that holds only comments.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return void
+     */
+    public function reportSilent(Node $node): void
+    {
+        if (isset(self::REPORTED_SILENT[$node->type])) {
+            if (!$this->allowsBlock($node, 0)) {
+                $this->report($node, true);
+            }
+
+            return;
+        }
+        if ($node->type !== 'paragraph' || isset($node->f['caption'])) {
+            return;
+        }
+        foreach ($node->children ?? [] as $kid) {
+            if ($kid->type === 'comment' && !$this->allowsInline($kid)) {
+                $this->report($kid);
+            }
+        }
     }
 
     /**

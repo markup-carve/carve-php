@@ -770,6 +770,25 @@ final class HtmlRenderer
     }
 
     /**
+     * Reports a node that writes nothing at its place once, however often its container is walked.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return void
+     */
+    private function reportSilent(Node $node): void
+    {
+        if ($this->profile === null || isset($this->silenced[$node])) {
+            return;
+        }
+        $this->silenced[$node] = true;
+        $previous = $this->log->currentNode;
+        $this->log->currentNode = $node;
+        $this->profile->reportSilent($node);
+        $this->log->currentNode = $previous;
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Node> $nodes
      *
      * @return array<\MarkupCarve\Carve\Node>
@@ -778,7 +797,9 @@ final class HtmlRenderer
     {
         $out = [];
         foreach ($nodes as $node) {
-            if (self::visible($node) && !$this->silent($node)) {
+            if (!self::visible($node)) {
+                $this->reportSilent($node);
+            } elseif (!$this->silent($node)) {
                 $out[] = $node;
             }
         }
@@ -806,6 +827,11 @@ final class HtmlRenderer
     private function blockContent(Node $node, int $depth): ?string
     {
         if (isset($this->silenced[$node])) {
+            return null;
+        }
+        if ($this->profile !== null && !self::visible($node)) {
+            $this->reportSilent($node);
+
             return null;
         }
         if ($this->profile !== null && !$this->profile->allowsBlock($node, $depth)) {
