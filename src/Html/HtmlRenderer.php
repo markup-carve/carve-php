@@ -1040,6 +1040,40 @@ final class HtmlRenderer
     }
 
     /**
+     * C2-M-092: a paragraph a tightness rule writes bare keeps its `<p>` where the bare form would not import as
+     * that one paragraph: an image-only run splits into image paragraphs (C2-M-013), and a bare block image
+     * after it joins its run (C2-M-012).
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     * @param \MarkupCarve\Carve\Node|null $next The next visible block of the same item.
+     *
+     * @return bool
+     */
+    private function bareReadsBack(Node $node, ?Node $next): bool
+    {
+        if ($next !== null && $this->bareImage($next)) {
+            return false;
+        }
+        $kids = $node->children ?? [];
+        $image = false;
+        foreach ($kids as $kid) {
+            if ($kid->type === 'image') {
+                $image = true;
+            } elseif (
+                $kid->type !== 'soft_break' && $kid->type !== 'comment'
+                && !($kid->type === 'text' && trim(PlainText::str($kid->f['value'] ?? ''), " \t\n") === '')
+            ) {
+                return true;
+            }
+        }
+        if (!$image) {
+            return true;
+        }
+
+        return preg_match('/^(?:\s|<img\b[^>]*>|<!--.*?-->)*$/s', $this->inline->inlines($kids, 1)) !== 1;
+    }
+
+    /**
      * C2-H-091: whether a block is written as `<p>`, so backlinks can be appended to it.
      *
      * @param \MarkupCarve\Carve\Node $node
@@ -1515,7 +1549,9 @@ final class HtmlRenderer
             $lead !== null && self::paragraphLike($lead) && !self::hasFigureCaption($lead)
             && $this->allowed($lead, $depth + 1) && !$this->bareImage($lead)
         ) {
-            return [(string)$this->paragraph($lead, 0, $tight), [], array_slice($rest, 1)];
+            $bare = $tight && $this->bareReadsBack($lead, $rest[1] ?? null);
+
+            return [(string)$this->paragraph($lead, 0, $bare), [], array_slice($rest, 1)];
         }
 
         return ['', [], $rest];
@@ -1619,7 +1655,7 @@ final class HtmlRenderer
             count($visible) === 1 && self::paragraphLike($visible[0]) && !self::hasFigureCaption($visible[0])
             && $this->allowed($visible[0], $depth + 1) && !$this->bareImage($visible[0])
         ) {
-            return self::pad($depth) . $open . $this->paragraph($visible[0], 0, true) . '</dd>';
+            return self::pad($depth) . $open . $this->paragraph($visible[0], 0, $this->bareReadsBack($visible[0], null)) . '</dd>';
         }
         $texts = count($visible) === 1 ? $this->degradedLead($visible, $depth + 1) : null;
         if ($texts !== null && count($texts[0]) === 1) {
