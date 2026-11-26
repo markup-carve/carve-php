@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve#6876: definitions and comments outside an allow-list profile write nothing and are still reported.
+ * carve#6876, carve#6877: definitions, comments and frontmatter outside an allow-list profile write nothing and are still reported.
  */
 final class ProfileSilentNodeReportTest extends TestCase
 {
@@ -48,6 +48,24 @@ final class ProfileSilentNodeReportTest extends TestCase
                 'comment',
                 "<blockquote>\n  <p># H</p>\n  <p># I</p>\n</blockquote>",
                 ['1:3 heading', '3:3 comment', '7:3 heading'],
+            ],
+            'CC-2478 frontmatter under comment' => [
+                "---\na: 1\n---\n\nx\n",
+                'comment',
+                '<p>x</p>',
+                ['1:1 frontmatter'],
+            ],
+            'CC-2479 frontmatter under minimal' => [
+                "---\na: 1\n---\n\nx\n",
+                'minimal',
+                '<p>x</p>',
+                ['1:1 frontmatter'],
+            ],
+            'later frontmatter reported from its attribute line' => [
+                "x\n\n{#i}\n---toml\nb = 2\n---\n\ny\n",
+                'comment',
+                "<p>x</p>\n<p>y</p>",
+                ['3:1 frontmatter'],
             ],
             'no report without an allow list' => [
                 "[r]: /u\n\n[x][r] %% c\n",

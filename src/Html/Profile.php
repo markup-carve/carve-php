@@ -89,6 +89,7 @@ final class Profile
         'link_reference_definition' => true,
         'footnote' => true,
         'citation_definition' => true,
+        'frontmatter' => true,
     ];
 
     /**
