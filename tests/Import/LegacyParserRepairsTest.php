@@ -10,7 +10,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * libxml below 2.14 lets HTML5 void elements hold content and keeps bogus comments as text; the fallback repairs both.
+ * libxml below 2.14 lets HTML5 void elements hold content, keeps bogus comments as text and parses markup inside raw text
+ * and RCDATA elements; the fallback repairs all three.
  */
 final class LegacyParserRepairsTest extends TestCase
 {
@@ -31,6 +32,12 @@ final class LegacyParserRepairsTest extends TestCase
             'markup declaration in an attribute' => ['<p title="<!x>">a</p>', 'p[#a]'],
             'markup declaration in raw text' => ['<textarea><!x></textarea>', 'textarea[#<!x>]'],
             'comment and doctype untouched' => ['<!-- c --><p>a</p>', '! c ,p[#a]'],
+            'end tag prefix in a textarea' => ['<textarea>a</textareas>b</textarea>', 'textarea[#a</textareas>b]'],
+            'tags and entities in RCDATA' => ['<title>a<b>c</b>&amp;</x></title>', 'title[#a<b>c</b>&</x>]'],
+            'unclosed textarea' => ['<p>a</p><textarea>b</p>c', 'p[#a],textarea[#b</p>c]'],
+            'tags and entities in raw text' => ['<xmp>a&amp;<i>b</i></xmp>', 'xmp[#a&amp;<i>b</i>]'],
+            'end tags in a script' => ['<script>a</b>&amp;&lt;</scripts></script>x', 'script[#a</b>&amp;&lt;</scripts>],#x'],
+            'end tag in a style' => ['<style class="k">p{}</x></style>', 'style[#p{}</x>]'],
         ];
     }
 
@@ -60,6 +67,12 @@ final class LegacyParserRepairsTest extends TestCase
         $textarea = HtmlParser::parse('<textarea>a</textareas><!x></textarea>', true)->children[0];
         $this->assertCount(1, $textarea->children);
         $this->assertStringEndsWith('<!x>', $textarea->children[0]->name);
+    }
+
+    public function testEscapedScriptKeepsOnlyItsOwnAttributes(): void
+    {
+        $script = HtmlParser::parse('<script type="m">a</b></script>', true)->children[0];
+        $this->assertSame(['type' => 'm'], $script->attrs);
     }
 
     private static function shape(HtmlNode $node): string
