@@ -32,10 +32,12 @@ jobs:
     container: php:8.5-cli
     timeout-minutes: 20
     steps:
+      # Without git the checkout downloads the archive, which leaves out the export-ignored tests.
+      - name: Install git and unzip
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip git
       - uses: actions/checkout@v6
       - name: Install composer
         run: |
-          apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip git
           curl -sS https://getcomposer.org/installer | php -- --quiet --install-dir=/usr/local/bin --filename=composer
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
