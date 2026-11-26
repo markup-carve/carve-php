@@ -50,6 +50,47 @@ final class SnippetsTest extends TestCase
         ));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function definitionShapesThatStayText(): array
+    {
+        return [
+            'inside a div' => ["::: d\n{\$v}: X\n:::\n"],
+            'inside a nested div' => [":::: d\n::: e\n{\$v .c}{.d}: X\n:::\n::::\n"],
+            'below an id' => ["{#k}\n{\$v}: X\n"],
+            'below an id and a class' => ["{#k .c}\n{\$v key=\"a b\"}: X\n"],
+            'below an id inside a quote' => ["> {#k}\n> {\$v}: X\n"],
+            'below an id, going on' => ["{#k}\n{\$v}{.c}: *a\nb*\n"],
+            'inside a div, going on' => ["::: d\n{\$v}: X\nmore\n:::\n"],
+        ];
+    }
+
+    #[DataProvider('definitionShapesThatStayText')]
+    public function testC2B236ADefinitionShapeThatOpensNoDefinitionIsWrittenBare(string $source): void
+    {
+        $this->assertSame($source, Carve::format($source));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function definitionShapesThatEscape(): array
+    {
+        return [
+            'top level' => ["\\{\$v}: X\n"],
+            'below a class' => ["{.k}\n\\{\$v .c}: X\n"],
+            'going on' => ["\\{\$v}{.c}: X\nmore\n"],
+            'a node going on' => ["\\{\$v .c}{.d}: *a\nb*\n"],
+        ];
+    }
+
+    #[DataProvider('definitionShapesThatEscape')]
+    public function testC2W090ATopLevelDefinitionShapeKeepsItsBackslash(string $source): void
+    {
+        $this->assertSame($source, Carve::format($source));
+    }
+
     public function testC2H215ATransformThatChangesTheViewKeepsTheCarriersOfTheUses(): void
     {
         $result = Carve::renderWithDocumentTransforms("{\$x}: Hello\n\n{{ \$x }}\n", [self::append()], ['roundtrip' => true]);
