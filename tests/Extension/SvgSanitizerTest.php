@@ -212,6 +212,37 @@ final class SvgSanitizerTest extends TestCase
         );
     }
 
+    public function testChildDefaultNamespaceWithWhitespaceIsDropped(): void
+    {
+        // carve#6843: the carve#6811 rule on a child's default namespace declaration.
+        self::assertSame(
+            ['svg' => '<svg xmlns="http://www.w3.org/2000/svg"><g><rect/></g><g/></svg>', 'ok' => true],
+            SvgSanitizer::sanitize('<svg><g xmlns=" "><rect/></g><g xmlns="&#160;urn:x"/></svg>'),
+        );
+        $values = [
+            ' ', "\t", " \n ", "\r", '&#32;', '&#x20;&#9;', '&#xA;', '&#13;', '&#x0D;', ' urn:x',
+            'urn:x ',
+            'urn: x', "urn:x\tb", "\u{A0}", "urn:\u{A0}x", '&#160;', 'urn:&#xA0;x', '&#32;urn:x', 'urn:&nbsp;x',
+            '&nbsp;', ' http://www.w3.org/2000/svg',
+        ];
+        foreach ($values as $value) {
+            foreach (['<g xmlns="%s"/>', "<g><g><symbol xmlns='%s'><g/></symbol></g></g>", '<g><text xmlns="%s">t</text></g>'] as $shape) {
+                $shell = sprintf($shape, '');
+                $expected = str_replace([" xmlns=''", ' xmlns=""'], '', $shell);
+                self::assertSame(
+                    ['svg' => '<svg xmlns="http://www.w3.org/2000/svg">' . str_replace("'", '"', $expected) . '</svg>', 'ok' => true],
+                    SvgSanitizer::sanitize('<svg>' . sprintf($shape, $value) . '</svg>'),
+                    $value . ' in ' . $shape,
+                );
+            }
+        }
+        // An empty default declaration is a legal undeclaration; a clean value stays.
+        self::assertSame(
+            '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns=""/><g xmlns="urn:x"/><g xmlns="http://www.w3.org/2000/svg"/></svg>',
+            SvgSanitizer::sanitize('<svg><g xmlns=""/><g xmlns="urn:x"/><g xmlns="http://www.w3.org/2000/svg"/></svg>')['svg'],
+        );
+    }
+
     public function testStyleWithACssImageFunctionIsDropped(): void
     {
         // carve#6760: C2-H-162 blanks these in the core renderer; carve-js kept them.

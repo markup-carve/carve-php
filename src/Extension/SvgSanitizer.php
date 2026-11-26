@@ -700,8 +700,7 @@ final class SvgSanitizer
             return '';
         }
         $declares = $name === 'xmlns:xlink';
-        // carve#6779: an empty prefixed namespace declaration undeclares the prefix, which XML forbids.
-        if ($value === null || ($declares && preg_match(self::UNWRITABLE_NAMESPACE, self::decodeEntities($value)) === 1)) {
+        if ($value === null || (($declares || $name === 'xmlns') && self::namespaceUnwritable($value, $declares))) {
             return '';
         }
         if (isset(self::$sets['refValueAttrs'][$lower]) ? self::refAttrUnsafe($value) : self::valueHasExternalRef($value)) {
@@ -710,6 +709,17 @@ final class SvgSanitizer
         $this->xlinkDeclared = $this->xlinkDeclared || $declares;
 
         return ' ' . $name . '="' . self::escapeAttr($value) . '"';
+    }
+
+    /**
+     * carve#6779: an empty prefixed declaration undeclares the prefix, which XML forbids; an empty default `xmlns=""`
+     * is a legal undeclaration (carve#6843).
+     */
+    private static function namespaceUnwritable(string $value, bool $prefixed): bool
+    {
+        $decoded = self::decodeEntities($value);
+
+        return ($prefixed || $decoded !== '') && preg_match(self::UNWRITABLE_NAMESPACE, $decoded) === 1;
     }
 
     private function sanitizeUrlAttribute(string $name, ?string $value, bool $externalHref): string
