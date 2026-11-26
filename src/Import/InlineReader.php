@@ -287,7 +287,12 @@ final class InlineReader
         $value = $target === null ? '' : ($node->attr($target) ?? '');
         $mapped = Attrs::of($node, $target === null ? [] : [$target]);
         $attrs = J::attrs($mapped);
-        $attrs['keyValues'] = array_merge([[$node->name, $value]], J::pairs($attrs));
+        // C2-M-047: an authored attribute named like the built key keeps its place in upper case.
+        $pairs = array_map(
+            static fn (array $pair): array => $pair[0] === $node->name ? [strtoupper($pair[0]), $pair[1]] : $pair,
+            J::pairs($attrs),
+        );
+        $attrs['keyValues'] = array_merge([[$node->name, $value]], $pairs);
         $mapped['attrs'] = $attrs;
 
         return ['type' => 'span', 'children' => $children] + $mapped;
