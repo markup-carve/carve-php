@@ -38,6 +38,24 @@ final class CompareRound
     private array $nodeStarts = [];
 
     /**
+     * The inline lists whose comparison stopped before their end: the prefix of their children's paths and the index
+     * of the node it stopped at.
+     *
+     * @var array<array{string, int}>
+     */
+    private array $stops = [];
+
+    /**
+     * The nodes whose children are blocks: a stop in one block does not end the comparison of the next.
+     *
+     * @var array<string>
+     */
+    private const BLOCK_LISTS = [
+        'document', 'block_quote', 'list', 'list_item', 'div', 'admonition', 'description_list', 'description',
+        'footnote', 'table', 'table_row', 'figure', 'figure_group', 'section',
+    ];
+
+    /**
      * @var array<string, int> The written end offset of each expected inline node, by `RepairTrace::packPath()`.
      */
     private array $nodeEnds = [];
@@ -105,6 +123,7 @@ final class CompareRound
      *   otherwise, which the round adds as reported kinds.
      * @param array<string, array<int, true>> $keys Set to the `=` of each node whose braced spelling read as an
      *   attribute block (C2-W-125, case nine), which the round asks only where no other repair applies.
+     * @param array<array{string, int}> $stops Set to the inline lists whose comparison stopped before their end.
      *
      * @return array<string, array<int, true>>
      */
@@ -117,6 +136,7 @@ final class CompareRound
         ?array &$firsts = null,
         array &$differs = [],
         array &$keys = [],
+        array &$stops = [],
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
@@ -137,6 +157,7 @@ final class CompareRound
         }
         $firsts = $comparison->firsts;
         $differs = $comparison->differs;
+        $stops = $comparison->stops;
 
         return $comparison->asks;
     }
@@ -172,12 +193,29 @@ final class CompareRound
                 $this->keyBehindText($want, $have, $path, $nodePath, $i, $j, $aj);
             }
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
+                $this->noteStop($expected, $path, $i, $count);
+
                 return;
             }
             if (!$more) {
                 $vi = 0;
                 $aj = 0;
             }
+        }
+    }
+
+    /**
+     * Records where the comparison of an inline list stopped before its end.
+     *
+     * @param array<mixed> $expected
+     * @param string $path
+     * @param int $i
+     * @param int $count
+     */
+    private function noteStop(array $expected, string $path, int $i, int $count): void
+    {
+        if ($i + 1 < $count && !in_array($expected['type'] ?? '', self::BLOCK_LISTS, true)) {
+            $this->stops[] = [$path . '/children/', $i];
         }
     }
 

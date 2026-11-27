@@ -2062,6 +2062,14 @@ final class Text
     }
 
     /**
+     * C2-I-118: whether the flattened leaf reaches the inline depth cap.
+     */
+    public static function pastDepthCap(string $flat): bool
+    {
+        return self::openDepth($flat) >= Tables::INLINE_DEPTH;
+    }
+
+    /**
      * The most brackets of the flattened leaf open at once, and every node or mark that may open inside an open
      * bracket, as carve-js counts toward the cap.
      */
