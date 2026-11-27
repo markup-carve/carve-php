@@ -46,6 +46,11 @@ final class HtmlNode
 
     public int $sourceEnd = -1;
 
+    /**
+     * Start of the explicit closer, or the boundary where the HTML parser implicitly closes this element.
+     */
+    public int $sourceCloseStart = -1;
+
     public int $contentStart = -1;
 
     /**

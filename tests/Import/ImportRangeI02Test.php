@@ -35,4 +35,22 @@ final class ImportRangeI02Test extends TestCase
         self::assertCount(1, $drop);
         self::assertSame([0, strpos($html, '<div>')], [$drop[0]->startOffset, $drop[0]->endOffset]);
     }
+
+    public function testElementWithoutCloserExtendsThroughEndOfInput(): void
+    {
+        $html = '<p onclick=x>hello';
+        $result = HtmlImporter::import($html);
+        $drop = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->code === 'import-attribute-dropped'));
+        self::assertCount(1, $drop);
+        self::assertSame([0, strlen($html)], [$drop[0]->startOffset, $drop[0]->endOffset]);
+    }
+
+    public function testImplicitChildCloseStopsAtParentClosingTag(): void
+    {
+        $html = '<p><span onclick=x>hello</p>';
+        $result = HtmlImporter::import($html);
+        $drop = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->code === 'import-attribute-dropped'));
+        self::assertCount(1, $drop);
+        self::assertSame([3, strpos($html, '</p>')], [$drop[0]->startOffset, $drop[0]->endOffset]);
+    }
 }
