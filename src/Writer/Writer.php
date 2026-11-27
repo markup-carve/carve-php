@@ -1264,7 +1264,7 @@ final class Writer
         self::$parsedSource = null;
         $risk = self::hasRoundRisk($tree);
         [$result, $localEscapes, $undecided, $localDecided, $pairEscapes, $groups]
-            = self::firstWrite($tree, $layout, $options, $risk, $parsed === null);
+            = self::firstWrite($tree, $layout, $options, $risk || self::plainGroups($tree, $options), $parsed === null);
         $localOwn = self::$localOwn;
         $cellTicks = self::$cellTicks;
         // C2-I-060: a brace glued before the opener of a node takes the node's mark, so the bare form never reads back,
@@ -1411,7 +1411,9 @@ final class Writer
                 }
             }
         }
-        $settled = $unsettledByKind ? null : self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
+        $settled = $unsettledByKind
+            ? self::settledAlone($tree, $layout, $options, $result, $groups, $parsed)
+            : self::settled($tree, $layout, $options, $result, $groups, $parsed, $risk);
         if ($settled !== null) {
             return $settled;
         }
@@ -2924,6 +2926,67 @@ final class Writer
     }
 
     /**
+     * C2-W-133 where the kinds of the bare form do not settle and every block is plain: each group is written as a
+     * document of its own, as carve-js repairs group by group, and the join is read back once.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Writer\WriteResult $result
+     * @param array<int, array{int, int, int, int, bool}>|null $groups The group ranges of the local write.
+     * @param string|null $parsed
+     *
+     * @return \MarkupCarve\Carve\Writer\WriteResult|null
+     */
+    private static function settledAlone(
+        array $tree,
+        ?array $layout,
+        array $options,
+        WriteResult $result,
+        ?array $groups,
+        ?string $parsed,
+    ): ?WriteResult {
+        if ($result->diagnostics !== [] || self::$inGroups || !self::plainGroups($tree, $options)) {
+            return null;
+        }
+        if ($groups === null || count($groups) < 2) {
+            return null;
+        }
+        $all = [];
+        foreach (array_keys($groups) as $g) {
+            $all[$g] = true;
+        }
+        $alone = self::checkedAlone($tree, $layout, $options, $result->source, $groups, $all);
+        if ($alone !== null && ($alone === $parsed || self::readsBack($alone, self::trimmedPrint($tree, $layout, $options), $options))) {
+            return new WriteResult($alone, []);
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the document has two or more top-level blocks and each is plain, so no block feeds the parse or resolve
+     * stage of another.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<string, mixed> $options
+     */
+    private static function plainGroups(array $tree, array $options): bool
+    {
+        $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        if (count($children) < 2 || isset($options['extensions'])) {
+            return false;
+        }
+        foreach ($children as $child) {
+            if (!is_array($child) || !self::plain($child)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * C2-W-133: the read-back rounds of the groups that need them, with only those groups and the blocks the parse
      * and resolve stage read beside them. The other groups keep their local write, and the joined form is read back
      * once; null where a risky group writes otherwise alone or the join does not read back.
@@ -3009,11 +3072,20 @@ final class Writer
      * @param array<string, mixed> $options
      * @param string $source The local write.
      * @param array<int, array{int, int, int, int, bool}> $groups
+     * @param array<int, true>|null $risky The groups to write alone, each kept only where its form is its local write
+     *   or, for a single block the rounds stop on, its authored source; null for the risky groups of `aloneRisky()`.
      */
-    private static function checkedAlone(array $tree, ?array $layout, array $options, string $source, array $groups): ?string
-    {
+    private static function checkedAlone(
+        array $tree,
+        ?array $layout,
+        array $options,
+        string $source,
+        array $groups,
+        ?array $risky = null,
+    ): ?string {
         $children = is_array($tree['children'] ?? null) ? array_values($tree['children']) : [];
-        $risky = self::aloneRisky($children, $groups);
+        $kept = $risky !== null;
+        $risky ??= self::aloneRisky($children, $groups);
         if ($risky === null) {
             return null;
         }
@@ -3036,10 +3108,10 @@ final class Writer
             // A control comment reads the lines of the whole source around it (`ControlLines::keepAbove()`).
             $key = str_contains($text, 'carve-lint-')
                 ? null
-                : md5(serialize([$sub['children'], self::facts($subLayout), $text]));
+                : md5(serialize([$sub['children'], self::facts($subLayout), $text, self::authoredGroup($subLayout)]));
             $form = $key !== null && array_key_exists($key, $forms)
                 ? $forms[$key]
-                : self::aloneForm($sub, $subLayout, $options, $text, $last - $first);
+                : self::aloneForm($sub, $subLayout, $options, $text, $last - $first, $kept);
             if ($form === null) {
                 return null;
             }
@@ -3050,6 +3122,33 @@ final class Writer
         }
 
         return $joined . substr($source, $at);
+    }
+
+    /**
+     * The sidecar bytes of the top-level blocks of a group's layout, which its authored-block fallback reads.
+     *
+     * @param array<mixed>|null $layout
+     */
+    private static function authoredGroup(?array $layout): ?string
+    {
+        $source = $layout['source'] ?? null;
+        if (is_string($source) && ($layout['encoding'] ?? null) === 'base64') {
+            $source = base64_decode($source, true);
+        }
+        $source = is_string($source) ? $source : null;
+        $from = null;
+        $to = null;
+        foreach (is_array($layout['nodes'] ?? null) ? $layout['nodes'] : [] as $entry) {
+            if (
+                is_array($entry) && is_string($entry['path'] ?? null) && preg_match('~^/children/\d+$~', $entry['path']) === 1
+                && is_int($entry['startByte'] ?? null) && is_int($entry['endByte'] ?? null)
+            ) {
+                $from = min($from ?? $entry['startByte'], $entry['startByte']);
+                $to = max($to ?? $entry['endByte'], $entry['endByte']);
+            }
+        }
+
+        return $source === null || $from === null ? null : substr($source, $from, (int)$to - $from);
     }
 
     /**
@@ -3096,9 +3195,17 @@ final class Writer
      * @param array<string, mixed> $options
      * @param string $text The group in the local write of the whole document.
      * @param int $last The index of its last block.
+     * @param bool $kept Whether the group must keep its local write, or take its authored source where it is one block
+     *   the rounds stop on (`settledAlone()`).
      */
-    private static function aloneForm(array $sub, ?array $layout, array $options, string $text, int $last): ?string
-    {
+    private static function aloneForm(
+        array $sub,
+        ?array $layout,
+        array $options,
+        string $text,
+        int $last,
+        bool $kept = false,
+    ): ?string {
         [$result, $captures] = self::recording(static fn (): WriteResult => self::writeChecked($sub, $layout, $options), true);
         $final = null;
         foreach ($captures as [$written, $ranges]) {
@@ -3108,14 +3215,33 @@ final class Writer
         }
         [$local, $localRanges] = $captures[0] ?? ['', null];
         if (
-            $result->diagnostics !== [] || $localRanges === null || $final === null
+            $localRanges === null || $final === null
             || self::spans($localRanges) !== [[0, $last]] || self::spans($final) !== [[0, $last]]
             || substr($local, $localRanges[0][2], $localRanges[0][3] - $localRanges[0][2]) !== $text
         ) {
             return null;
         }
+        [, , $start, $end] = $final[0];
+        if ($result->diagnostics === []) {
+            $form = substr($result->source, $start, $end - $start);
 
-        return substr($result->source, $final[0][2], $final[0][3] - $final[0][2]);
+            return !$kept || $form === $text ? $form : null;
+        }
+        if (!$kept || $last !== 0 || !self::onlyRefused($result)) {
+            return null;
+        }
+        // C2-W-088: a block the rounds stop on takes the authored-block fallback alone (carve-js `settleLosses`).
+        $authored = self::withAuthoredBlock($result, $sub, $layout, $options);
+        $after = strlen($result->source) - $end;
+        if (
+            $authored->diagnostics !== [] || strlen($authored->source) < $start + $after
+            || substr($authored->source, 0, $start) !== substr($result->source, 0, $start)
+            || substr($authored->source, strlen($authored->source) - $after) !== substr($result->source, $end)
+        ) {
+            return null;
+        }
+
+        return substr($authored->source, $start, strlen($authored->source) - $after - $start);
     }
 
     /**
