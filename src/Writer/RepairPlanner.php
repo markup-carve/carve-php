@@ -1763,7 +1763,7 @@ final class RepairPlanner
         $stops = [];
         $read = $comparison['read'];
         $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys, $stops);
-        $missing = self::missingSiblings($candidate, $read);
+        $missing = self::missingSiblings($candidate, $read, $this->layout !== null);
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
         // Only a stop at a node that did not form bounds the openers this comparison reached.
         if (!$this->kindRounds && $this->parent === null && self::stoppedOnMissing($missing, $stops)) {
@@ -3074,7 +3074,7 @@ final class RepairPlanner
      *
      * @return array<array{string, string}>
      */
-    private static function missingSiblings(array $candidate, array $actual): array
+    private static function missingSiblings(array $candidate, array $actual, bool $sourceBacked): array
     {
         // Two flat maps, not an array per node: these are held beside the candidate and the read-back.
         $ends = [];
@@ -3100,7 +3100,9 @@ final class RepairPlanner
             }
             if (
                 self::heldAsText($candidate['ranges'] ?? [], $ends, [$type, $start, $prior], $priorId !== null)
-                || ($index === 0 && !isset($ends[$type . ':' . $start]) && ($ends['text:' . $start] ?? $start) > $start)
+                // A parsed source proves its first child can form. A supplied tree may name an unspellable first node;
+                // its following text must not create a speculative trial for that node.
+                || ($sourceBacked && $index === 0 && !isset($ends[$type . ':' . $start]) && ($ends['text:' . $start] ?? $start) > $start)
             ) {
                 $missing[] = [RepairTrace::unpackPath((string)$packed), RepairTrace::unpackPath($prior)];
 
