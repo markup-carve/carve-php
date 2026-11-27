@@ -37,9 +37,14 @@ final class CompareRound
      */
     private array $nodeStarts = [];
 
-    /** @var array<array{string, int}> Inline sibling lists the comparison stopped before finishing. */
+    /**
+     * @var array<array{string, int}> Inline sibling lists the comparison stopped before finishing.
+     */
     private array $stops = [];
 
+    /**
+     * @var array<int, string>
+     */
     private const BLOCK_LISTS = [
         'document', 'block_quote', 'list', 'list_item', 'div', 'admonition', 'description_list', 'description',
         'footnote', 'table', 'table_row', 'figure', 'figure_group', 'section',
@@ -183,15 +188,27 @@ final class CompareRound
                 $this->keyBehindText($want, $have, $path, $nodePath, $i, $j, $aj);
             }
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
-                if ($i + 1 < $count && !in_array($expected['type'] ?? '', self::BLOCK_LISTS, true)) {
-                    $this->stops[] = [$path . '/children/', $i];
-                }
+                $this->recordStop($expected, $path, $i, $count);
+
                 return;
             }
             if (!$more) {
                 $vi = 0;
                 $aj = 0;
             }
+        }
+    }
+
+    /**
+     * @param array<mixed> $owner
+     * @param string $path
+     * @param int $index
+     * @param int $count
+     */
+    private function recordStop(array $owner, string $path, int $index, int $count): void
+    {
+        if ($index + 1 < $count && !in_array($owner['type'] ?? '', self::BLOCK_LISTS, true)) {
+            $this->stops[] = [$path . '/children/', $index];
         }
     }
 
@@ -470,10 +487,10 @@ final class CompareRound
     /**
      * @param string $value
      * @param array<mixed> $other
-     * @param int $vi
-     * @param int $j
-     * @param int $i
      * @param string $path
+     * @param int $i
+     * @param int $j
+     * @param int $vi
      * @param string $owner The type of the node whose content ends with this text, or ''.
      */
     private function matchConstruct(string $value, array $other, string $path, int &$i, int &$j, int &$vi, string $owner = ''): bool
@@ -514,7 +531,10 @@ final class CompareRound
      * C2-W-090, C2-W-099: the opener of a construct the parse read takes the backslash on the character its kind names,
      * the bracket of `![` and `^[`, and on its first character where that one takes none (carve-js `escapeOpener`).
      *
+     * @param string $value
      * @param array<mixed> $other
+     * @param string $path
+     * @param int $at
      */
     private function askOpener(string $value, array $other, string $path, int $at): void
     {

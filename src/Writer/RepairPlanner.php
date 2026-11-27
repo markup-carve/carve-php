@@ -88,6 +88,13 @@ final class RepairPlanner
     ];
 
     /**
+     * @var array<string>
+     */
+    private const INLINE_LEAF_TYPES = [
+        'paragraph', 'heading', 'definition_term', 'cell_paragraph', 'line', 'citation_definition',
+    ];
+
+    /**
      * @var array<string> The nodes whose content a `]` closes.
      */
     private const BRACKETED = ['link', 'span', 'inline_footnote', 'inline_extension'];
@@ -1688,6 +1695,7 @@ final class RepairPlanner
      * A comparison that stopped inside an inline list has not reached later siblings of that list. A reported-opener
      * pass takes only the repairs reached by the comparison, as carve-js `compareList` does.
      *
+     * @param string $path
      * @param array<array{string, int}> $stops
      */
     private static function behindStop(string $path, array $stops): bool
@@ -1713,6 +1721,7 @@ final class RepairPlanner
      *
      * @param array<array{string, string}> $missing
      * @param array<array{string, int}> $stops
+     *
      * @return array<array{string, int}>
      */
     private static function stopsOnMissing(array $missing, array $stops): array
@@ -1722,12 +1731,34 @@ final class RepairPlanner
             foreach ($missing as [$path]) {
                 if ($path === $prefix . $index) {
                     $matched[] = [$prefix, $index];
+
                     break;
                 }
             }
         }
 
         return $matched;
+    }
+
+    /**
+     * @param array<string, array<int, true>> $openers
+     * @param array<array{string, string}> $missing
+     * @param array<array{string, int}> $stops
+     *
+     * @return array<string, array<int, true>>
+     */
+    private function reachedOpeners(array $openers, array $missing, array $stops): array
+    {
+        $missingStops = self::stopsOnMissing($missing, $stops);
+        if ($this->kindRounds || $this->parent !== null || $missingStops === []) {
+            return $openers;
+        }
+
+        return array_filter(
+            $openers,
+            static fn (string $path): bool => !self::behindStop($path, $missingStops),
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 
     /**
@@ -1769,14 +1800,7 @@ final class RepairPlanner
         $missing = self::missingSiblings($candidate, $read, $this->layout !== null);
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
         // Only a stop at a node that did not form bounds the openers this comparison reached.
-        $missingStops = self::stopsOnMissing($missing, $stops);
-        if (!$this->kindRounds && $this->parent === null && $missingStops !== []) {
-            $comparison['openers'] = array_filter(
-                $comparison['openers'],
-                static fn (string $path): bool => !self::behindStop($path, $missingStops),
-                ARRAY_FILTER_USE_KEY,
-            );
-        }
+        $comparison['openers'] = $this->reachedOpeners($comparison['openers'], $missing, $stops);
         $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
         unset($read);
         if ($asked === [] && $trials === [] && $comparison['openers'] === []) {
@@ -2833,10 +2857,7 @@ final class RepairPlanner
         // When the first parse holds a construct the tree does not, its reported kind runs before C2-W-125 decides
         // whether several trials together are idle. Keep those trials for the next comparison, as carve-js
         // `dropIdleTrials` does; the local leaf comparison cannot prove them needless yet.
-        if (
-            count($trials) >= 2 && count($trials) <= self::MAX_RETESTED_TRIALS
-            && $this->roundRead !== null && !self::readsNoOtherNode($this->tree, $this->roundRead[2])
-        ) {
+        if ($this->needsKindBeforeTrials($trials)) {
             $this->roundRead = null;
 
             return $trials;
@@ -2874,12 +2895,10 @@ final class RepairPlanner
                 $with[$path][$offset] = true;
             }
         }
-        if ($this->roundRead !== null && $this->roundRead[0] !== $left) {
-            $this->roundRead = null;
-        }
+        $this->clearStaleRoundRead($left);
         [$count, $prints] = $this->leafPrints($left, $small);
         $read = $count < 0 ? null : $this->readTree($with, true);
-        if ($read === null || $count !== count(self::childrenOf($read))) {
+        if (!self::rootBlockCountMatches($read, $count)) {
             return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
         }
         $kept = [];
@@ -2891,6 +2910,38 @@ final class RepairPlanner
         }
 
         return $kept;
+    }
+
+    /**
+     * @param array<string, array<int, true>> $escapes
+     */
+    private function clearStaleRoundRead(array $escapes): void
+    {
+        if ($this->roundRead !== null && $this->roundRead[0] !== $escapes) {
+            $this->roundRead = null;
+        }
+    }
+
+    /**
+     * @param array<mixed>|null $read
+     * @param int $count
+     */
+    private static function rootBlockCountMatches(?array $read, int $count): bool
+    {
+        return $read !== null && $count === count(self::childrenOf($read));
+    }
+
+    /**
+     * @param array<array<array{string, int}>> $trials
+     */
+    private function needsKindBeforeTrials(array $trials): bool
+    {
+        $count = count($trials);
+        if ($count < 2 || $count > self::MAX_RETESTED_TRIALS || $this->roundRead === null) {
+            return false;
+        }
+
+        return !self::readsNoOtherNode($this->tree, $this->roundRead[2]);
     }
 
     /**
@@ -2930,6 +2981,7 @@ final class RepairPlanner
 
     /**
      * @param array<mixed> $root
+     *
      * @return array<array<mixed>>
      */
     private static function inlineLeaves(array $root): array
@@ -2941,7 +2993,7 @@ final class RepairPlanner
             if (is_array($node['caption'] ?? null)) {
                 $pending[] = $node['caption'];
             }
-            if (in_array($node['type'] ?? '', ['paragraph', 'heading', 'definition_term', 'cell_paragraph', 'line', 'citation_definition'], true)) {
+            if (in_array($node['type'] ?? '', self::INLINE_LEAF_TYPES, true)) {
                 $leaves[] = $node;
             } else {
                 foreach (array_reverse(self::childrenOf($node)) as $child) {
@@ -3079,6 +3131,7 @@ final class RepairPlanner
      *     ranges?: array<string, array{int, int}>
      * } $candidate
      * @param array<mixed> $actual
+     * @param bool $sourceBacked
      *
      * @return array<array{string, string}>
      */
