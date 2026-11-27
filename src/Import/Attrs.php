@@ -53,10 +53,24 @@ final class Attrs
             return $match === 'prefix' ? 'an event handler' : 'a dropped attribute';
         }
         if ($name === 'dir') {
-            return isset(self::DIRS[$value]) ? null : 'an invalid direction';
+            return self::dir($value) !== null ? null : 'an invalid direction';
         }
 
         return self::isKey($name) || self::isCarrier($name) ? null : 'a name that is no key';
+    }
+
+    /**
+     * C2-M-052: `ltr`, `rtl` or `auto` in any ASCII letter case, in lower case; null for another value.
+     *
+     * @param string|null $value
+     *
+     * @return string|null
+     */
+    public static function dir(?string $value): ?string
+    {
+        $value = $value === null ? null : strtolower($value);
+
+        return $value !== null && isset(self::DIRS[$value]) ? $value : null;
     }
 
     /**
@@ -99,8 +113,8 @@ final class Attrs
         if ($lang !== null && $lang !== '') {
             $out['lang'] = $lang;
         }
-        $dir = $node->attr('dir');
-        if ($dir !== null && isset(self::DIRS[$dir])) {
+        $dir = self::dir($node->attr('dir'));
+        if ($dir !== null) {
             $out['dir'] = $dir;
         }
         $attrs = self::attrsOf($entries);

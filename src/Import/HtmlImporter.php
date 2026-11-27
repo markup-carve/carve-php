@@ -339,11 +339,11 @@ final class HtmlImporter
             }
             $body = $html->firstElement('body');
             $lang = $body?->attr('lang') ?? $html->attr('lang');
-            $dir = $body?->attr('dir') ?? $html->attr('dir');
+            $dir = Attrs::dir($body?->attr('dir') ?? $html->attr('dir'));
             if ($lang !== null && $lang !== '') {
                 $context->rootLang = $lang;
             }
-            if (in_array($dir, ['ltr', 'rtl', 'auto'], true)) {
+            if ($dir !== null) {
                 $context->rootDir = $dir;
             }
         }
