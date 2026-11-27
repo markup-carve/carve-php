@@ -53,4 +53,15 @@ final class ImportRangeI02Test extends TestCase
         self::assertCount(1, $drop);
         self::assertSame([3, strpos($html, '</p>')], [$drop[0]->startOffset, $drop[0]->endOffset]);
     }
+
+    public function testPlaintextApparentCloserIsTextAndRangeRunsToEnd(): void
+    {
+        $html = '<plaintext onclick=x>one</plaintext>two';
+        $result = HtmlImporter::import($html);
+        $ranged = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->foreignType === 'plaintext'));
+        self::assertNotEmpty($ranged);
+        foreach ($ranged as $entry) {
+            self::assertSame([0, strlen($html)], [$entry->startOffset, $entry->endOffset]);
+        }
+    }
 }

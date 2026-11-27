@@ -47,7 +47,7 @@ final class SourceLocations
             [$source, $offset] = $match[0];
             $at = $offset + strlen($source);
             if ($raw !== null) {
-                if (preg_match('/^<\/\s*' . preg_quote($raw, '/') . '\s*>$/i', $source) === 1) {
+                if (self::rawCloses($raw, $source)) {
                     $raw = null;
                 } else {
                     continue;
@@ -105,6 +105,12 @@ final class SourceLocations
     private static function implicitEnd(string $tag, int $openingEnd, int $inputEnd): int
     {
         return $tag[0] === '#' || isset(self::VOID[$tag]) ? $openingEnd : $inputEnd;
+    }
+
+    private static function rawCloses(string $tag, string $source): bool
+    {
+        // HTML treats every apparent tag after a plaintext opener as text, including </plaintext>.
+        return $tag !== 'plaintext' && preg_match('/^<\/\s*' . preg_quote($tag, '/') . '\s*>$/i', $source) === 1;
     }
 
     /**
