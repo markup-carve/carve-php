@@ -24,13 +24,6 @@ final class ReadbackRound
     ];
 
     /**
-     * The inline nodes whose content a `]` closes.
-     *
-     * @var array<int, string>
-     */
-    private const BRACKETED_NODES = ['link', 'span', 'inline_footnote', 'inline_extension'];
-
-    /**
      * The source bytes the read-back memo keeps. A longer source is kept only where the caller reads it again, and
      * only the last one, so a long document holds at most one tree beside the writer's (carve#6413).
      *
@@ -61,7 +54,6 @@ final class ReadbackRound
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed: array<int, string>,
      *     read: array<string, mixed>
      * }
      */
@@ -176,7 +168,6 @@ final class ReadbackRound
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed: array<int, string>,
      *     read: array<string, mixed>
      * }
      */
@@ -193,13 +184,9 @@ final class ReadbackRound
         $attached = [];
         self::readNodes($read, $candidate, $actual, $openers, $expected, $lines, $attached);
         $moved = [];
-        $unformed = [];
         foreach ($candidate['nodes'] as [$path, $type, $start, $end]) {
             $key = $type . "\0" . $start;
             $readEnd = $actual[$key] ?? null;
-            if ($readEnd === null && in_array($type, self::BRACKETED_NODES, true)) {
-                $unformed[] = RepairTrace::unpackPath($path);
-            }
             if ($readEnd !== null && $readEnd !== $end) {
                 $moved[] = [RepairTrace::unpackPath($path), $type, $start, $end, $readEnd];
                 if ($readEnd > $end && isset($attached[$key])) {
@@ -212,7 +199,6 @@ final class ReadbackRound
             'equal' => $equal ?? self::equal($read, $expected, $expectedPrint),
             'openers' => $openers,
             'moved' => $moved,
-            'unformed' => $unformed,
             'read' => $read,
         ];
     }

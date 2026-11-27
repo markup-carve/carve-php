@@ -340,7 +340,6 @@ final class RepairPlanner
      *         equal: bool,
      *         openers: array<string, array<int, true>>,
      *         moved: array<int, array{string, string, int, int, int}>,
-     *         unformed?: array<int, string>,
      *         read: array<string, mixed>
      *     }
      * }|null
@@ -902,7 +901,6 @@ final class RepairPlanner
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed?: array<int, string>,
      *     read: array<string, mixed>
      * } $comparison
      * @param array<string, string>|null $parts `readPrints()` of the read-back.
@@ -1370,7 +1368,6 @@ final class RepairPlanner
      *         equal: bool,
      *         openers: array<string, array<int, true>>,
      *         moved: array<int, array{string, string, int, int, int}>,
-     *         unformed?: array<int, string>,
      *         read: array<string, mixed>
      *     }
      * } $compared
@@ -1615,7 +1612,6 @@ final class RepairPlanner
      *         equal: bool,
      *         openers: array<string, array<int, true>>,
      *         moved: array<int, array{string, string, int, int, int}>,
-     *         unformed?: array<int, string>,
      *         read: array<string, mixed>
      *     }
      * }|null
@@ -1672,7 +1668,6 @@ final class RepairPlanner
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed?: array<int, string>,
      *     read: array<string, mixed>
      * } $comparison
      */
@@ -1711,7 +1706,6 @@ final class RepairPlanner
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed?: array<int, string>,
      *     read: array<string, mixed>
      * } $comparison
      */
