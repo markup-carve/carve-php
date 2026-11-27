@@ -43,6 +43,25 @@ final class DelimiterKindEdgeTest extends TestCase
         $this->assertTrue(RepairPlanner::settlesKinds($tree, ['/children/0/children/1' => [0 => true]]));
     }
 
+    public function testAnEmSpaceBesideItIsNoBoundarySpace(): void
+    {
+        // C2-I-047: only a space, a tab, a line feed and U+00A0 keep a delimiter from opening.
+        $tree = [
+            'type' => 'doc',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => 'a /'],
+                        ['type' => 'text', 'value' => "\u{2003}b /c"],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->assertFalse(RepairPlanner::settlesKinds($tree, ['/children/0/children/1' => [5 => true]]));
+    }
+
     public function testThePlainFormIsUnchanged(): void
     {
         $source = "^[/\\`[`[/[^-]]][<] and [lck \\[i0][k] text \\/i0 [c][]\n";

@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
+use MarkupCarve\Carve\Inline\Chars;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
 
@@ -2561,13 +2562,13 @@ final class RepairPlanner
         if ($before === $ch || $after === $ch || $after === null) {
             return false;
         }
-        if ($at === 0 && $edges !== null ? preg_match('/^[\p{L}\p{N}]/u', $before) === 1 : ctype_alnum($before)) {
+        if ($at === 0 && $edges !== null ? Chars::isWord(Chars::at($before, 0)) : ctype_alnum($before)) {
             return false;
         }
 
         return $at + 1 < strlen($value) || $edges === null
             ? !in_array($after, [' ', "\t", "\n"], true)
-            : preg_match('/^[\s\x{00A0}]/u', $after) !== 1;
+            : !Chars::isSpace(Chars::at($after, 0));
     }
 
     /**
