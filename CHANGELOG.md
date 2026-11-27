@@ -23,6 +23,7 @@ carve-php 0.2.0 implements Carve 0.2 and replaces the 0.1 engine in the same pac
 ### Fixes
 
 - HTML import no longer writes an empty critic comment as `{##}`, and the writer reports one it is given (#6096, #6097).
+- Writing an imported tree reports `field-unspellable` for a `dir` at any depth, and for `attrs` or `lang` on a caption, term or description, instead of dropping it silently (#6110, #6113).
 - `carve fmt` no longer garbles a reference nested in the link text of another one; a second `fmt` gives the same output (#6099, #6101).
 - A definition-shaped line that opens no snippet definition is written bare (#6095, #6104).
 - A reference label that wraps inside a container keeps its continuation prefix (#6106, #6107).
