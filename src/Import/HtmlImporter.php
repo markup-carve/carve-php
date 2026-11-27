@@ -155,7 +155,11 @@ final class HtmlImporter
         // C2-M-074: the writer's loss entries follow the importer's.
         $written = Writer::writeWithDiagnostics($document, readsSupplied: false);
         $source = $written->source;
-        $diagnostics = array_merge($diagnostics, $written->diagnostics);
+        $diagnostics = array_merge(
+            $diagnostics,
+            $written->diagnostics,
+            AbbreviationLosses::find($document, $source, $context->abbreviations),
+        );
         unset($written);
         // The array and the Node tree are never held together: the tree is read from the JSON text alone.
         $json = self::encode($document);
