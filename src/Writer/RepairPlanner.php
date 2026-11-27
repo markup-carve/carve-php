@@ -1456,6 +1456,65 @@ final class RepairPlanner
     }
 
     /**
+     * C2-W-088: a round of the reported openers reads what its comparison reaches. Behind the node where the comparison
+     * of an inline list stopped it repairs no node (carve-js `compareList`).
+     *
+     * @param array<array{string, string}> $missing
+     * @param array<array{string, int}> $stops
+     *
+     * @return array<array{string, string}>
+     */
+    private function reachedMissing(array $missing, array $stops): array
+    {
+        if ($this->kindRounds || $this->parent !== null || $stops === []) {
+            return $missing;
+        }
+
+        return array_values(array_filter($missing, static fn (array $node): bool => !self::behindStop($node[0], $stops)));
+    }
+
+    /**
+     * C2-W-088: behind the node where the comparison of an inline list stopped, a round of the reported openers reports
+     * no construct.
+     *
+     * @param array<string, array<int, true>> $openers
+     * @param array<array{string, int}> $stops
+     *
+     * @return array<string, array<int, true>>
+     */
+    private function reachedOpeners(array $openers, array $stops): array
+    {
+        if ($this->kindRounds || $this->parent !== null || $stops === []) {
+            return $openers;
+        }
+
+        return array_filter($openers, static fn (string $path): bool => !self::behindStop($path, $stops), ARRAY_FILTER_USE_KEY);
+    }
+
+    /**
+     * Whether a path lies behind a stop: in a later sibling of the node where the comparison of an inline list stopped.
+     *
+     * @param string $path
+     * @param array<array{string, int}> $stops
+     */
+    private static function behindStop(string $path, array $stops): bool
+    {
+        foreach ($stops as [$prefix, $stop]) {
+            if (!str_starts_with($path, $prefix)) {
+                continue;
+            }
+            $rest = substr($path, strlen($prefix));
+            $cut = strpos($rest, '/');
+            $index = $cut === false ? $rest : substr($rest, 0, $cut);
+            if (ctype_digit($index) && (int)$index > $stop) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param array<string, array<int, true>> $placed
      */
     private function notePlaced(array $placed): void
@@ -1759,11 +1818,12 @@ final class RepairPlanner
         $differs = [];
         $keys = [];
         $read = $comparison['read'];
-        $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys);
-        $missing = self::missingSiblings($candidate, $read);
+        $stops = [];
+        $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys, $stops);
+        $missing = $this->reachedMissing(self::missingSiblings($candidate, $read), $stops);
         $this->trialled = [];
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
-        $comparison['openers'] = $this->outsideUnformed($comparison);
+        $comparison['openers'] = $this->reachedOpeners($this->outsideUnformed($comparison), $stops);
         $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
         unset($read);
         if ($asked === [] && $trials === [] && $comparison['openers'] === []) {
@@ -2673,10 +2733,11 @@ final class RepairPlanner
         // C2-W-088, C2-W-125: the procedure runs per text in its leaf block, so each leaf takes the trial of its own
         // first missing node in the same round, and a leaf's escapes do not depend on the leaves around it.
         $trials = [];
+        $spent = [];
         $across = null;
         foreach ($missing as [$path, $prior]) {
             $leaf = $this->leafOf($path);
-            if (isset($trials[$leaf])) {
+            if (isset($trials[$leaf]) || isset($spent[$leaf])) {
                 continue;
             }
             $step = $this->attempts[$path] ?? 0;
@@ -2685,6 +2746,9 @@ final class RepairPlanner
             if ($trial !== null) {
                 $trials[$leaf] = $trial;
                 $this->trialled[$path] = true;
+            } elseif (!$this->kindRounds && $this->parent === null) {
+                // C2-W-125: a node no trial is left for is lost, and the comparison of its list ends there.
+                $spent[$leaf] = true;
             }
         }
 
