@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Block\LineShapes;
 use MarkupCarve\Carve\Block\TableBuilder;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\Json\TreeDepth;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
 use MarkupCarve\Carve\Json\TreeError;
@@ -91,6 +92,24 @@ final class Writer
      * @var array<string, true>
      */
     public const REFUSING_CODES = ['field-unspellable' => true, 'structure-unspellable' => true, 'writer-refused' => true];
+
+    /**
+     * C2-M-074, C2-W-117: the fields no source spells on a node of the type, beside `dir`, which none spells.
+     *
+     * @var array<string, array<string>>
+     */
+    private const UNSPELLED_FIELDS = [
+        'caption' => ['attrs', 'lang'],
+        'definition_term' => ['attrs', 'lang'],
+        'definition_description' => ['attrs', 'lang'],
+    ];
+
+    /**
+     * The node fields `fieldLosses()` does not walk: they hold no node.
+     *
+     * @var array<string, true>
+     */
+    private const UNWALKED_FIELDS = TreeDepth::OPAQUE_FIELDS + ['attrs' => true, 'pos' => true, 'metadata' => true];
 
     /**
      * Whether a supplied tree the heuristics call safe is read back. The importer writes trees of its own build, whose
@@ -3948,6 +3967,7 @@ final class Writer
         $children = is_array($tree['children'] ?? null) ? $tree['children'] : [];
         self::collect($children, $w);
         self::rootLosses($tree, $w);
+        self::fieldLosses($children, '/children', $w);
         $w->beginRepairDocument($children);
         (new Blocks($w))->blocks($children, '/children', '');
         self::lineLosses($children, $w);
@@ -4211,6 +4231,45 @@ final class Writer
             }
             if (is_array($node['children'] ?? null)) {
                 self::collect($node['children'], $w);
+            }
+        }
+    }
+
+    /**
+     * C2-M-074, C2-W-117: reports each field of `UNSPELLED_FIELDS` and each `dir` a node carries, at any depth. An
+     * array without a `type` is a container (a list, `slots`), walked as `TreeDepth` walks it.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\State $w
+     *
+     * @return void
+     */
+    private static function fieldLosses(array $nodes, string $path, State $w): void
+    {
+        foreach ($nodes as $at => $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $here = $path . '/' . $at;
+            if (!is_string($node['type'] ?? null)) {
+                self::fieldLosses($node, $here, $w);
+
+                continue;
+            }
+            $type = $node['type'];
+            foreach (self::UNSPELLED_FIELDS[$type] ?? [] as $field) {
+                if (isset($node[$field])) {
+                    $w->lose($here, $type, $field);
+                }
+            }
+            if (isset($node['dir'])) {
+                $w->lose($here, $type, 'dir');
+            }
+            foreach ($node as $field => $value) {
+                if (is_array($value) && !isset(self::UNWALKED_FIELDS[$field])) {
+                    self::fieldLosses([$field => $value], $here, $w);
+                }
             }
         }
     }
