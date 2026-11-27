@@ -41,6 +41,10 @@ converter.
 | `$converter->createEditorSession($source)` | `Carve::createEditorSession($source, $options)`; edit ranges remain UTF-8 byte offsets |
 | `$converter->supportsIncrementalParagraphReuse()` | `Carve::supportsIncrementalParagraphReuse()` |
 | `parseWithNodeIdentity()`, `parseWithProvenance()` | gone |
+| `Renderer\HtmlRenderer` | `Carve::render()`; the HTML renderer is internal in 0.2 |
+| `Renderer\CarveRenderer` | `Carve::format()` for source, `Carve::write()` for a tree |
+| `Filter\ProfileFilter` | option `profile` |
+| `Transform\TransformerInterface`, `RenderAwareTransformerInterface` | `Extension\DocumentTransform` |
 
 ## Carve output
 
@@ -131,6 +135,9 @@ gate: it rewrites them only under `--upgrade`, in such a document, or when `--ru
 |---|---|
 | `Node\Document`, `Node\Block\*`, `Node\Inline\*`, `NodeType` | one `Node` class: `$node->type` is the schema type, other fields are in `$node->f` |
 | exporting the AST | `Carve::encodeTree()`, `Carve::encodeEnvelope()`, `Carve::decodeTree()`, `Carve::validateTree()` |
+| `Ast\AstCodec` | the same calls: `Carve::encodeTree()`, `Carve::encodeEnvelope()`, `Carve::decodeTree()` |
+| `Ast\AstPatch` | `Carve::diffTree($a, $b)` and `Carve::applyPatch($tree, $patch)`; a bad patch throws `Json\PatchError` |
+| `Exception\AstDecodeException`, `Exception\AstEnvelope*Exception` | `Json\TreeError` from `Carve::decodeTree()`, with `reason` and a JSON `pointer` |
 
 ## Extensions
 
@@ -167,3 +174,48 @@ The 0.2 extension host is provisional (see the [guide](README.md#extensions-prov
 | `RenderLossException` | `RenderError` under `strictLosses` |
 | `ProfileViolationException`, `ProfileViolation` | `render-loss` diagnostics, or `InputError` for a source over the profile limit |
 | catching every engine error | `catch (\MarkupCarve\Carve\CarveException $e)` |
+
+## Command line
+
+The program is still `vendor/bin/carve`. The 0.1 flags were global and selected the output with a switch; 0.2 has
+commands, and each command takes its own flags. Run `carve --help` for the full list.
+
+`-w` changed meaning. In 0.1.18, `-w` on the render path was `--warnings` (print warnings to standard error). In 0.2,
+`-w` is `--write` on `fmt`, `lint` and `fix`, which rewrites the files in place, and `render -w` is a usage error.
+A script that called `carve -w doc.crv` to see warnings now gets exit `2`; use `carve diagnostics doc.crv` instead.
+`fmt -w` writes the file in both versions.
+
+| 0.1 | 0.2 |
+|---|---|
+| `-h`, `-V` | `--help`, `--version`; the short forms are gone |
+| `--html` | `carve render` (the default command) |
+| `--markdown`, `--md` | `carve render --to markdown` |
+| `--plain`, `--plain-text` | `carve render --to plain` |
+| `--ansi` | `carve render --to ansi` |
+| `--carve` | `carve fmt` |
+| `--json`, `--ast` | `carve ast` (also `--tree`) |
+| `--from-json` | `--from-ast` (on `render`, `ast` and `fmt`) |
+| `-w`, `--warnings` | `render` prints its render losses on standard error without a flag; `carve diagnostics FILE` lists the parse diagnostics |
+| `--strict` | `--strict` stays: exit `1` when the render reports a diagnostic; `--strict-losses` also withholds the output on a loss |
+| `-s`, `--safe` | `--profile` (see `setSafeMode()` above) with `--no-includes`; raw HTML is off unless `--raw-html` |
+| `--static` | `--mode static` |
+| `--smart-typography glyph\|source\|quotes-source` | the switch `--smart-typography` / `--no-smart-typography` |
+| `--report-conversion-diagnostics FILE`, `--max-conversion-diagnostics N` | `--report-losses FILE` and `--max-render-losses N`, which also cover `render --to markdown\|plain\|ansi` |
+| `--stamp-info`, `--stamp-check`, `fmt --stamp`, `fmt --stamp-block` | gone: 0.2 writes no provenance stamp |
+| `fmt --migrate` | gone |
+| `lint --platform github` | `lint --platforms '["github"]'` |
+| `lint --extension NAME` | `lint --extensions '["NAME"]'`, names from the [catalog](extensions.md) |
+| `carve migrate --from FORMAT FILE` | `carve import --from markdown\|gfm\|djot\|html FILE` |
+| `carve migrate --report FILE`, `--check-loss`, `--mode`, `--djot-php` | gone: `import` prints each diagnostic as `carve[CODE]:` on standard error; `--strict-losses` fails the run on a loss |
+| `carve merge base ours theirs` | gone |
+| `carve trace FILE` | gone |
+
+`carve merge`, `carve trace` and `carve migrate` are not commands in 0.2: the word is read as a file name and the run
+fails with `input-unreadable`.
+
+New in 0.2: the commands `ast`, `diagnostics`, `fix`, `flatten`, `migrate-ast` and `import`, `format` as an alias of
+`fmt`, and `--no-NAME` for every switch. `fmt` adds `--diff`, `--normalize` and `--from-ast`; `lint` and `fix` add
+`--rules`, `--platforms`, `--upgrade` and `--ignore`; `render` adds `--to`, `--profile`, `--url-policy`,
+`--heading-ids`, `--heading-shift`, `--soft-break`, `--sections`, `--source-lines`, `--labels`, `--social` and
+`--symbols`; `render`, `ast`, `lint` and `fmt` take `--extensions` and `--extension-options`. The
+[README](../README.md#command-line) describes them.
