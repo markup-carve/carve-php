@@ -174,6 +174,25 @@ final class BlocksInlineTest extends TestCase
         }
     }
 
+    public function testTitledDisclosureRendererReadsStoredSummarySlot(): void
+    {
+        $cases = [
+            ['details', Details::bundle()],
+            ['spoiler', Spoiler::bundle()],
+        ];
+        foreach ($cases as [$sourceName, $bundle]) {
+            $options = ['extensions' => [$bundle]];
+            $tree = Carve::parse("::: {$sourceName} \"More\"\nHidden.\n:::\n", $options);
+            $node = $tree->children[0];
+            $slots = $node->f['slots'];
+            $slots['summary'] = $slots['title'];
+            unset($slots['title']);
+            $node->f['slots'] = $slots;
+
+            self::assertStringContainsString('<summary>More</summary>', Carve::render($tree, $options));
+        }
+    }
+
     /**
      * A registered definition without a renderer is not unknown (C2-X-035, C2-W-106).
      */

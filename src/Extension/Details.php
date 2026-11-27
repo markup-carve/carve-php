@@ -111,7 +111,7 @@ final class Details
     public static function disclosure(Node $node, RenderHost $host, string $label, ?string $base = null): string
     {
         $slots = is_array($node->f['slots'] ?? null) ? $node->f['slots'] : [];
-        $summary = PlainText::nodes($slots['title'] ?? []);
+        $summary = PlainText::nodes($slots['title'] ?? $slots['summary'] ?? []);
         $text = $summary === [] ? '' : trim(($host->inlines)($summary));
         $attrs = $node->f['attrs'] ?? null;
         $authoredOpen = AuthorAttrs::value($attrs instanceof Attrs ? $attrs : null, 'open') !== null;
