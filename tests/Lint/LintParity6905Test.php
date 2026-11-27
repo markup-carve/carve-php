@@ -95,6 +95,7 @@ final class LintParity6905Test extends TestCase
             'full reference label' => ["[x][a %% b]\n\n[x]: /u\n", [['comment-in-reference-label', '', 5, 11]]],
             'footnote reference label' => ["[^a %% b]\n\n[^a]: n\n", [['comment-in-reference-label', '', 3, 9]]],
             'shortcut text' => ["x [a %% b]\n\n[a]: /u\n", []],
+            'bracket apart from the pair' => ["[x] [a %% b]\n\n[x]: /u\n", []],
             'inline link text' => ["[a %% b](/u)\n", []],
         ];
     }
