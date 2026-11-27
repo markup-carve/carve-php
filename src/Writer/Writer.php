@@ -136,6 +136,7 @@ final class Writer
         'caption' => ['attrs', 'lang'],
         'definition_term' => ['attrs', 'lang'],
         'definition_description' => ['attrs', 'lang'],
+        'image' => ['longDescription'],
     ];
 
     /**
