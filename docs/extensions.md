@@ -14,6 +14,9 @@ Every name of the catalog can also be passed as a string in `extensions`. A name
 Named `carve.tabs` accepts a host renderer option:
 
 ```php
+use MarkupCarve\Carve\Carve;
+
+$source = ":::: tabs\n::: tab \"First\"\nHello.\n:::\n::::\n";
 Carve::render($source, [
     'extensions' => ['carve.tabs'],
     'renderers' => ['carve.tabs' => ['standard' => ['mode' => 'aria']]],
@@ -30,8 +33,10 @@ On the command line, `--extensions` registers named standard extensions on `rend
 `render` gives each its standard renderer; `--extension-options` sets the renderer options (C2-T-010):
 
 ```
-carve render --extensions '["carve.tabs"]' --extension-options '{"carve.tabs":{"mode":"aria"}}' doc.crv
+vendor/bin/carve render --extensions '["carve.tabs"]' --extension-options '{"carve.tabs":{"mode":"aria"}}' doc.crv
 ```
+
+Inside this checkout, run the command as `php bin/carve`.
 
 The names are those of `data/extensions.json`: `carve.autolink`, `carve.cite`, `carve.codeCallouts`,
 `carve.codeGroup`, `carve.colorSwatch`, `carve.details`, `carve.externalLinks`, `carve.fencedRender.abc`, `.chart`,
@@ -51,6 +56,7 @@ use MarkupCarve\Carve\Extension\CodeGroup;
 use MarkupCarve\Carve\Extension\FencedRender;
 use MarkupCarve\Carve\Extension\MathBlock;
 
+$source = "```math\nx^2\n```\n";
 $all = Bundle::merge(FencedRender::presets(), MathBlock::bundle(), CodeGroup::bundle(), CodeCallouts::bundle());
 $html = Carve::renderWithDocumentTransforms($source, $all->transforms(), ['extensions' => [$all]])->html;
 ```
@@ -73,7 +79,11 @@ Presets, each taking the other parameters of `bundle()` by name: `mermaid()`, `d
 `presets($builders)` registers all of them; `$builders` maps a preset's css class to its `build` function.
 
 ```php
-$bundle = FencedRender::mermaid(build: fn (string $source): string => $svgFor($source));
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\FencedRender;
+
+$source = "```mermaid\ngraph TD; A-->B\n```\n";
+$bundle = FencedRender::mermaid(build: fn (string $source): string => '<svg></svg>');
 Carve::render($source, ['extensions' => [$bundle], 'mode' => 'static']);
 ```
 
@@ -103,6 +113,9 @@ its list (`carve.codeCallouts.list`). Both channels write the same HTML. A code 
 the transform replaced.
 
 ```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\CodeCallouts;
+
 $bundle = CodeCallouts::bundle();
 $result = Carve::renderWithDocumentTransforms("```js\nlet a = 1 <1>\n```\n<1> One\n", $bundle->transforms(), [
     'extensions' => [$bundle],
@@ -142,6 +155,9 @@ or `ring`). `{contrast}` writes the value on its own color instead. Any other va
 `semantic-attribute-outside-span` and `semantic-attribute-value-ignored`.
 
 ```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\SemanticSpan;
+
 Carve::render('[x]{samp} [w]{dfn=term}', ['extensions' => [SemanticSpan::bundle()]]);
 // <p><samp>x</samp> <dfn title="term">w</dfn></p>
 ```
@@ -162,6 +178,9 @@ by its language, then falls back to English; `SmartQuotes::locales()` lists the 
 and a closing single quote between two letters stays an apostrophe.
 
 ```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\SmartQuotes;
+
 Carve::render("\"Hi\" it's 'x'", ['extensions' => [SmartQuotes::bundle('de')]]);
 // <p>„Hi“ it’s ‚x‘</p>
 ```
@@ -183,6 +202,13 @@ Each of these bundles holds an inline matcher, a document transform that resolve
 its core reading.
 
 ```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\Bundle;
+use MarkupCarve\Carve\Extension\Citations;
+use MarkupCarve\Carve\Extension\Glossary;
+use MarkupCarve\Carve\Extension\IndexTerms;
+
+$source = "Use :term[HTTP].\n\n::: glossary\n:: HTTP\n: HyperText Transfer Protocol.\n:::\n";
 $all = Bundle::merge(Glossary::bundle(), IndexTerms::bundle(), Citations::bundle());
 $html = Carve::renderWithDocumentTransforms($source, $all->transforms(), ['extensions' => [$all]])->html;
 ```
@@ -212,8 +238,10 @@ entry back-links to its uses. A key without an entry keeps its text; without a d
 resolved view (C2-X-053). Pass the definitions straight in `extensions`; no transform list is needed.
 
 ```php
+use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Extension\Navigation;
 
+$source = "= Heading\n";
 Carve::render($source, [
     'extensions' => [
         Navigation::headingNumbers(),
