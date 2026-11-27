@@ -19,13 +19,19 @@ final class WriteMemo
     /**
      * @var array<string, int> Entries kept per kind at most.
      */
-    private const LIMITS = ['bare' => 64, 'marked' => 16, 'decoded' => 16, 'print' => 512];
+    private const LIMITS = ['bare' => 64, 'marked' => 16, 'decoded' => 16, 'print' => 512, 'probe' => 2048];
 
     /**
      * @var array<string, int> The bytes of source each kind keeps at most, weighed by what an entry holds beside its
      *   source: a marked candidate maps every traced character, so a long document keeps few or none.
      */
-    private const BYTES = ['bare' => 2_000_000, 'marked' => 4_000_000, 'decoded' => 2_000_000, 'print' => 4_000_000];
+    private const BYTES = [
+        'bare' => 2_000_000,
+        'marked' => 4_000_000,
+        'decoded' => 2_000_000,
+        'print' => 4_000_000,
+        'probe' => 4_000_000,
+    ];
 
     /**
      * @var int A longer source is not kept, as `ReadbackRound` keeps no long read-back it is not asked to (carve#6413).
@@ -35,7 +41,7 @@ final class WriteMemo
     /**
      * @var array<string, int>
      */
-    private const WEIGHTS = ['bare' => 1, 'marked' => 40, 'decoded' => 2, 'print' => 0];
+    private const WEIGHTS = ['bare' => 1, 'marked' => 40, 'decoded' => 2, 'print' => 0, 'probe' => 64];
 
     /**
      * @var array<string, int> The weighed bytes each kind holds.
@@ -101,6 +107,41 @@ final class WriteMemo
     }
 
     /**
+     * A content probe of the C2-W-088 rounds, by its inputs and the `Text` write state: its result, the characters it
+     * charged and the state it left. A run is kept and reused only where it charged no more than the budget left, so it
+     * never stopped on the budget of C2-W-133.
+     *
+     * @template T
+     *
+     * @param array<mixed> $inputs
+     * @param int $budget The characters the probe may still charge.
+     * @param \Closure(): array{T, int} $run The result and the characters it charged.
+     *
+     * @return array{T, int}
+     */
+    public static function probe(array $inputs, int $budget, Closure $run): array
+    {
+        if (self::$entries === null) {
+            return $run();
+        }
+        $key = self::key([$inputs, Text::writeState()]);
+        $kept = self::$entries['probe'][$key] ?? null;
+        if ($kept !== null && is_array($kept[0]) && is_int($kept[0][1] ?? null) && $kept[0][1] <= $budget) {
+            if ($kept[1] !== null) {
+                Text::restoreWriteState($kept[1]);
+            }
+
+            return [$kept[0][0], $kept[0][1]];
+        }
+        $result = $run();
+        if ($result[1] <= $budget) {
+            self::keep('probe', $key, [$result, Text::writeState(), false]);
+        }
+
+        return $result;
+    }
+
+    /**
      * A value that depends only on its inputs, as the fingerprint of a parse.
      *
      * @template T
@@ -135,7 +176,7 @@ final class WriteMemo
      */
     private static function keep(string $kind, string $key, array $entry): void
     {
-        $bytes = self::sourceBytes($entry[0]);
+        $bytes = self::entryBytes($kind, $entry);
         $size = self::WEIGHTS[$kind] * $bytes;
         if ($bytes > self::MAX_SOURCE || $size > self::BYTES[$kind] || self::$entries === null) {
             return;
@@ -146,11 +187,26 @@ final class WriteMemo
         $count = count($kept);
         while ($count-- > self::LIMITS[$kind] || $held > self::BYTES[$kind]) {
             $oldest = array_key_first($kept);
-            $held -= self::WEIGHTS[$kind] * self::sourceBytes($kept[$oldest][0]);
+            $held -= self::WEIGHTS[$kind] * self::entryBytes($kind, $kept[$oldest]);
             unset($kept[$oldest]);
         }
         self::$entries[$kind] = $kept;
         self::$held[$kind] = $held;
+    }
+
+    /**
+     * A probe holds no source but escapes and a write state, weighed by the values they hold.
+     *
+     * @param string $kind
+     * @param array{mixed, WriteState|null, bool} $entry
+     */
+    private static function entryBytes(string $kind, array $entry): int
+    {
+        if ($kind === 'probe') {
+            return count([$entry[0], $entry[1]], COUNT_RECURSIVE);
+        }
+
+        return self::sourceBytes($entry[0]);
     }
 
     private static function sourceBytes(mixed $value): int

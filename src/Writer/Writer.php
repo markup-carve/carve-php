@@ -3852,6 +3852,19 @@ final class Writer
     }
 
     /**
+     * The `$bareRepaired` the writes so far left, null while the writes of a check are recorded.
+     */
+    public static function repairFlag(): ?bool
+    {
+        return self::$captured === null ? self::$bareRepaired : null;
+    }
+
+    public static function restoreRepairFlag(bool $flag): void
+    {
+        self::$bareRepaired = $flag;
+    }
+
+    /**
      * `WriteMemo::remember()` for a traced write, except while the writes of a check are recorded. The flag of the
      * write is the `$bareRepaired` it leaves.
      *
