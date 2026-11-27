@@ -129,15 +129,16 @@ final class ImportCommand
         $err,
     ): int {
         $losses = array_filter($result->diagnostics, static fn (Diagnostic $d): bool => isset(Writer::REFUSING_CODES[$d->code]));
-        if (($options['strictLosses'] ?? false) && $result->diagnostics !== []) {
+        if (($options['strictLosses'] ?? false) && $result->hasUnallowedLoss) {
             self::fail($err, 'render-loss', $display . ': import reported a loss', 1);
             self::writeDiagnostics($result, $display, $input, $err);
 
             return max(1, self::writeReport($result, $display, $input, $report, $err));
         }
-        if ($losses !== []) {
+        if ($losses !== [] || $result->hasRefusingLoss) {
             $named = array_map(static fn (Diagnostic $d): string => $d->code . ' at ' . ($d->path ?: '/'), $losses);
-            self::fail($err, 'writer-refused', $display . ': ' . implode(', ', $named), 1);
+            $reason = $named === [] ? 'a writer loss was suppressed' : implode(', ', $named);
+            self::fail($err, 'writer-refused', $display . ': ' . $reason, 1);
 
             return max(1, self::writeReport($result, $display, $input, $report, $err));
         }

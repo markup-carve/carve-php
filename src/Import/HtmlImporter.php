@@ -170,6 +170,12 @@ final class HtmlImporter
             HeapPages::release(self::FREED);
             $tree = self::readJson($json);
         }
+        $unallowed = array_values(array_filter(
+            $diagnostics,
+            static fn (Diagnostic $d): bool => $d->channel === 'render-loss' && !isset($opts->allowLosses[$d->code]),
+        ));
+        $hasRefusingLoss = Writer::refusing($unallowed) !== [];
+        $hasUnallowedLoss = $unallowed !== [];
         [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
             $diagnostics = array_map(static fn (Diagnostic $d): Diagnostic => new Diagnostic(
@@ -189,7 +195,7 @@ final class HtmlImporter
             $diagnostics = $report($diagnostics);
         }
 
-        return new ImportResult($tree, [], $diagnostics, $source, $suppressed, $json);
+        return new ImportResult($tree, [], $diagnostics, $source, $suppressed, $json, $hasRefusingLoss, $hasUnallowedLoss);
     }
 
     /**

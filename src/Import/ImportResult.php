@@ -53,6 +53,8 @@ final class ImportResult
      * @param int $suppressedDiagnostics The losses `maxLosses` held back (C2-H-205).
      * @param string|null $documentJson Internal: the JSON text of the document, decoded in place of `$document` when
      *   `document` is first read (carve-php#5627).
+     * @param bool $hasRefusingLoss Whether an unallowed writer loss exists, including a suppressed one.
+     * @param bool $hasUnallowedLoss Whether an unallowed render loss exists, including a suppressed one.
      *
      * @throws \InvalidArgumentException
      */
@@ -63,6 +65,8 @@ final class ImportResult
         public readonly string $source,
         public readonly int $suppressedDiagnostics = 0,
         ?string $documentJson = null,
+        public readonly bool $hasRefusingLoss = false,
+        public readonly bool $hasUnallowedLoss = false,
     ) {
         if ($tree !== null) {
             $this->tree = $tree;
@@ -136,6 +140,8 @@ final class ImportResult
             'diagnostics' => $this->diagnostics,
             'source' => $this->source,
             'suppressedDiagnostics' => $this->suppressedDiagnostics,
+            'hasRefusingLoss' => $this->hasRefusingLoss,
+            'hasUnallowedLoss' => $this->hasUnallowedLoss,
         ];
     }
 
@@ -158,5 +164,7 @@ final class ImportResult
         $this->source = is_string($source) ? $source : '';
         $suppressed = $data['suppressedDiagnostics'] ?? 0;
         $this->suppressedDiagnostics = is_int($suppressed) ? $suppressed : 0;
+        $this->hasRefusingLoss = ($data['hasRefusingLoss'] ?? false) === true;
+        $this->hasUnallowedLoss = ($data['hasUnallowedLoss'] ?? false) === true;
     }
 }
