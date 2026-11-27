@@ -36,6 +36,24 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * C2-W-088, carve#6802: round 0 reports the strong behind an unformed link, so every potential strong opener
+     * takes a backslash. Pin the entire form as well as the lines that expose the missed report.
+     */
+    public function testReportsStrongBehindUnformedLink(): void
+    {
+        $source = str_repeat("[a *[a][x]*[x]: /u\n", 122);
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame(2620, strlen($result->source));
+        $this->assertSame('66da9722cf00a317', substr(hash('sha256', $result->source), 0, 16));
+        $lines = explode("\n", $result->source);
+        $this->assertSame('[a \\*\\[a][x]\\*\\[x\\]: /u', $lines[99]);
+        $this->assertSame('\\[a \\*\\[a][x]*\\[x\\]: /u', $lines[100]);
+        $this->assertSame($result->source, Carve::format($result->source));
+    }
+
+    /**
      * C2-W-088: where the kind rounds end with a node that did not read back, rounds that escape only the reported
      * openers write the group again. A generated variant of the carve#6813 family, which those rounds write.
      *

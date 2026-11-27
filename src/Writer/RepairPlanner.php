@@ -52,13 +52,6 @@ final class RepairPlanner
      */
     private array $placedOrder = [];
 
-    /**
-     * The missing nodes of the round that took a trial, by path.
-     *
-     * @var array<string, true>
-     */
-    private array $trialled = [];
-
     private int $read = 0;
 
     /**
@@ -347,7 +340,6 @@ final class RepairPlanner
      *         equal: bool,
      *         openers: array<string, array<int, true>>,
      *         moved: array<int, array{string, string, int, int, int}>,
-     *         unformed?: array<int, string>,
      *         read: array<string, mixed>
      *     }
      * }|null
@@ -909,7 +901,6 @@ final class RepairPlanner
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed?: array<int, string>,
      *     read: array<string, mixed>
      * } $comparison
      * @param array<string, string>|null $parts `readPrints()` of the read-back.
@@ -1377,7 +1368,6 @@ final class RepairPlanner
      *         equal: bool,
      *         openers: array<string, array<int, true>>,
      *         moved: array<int, array{string, string, int, int, int}>,
-     *         unformed?: array<int, string>,
      *         read: array<string, mixed>
      *     }
      * } $compared
@@ -1399,8 +1389,7 @@ final class RepairPlanner
         }
         [$candidate, $comparison] = $compared;
         unset($compared);
-        $this->trialled = [];
-        $reports = $this->outsideUnformed($comparison);
+        $reports = $comparison['openers'];
         if ($reports !== []) {
             if ($this->gluedCloser($placed) || $this->breaksLink($candidate, $comparison, $links)) {
                 return null;
@@ -1423,41 +1412,6 @@ final class RepairPlanner
         $this->notePlaced($placed);
 
         return [Writer::bareSource($this->tree, $this->layout, $this->options, $this->escapes), $this->escapes];
-    }
-
-    /**
-     * C2-W-088, C2-W-125: in a round by kinds, a construct the parse opened inside a bracketed node of the tree that did
-     * not form is no reported kind, unless that node took a trial in this round: the node is repaired or lost as a whole
-     * (carve-js `respell`).
-     *
-     * @param array{openers: array<string, array<int, true>>, unformed?: array<int, string>} $comparison
-     *
-     * @return array<string, array<int, true>>
-     */
-    private function outsideUnformed(array $comparison): array
-    {
-        $openers = $comparison['openers'];
-        $unformed = [];
-        foreach ($this->kindRounds ? $comparison['unformed'] ?? [] : [] as $path) {
-            if (!isset($this->trialled[$path])) {
-                $unformed[$path] = true;
-            }
-        }
-        if ($unformed === []) {
-            return $openers;
-        }
-        foreach (array_keys($openers) as $owner) {
-            $owner = (string)$owner;
-            for ($at = strpos($owner, '/', 1); $at !== false; $at = strpos($owner, '/', $at + 1)) {
-                if (isset($unformed[substr($owner, 0, $at)])) {
-                    unset($openers[$owner]);
-
-                    break;
-                }
-            }
-        }
-
-        return $openers;
     }
 
     /**
@@ -1658,7 +1612,6 @@ final class RepairPlanner
      *         equal: bool,
      *         openers: array<string, array<int, true>>,
      *         moved: array<int, array{string, string, int, int, int}>,
-     *         unformed?: array<int, string>,
      *         read: array<string, mixed>
      *     }
      * }|null
@@ -1715,7 +1668,6 @@ final class RepairPlanner
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed?: array<int, string>,
      *     read: array<string, mixed>
      * } $comparison
      */
@@ -1754,7 +1706,6 @@ final class RepairPlanner
      *     equal: bool,
      *     openers: array<string, array<int, true>>,
      *     moved: array<int, array{string, string, int, int, int}>,
-     *     unformed?: array<int, string>,
      *     read: array<string, mixed>
      * } $comparison
      */
@@ -1766,9 +1717,7 @@ final class RepairPlanner
         $read = $comparison['read'];
         $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys);
         $missing = self::missingSiblings($candidate, $read);
-        $this->trialled = [];
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
-        $comparison['openers'] = $this->outsideUnformed($comparison);
         $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
         unset($read);
         if ($asked === [] && $trials === [] && $comparison['openers'] === []) {
@@ -2802,7 +2751,6 @@ final class RepairPlanner
             $this->attempts[$path] = $step;
             if ($trial !== null) {
                 $trials[$leaf] = $trial;
-                $this->trialled[$path] = true;
             }
         }
 
