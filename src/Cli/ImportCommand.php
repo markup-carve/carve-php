@@ -64,7 +64,12 @@ final class ImportCommand
             } catch (RuntimeException $e) {
                 return self::fail($err, 'input-invalid', $e->getMessage(), 2);
             }
-            fwrite($out, json_encode($counts, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+            fwrite(
+                $out,
+                $counts['files'] . ' file(s) converted; ' . $counts['assets'] . ' asset(s) copied; '
+                    . $counts['review'] . ' file(s) need review; ' . $counts['skipped'] . ' entry(s) skipped. Report: '
+                    . $counts['report'] . "\n",
+            );
 
             return 0;
         }
