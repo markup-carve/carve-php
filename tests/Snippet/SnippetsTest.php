@@ -456,6 +456,59 @@ final class SnippetsTest extends TestCase
     }
 
     /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function attributeLinesAboveABlockUse(): array
+    {
+        return [
+            'inside a div' => [
+                "{\$v}: X\n\n::: d\n{.k}\n{{ \$v }}\n:::\n",
+                "<div class=\"d\">\n  <p>{.k}</p>\n  <p>X</p>\n</div>",
+                "{\$v}: X\n\n::: d\n{.k}\n\n{{ \$v }}\n:::\n",
+            ],
+            'an id line' => [
+                "{\$v}: X\n\n{#i}\n{{ \$v }}\n",
+                "<p>{#i}</p>\n<p>X</p>",
+                "{\$v}: X\n\n{#i}\n\n{{ \$v }}\n",
+            ],
+            'stacked lines' => [
+                "{\$v}: X\n\n{.k}\n{:en}\n{{ \$v }}\n",
+                "<p>{.k}\n{:en}</p>\n<p>X</p>",
+                "{\$v}: X\n\n{.k}\n{:en}\n\n{{ \$v }}\n",
+            ],
+            'a list item holding a use still takes it' => [
+                "{\$v}: X\n\n{.k}\n- {{ \$v }}\n",
+                "<ul class=\"k\">\n  <li>X</li>\n</ul>",
+                "{\$v}: X\n\n{.k}\n- {{ \$v }}\n",
+            ],
+            'a paragraph opening with a use still takes it' => [
+                "{\$v}: X\n\n{.k}\n{{ \$v }} t\n",
+                '<p class="k">X t</p>',
+                "{\$v}: X\n\n{.k}\n{{ \$v }} t\n",
+            ],
+        ];
+    }
+
+    /**
+     * carve#6896: a block use takes no attribute line (C2-B-096); the line stays a paragraph (C2-B-092).
+     *
+     * @param string $source
+     * @param string $html
+     * @param string $formatted
+     *
+     * @return void
+     */
+    #[DataProvider('attributeLinesAboveABlockUse')]
+    public function testC2B096ABlockUseTakesNoAttributeLine(string $source, string $html, string $formatted): void
+    {
+        $this->assertSame($html, Carve::toHtml($source));
+        $this->assertSame($formatted, Carve::format($source));
+        $this->assertSame($html, Carve::toHtml($formatted));
+        $json = Carve::toJson($source);
+        $this->assertSame($json, Carve::encodeTree(Carve::decodeTree($json)));
+    }
+
+    /**
      * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $diagnostics
      *
      * @return array<string>

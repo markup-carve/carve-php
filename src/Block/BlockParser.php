@@ -1974,7 +1974,10 @@ final class BlockParser
             $f = new Frame(Frame::SNIPPET_USE, $j);
             $f->value = Syntax::useName($this->s, $j);
             $f->end = $this->le;
-            $this->take($f);
+            // C2-B-096: a block use takes no attribute line; the pending one closes as a paragraph (C2-B-092).
+            if ($this->pending !== null && $this->pending->depth === $top) {
+                $this->flushPending();
+            }
             $this->emitLeaf($f);
 
             return true;
