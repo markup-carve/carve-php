@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\Import;
 
+use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Import\HtmlImporter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -63,5 +64,28 @@ final class InlineDirUnspellableTest extends TestCase
         $result = HtmlImporter::import($html);
         $this->assertNotContains('field-unspellable', $result->codes());
         $this->assertSame($source, $result->source);
+    }
+
+    public function testDirInAnExtensionSlotIsReported(): void
+    {
+        $span = ['type' => 'span', 'dir' => 'rtl', 'children' => [['type' => 'text', 'value' => 'x']]];
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'extensions' => [['name' => 'ex.box', 'version' => '1', 'required' => false, 'slots' => ['s']]],
+            'children' => [
+                [
+                    'type' => 'block_extension',
+                    'name' => 'ex.box',
+                    'version' => '1',
+                    'children' => [],
+                    'slots' => ['s' => [['type' => 'paragraph', 'children' => [$span]]]],
+                    'fallback' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'f']]]],
+                ],
+            ],
+        ];
+        $result = Carve::writeWithDiagnostics($tree);
+        $lost = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->code === 'field-unspellable'));
+        $this->assertSame(['/children/0/slots/s/0/children/0/dir'], array_map(static fn ($d): ?string => $d->path, $lost));
     }
 }

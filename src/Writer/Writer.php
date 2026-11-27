@@ -4236,7 +4236,8 @@ final class Writer
     }
 
     /**
-     * C2-M-074, C2-W-117: reports each field of `UNSPELLED_FIELDS` and each `dir` a node carries, at any depth.
+     * C2-M-074, C2-W-117: reports each field of `UNSPELLED_FIELDS` and each `dir` a node carries, at any depth. An
+     * array without a `type` is a container (a list, `slots`), walked as `TreeDepth` walks it.
      *
      * @param array<mixed> $nodes
      * @param string $path
@@ -4251,7 +4252,12 @@ final class Writer
                 continue;
             }
             $here = $path . '/' . $at;
-            $type = is_string($node['type'] ?? null) ? $node['type'] : '';
+            if (!is_string($node['type'] ?? null)) {
+                self::fieldLosses($node, $here, $w);
+
+                continue;
+            }
+            $type = $node['type'];
             foreach (self::UNSPELLED_FIELDS[$type] ?? [] as $field) {
                 if (isset($node[$field])) {
                     $w->lose($here, $type, $field);
@@ -4261,13 +4267,8 @@ final class Writer
                 $w->lose($here, $type, 'dir');
             }
             foreach ($node as $field => $value) {
-                if (!is_array($value) || isset(self::UNWALKED_FIELDS[$field])) {
-                    continue;
-                }
-                if (is_string($value['type'] ?? null)) {
+                if (is_array($value) && !isset(self::UNWALKED_FIELDS[$field])) {
                     self::fieldLosses([$field => $value], $here, $w);
-                } elseif (array_is_list($value)) {
-                    self::fieldLosses($value, $here . '/' . $field, $w);
                 }
             }
         }
