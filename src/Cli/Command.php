@@ -82,6 +82,16 @@ final class Command
     private const RENDER_TARGETS = ['html', 'markdown', 'plain', 'ansi'];
 
     /**
+     * PHP options absent from the shared CLI catalog.
+     *
+     * @var array<string, list<string>>
+     */
+    private const ENGINE_HELP_FLAGS = [
+        'render' => ['to', 'xhtml'],
+        'import' => ['directory'],
+    ];
+
+    /**
      * Flags that set one option: `softBreak` and the count `headingShift` (C2-T-010), `allowLosses` one code per instance
      * (C2-T-027) and `maxLosses` (C2-T-029).
      *
@@ -247,6 +257,10 @@ HELP;
                 $flags[] = '--' . $flag['name'];
             }
         }
+        foreach (self::ENGINE_HELP_FLAGS[$command] ?? [] as $flag) {
+            $flags[] = '--' . $flag;
+        }
+        $flags = array_values(array_unique($flags));
         sort($flags);
         fwrite($out, 'Usage: carve ' . $command . " [flags] [file ...]\nFlags: " . implode(', ', $flags) . "\n");
 
