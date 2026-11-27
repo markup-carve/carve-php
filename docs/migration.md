@@ -181,7 +181,8 @@ The program is still `vendor/bin/carve`. The 0.1 flags were global and selected 
 commands, and each command takes its own flags. Run `carve --help` for the full list.
 
 `-w` changed meaning. In 0.1.18, `-w` on the render path was `--warnings` (print warnings to standard error). In 0.2,
-`-w` is `--write` on `fmt`, `lint` and `fix`, which rewrites the files in place, and `render -w` is a usage error.
+`-w` is `--write` on `fmt`, `fix` and `lint --fix`, which rewrites the files in place (`lint -w` without `--fix` and
+`render -w` are usage errors).
 A script that called `carve -w doc.crv` to see warnings now gets exit `2`; use `carve diagnostics doc.crv` instead.
 `fmt -w` writes the file in both versions.
 
