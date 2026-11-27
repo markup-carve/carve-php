@@ -1396,8 +1396,7 @@ final class RepairPlanner
         [$candidate, $comparison] = $compared;
         unset($compared);
         $reports = $comparison['openers'];
-        $oneGroup = count($this->tree['children'] ?? []) === 1
-            && (($this->tree['children'][0]['type'] ?? null) === 'paragraph' || count($links) === 1);
+        $oneGroup = $this->oneLinkGroup($links);
         if ($reports !== []) {
             if (($oneGroup && $this->gluedCloser($placed)) || $this->breaksLink($candidate, $comparison, $links)) {
                 return null;
@@ -1422,6 +1421,17 @@ final class RepairPlanner
         $this->notePlaced($placed);
 
         return [Writer::bareSource($this->tree, $this->layout, $this->options, $this->escapes), $this->escapes];
+    }
+
+    /**
+     * @param array<mixed> $links
+     */
+    private function oneLinkGroup(array $links): bool
+    {
+        $children = self::childrenOf($this->tree);
+        $first = $children[0] ?? null;
+
+        return count($children) === 1 && ((is_array($first) && ($first['type'] ?? null) === 'paragraph') || count($links) === 1);
     }
 
     /**
@@ -2898,7 +2908,8 @@ final class RepairPlanner
         $this->clearStaleRoundRead($left);
         [$count, $prints] = $this->leafPrints($left, $small);
         $read = $count < 0 ? null : $this->readTree($with, true);
-        if (!self::rootBlockCountMatches($read, $count)) {
+        $read = self::matchingRootBlockRead($read, $count);
+        if ($read === null) {
             return array_values(array_filter($trials, fn (array $trial): bool => $this->keepTrial($trial)));
         }
         $kept = [];
@@ -2925,10 +2936,12 @@ final class RepairPlanner
     /**
      * @param array<mixed>|null $read
      * @param int $count
+     *
+     * @return array<mixed>|null
      */
-    private static function rootBlockCountMatches(?array $read, int $count): bool
+    private static function matchingRootBlockRead(?array $read, int $count): ?array
     {
-        return $read !== null && $count === count(self::childrenOf($read));
+        return $read !== null && $count === count(self::childrenOf($read)) ? $read : null;
     }
 
     /**
