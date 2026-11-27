@@ -759,6 +759,14 @@ final class DataModel
         return $out;
     }
 
+    /**
+     * The line shape of `line-shapes.json` that a body has, read without the requires and at conditions (the `shape`
+     * line field of `lint-model.json`); `text` when no other shape fits.
+     *
+     * @param string $body
+     *
+     * @return string
+     */
     private static function shape(string $body): string
     {
         if ($body === '') {
@@ -769,6 +777,9 @@ final class DataModel
                 if (preg_match('/^:{3,}[ \t]*$/', $body)) {
                     return 'div_bare_run';
                 }
+                if (str_starts_with($body, ':::')) {
+                    return 'div_opener';
+                }
                 if (preg_match('/^::(?: |$)/', $body)) {
                     return 'term';
                 }
@@ -778,6 +789,9 @@ final class DataModel
 
                 break;
             case '{':
+                if (str_starts_with($body, '{{') && str_ends_with($body, '}}')) {
+                    return 'include';
+                }
                 // C2-B-090: glued valid blocks and trailing whitespace, read with the attribute grammar.
                 if (LineShapes::attributeLine($body, 0, strlen($body), new Attrs())) {
                     return 'attribute_line';
@@ -795,6 +809,31 @@ final class DataModel
                 if (preg_match('/^>(?: |$)/', $body)) {
                     return 'quote';
                 }
+
+                break;
+            case '%':
+                return str_starts_with($body, '%%%') ? 'comment_block_opener' : (str_starts_with($body, '%%') ? 'comment_only' : 'text');
+            case '^':
+                return str_starts_with($body, '^ ') ? 'caption' : 'text';
+            case '|':
+                return str_ends_with($body, '|') ? 'table_row' : 'text';
+            case '`':
+                return str_starts_with($body, '```') ? 'code_fence_opener' : 'text';
+            case '[':
+                if (str_contains($body, ']:')) {
+                    return str_starts_with($body, '[^') ? 'footnote_definition' : 'link_definition';
+                }
+
+                break;
+        }
+        if (str_starts_with($body, '---') || str_starts_with($body, '***') || str_starts_with($body, '___')) {
+            return 'thematic_break';
+        }
+        if (preg_match('/^[-*] /', $body)) {
+            return 'bullet';
+        }
+        if (preg_match('/^[0-9A-Za-z][^.)]*[.)] /', $body)) {
+            return 'ordered';
         }
 
         return 'text';
