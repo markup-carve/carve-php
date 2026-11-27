@@ -3131,7 +3131,11 @@ final class Writer
      */
     private static function authoredGroup(?array $layout): ?string
     {
-        $source = ControlLines::source($layout);
+        $source = $layout['source'] ?? null;
+        if (is_string($source) && ($layout['encoding'] ?? null) === 'base64') {
+            $source = base64_decode($source, true);
+        }
+        $source = is_string($source) ? $source : null;
         $from = null;
         $to = null;
         foreach (is_array($layout['nodes'] ?? null) ? $layout['nodes'] : [] as $entry) {
