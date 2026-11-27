@@ -130,6 +130,7 @@ final class ReadbackRound
         $outer = self::$memo;
         if ($outer === null) {
             Text::forgetBlockReads();
+            Inline::forgetCollapsedReads();
         }
         self::$memo ??= [];
         try {
