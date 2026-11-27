@@ -1014,12 +1014,13 @@ final class RepairPlanner
             return;
         }
         $done[$leaf][$kind] = true;
+        $edges = $kind === '/' || $kind === '*' ? self::textEdges($tree, $leaf) : [];
         foreach ($texts as $path) {
             $value = self::nodeAt($tree, $path)['value'] ?? null;
             if (!is_string($value)) {
                 continue;
             }
-            foreach (self::kindOffsets($kind, $value) as $at) {
+            foreach (self::kindOffsets($kind, $value, $edges[$path] ?? null) as $at) {
                 $expanded[$path][$at] = true;
             }
         }
@@ -2187,10 +2188,11 @@ final class RepairPlanner
                         continue;
                     }
                     $this->kindsDone[$leaf][$roundKind] = true;
+                    $edges = $roundKind === '/' || $roundKind === '*' ? self::textEdges($this->tree, $leaf) : [];
                     foreach ($this->leafTexts()[$leaf] ?? [] as $text) {
                         $other = self::nodeAt($this->tree, $text)['value'] ?? null;
                         if (is_string($other)) {
-                            foreach (self::kindOffsets($roundKind, $other) as $at) {
+                            foreach (self::kindOffsets($roundKind, $other, $edges[$text] ?? null) as $at) {
                                 $this->addEscape($text, $at);
                                 if ($other[$at] === '#') {
                                     $escapedHash[$leaf] = true;
@@ -2460,9 +2462,14 @@ final class RepairPlanner
                 }
             }
         }
+        $edges = [];
         foreach ($leaves as $path => $leaf) {
             foreach ($kinds[$leaf] ?? [] as $kind => $_) {
-                foreach (self::kindOffsets((string)$kind, $values[$path]) as $at) {
+                $kind = (string)$kind;
+                if ($kind === '/' || $kind === '*') {
+                    $edges[$leaf] ??= self::textEdges($tree, $leaf);
+                }
+                foreach (self::kindOffsets($kind, $values[$path], $edges[$leaf][$path] ?? null) as $at) {
                     if (!isset($escapes[$path][$at])) {
                         return false;
                     }
@@ -2504,9 +2511,13 @@ final class RepairPlanner
      * C2-W-088: the potential openers of a kind in a text: the first character of each run of its characters, the
      * brace of a braced opener, the second hyphen of a hyphen run, and a `/` or `*` its neighbors let open.
      *
+     * @param string $kind
+     * @param string $value
+     * @param array{?string, ?string}|null $edges The characters beside the text in its leaf block (`textEdges()`).
+     *
      * @return array<int>
      */
-    private static function kindOffsets(string $kind, string $value): array
+    private static function kindOffsets(string $kind, string $value, ?array $edges = null): array
     {
         $offsets = [];
         $n = strlen($value);
@@ -2523,8 +2534,7 @@ final class RepairPlanner
                 strlen($kind) === 2 && $ch === '{' => ($value[$i + 1] ?? '') === $kind[1]
                     && ($kind !== '{#' || ($prev !== '{' && $commentClose !== false && $commentClose > $i + 2)),
                 $kind === '--' => $prev === '-' && ($i < 2 || $value[$i - 2] !== '-') && ($value[$i + 1] ?? '') !== '',
-                $ch === '/' || $ch === '*' => $prev !== $ch && ($value[$i + 1] ?? '') !== $ch
-                    && !ctype_alnum($prev) && !in_array($value[$i + 1] ?? ' ', [' ', "\t", "\n"], true),
+                $ch === '/' || $ch === '*' => self::delimiterOpens($value, $i, $edges),
                 default => $prev !== $ch,
             };
             if ($open) {
@@ -2533,6 +2543,105 @@ final class RepairPlanner
         }
 
         return $offsets;
+    }
+
+    /**
+     * C2-I-047, C2-I-049: whether the `/` or `*` at `$at` can open by the characters written around it; at the edge of
+     * the text, by the leaf beside it (carve-js `canOpen`).
+     *
+     * @param string $value
+     * @param int $at
+     * @param array{?string, ?string}|null $edges
+     */
+    private static function delimiterOpens(string $value, int $at, ?array $edges): bool
+    {
+        $ch = $value[$at];
+        $before = $at > 0 ? $value[$at - 1] : ($edges === null ? '' : $edges[0] ?? '');
+        $after = $at + 1 < strlen($value) ? $value[$at + 1] : ($edges === null ? ' ' : $edges[1]);
+        if ($before === $ch || $after === $ch || $after === null) {
+            return false;
+        }
+        if ($at === 0 && $edges !== null ? preg_match('/^[\p{L}\p{N}]/u', $before) === 1 : ctype_alnum($before)) {
+            return false;
+        }
+
+        return $at + 1 < strlen($value) || $edges === null
+            ? !in_array($after, [' ', "\t", "\n"], true)
+            : preg_match('/^[\s\x{00A0}]/u', $after) !== 1;
+    }
+
+    /**
+     * The character beside each text of a leaf block, before and after it, as carve-js `edge()` reads the flattened
+     * leaves: null at a line edge, `!` beside other markup, `\` before a written hard break (C2-I-047).
+     *
+     * @param array<mixed> $tree
+     * @param string $leaf
+     *
+     * @return array<string, array{?string, ?string}>
+     */
+    private static function textEdges(array $tree, string $leaf): array
+    {
+        $node = self::nodeAt($tree, $leaf) ?? [];
+        // C2-W-080: in a line block a hard break is the bare line ending.
+        $bare = ($node['type'] ?? null) === 'line_block' || in_array('line_block', self::typesAlong($tree, $leaf), true);
+        $items = [];
+        self::flattenLeaf(self::childrenOf($node), $leaf, $bare, $items);
+        $edges = [];
+        foreach ($items as $k => [$kind, $path]) {
+            if ($kind === 'text') {
+                $edges[$path] = [self::edgeOf($items[$k - 1] ?? null, false), self::edgeOf($items[$k + 1] ?? null, true)];
+            }
+        }
+
+        return $edges;
+    }
+
+    /**
+     * The character a flattened leaf shows toward a text beside it (carve-js `edge()`).
+     *
+     * @param array{string, string, string, bool}|null $item
+     * @param bool $after
+     */
+    private static function edgeOf(?array $item, bool $after): ?string
+    {
+        [$kind, , $value, $backslash] = $item ?? ['', '', '', false];
+        if ($kind === 'markup' || ($kind === 'text' && $value === '')) {
+            return '!';
+        }
+        if ($kind !== 'text') {
+            return $kind === 'break' && $after && $backslash ? '\\' : null;
+        }
+
+        return preg_match($after ? '/^\X/u' : '/\X$/u', $value, $match) === 1 ? $match[0] : null;
+    }
+
+    /**
+     * The leaves of inline content in source order: each text by path and value, each break, and the markup before
+     * and after the content of every other node.
+     *
+     * @param array<mixed> $nodes
+     * @param bool $bare
+     * @param string $path
+     * @param array<int, array{string, string, string, bool}> $items
+     */
+    private static function flattenLeaf(array $nodes, string $path, bool $bare, array &$items): void
+    {
+        foreach ($nodes as $index => $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? null;
+            $at = $path . '/children/' . $index;
+            if ($type === 'text') {
+                $items[] = ['text', $at, is_string($node['value'] ?? null) ? $node['value'] : '', false];
+            } elseif ($type === 'soft_break' || $type === 'hard_break') {
+                $items[] = ['break', $at, '', $type === 'hard_break' && !$bare];
+            } else {
+                $items[] = ['markup', $at, '', false];
+                self::flattenLeaf(self::childrenOf($node), $at, $bare, $items);
+                $items[] = ['markup', $at, '', false];
+            }
+        }
     }
 
     private function addEscape(string $path, int $offset): bool
