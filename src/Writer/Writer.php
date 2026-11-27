@@ -285,6 +285,7 @@ final class Writer
             // outside a reference never depend on its authored spelling; the verbatim texts are taken after them.
             $verbatim = self::verbatimTexts($tree, $layout, $options);
             $writeLayout = $verbatim === [] ? $layout : self::withoutRawRefs($layout);
+            $outerVerbatim = self::$verbatimLayout;
             self::$verbatimLayout = $verbatim === [] ? null : $layout;
             try {
                 $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
@@ -293,7 +294,7 @@ final class Writer
                     ),
                 ));
             } finally {
-                self::$verbatimLayout = null;
+                self::$verbatimLayout = $outerVerbatim;
             }
             // The loss is judged after the verbatim texts are restored, so a refused rounds form may still read back.
             if ($verbatim !== [] && ($written->diagnostics === [] || self::onlyRefused($written))) {
