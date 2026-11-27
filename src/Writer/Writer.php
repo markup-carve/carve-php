@@ -81,6 +81,33 @@ final class Writer
     private static ?string $parsedSource = null;
 
     /**
+     * The fingerprint each read-back of the outer write gave, by source: the steps after the rounds read some of their
+     * forms again. Each entry also holds whether the read came through `ReadbackRound` and whether it has a table cell,
+     * the one node the two decodings spell apart. Null outside `writeWithDiagnostics()`.
+     *
+     * @var array<string, array{string, bool, bool}>|null
+     */
+    private static ?array $readPrints = null;
+
+    /**
+     * @var int The source bytes `$readPrints` keeps at most.
+     */
+    private const READ_PRINT_BYTES = 1_048_576;
+
+    /**
+     * `trimmedPrint()` of the last trees of the outer write, newest first: the steps after the rounds compare with the
+     * print the rounds compared with. Null outside `writeWithDiagnostics()`.
+     *
+     * @var array<int, array{array<string, mixed>, array<string, mixed>, string}>|null
+     */
+    private static ?array $trimmedPrints = null;
+
+    /**
+     * @var int The trees `$trimmedPrints` keeps at most.
+     */
+    private const TRIMMED_PRINTS = 4;
+
+    /**
      * Whether the write already reports a loss before its local write, so its read-back is skipped as carve-js skips
      * the check of a group with a loss.
      */
@@ -236,6 +263,10 @@ final class Writer
         $inGroups = self::$inGroups;
         $lossReported = self::$lossReported;
         $outerReadsSupplied = self::$readsSupplied;
+        $readPrints = self::$readPrints;
+        $trimmedPrints = self::$trimmedPrints;
+        self::$readPrints ??= [];
+        self::$trimmedPrints ??= [];
         self::$readsSupplied = $readsSupplied && $outerReadsSupplied;
         self::$captured = null;
         self::$inGroups = false;
@@ -282,6 +313,8 @@ final class Writer
             self::$inGroups = $inGroups;
             self::$lossReported = $lossReported;
             self::$readsSupplied = $outerReadsSupplied;
+            self::$readPrints = $readPrints;
+            self::$trimmedPrints = $trimmedPrints;
         }
     }
 
@@ -562,9 +595,7 @@ final class Writer
         if ($spans === []) {
             return $written;
         }
-        $removed = [];
-        $trimmed = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
-        $treePrint = TreeEquality::fingerprint($trimmed);
+        $treePrint = self::trimmedPrint($tree, $layout, $options);
         $all = self::spliced($source, $spans);
         $read = self::readTree($all, $options);
         if (TreeEquality::fingerprint($read) === $treePrint) {
@@ -573,6 +604,8 @@ final class Writer
         if (in_array(-1, array_column($spans, 3), true)) {
             return self::verbatimOneByOne($written, $spans, $treePrint, $options);
         }
+        $removed = [];
+        $trimmed = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed);
         $final = self::verbatimByBlock($source, $spans, $read, $trimmed, $options);
         if ($final === []) {
             return $written;
@@ -3080,9 +3113,19 @@ final class Writer
      */
     private static function trimmedPrint(array $tree, ?array $layout, array $options): string
     {
+        $formats = self::tableFormats($layout, $options);
+        foreach (self::$trimmedPrints ?? [] as [$known, $knownFormats, $print]) {
+            if ($known === $tree && $knownFormats === $formats) {
+                return $print;
+            }
+        }
         $removed = [];
+        $print = TreeEquality::fingerprint(LineEndBlanks::trimmed($tree, $formats, $removed));
+        if (self::$trimmedPrints !== null) {
+            self::$trimmedPrints = [[$tree, $formats, $print], ...array_slice(self::$trimmedPrints, 0, self::TRIMMED_PRINTS - 1)];
+        }
 
-        return TreeEquality::fingerprint(LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options), $removed));
+        return $print;
     }
 
     /**
@@ -3574,12 +3617,62 @@ final class Writer
      */
     private static function readsBack(string $source, string $treePrint, array $options, bool $keep = false): bool
     {
-        if (ReadbackRound::memoActive() && !isset($options['extensions'])) {
-            return TreeEquality::fingerprint(ReadbackRound::read($source, $options, $keep)) === $treePrint;
-        }
-        $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
+        if (isset($options['extensions'])) {
+            $parseOptions = ['extensions' => $options['extensions']];
 
-        return TreeEquality::fingerprint(TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions))) === $treePrint;
+            return TreeEquality::fingerprint(TreeEncoder::decodedForWriter(Carve::parse($source, $parseOptions))) === $treePrint;
+        }
+        $round = ReadbackRound::memoActive();
+        $known = self::$readPrints[$source] ?? null;
+        if ($known !== null && ($known[1] === $round || !$known[2])) {
+            return $known[0] === $treePrint;
+        }
+        $read = $round ? ReadbackRound::read($source, $options, $keep) : TreeEncoder::decodedForWriter(Carve::parse($source));
+        $print = TreeEquality::fingerprint($read);
+        if (self::$readPrints !== null) {
+            self::keepReadPrint($source, [$print, $round, self::hasTableCell($read)]);
+        }
+
+        return $print === $treePrint;
+    }
+
+    /**
+     * @param string $source
+     * @param array{string, bool, bool} $entry
+     */
+    private static function keepReadPrint(string $source, array $entry): void
+    {
+        if (strlen($source) > self::READ_PRINT_BYTES) {
+            return;
+        }
+        $prints = self::$readPrints ?? [];
+        unset($prints[$source]);
+        $prints[$source] = $entry;
+        $bytes = 0;
+        foreach (array_reverse(array_keys($prints)) as $kept) {
+            $bytes += strlen((string)$kept);
+            if ($bytes > self::READ_PRINT_BYTES) {
+                unset($prints[$kept]);
+            }
+        }
+        self::$readPrints = $prints;
+    }
+
+    /**
+     * @param array<mixed> $node
+     */
+    private static function hasTableCell(array $node): bool
+    {
+        if (($node['type'] ?? null) === 'table_cell') {
+            return true;
+        }
+        foreach ($node as $value) {
+            if (is_array($value) && self::hasTableCell($value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
