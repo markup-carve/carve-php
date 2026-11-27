@@ -1713,18 +1713,21 @@ final class RepairPlanner
      *
      * @param array<array{string, string}> $missing
      * @param array<array{string, int}> $stops
+     * @return array<array{string, int}>
      */
-    private static function stoppedOnMissing(array $missing, array $stops): bool
+    private static function stopsOnMissing(array $missing, array $stops): array
     {
-        foreach ($missing as [$path]) {
-            foreach ($stops as [$prefix, $index]) {
+        $matched = [];
+        foreach ($stops as [$prefix, $index]) {
+            foreach ($missing as [$path]) {
                 if ($path === $prefix . $index) {
-                    return true;
+                    $matched[] = [$prefix, $index];
+                    break;
                 }
             }
         }
 
-        return false;
+        return $matched;
     }
 
     /**
@@ -1766,10 +1769,11 @@ final class RepairPlanner
         $missing = self::missingSiblings($candidate, $read, $this->layout !== null);
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
         // Only a stop at a node that did not form bounds the openers this comparison reached.
-        if (!$this->kindRounds && $this->parent === null && self::stoppedOnMissing($missing, $stops)) {
+        $missingStops = self::stopsOnMissing($missing, $stops);
+        if (!$this->kindRounds && $this->parent === null && $missingStops !== []) {
             $comparison['openers'] = array_filter(
                 $comparison['openers'],
-                static fn (string $path): bool => !self::behindStop($path, $stops),
+                static fn (string $path): bool => !self::behindStop($path, $missingStops),
                 ARRAY_FILTER_USE_KEY,
             );
         }
@@ -2890,8 +2894,9 @@ final class RepairPlanner
     }
 
     /**
-     * Whether every read-back inline construct belongs to the same leaf block and occurs in the same order as a
-     * construct of the tree. A different construct gives its kind before the trials of that round are tested.
+     * Whether every read-back inline construct belongs to the same leaf block, including a caption, and occurs in
+     * the same order as a construct of the tree. A different construct gives its kind before the trials of that round
+     * are tested.
      *
      * @param array<mixed> $expected
      * @param array<mixed> $actual
@@ -2933,6 +2938,9 @@ final class RepairPlanner
         $pending = array_reverse(self::childrenOf($root));
         while ($pending !== []) {
             $node = array_pop($pending);
+            if (is_array($node['caption'] ?? null)) {
+                $pending[] = $node['caption'];
+            }
             if (in_array($node['type'] ?? '', ['paragraph', 'heading', 'definition_term', 'cell_paragraph', 'line', 'citation_definition'], true)) {
                 $leaves[] = $node;
             } else {
