@@ -149,6 +149,11 @@ final class Inline
     private array $caseEightLinks = [];
 
     /**
+     * @var array<string, bool> Whether `[candidate][]` reads alone as the collapsed reference, by key, children and candidate.
+     */
+    private array $collapsedReads = [];
+
+    /**
      * Whether the span being written follows a bare `!`, behind which its bracket reads as span text (C2-W-125).
      */
     private bool $spanAfterBang = false;
@@ -482,8 +487,9 @@ final class Inline
      * The shape of the tree's own inline nodes, spelled as `shape()` spells parsed ones.
      *
      * @param array<mixed> $nodes
+     * @param bool $numbered Without it the footnote numbers stay out, as an inline read alone gives none.
      */
-    private static function treeShape(array $nodes): string
+    private static function treeShape(array $nodes, bool $numbered = true): string
     {
         $out = '';
         foreach ($nodes as $node) {
@@ -492,10 +498,13 @@ final class Inline
             }
             $fields = $node;
             unset($fields['type'], $fields['children'], $fields['pos']);
+            if (!$numbered) {
+                unset($fields['number']);
+            }
             ksort($fields);
             $children = is_array($node['children'] ?? null) ? $node['children'] : [];
             $out .= '(' . self::str($node, 'type') . (string)json_encode($fields, JSON_PARTIAL_OUTPUT_ON_ERROR)
-                . self::treeShape($children) . ')';
+                . self::treeShape($children, $numbered) . ')';
         }
 
         return $out;
@@ -3088,14 +3097,15 @@ final class Inline
         $inner = $this->inside($children, $path . '/children', $c);
         // C2-W-125 case five: a caret at the start of link text would read as a footnote reference.
         if (
-            $this->noteDepth === 0 && !isset($this->caseEightLinks[$path]) && self::leadsWithCaretText($children)
+            $this->noteDepth === 0 && !isset($this->caseEightLinks[$path]) && !self::keyIsContent($node)
+            && self::leadsWithCaretText($children)
             && str_starts_with($this->w->repairTrace?->decode($inner)['source'] ?? $inner, '^')
         ) {
             $inner = '\\' . $inner;
         }
 
         if (in_array($node['refForm'] ?? '', ['collapsed', 'shortcut'], true) && is_string($node['key'] ?? null)) {
-            $inner = $this->keySpelled($inner, $node['key']);
+            $inner = $this->keySpelled($inner, $node['key'], $children);
         }
 
         return '[' . $inner . ']' . $this->target($node, self::str($node, 'href'), $c, $path);
@@ -3180,18 +3190,82 @@ final class Inline
 
     /**
      * The content of a collapsed or shortcut reference as its key spells it. A marked write respells its decoded content,
-     * so it spells the key as the bare write does (C2-W-088).
+     * so it spells the key as the bare write does (C2-W-088). C2-W-075: the key spelling is taken only where it reads
+     * alone as the reference, so a content the rounds escaped keeps their backslashes otherwise (carve-js `labelLike`).
+     *
+     * @param string $inner
+     * @param string $key
+     * @param array<mixed> $children
      */
-    private function keySpelled(string $inner, string $key): string
+    private function keySpelled(string $inner, string $key, array $children): string
     {
         $trace = $this->w->repairTrace;
         $plain = $trace?->decode($inner)['source'] ?? $inner;
-        $like = Chars::fold($plain) === $key ? null : self::escapedLike($plain, $key);
+        $like = match (true) {
+            Chars::fold($plain) === $key => null,
+            $trace === null => self::escapedLike($plain, $key),
+            default => $this->labelLike($plain, $key, $children),
+        };
         if ($like === null) {
             return $inner;
         }
 
         return $trace === null ? $like : $trace->respelled($inner, $plain, $like) ?? $inner;
+    }
+
+    /**
+     * C2-W-075: the first spelling of the content that folds to the key and reads back as the reference, or null.
+     *
+     * @param string $content
+     * @param string $key
+     * @param array<mixed> $children
+     */
+    private function labelLike(string $content, string $key, array $children): ?string
+    {
+        foreach ([self::escapedLike($content, $key), self::spacedLike($content, $key), $key] as $candidate) {
+            if ($candidate !== null && $this->readsAsCollapsed($candidate, $key, $children)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * C2-I-078, C2-I-079: a collapsed or shortcut reference whose key, its content, starts with a caret; the writer spells
+     * that caret through the key.
+     *
+     * @param array<mixed> $node
+     */
+    private static function keyIsContent(array $node): bool
+    {
+        $key = $node['key'] ?? null;
+
+        return in_array($node['refForm'] ?? '', ['collapsed', 'shortcut'], true) && is_string($key) && str_starts_with($key, '^');
+    }
+
+    /**
+     * Whether `[$candidate][]` read inside its brackets, with no definitions, is one link with the key `$key` and the
+     * children `$children`.
+     *
+     * @param string $candidate
+     * @param string $key
+     * @param array<mixed> $children
+     */
+    private function readsAsCollapsed(string $candidate, string $key, array $children): bool
+    {
+        // The inline read alone numbers no footnote; the resolution stage does that.
+        $shape = self::treeShape($children, false);
+        $memo = $key . "\0" . $candidate . "\0" . $shape;
+        if (isset($this->collapsedReads[$memo])) {
+            return $this->collapsedReads[$memo];
+        }
+        $source = '[' . $candidate . '][]';
+        $read = InlineRunner::parse($source, self::lineSpans($source), new InlineContext());
+        $link = count($read) === 1 ? $read[0] : null;
+
+        return $this->collapsedReads[$memo] = $link !== null && $link->type === 'link' && ($link->f['key'] ?? null) === $key
+            && self::shape($link->children ?? []) === $shape;
     }
 
     /**

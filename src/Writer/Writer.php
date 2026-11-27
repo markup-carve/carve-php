@@ -108,6 +108,13 @@ final class Writer
     private const TRIMMED_PRINTS = 4;
 
     /**
+     * The layout with its verbatim reference texts while the rounds write every reference from the tree (C2-W-075).
+     *
+     * @var array<mixed>|null
+     */
+    private static ?array $verbatimLayout = null;
+
+    /**
      * Whether the write already reports a loss before its local write, so its read-back is skipped as carve-js skips
      * the check of a group with a loss.
      */
@@ -278,25 +285,21 @@ final class Writer
             // outside a reference never depend on its authored spelling; the verbatim texts are taken after them.
             $verbatim = self::verbatimTexts($tree, $layout, $options);
             $writeLayout = $verbatim === [] ? $layout : self::withoutRawRefs($layout);
-            $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
-                static fn (): WriteResult => WriteMemo::scoped(
-                    static fn (): WriteResult => self::writeChecked($tree, $writeLayout, $options),
-                ),
-            ));
+            $outerVerbatim = self::$verbatimLayout;
+            self::$verbatimLayout = $verbatim === [] ? null : $layout;
+            try {
+                $written = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
+                    static fn (): WriteResult => WriteMemo::scoped(
+                        static fn (): WriteResult => self::writeChecked($tree, $writeLayout, $options),
+                    ),
+                ));
+            } finally {
+                self::$verbatimLayout = $outerVerbatim;
+            }
             // The loss is judged after the verbatim texts are restored, so a refused rounds form may still read back.
             if ($verbatim !== [] && ($written->diagnostics === [] || self::onlyRefused($written))) {
                 $written = self::withVerbatimReferences($written, $verbatim, $tree, $layout, $options);
             }
-            if ($verbatim !== [] && $written->diagnostics !== []) {
-                // Where the rounds give no form without a loss, a write that keeps the verbatim texts in them may.
-                $kept = ReadbackRound::memoized(static fn (): WriteResult => Blocks::withLeadMemo(
-                    static fn (): WriteResult => WriteMemo::scoped(
-                        static fn (): WriteResult => self::writeChecked($tree, $layout, $options),
-                    ),
-                ));
-                $written = $kept->diagnostics === [] ? $kept : $written;
-            }
-
             $written = self::withAuthoredBlock($written, $tree, $layout, $options);
 
             if ($written->diagnostics === [] && self::notePrunable($written->source)) {
@@ -1576,26 +1579,50 @@ final class Writer
             [$repaired, $spans] = $scoped;
         } else {
             $planner ??= new RepairPlanner($tree, $layout, $options, $seed, $treePrint);
-            $repaired = $planner->repair();
+            $repaired = $planner->repair() ?? self::passSettled($planner, $tree, $options, $treePrint);
         }
+        $passes = $planner === null ? [] : [$planner];
         if ($repaired === null) {
             // C2-W-088: where the kind rounds end with a node that did not read back, rounds that escape only the
             // reported openers write the group again.
             $openers = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))->reportedOpenersAfter($planner);
-            $repaired = $openers->repair();
+            $passes[] = $openers;
+            $repaired = $openers->repair() ?? self::passSettled($openers, $tree, $options, $treePrint);
             $spans = null;
             if ($repaired === null) {
                 // C2-W-125: where every form loses a node, the passes by kind and by reported opener run again and
                 // retest the escapes they placed together.
                 $byKind = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))
                     ->chargedAfter($openers)->retestingAfter(null)->twinOf($planner);
-                $repaired = $byKind->repair();
+                $passes[] = $byKind;
+                $repaired = $byKind->repair() ?? self::passSettled($byKind, $tree, $options, $treePrint);
                 if ($repaired === null) {
-                    $repaired = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))
-                        ->reportedOpenersAfter($byKind)->retestingAfter($byKind)->twinOf($openers)->repair();
+                    $last = (new RepairPlanner($tree, $layout, $options, $seed, $treePrint))
+                        ->reportedOpenersAfter($byKind)->retestingAfter($byKind)->twinOf($openers);
+                    $passes[] = $last;
+                    $repaired = $last->repair() ?? self::passSettled($last, $tree, $options, $treePrint);
                 }
             }
         }
+        // The form of the groups where no pass settles every group; the authored-block fallback starts from it.
+        $unsettled = null;
+        if (count($passes) > 1 && ($repaired === null || end($passes)->resultEscapes() !== null)) {
+            $local = null;
+            if ($removed === [] && $result->diagnostics === []) {
+                $groups ??= self::recording(
+                    static fn (): string => self::localWrite($tree, $layout, $options, false)[0]->source,
+                    false,
+                )[1][0][1] ?? null;
+                $local = $groups === null ? null : [$result->source, $groups];
+            }
+            [$joined, $holds] = self::groupPasses($passes, $local, $tree, $layout, $options, $treePrint) ?? [null, false];
+            if ($holds) {
+                $repaired = $joined;
+            } elseif ($repaired === null) {
+                $unsettled = $joined;
+            }
+        }
+        unset($passes);
 
         if ($repaired === null) {
             // C2-W-125, case eight: the conservative form escapes the bracket of every `^[`, which lets a caret pair the
@@ -1609,13 +1636,93 @@ final class Writer
                 }
             }
 
-            return self::unrepairedOr($fallback, $tree, $result, $options);
+            return self::unrepairedOr($fallback, $tree, $unsettled === null ? $result : new WriteResult($unsettled, []), $options);
         }
 
         $pruned = self::prunedNoteCarets($repaired, $treePrint, $options, $parsed);
         $repaired = self::prunedEmptyLabelBrackets($pruned, $treePrint, $options, $pruned === $repaired ? $spans : null);
 
         return new WriteResult($repaired, []);
+    }
+
+    /**
+     * C2-W-088: the passes run group by group (carve-js `repairGroup`), so a top-level group keeps the form of the first
+     * pass in which all of its blocks read back, and a group no pass settles takes the form of the last one. A group the
+     * local write already gives (carve-js `planGroup`) keeps that form. The join of those forms and whether it reads
+     * back as the tree; null for a single group or where the passes split the groups differently.
+     *
+     * @param array<int, \MarkupCarve\Carve\Writer\RepairPlanner> $passes
+     * @param array{string, array<int, array{int, int, int, int, bool}>}|null $local The local write and its group ranges.
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     * @param string $treePrint
+     *
+     * @return array{string, bool}|null
+     */
+    private static function groupPasses(
+        array $passes,
+        ?array $local,
+        array $tree,
+        ?array $layout,
+        array $options,
+        string $treePrint,
+    ): ?array {
+        $treeParts = RepairPlanner::readPrints($tree)[1];
+        $taken = [];
+        $forms = [];
+        foreach ($local === null ? $passes : [$local, ...$passes] as $pass) {
+            if (is_array($pass)) {
+                [$source, $ranges] = $pass;
+            } else {
+                $ranges = null;
+                $source = self::recordedBare($tree, $layout, $options, $pass->resultEscapes() ?? $pass->lastEscapes(), $ranges);
+            }
+            if ($ranges === null || count($ranges) < 2 || ($forms !== [] && count($forms[0][1]) !== count($ranges))) {
+                return null;
+            }
+            $forms[] = [$source, $ranges];
+            $parts = RepairPlanner::readPrints(ReadbackRound::read($source, $options))[1];
+            foreach ($ranges as $g => [$first, $last]) {
+                $holds = !isset($taken[$g]);
+                for ($i = $first; $i <= $last && $holds; $i++) {
+                    $holds = ($treeParts['/children/' . $i] ?? null) === ($parts['/children/' . $i] ?? '');
+                }
+                if ($holds) {
+                    $taken[$g] = count($forms) - 1;
+                }
+            }
+        }
+        [$lastSource, $lastRanges] = $forms[count($forms) - 1];
+        $joined = '';
+        $at = 0;
+        foreach ($lastRanges as $g => [, , $start, $end]) {
+            [$source, $ranges] = $forms[$taken[$g] ?? count($forms) - 1];
+            $joined .= substr($lastSource, $at, $start - $at) . substr($source, $ranges[$g][2], $ranges[$g][3] - $ranges[$g][2]);
+            $at = $end;
+        }
+        $joined .= substr($lastSource, $at);
+
+        return [$joined, self::readsBack($joined, $treePrint, $options)];
+    }
+
+    /**
+     * C2-W-075 (carve#6813): a pass that stops on a loss settles where its loss is only one of the temporary reference
+     * forms: written with the verbatim reference texts, its escapes read back as the tree (carve-js `passSettled`).
+     *
+     * @param \MarkupCarve\Carve\Writer\RepairPlanner $pass
+     * @param array<string, mixed> $tree
+     * @param array<string, mixed> $options
+     * @param string $treePrint
+     */
+    private static function passSettled(RepairPlanner $pass, array $tree, array $options, string $treePrint): ?string
+    {
+        if (self::$verbatimLayout === null) {
+            return null;
+        }
+        $verbatim = self::bareSource($tree, self::$verbatimLayout, $options, $pass->lastEscapes());
+
+        return self::readsBack($verbatim, $treePrint, $options) ? $verbatim : null;
     }
 
     /**
