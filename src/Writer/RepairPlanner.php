@@ -1685,6 +1685,49 @@ final class RepairPlanner
     }
 
     /**
+     * A comparison that stopped inside an inline list has not reached later siblings of that list. A reported-opener
+     * pass takes only the repairs reached by the comparison, as carve-js `compareList` does.
+     *
+     * @param array<array{string, int}> $stops
+     */
+    private static function behindStop(string $path, array $stops): bool
+    {
+        foreach ($stops as [$prefix, $stop]) {
+            if (!str_starts_with($path, $prefix)) {
+                continue;
+            }
+            $rest = substr($path, strlen($prefix));
+            $cut = strpos($rest, '/');
+            $index = $cut === false ? $rest : substr($rest, 0, $cut);
+            if (ctype_digit($index) && (int)$index > $stop) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A stop on a missing node is the comparison's loss boundary. A stop elsewhere can still be crossed by a later
+     * respelling of that node, so it must not suppress the reports beyond it.
+     *
+     * @param array<array{string, string}> $missing
+     * @param array<array{string, int}> $stops
+     */
+    private static function stoppedOnMissing(array $missing, array $stops): bool
+    {
+        foreach ($missing as [$path]) {
+            foreach ($stops as [$prefix, $index]) {
+                if ($path === $prefix . $index) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The characters the rounds have read so far, the measure of C2-W-133.
      */
     public function charactersRead(): int
@@ -1717,10 +1760,19 @@ final class RepairPlanner
         $firsts = [];
         $differs = [];
         $keys = [];
+        $stops = [];
         $read = $comparison['read'];
-        $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys);
+        $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys, $stops);
         $missing = self::missingSiblings($candidate, $read);
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
+        // Only a stop at a node that did not form bounds the openers this comparison reached.
+        if (!$this->kindRounds && $this->parent === null && self::stoppedOnMissing($missing, $stops)) {
+            $comparison['openers'] = array_filter(
+                $comparison['openers'],
+                static fn (string $path): bool => !self::behindStop($path, $stops),
+                ARRAY_FILTER_USE_KEY,
+            );
+        }
         $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
         unset($read);
         if ($asked === [] && $trials === [] && $comparison['openers'] === []) {
@@ -2743,10 +2795,11 @@ final class RepairPlanner
         // C2-W-088, C2-W-125: the procedure runs per text in its leaf block, so each leaf takes the trial of its own
         // first missing node in the same round, and a leaf's escapes do not depend on the leaves around it.
         $trials = [];
+        $spent = [];
         $across = null;
         foreach ($missing as [$path, $prior]) {
             $leaf = $this->leafOf($path);
-            if (isset($trials[$leaf])) {
+            if (isset($trials[$leaf]) || isset($spent[$leaf])) {
                 continue;
             }
             $step = $this->attempts[$path] ?? 0;
@@ -2754,6 +2807,8 @@ final class RepairPlanner
             $this->attempts[$path] = $step;
             if ($trial !== null) {
                 $trials[$leaf] = $trial;
+            } elseif (!$this->kindRounds && $this->parent === null) {
+                $spent[$leaf] = true;
             }
         }
 
@@ -2771,6 +2826,17 @@ final class RepairPlanner
     private function keptTrials(array $trials): array
     {
         $small = array_filter($trials, static fn (array $trial): bool => count($trial) <= 4);
+        // When the first parse holds a construct the tree does not, its reported kind runs before C2-W-125 decides
+        // whether several trials together are idle. Keep those trials for the next comparison, as carve-js
+        // `dropIdleTrials` does; the local leaf comparison cannot prove them needless yet.
+        if (
+            count($trials) >= 2 && count($trials) <= self::MAX_RETESTED_TRIALS
+            && $this->roundRead !== null && !self::readsNoOtherNode($this->tree, $this->roundRead[2])
+        ) {
+            $this->roundRead = null;
+
+            return $trials;
+        }
         if (count($small) < 2) {
             // Only the fingerprint of the round's read-back is kept, so it is not held beside the trial reads.
             if ($small !== [] && $this->roundRead !== null) {
@@ -2821,6 +2887,62 @@ final class RepairPlanner
         }
 
         return $kept;
+    }
+
+    /**
+     * Whether every read-back inline construct belongs to the same leaf block and occurs in the same order as a
+     * construct of the tree. A different construct gives its kind before the trials of that round are tested.
+     *
+     * @param array<mixed> $expected
+     * @param array<mixed> $actual
+     */
+    private static function readsNoOtherNode(array $expected, array $actual): bool
+    {
+        $wanted = self::inlineLeaves($expected);
+        $read = self::inlineLeaves($actual);
+        if (count($wanted) !== count($read)) {
+            return false;
+        }
+        foreach ($read as $at => $leaf) {
+            $held = self::childrenOf($wanted[$at]);
+            $index = 0;
+            foreach (self::childrenOf($leaf) as $node) {
+                if (in_array($node['type'] ?? '', ['text', 'soft_break', 'hard_break'], true)) {
+                    continue;
+                }
+                while (isset($held[$index]) && !TreeEquality::same($held[$index], $node)) {
+                    $index++;
+                }
+                if (!isset($held[$index])) {
+                    return false;
+                }
+                $index++;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array<mixed> $root
+     * @return array<array<mixed>>
+     */
+    private static function inlineLeaves(array $root): array
+    {
+        $leaves = [];
+        $pending = array_reverse(self::childrenOf($root));
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if (in_array($node['type'] ?? '', ['paragraph', 'heading', 'definition_term', 'cell_paragraph', 'line', 'citation_definition'], true)) {
+                $leaves[] = $node;
+            } else {
+                foreach (array_reverse(self::childrenOf($node)) as $child) {
+                    $pending[] = $child;
+                }
+            }
+        }
+
+        return $leaves;
     }
 
     /**
@@ -2976,7 +3098,10 @@ final class RepairPlanner
                     continue;
                 }
             }
-            if (self::heldAsText($candidate['ranges'] ?? [], $ends, [$type, $start, $prior], $priorId !== null)) {
+            if (
+                self::heldAsText($candidate['ranges'] ?? [], $ends, [$type, $start, $prior], $priorId !== null)
+                || ($index === 0 && !isset($ends[$type . ':' . $start]) && ($ends['text:' . $start] ?? $start) > $start)
+            ) {
                 $missing[] = [RepairTrace::unpackPath((string)$packed), RepairTrace::unpackPath($prior)];
 
                 continue;
