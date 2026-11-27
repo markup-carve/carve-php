@@ -38,6 +38,19 @@ final class CompareRound
     private array $nodeStarts = [];
 
     /**
+     * @var array<array{string, int}> Inline sibling lists the comparison stopped before finishing.
+     */
+    private array $stops = [];
+
+    /**
+     * @var array<int, string>
+     */
+    private const BLOCK_LISTS = [
+        'document', 'block_quote', 'list', 'list_item', 'div', 'admonition', 'description_list', 'description',
+        'footnote', 'table', 'table_row', 'figure', 'figure_group', 'section',
+    ];
+
+    /**
      * @var array<string, int> The written end offset of each expected inline node, by `RepairTrace::packPath()`.
      */
     private array $nodeEnds = [];
@@ -105,6 +118,7 @@ final class CompareRound
      *   otherwise, which the round adds as reported kinds.
      * @param array<string, array<int, true>> $keys Set to the `=` of each node whose braced spelling read as an
      *   attribute block (C2-W-125, case nine), which the round asks only where no other repair applies.
+     * @param array<array{string, int}> $stops Inline sibling lists the comparison stopped before finishing.
      *
      * @return array<string, array<int, true>>
      */
@@ -117,6 +131,7 @@ final class CompareRound
         ?array &$firsts = null,
         array &$differs = [],
         array &$keys = [],
+        array &$stops = [],
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
@@ -137,6 +152,7 @@ final class CompareRound
         }
         $firsts = $comparison->firsts;
         $differs = $comparison->differs;
+        $stops = $comparison->stops;
 
         return $comparison->asks;
     }
@@ -172,12 +188,27 @@ final class CompareRound
                 $this->keyBehindText($want, $have, $path, $nodePath, $i, $j, $aj);
             }
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
+                $this->recordStop($expected, $path, $i, $count);
+
                 return;
             }
             if (!$more) {
                 $vi = 0;
                 $aj = 0;
             }
+        }
+    }
+
+    /**
+     * @param array<mixed> $owner
+     * @param string $path
+     * @param int $index
+     * @param int $count
+     */
+    private function recordStop(array $owner, string $path, int $index, int $count): void
+    {
+        if ($index + 1 < $count && !in_array($owner['type'] ?? '', self::BLOCK_LISTS, true)) {
+            $this->stops[] = [$path . '/children/', $index];
         }
     }
 
@@ -456,10 +487,10 @@ final class CompareRound
     /**
      * @param string $value
      * @param array<mixed> $other
-     * @param int $vi
-     * @param int $j
-     * @param int $i
      * @param string $path
+     * @param int $i
+     * @param int $j
+     * @param int $vi
      * @param string $owner The type of the node whose content ends with this text, or ''.
      */
     private function matchConstruct(string $value, array $other, string $path, int &$i, int &$j, int &$vi, string $owner = ''): bool
@@ -468,7 +499,7 @@ final class CompareRound
         if (($value[$at] ?? '') === '{' && ($other['type'] ?? '') === 'smart_punctuation') {
             $at += 2;
         }
-        $this->ask($path, $at);
+        $this->askOpener($value, $other, $path, $at);
         // C2-W-125, case one: the content's last brace reads with the owner's closing mark as a braced opener, so the
         // owner reads on; that repairs the tree's own node and gives no kind (C2-W-088).
         $mark = self::closer($owner);
@@ -494,6 +525,34 @@ final class CompareRound
         }
 
         return true;
+    }
+
+    /**
+     * C2-W-090, C2-W-099: the opener of a construct the parse read takes the backslash on the character its kind names,
+     * the bracket of `![` and `^[`, and on its first character where that one takes none (carve-js `escapeOpener`).
+     *
+     * @param string $value
+     * @param array<mixed> $other
+     * @param string $path
+     * @param int $at
+     */
+    private function askOpener(string $value, array $other, string $path, int $at): void
+    {
+        $type = $other['type'] ?? '';
+        $shifted = $at + strspn($value, " \t", $at) + match ($type) {
+            'image', 'literal_inline' => 1,
+            'math' => ($other['display'] ?? false) === true ? 2 : 1,
+            'smart_punctuation' => ($value[$at] ?? '') === '-' ? 1 : 0,
+            default => 0,
+        };
+        if ($shifted !== $at && $shifted < strlen($value)) {
+            $asked = $this->asked;
+            $this->ask($path, $shifted);
+            if ($this->asked > $asked) {
+                return;
+            }
+        }
+        $this->ask($path, $at);
     }
 
     /**
