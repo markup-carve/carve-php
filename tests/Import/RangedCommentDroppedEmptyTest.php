@@ -91,4 +91,15 @@ final class RangedCommentDroppedEmptyTest extends TestCase
         $messages = array_map(fn ($diagnostic) => $diagnostic->message, $result->diagnostics);
         $this->assertSame(['Empty HTML em with attributes dropped'], $messages);
     }
+
+    public function testClaimedEndAloneInFormattingElementIsNotRangeContent(): void
+    {
+        $html = '<p><span class="comment-start" data-comment-id="1">n</span>'
+            . '<em><span class="comment-end" data-comment-id="1"></span></em>y</p>';
+        foreach ([false, true] as $rawHtml) {
+            $result = Carve::importHtml($html, ['rawHtml' => $rawHtml]);
+            $this->assertSame("{#n#}y\n", $result->source);
+            $this->assertSame([], $result->codes());
+        }
+    }
 }
