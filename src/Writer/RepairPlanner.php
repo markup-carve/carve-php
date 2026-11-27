@@ -1389,13 +1389,15 @@ final class RepairPlanner
         [$candidate, $comparison] = $compared;
         unset($compared);
         $reports = $comparison['openers'];
+        $oneGroup = count($this->tree['children'] ?? []) === 1
+            && (($this->tree['children'][0]['type'] ?? null) === 'paragraph' || count($links) === 1);
         if ($reports !== []) {
-            if ($this->breaksLink($candidate, $comparison, $links)) {
+            if (($oneGroup && $this->gluedCloser($placed)) || $this->breaksLink($candidate, $comparison, $links)) {
                 return null;
             }
             $state = get_object_vars($this);
             $this->appliedRound($escapes, $candidate, $comparison);
-            if (!$this->linkRepairRequested()) {
+            if (!$this->linkRepairRequested() && !($oneGroup && $this->bareTextOpener($placed))) {
                 $this->addAsked($placed);
                 $this->notePlaced($placed);
 
@@ -1403,6 +1405,10 @@ final class RepairPlanner
             }
             foreach ($state as $name => $value) {
                 $this->{$name} = $value;
+            }
+
+            if ($oneGroup) {
+                return null;
             }
         }
         $this->addAsked($placed);
@@ -1419,6 +1425,62 @@ final class RepairPlanner
         foreach ($placed as $path => $offsets) {
             $this->linkPlaced[$path] = ($this->linkPlaced[$path] ?? []) + $offsets;
         }
+    }
+
+    /**
+     * Whether a leaf block that holds a lone link bracket still holds a bare text `[` outside every link after the
+     * round: the link backslashes change which `]` it can pair with, so the rounds decide it one round at a time.
+     *
+     * @param array<string, array<int, true>> $placed
+     */
+    private function bareTextOpener(array $placed): bool
+    {
+        $inLink = $this->linkTexts();
+        $leafOf = [];
+        foreach ($this->leafTexts() as $leaf => $texts) {
+            foreach ($texts as $text) {
+                $leafOf[$text] = $leaf;
+            }
+        }
+        $leaves = [];
+        foreach ($placed as $path => $_) {
+            $leaves[$leafOf[$path] ?? $this->leafOf($path)] = true;
+        }
+        $texts = $this->leafTexts();
+        foreach ($leaves as $leaf => $_) {
+            foreach ($texts[$leaf] ?? [] as $text) {
+                if (isset($inLink[$text])) {
+                    continue;
+                }
+                $value = self::leafValue($this->tree, $text) ?? '';
+                for ($at = strpos($value, '['); $at !== false; $at = strpos($value, '[', $at + 1)) {
+                    if (!isset($this->escapes[$text][$at])) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a lone `]` of link text stands right before `[`, `{` or `(`, where read bare it opens another construct.
+     *
+     * @param array<string, array<int, true>> $placed
+     */
+    private function gluedCloser(array $placed): bool
+    {
+        foreach ($placed as $path => $offsets) {
+            $value = self::leafValue($this->tree, $path) ?? '';
+            foreach ($offsets as $at => $_) {
+                if ($value[$at] === ']' && str_contains('[{(', $value[$at + 1] ?? 'x')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
