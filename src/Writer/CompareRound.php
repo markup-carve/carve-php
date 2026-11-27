@@ -468,7 +468,7 @@ final class CompareRound
         if (($value[$at] ?? '') === '{' && ($other['type'] ?? '') === 'smart_punctuation') {
             $at += 2;
         }
-        $this->ask($path, $at);
+        $this->askOpener($value, $other, $path, $at);
         // C2-W-125, case one: the content's last brace reads with the owner's closing mark as a braced opener, so the
         // owner reads on; that repairs the tree's own node and gives no kind (C2-W-088).
         $mark = self::closer($owner);
@@ -494,6 +494,31 @@ final class CompareRound
         }
 
         return true;
+    }
+
+    /**
+     * C2-W-090, C2-W-099: the opener of a construct the parse read takes the backslash on the character its kind names,
+     * the bracket of `![` and `^[`, and on its first character where that one takes none (carve-js `escapeOpener`).
+     *
+     * @param array<mixed> $other
+     */
+    private function askOpener(string $value, array $other, string $path, int $at): void
+    {
+        $type = $other['type'] ?? '';
+        $shifted = $at + strspn($value, " \t", $at) + match ($type) {
+            'image', 'literal_inline', 'inline_footnote' => 1,
+            'math' => ($other['display'] ?? false) === true ? 2 : 1,
+            'smart_punctuation' => ($value[$at] ?? '') === '-' ? 1 : 0,
+            default => 0,
+        };
+        if ($shifted !== $at && $shifted < strlen($value)) {
+            $asked = $this->asked;
+            $this->ask($path, $shifted);
+            if ($this->asked > $asked) {
+                return;
+            }
+        }
+        $this->ask($path, $at);
     }
 
     /**
