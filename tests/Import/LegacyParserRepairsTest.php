@@ -129,6 +129,15 @@ final class LegacyParserRepairsTest extends TestCase
         $this->assertSame(self::shape(HtmlParser::parse($html)), self::shape(HtmlParser::parse($html, true)));
     }
 
+    public function testHtmlChildCanShareANameWithItsForeignIntegrationPoint(): void
+    {
+        $html = '<svg><desc><desc>x</desc>y</desc>z</svg>';
+        if (!HtmlParser::html5()) {
+            $this->markTestSkipped('HTML5 tree comparison needs Dom\\HTMLDocument');
+        }
+        $this->assertSame(self::shape(HtmlParser::parse($html)), self::shape(HtmlParser::parse($html, true)));
+    }
+
     public function testAttributeKeepsTheMarkupDeclaration(): void
     {
         $paragraph = HtmlParser::parse('<p title="<!x>">a</p><!y>', true)->children[0];

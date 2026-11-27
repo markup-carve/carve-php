@@ -396,7 +396,8 @@ final class LegacyForeignContent
 
     public function foreignAncestor(string $name): bool
     {
-        return $this->htmlInsideIntegration() && ($this->onStack[$name] ?? 0) > 0;
+        return $this->htmlInsideIntegration() && ($this->onStack[$name] ?? 0) > 0
+            && !$this->openedInsideIntegration($name);
     }
 
     public function openedInsideIntegration(string $name): bool
@@ -469,6 +470,13 @@ final class LegacyForeignContent
      */
     private function close(string $name): array
     {
+        if ($this->openedInsideIntegration($name)) {
+            $this->open[$name]--;
+            $this->depth--;
+            array_pop($this->htmlNames);
+
+            return [];
+        }
         if ($this->foreign() && in_array($name, self::BREAKOUT_END, true)) {
             return $this->leave();
         }
