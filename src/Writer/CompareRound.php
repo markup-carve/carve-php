@@ -79,6 +79,13 @@ final class CompareRound
     private array $attributeKeys = [];
 
     /**
+     * The planner's respelling of a node the walk reached that did not form (carve-js `respell`): its trial, or null.
+     *
+     * @var (\Closure(string, string): (array<array{string, int}>|null))|null
+     */
+    private ?\Closure $respell = null;
+
+    /**
      * @param array<mixed> $root
      * @param array<string, array<int, true>> $escapes
      */
@@ -105,6 +112,7 @@ final class CompareRound
      *   otherwise, which the round adds as reported kinds.
      * @param array<string, array<int, true>> $keys Set to the `=` of each node whose braced spelling read as an
      *   attribute block (C2-W-125, case nine), which the round asks only where no other repair applies.
+     * @param (\Closure(string, string): (array<array{string, int}>|null))|null $respell
      *
      * @return array<string, array<int, true>>
      */
@@ -117,9 +125,11 @@ final class CompareRound
         ?array &$firsts = null,
         array &$differs = [],
         array &$keys = [],
+        ?\Closure $respell = null,
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
+        $comparison->respell = $respell;
         foreach ($candidate['ranges'] ?? [] as $path => [$start]) {
             $comparison->starts[$path] = $start;
         }
@@ -328,6 +338,53 @@ final class CompareRound
         return true;
     }
 
+    /**
+     * Asks the planner for the next respelling of the node at `$path`; its escapes count as placed for the rest of the
+     * walk (carve-js `respell`).
+     */
+    private function respellAt(string $path, string $parent, int $i): bool
+    {
+        $trial = ($this->respell)($path, $i > 0 ? $parent . '/children/' . ($i - 1) : '');
+        if ($trial === null) {
+            return false;
+        }
+        foreach ($trial as [$text, $at]) {
+            $this->escapes[$text][$at] = true;
+        }
+
+        return true;
+    }
+
+    /**
+     * The node at `$path` did not form, so the parsed text holds its spelling: the walk steps over it there (carve-js
+     * `stepOver`). False where the parsed text does not hold it as written.
+     *
+     * @param array<mixed> $have
+     */
+    private function stepOver(string $path, array $have, int &$i, int &$j, int &$aj): bool
+    {
+        $packed = RepairTrace::packPath($path);
+        $start = $this->nodeStarts[$packed] ?? null;
+        $end = $this->nodeEnds[$packed] ?? null;
+        $other = $have[$j] ?? null;
+        if ($start === null || $end === null || $this->source === null || !is_array($other) || ($other['type'] ?? '') !== 'text') {
+            return false;
+        }
+        $spelled = substr($this->source, $start, $end - $start);
+        $value = is_string($other['value'] ?? null) ? $other['value'] : '';
+        if ($spelled === '' || str_contains($spelled, '\\') || substr($value, $aj, strlen($spelled)) !== $spelled) {
+            return false;
+        }
+        $aj += strlen($spelled);
+        if ($aj === strlen($value)) {
+            $j++;
+            $aj = 0;
+        }
+        $i++;
+
+        return true;
+    }
+
     private static function offset(mixed $node, int $key): ?int
     {
         $pos = is_array($node) ? TreeEncoder::offsets($node['pos'] ?? null) : null;
@@ -358,7 +415,30 @@ final class CompareRound
         string $parent = '',
     ): bool {
         $other = $have[$j] ?? null;
+        if (getenv('EARLY') && $this->respell !== null && is_array($other) && (($other['type'] ?? '') !== $type || $aj !== 0)) {
+            $asked = $this->asked;
+            $found = null;
+            $limit = min(count($have), $j + 16);
+            for ($next = $j + 1; $next < $limit && $found === null; $next++) {
+                if (is_array($have[$next]) && ($have[$next]['type'] ?? '') === $type) {
+                    $found = $next;
+                }
+            }
+            if (getenv('DBG')) { fwrite(STDERR, " early $path j=$j aj=$aj other=" . ($other['type'] ?? '') . " found=" . json_encode($found) . " limit=$limit n=" . count($have) . "\n"); }
+            if ($found !== null && $this->laterSibling($want, $parent, $i, self::offset($have[$found], 0))) {
+                $this->askFirst($node, $path);
+            } elseif ($found === null && $limit === count($have) && !$this->askAttributeKey($node, $path, $other, $aj)) {
+                $this->askFirst($node, $path, true);
+            }
+            if ($this->asked !== $asked || $this->attributeKeys !== []) {
+                return false;
+            }
+
+            return !$this->cut && $this->respellAt($path, $parent, $i) && $this->stepOver($path, $have, $i, $j, $aj);
+        }
         if (!is_array($other) || ($other['type'] ?? '') !== $type || $aj !== 0) {
+            $asked = $this->asked;
+            $keys = $this->attributeKeys;
             $found = null;
             $limit = min(count($have), $j + 16);
             for ($next = $j + 1; $next < $limit; $next++) {
@@ -379,7 +459,11 @@ final class CompareRound
                 $this->askFirst($node, $path, true);
             }
             if ($found === null) {
-                return false;
+                // carve-js `matchNode`: where nothing else asks, the node's next respelling is a trial, and the walk
+                // steps over its spelling in the parsed text.
+                return $this->respell !== null && is_array($other) && !$this->cut && $this->asked === $asked
+                    && $this->attributeKeys === $keys
+                    && $this->respellAt($path, $parent, $i) && $this->stepOver($path, $have, $i, $j, $aj);
             }
             $j = $found;
             $aj = 0;
@@ -450,7 +534,7 @@ final class CompareRound
         $after = $want[$i + 1] ?? null;
         $textNext = is_array($after) && ($after['type'] ?? '') === 'text';
 
-        return $this->matchPlain($value, $other, $path, $i, $j, $vi, $aj, $last, $owner, $textNext);
+        return $this->matchPlain($value, $other, $path, $i, $j, $vi, $aj, $last, $owner, $textNext, $have);
     }
 
     /**
@@ -546,6 +630,7 @@ final class CompareRound
         ?string $last = null,
         string $owner = '',
         bool $textNext = false,
+        array $have = [],
     ): bool {
         $otherValue = is_string($other['value'] ?? null) ? $other['value'] : '';
         $limit = min(strlen($value) - $vi, strlen($otherValue) - $aj);
@@ -574,7 +659,17 @@ final class CompareRound
             if ($aj > 0 && $last === null && !$textNext) {
                 // The parse holds more text where the next node was written: that node did not form, and the list is
                 // compared again from where the parse and the writing meet (carve-js `afterTextNode`).
-                return false;
+                if ($this->respell === null || getenv('NOPLAIN')) {
+                    return false;
+                }
+                $parent = substr($path, 0, (int)strrpos($path, '/children/'));
+                $next = $parent . '/children/' . $i;
+                $after = $this->textAt($next);
+                if ($after !== null) {
+                    $this->askAttributeKey($after, $next, $other, $aj);
+                }
+
+                return $this->respellAt($next, $parent, $i) && $this->stepOver($next, $have, $i, $j, $aj);
             }
             if ($aj > 0) {
                 $j++;

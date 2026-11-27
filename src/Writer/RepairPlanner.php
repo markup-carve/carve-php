@@ -1397,12 +1397,9 @@ final class RepairPlanner
         $this->trialled = [];
         $reports = $this->outsideUnformed($comparison);
         if ($reports !== []) {
-            if ($this->gluedCloser($placed) || $this->breaksLink($candidate, $comparison, $links)) {
-                return null;
-            }
             $state = get_object_vars($this);
             $this->appliedRound($escapes, $candidate, $comparison);
-            if (!$this->linkRepairRequested() && !$this->bareTextOpener($placed)) {
+            if (!$this->linkRepairRequested()) {
                 $this->addAsked($placed);
                 $this->notePlaced($placed);
 
@@ -1411,8 +1408,6 @@ final class RepairPlanner
             foreach ($state as $name => $value) {
                 $this->{$name} = $value;
             }
-
-            return null;
         }
         $this->addAsked($placed);
         $this->notePlaced($placed);
@@ -1759,10 +1754,25 @@ final class RepairPlanner
         $differs = [];
         $keys = [];
         $read = $comparison['read'];
-        $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys);
-        $missing = self::missingSiblings($candidate, $read);
         $this->trialled = [];
-        $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
+        $reached = [];
+        $across = null;
+        // carve-js `respell`: a trial for each node the comparison reaches that did not form, in the order it reaches them.
+        $respell = function (string $path, string $prior) use ($candidate, $read, &$reached, &$across): ?array {
+            $step = $this->attempts[$path] ?? 0;
+            $trial = $this->trial($candidate, $read, $path, $prior, $step, $across);
+            $this->attempts[$path] = $step;
+            if ($trial !== null) {
+                $reached[] = $trial;
+                $this->trialled[$path] = true;
+            }
+
+            return $trial;
+        };
+        $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys, getenv('NOWALK') ? null : $respell);
+        $missing = self::missingSiblings($candidate, $read);
+        if (getenv('DBG')) { fwrite(STDERR, "ROUND src=" . json_encode($candidate['source']) . "\n asked=" . json_encode($asked) . "\n reached=" . json_encode($reached) . "\n missing=" . json_encode($missing) . "\n"); }
+        $trials = $this->keyTrials(getenv('NOWALK') ? $this->nextTrials($candidate, $read, $missing) : [...$reached, ...(getenv('NOFB') ? [] : $this->nextTrials($candidate, $read, $missing, $across))], $keys);
         $comparison['openers'] = $this->outsideUnformed($comparison);
         $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
         unset($read);
@@ -2668,15 +2678,19 @@ final class RepairPlanner
      *
      * @return array<array<array{string, int}>>
      */
-    private function nextTrials(array $candidate, array $actual, array $missing): array
+    private function nextTrials(array $candidate, array $actual, array $missing, ?array &$across = null): array
     {
         // C2-W-088, C2-W-125: the procedure runs per text in its leaf block, so each leaf takes the trial of its own
-        // first missing node in the same round, and a leaf's escapes do not depend on the leaves around it.
+        // first missing node in the same round, and a leaf's escapes do not depend on the leaves around it. A leaf
+        // where the comparison already placed a trial takes no other.
         $trials = [];
-        $across = null;
+        $done = [];
+        foreach (array_keys($this->trialled) as $path) {
+            $done[$this->leafOf((string)$path)] = true;
+        }
         foreach ($missing as [$path, $prior]) {
             $leaf = $this->leafOf($path);
-            if (isset($trials[$leaf])) {
+            if (isset($trials[$leaf]) || isset($done[$leaf])) {
                 continue;
             }
             $step = $this->attempts[$path] ?? 0;
