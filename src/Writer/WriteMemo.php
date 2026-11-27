@@ -19,13 +19,19 @@ final class WriteMemo
     /**
      * @var array<string, int> Entries kept per kind at most.
      */
-    private const LIMITS = ['bare' => 64, 'marked' => 16, 'decoded' => 16, 'print' => 512];
+    private const LIMITS = ['bare' => 64, 'marked' => 16, 'decoded' => 16, 'print' => 512, 'probe' => 2048];
 
     /**
      * @var array<string, int> The bytes of source each kind keeps at most, weighed by what an entry holds beside its
      *   source: a marked candidate maps every traced character, so a long document keeps few or none.
      */
-    private const BYTES = ['bare' => 2_000_000, 'marked' => 4_000_000, 'decoded' => 2_000_000, 'print' => 4_000_000];
+    private const BYTES = [
+        'bare' => 2_000_000,
+        'marked' => 4_000_000,
+        'decoded' => 2_000_000,
+        'print' => 4_000_000,
+        'probe' => 4_000_000,
+    ];
 
     /**
      * @var int A longer source is not kept, as `ReadbackRound` keeps no long read-back it is not asked to (carve#6413).
@@ -35,7 +41,7 @@ final class WriteMemo
     /**
      * @var array<string, int>
      */
-    private const WEIGHTS = ['bare' => 1, 'marked' => 40, 'decoded' => 2, 'print' => 0];
+    private const WEIGHTS = ['bare' => 1, 'marked' => 40, 'decoded' => 2, 'print' => 0, 'probe' => 0];
 
     /**
      * @var array<string, int> The weighed bytes each kind holds.
@@ -98,6 +104,41 @@ final class WriteMemo
         self::keep($kind, $key, [$result, Text::writeState(), $flag]);
 
         return [$result, $flag];
+    }
+
+    /**
+     * A content probe of the C2-W-088 rounds, by its inputs and the `Text` write state: its result, the characters it
+     * charged and the state it left. A run is kept and reused only where it charged no more than the budget left, so it
+     * never stopped on the budget of C2-W-133.
+     *
+     * @template T
+     *
+     * @param array<mixed> $inputs
+     * @param int $budget The characters the probe may still charge.
+     * @param \Closure(): array{T, int} $run The result and the characters it charged.
+     *
+     * @return array{T, int}
+     */
+    public static function probe(array $inputs, int $budget, Closure $run): array
+    {
+        if (self::$entries === null) {
+            return $run();
+        }
+        $key = self::key([$inputs, Text::writeState()]);
+        $kept = self::$entries['probe'][$key] ?? null;
+        if ($kept !== null && is_array($kept[0]) && is_int($kept[0][1] ?? null) && $kept[0][1] <= $budget) {
+            if ($kept[1] !== null) {
+                Text::restoreWriteState($kept[1]);
+            }
+
+            return [$kept[0][0], $kept[0][1]];
+        }
+        $result = $run();
+        if ($result[1] <= $budget) {
+            self::keep('probe', $key, [$result, Text::writeState(), false]);
+        }
+
+        return $result;
     }
 
     /**

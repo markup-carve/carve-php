@@ -2991,7 +2991,7 @@ final class RepairPlanner
         $type = self::nodeAt($this->tree, $path)['type'] ?? null;
         $probe->probed = is_string($type) ? $type : null;
         $probe->escapes = self::moveEscapes($this->escapes, $prefix, $inside, $shift, $mapped);
-        if (!$probe->probeRounds()) {
+        if (!$probe->rememberedRounds($inlines)) {
             return null;
         }
         $found = [];
@@ -3004,6 +3004,33 @@ final class RepairPlanner
         }
 
         return $found;
+    }
+
+    /**
+     * `probeRounds()`, run once per probe of the same content, escapes and write state: a leaf takes the same probe in
+     * several rounds.
+     *
+     * @param array<mixed> $inlines
+     */
+    private function rememberedRounds(array $inlines): bool
+    {
+        $flag = Writer::repairFlag();
+        if ($flag === null) {
+            return $this->probeRounds();
+        }
+        $root = $this->root();
+        $read = $root->read;
+        $inputs = [$inlines, $this->escapes, $this->probed, $this->options, $flag];
+        [[$single, $escapes, $after], $charged] = WriteMemo::probe($inputs, $root->limit - $read, function () use ($root, $read): array {
+            $single = $this->probeRounds();
+
+            return [[$single, $this->escapes, Writer::repairFlag() ?? false], $root->read - $read];
+        });
+        $root->read = $read + $charged;
+        $this->escapes = $escapes;
+        Writer::restoreRepairFlag($after);
+
+        return $single;
     }
 
     /**
