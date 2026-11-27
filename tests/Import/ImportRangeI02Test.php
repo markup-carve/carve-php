@@ -26,4 +26,13 @@ final class ImportRangeI02Test extends TestCase
         self::assertCount(1, $drop);
         self::assertSame([0, strlen($html)], [$drop[0]->startOffset, $drop[0]->endOffset]);
     }
+
+    public function testImplicitParagraphCloseBoundsItsRangeBeforeNextSibling(): void
+    {
+        $html = '<p onclick=x>one<div>two</div></p>';
+        $result = HtmlImporter::import($html);
+        $drop = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->code === 'import-attribute-dropped'));
+        self::assertCount(1, $drop);
+        self::assertSame([0, strpos($html, '<div>')], [$drop[0]->startOffset, $drop[0]->endOffset]);
+    }
 }

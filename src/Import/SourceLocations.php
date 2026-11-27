@@ -95,6 +95,28 @@ final class SourceLocations
         foreach ($root->children as $child) {
             $walk($child);
         }
+        self::bound($root->children, strlen($html));
+    }
+
+    /**
+     * The HTML parser's sibling order decides an implicit close. An explicit closer found after the next sibling is
+     * outside that element even when the source token stack paired it with the opener.
+     *
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
+     * @param int $limit
+     */
+    private static function bound(array $nodes, int $limit): void
+    {
+        $next = $limit;
+        for ($i = count($nodes) - 1; $i >= 0; $i--) {
+            $node = $nodes[$i];
+            if ($node->sourceStart >= 0 && $next >= $node->contentStart) {
+                $node->sourceEnd = min($node->sourceEnd, $next);
+                $next = min($next, $node->sourceStart);
+            }
+            $childLimit = $node->sourceEnd > $node->contentStart ? min($limit, $node->sourceEnd) : $limit;
+            self::bound($node->children, $childLimit);
+        }
     }
 
     /**

@@ -158,7 +158,7 @@ final class HtmlImporter
         $diagnostics = array_merge(
             $diagnostics,
             $written->diagnostics,
-            AbbreviationLosses::find($document, $source, $context->abbreviations),
+            AbbreviationLosses::find($document, $context->abbreviations),
         );
         unset($written);
         // The array and the Node tree are never held together: the tree is read from the JSON text alone.
