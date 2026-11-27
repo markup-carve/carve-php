@@ -104,6 +104,8 @@ mode uses radio controls. `Tabs::extensions(true, 'aria')` registers that render
 
 ## Command line
 
+These commands use Composer's `vendor/bin/carve` proxy in a dependent project. Inside this checkout, use `php bin/carve` instead.
+
 ```
 vendor/bin/carve [render] FILE...           HTML
     --to=html|markdown|plain|ansi             output format
