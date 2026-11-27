@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\PublicApi;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Json\TreeError;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -81,5 +82,19 @@ final class EnvelopeDeclarationLiftTest extends TestCase
         self::assertSame($bare, Carve::encodeTree(Carve::decodeTree($envelope)));
         $empty = '{"astVersion":"2.0","children":[],"type":"document"}';
         self::assertSame($empty, Carve::encodeTree(Carve::decodeTree('{"astVersion":"2.0","document":' . $empty . '}')));
+    }
+
+    public function testRootAndEnvelopeDeclarationsAgreeByValue(): void
+    {
+        $bare = '{"astVersion":"2.0","children":[],"extensions":[{"name":"x.note","required":false,"slots":["a"],"version":"1"}],'
+            . '"type":"document"}';
+        $reordered = '{"version":"1","slots":["a"],"required":false,"name":"x.note"}';
+        $envelope = '{"astVersion":"2.0","extensions":[' . $reordered . '],"document":' . $bare . '}';
+        self::assertSame($bare, Carve::encodeTree(Carve::decodeTree($envelope)));
+
+        $this->expectException(TreeError::class);
+        $this->expectExceptionMessage('extension-declaration');
+        $other = '{"version":"1","slots":["b"],"required":false,"name":"x.note"}';
+        Carve::decodeTree('{"astVersion":"2.0","extensions":[' . $other . '],"document":' . $bare . '}');
     }
 }

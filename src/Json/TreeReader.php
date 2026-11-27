@@ -276,6 +276,17 @@ final class TreeReader
         }
     }
 
+    /**
+     * C2-A-017: the root and envelope declarations of one name agree in version, required flag and ordered slots.
+     *
+     * @param \stdClass $one
+     * @param \stdClass $other
+     */
+    private static function sameDeclaration(stdClass $one, stdClass $other): bool
+    {
+        return $one->version === $other->version && $one->required === $other->required && $one->slots === $other->slots;
+    }
+
     public static function schema(): stdClass
     {
         if (self::$schema === null) {
@@ -323,7 +334,7 @@ final class TreeReader
                     throw new TreeError('duplicate-extension-declaration', $path . '/name');
                 }
                 $seen[$item->name] = true;
-                if (isset($all[$item->name]) && json_encode($all[$item->name]) !== json_encode($item)) {
+                if (isset($all[$item->name]) && !self::sameDeclaration($all[$item->name], $item)) {
                     throw new TreeError('extension-declaration', $path);
                 }
                 $all[$item->name] = $item;
