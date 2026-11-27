@@ -43,21 +43,15 @@ final class Scanner
     public const ATTR = 3;
 
     /**
-     * Token slot of the frame count of a delimiter or bracket token, read under C2-I-118.
+     * Token slot of the cap depth of a delimiter token that no cap delimiter tracks: the open entries when the scan
+     * read it (C2-I-118).
      *
      * Integer slots keep a token a packed array: a string key turns it into a hash table of twice the size, and more
      * than eight slots double it too.
      *
      * @var int
      */
-    public const FRAMES = 6;
-
-    /**
-     * Token slot of the cap depth of a delimiter token that no cap delimiter tracks.
-     *
-     * @var int
-     */
-    public const CAP_DEPTH = 7;
+    public const CAP_DEPTH = 6;
 
     /**
      * Delimiter flags: the mark can open, can close, stands between word characters (C2-I-053), and as a braced closer
@@ -312,6 +306,11 @@ final class Scanner
     public bool $noteUnclosed = false;
 
     /**
+     * C2-I-089: whether a caret pair was read while a note was open. Without one, an unclosed `^[` reads as it did.
+     */
+    private bool $caretInNote = false;
+
+    /**
      * C2-I-089: every caret pair opens, at any depth; the scan that finds where a note would close.
      */
     private bool $caretsOpen = false;
@@ -456,7 +455,7 @@ final class Scanner
             $i = $next < 0 ? $i + 1 : $next;
         }
         $this->flush($n);
-        $this->noteUnclosed = $this->notePlan === null && !$this->caretsOpen && $this->notesOpen > 0;
+        $this->noteUnclosed = $this->notePlan === null && !$this->caretsOpen && $this->notesOpen > 0 && $this->caretInNote;
         $this->frames = [];
         $this->notesOpen = 0;
         $tokens = $this->tok;
@@ -483,7 +482,7 @@ final class Scanner
             '}' => $this->closingBrace($i),
             '[' => $this->openBracket($i),
             ']' => $this->closeBracket($i),
-            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' && !$this->caretsOrdinary($i) ? $this->noteOpener($i) : -1,
+            '^' => $i + 1 < $this->n && $t[$i + 1] === '[' && !$this->caretPairOrdinary($i) ? $this->noteOpener($i) : -1,
             '*', '/' => $this->bare($i),
             "\n" => $this->lineBreak($i, $i, $this->hardBreaks ? 'hard_break' : 'soft_break'),
             default => $this->sigilChar($i),
@@ -1371,9 +1370,7 @@ final class Scanner
             }
         }
         if ($this->capTracking) {
-            $token[self::FRAMES] = count($this->frames);
-            // A later failed bracket can flatten this token's list. Its opener
-            // decision still uses the entries open when the scanner read it.
+            // The pairing pass sees other open entries; the decision uses those open when the scan read it.
             $capDepth = $this->depth + count($this->frames) + count($this->capDelims);
             if (!$this->trackCapDelimiter($token[1], $token[2], $token[3], $token[4], $token[5])) {
                 $token[self::CAP_DEPTH] = $capDepth;
@@ -1604,7 +1601,7 @@ final class Scanner
      */
     private function openBracket(int $i): int
     {
-        if ($this->caretsOrdinary($i)) {
+        if ($i + 1 < $this->n && $this->t[$i + 1] === '^' ? $this->caretPairOrdinary($i) : $this->caretsOrdinary($i)) {
             return $this->pushFrame(self::F_BRACKET, $i, $i + 1, '');
         }
         if ($i + 1 < $this->n && $this->t[$i + 1] === '^') {
@@ -1688,6 +1685,19 @@ final class Scanner
     private function caretsOrdinary(int $i): bool
     {
         return $i <= $this->ordinaryUntil || (!$this->caretsOpen && $this->insideFootnote());
+    }
+
+    /**
+     * caretsOrdinary() for a caret pair the scan reads, noting one read inside a note.
+     */
+    private function caretPairOrdinary(int $i): bool
+    {
+        if (!$this->caretsOrdinary($i)) {
+            return false;
+        }
+        $this->caretInNote = $this->caretInNote || $this->notesOpen > 0;
+
+        return true;
     }
 
     private function insideFootnote(): bool
@@ -1817,7 +1827,6 @@ final class Scanner
         $this->tok[] = [
             self::NODE, $node, $start, $end, true,
             new TokenList($node->type === 'image' ? [] : $inner, $frame[3], $close),
-            self::FRAMES => count($this->frames),
         ];
         $this->textStart = $end;
 

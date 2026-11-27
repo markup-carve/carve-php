@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Inline;
 
-use LogicException;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Node;
 
@@ -46,9 +45,8 @@ final class Delimiters
     /**
      * @param \MarkupCarve\Carve\Inline\Scanner $sc
      * @param int $depth
-     * @param int $frameBase
      */
-    private function __construct(private Scanner $sc, private int $depth, private int $frameBase)
+    private function __construct(private Scanner $sc, private int $depth)
     {
     }
 
@@ -56,11 +54,10 @@ final class Delimiters
      * @param \MarkupCarve\Carve\Inline\Scanner $sc
      * @param array<int, array<mixed>> $tokens
      * @param int $depth Open nodes around this list (C2-I-118).
-     * @param int $frameBase Formed bracket frames already counted in depth.
      *
      * @return array<int, array<mixed>>
      */
-    public static function run(Scanner $sc, array $tokens, int $depth, int $frameBase = 0): array
+    public static function run(Scanner $sc, array $tokens, int $depth): array
     {
         if (!$sc->delims && !$sc->images) {
             // No delimiter anywhere, so no entry counts toward the cap either (C2-I-118).
@@ -78,7 +75,7 @@ final class Delimiters
             // Without a delimiter or a construct with content the list passes through as it is.
             return $tokens;
         }
-        $d = new self($sc, $depth, $frameBase);
+        $d = new self($sc, $depth);
         // Each token is released as it is read, so the tokens and the items are not both held whole.
         $tokens = array_reverse($tokens);
         while (($tok = array_pop($tokens)) !== null) {
@@ -102,11 +99,6 @@ final class Delimiters
     {
         $type = $tok[0];
         if ($type === Scanner::NODE && $tok[5] instanceof TokenList) {
-            if ($tok[5]->open >= 0 && $this->openerDepth($tok) >= Tables::INLINE_DEPTH) {
-                $this->pastCap($tok, $tok[5]);
-
-                return;
-            }
             if ($tok[1] instanceof Node && $tok[1]->type === 'image') {
                 $tok[5] = null;
                 $this->items[] = $tok;
@@ -117,7 +109,6 @@ final class Delimiters
                 $this->sc,
                 $tok[5]->list,
                 $this->depth + $this->live + 1,
-                $this->frameBase + ($tok[5]->open >= 0 ? 1 : 0),
             ));
             $this->items[] = $tok;
 
@@ -136,33 +127,6 @@ final class Delimiters
         } else {
             $this->closer($tok);
         }
-    }
-
-    /**
-     * C2-I-118: a bracket construct past the cap is text with its brackets, its tail or label as typed;
-     * its content is read in this list as the content of a plain pair.
-     *
-     * @param array<mixed> $tok
-     * @param \MarkupCarve\Carve\Inline\TokenList $inner
-     *
-     * @return void
-     */
-    private function pastCap(array $tok, TokenList $inner): void
-    {
-        assert(is_int($tok[2]) && is_int($tok[3]));
-        $node = $tok[1];
-        if ($node instanceof Node && $node->type === 'image') {
-            $this->text($tok[2], $tok[3]);
-
-            return;
-        }
-        $this->text($tok[2], $inner->open, true);
-        $this->frameBase++;
-        foreach ($inner->list as $child) {
-            $this->token($child);
-        }
-        $this->frameBase--;
-        $this->text($inner->close, $tok[3], true);
     }
 
     /**
@@ -225,26 +189,19 @@ final class Delimiters
     }
 
     /**
-     * C2-I-118: scanned brackets still count until their closing bracket, even if no construct forms.
+     * C2-I-118: the open entries when the scan read the opener. Pairing here can close entries across a bracket
+     * that never closes, which the scan could not, so the count of this pass does not decide it.
      *
      * @param array<mixed> $tok
-     *
-     * @throws \LogicException
      */
     private function openerDepth(array $tok): int
     {
         if (!$this->sc->capTracking) {
             return $this->depth + $this->live;
         }
-        $frames = $tok[Scanner::FRAMES] ?? 0;
-        if (!is_int($frames)) {
-            throw new LogicException('Invalid scanner frame count');
-        }
+        $depth = $tok[Scanner::CAP_DEPTH] ?? 0;
 
-        return max(
-            $this->depth + $this->live + max(0, $frames - $this->frameBase),
-            is_int($tok[Scanner::CAP_DEPTH] ?? null) ? $tok[Scanner::CAP_DEPTH] : 0,
-        );
+        return is_int($depth) ? $depth : 0;
     }
 
     /**
@@ -280,7 +237,7 @@ final class Delimiters
         if (($tok[5] & Scanner::FALLBACK) !== 0) {
             $this->bare([
                 Scanner::DELIM, Scanner::BARE, $tok[2], $tok[2] + 1, $m, $tok[5] & (Scanner::CAN_OPEN | Scanner::CAN_CLOSE),
-                Scanner::FRAMES => $tok[Scanner::FRAMES] ?? 0,
+                Scanner::CAP_DEPTH => $tok[Scanner::CAP_DEPTH] ?? 0,
             ]);
             $this->text($tok[3] - 1, $tok[3]);
 
