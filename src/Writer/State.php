@@ -296,7 +296,7 @@ final class State
             'image-alt-unknown',
             'warning',
             'render-loss',
-            'The alt text of this image is unknown; Carve source writes it as empty brackets',
+            'Carve source cannot spell an unknown alt text; the image is written with an empty one',
             $path,
         );
     }

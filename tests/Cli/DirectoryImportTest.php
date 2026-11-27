@@ -55,6 +55,21 @@ final class DirectoryImportTest extends TestCase
         return $result;
     }
 
+    public function testDirectoryImportPrintsReadableCounts(): void
+    {
+        file_put_contents($this->root . '/src/a.md', "# A\n");
+        [$status, $out, $err] = self::call([
+            '--from', 'gfm', '--directory', $this->root . '/src', '--output', $this->root . '/dst',
+        ]);
+        self::assertSame(0, $status);
+        self::assertSame('', $err);
+        self::assertSame(
+            '1 file(s) converted; 0 asset(s) copied; 0 file(s) need review; 0 entry(s) skipped. Report: '
+                . $this->root . "/dst/migration-report.json\n",
+            $out,
+        );
+    }
+
     public function testConvertsTreeRewritesLinksCopiesAssetsAndReports(): void
     {
         mkdir($this->root . '/src/sub');
@@ -69,10 +84,11 @@ final class DirectoryImportTest extends TestCase
         self::assertStringContainsString('[Next](sub/b.crv)', (string)file_get_contents($this->root . '/dst/a.crv'));
         self::assertSame("= Next\n", file_get_contents($this->root . '/dst/sub/b.crv'));
         self::assertSame('asset bytes', file_get_contents($this->root . '/dst/sub/picture.png'));
-        $counts = json_decode($out, true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(2, $counts['files']);
-        self::assertSame(1, $counts['assets']);
-        self::assertSame(1, $counts['review']);
+        self::assertSame(
+            '2 file(s) converted; 1 asset(s) copied; 1 file(s) need review; 0 entry(s) skipped. Report: '
+                . $this->root . "/dst/migration-report.json\n",
+            $out,
+        );
         $report = json_decode((string)file_get_contents($this->root . '/dst/migration-report.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(['a.md'], $report['review']);
         self::assertSame('rewritten', $report['files'][0]['links'][0]['status']);

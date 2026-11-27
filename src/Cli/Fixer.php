@@ -12,9 +12,11 @@ final class Fixer
     /**
      * @param string $source
      * @param array<string, mixed> $options
+     * @param array<string, int> $counts Applied edits by diagnostic code.
      */
-    public static function fix(string $source, array $options): string
+    public static function fix(string $source, array $options, array &$counts = []): string
     {
+        $counts = [];
         $fixable = self::catalogFixes();
         while (true) {
             $edits = [];
@@ -35,7 +37,7 @@ final class Fixer
                             $end++;
                         }
                     }
-                    $edits[] = [$start, $end, $replacement];
+                    $edits[] = [$start, $end, $replacement, $entry->code];
                 }
             }
             $selected = self::nonconflicting($edits);
@@ -48,6 +50,9 @@ final class Fixer
             }
             if ($next === $source) {
                 break;
+            }
+            foreach ($selected as [, , , $code]) {
+                $counts[$code] = ($counts[$code] ?? 0) + 1;
             }
             $source = $next;
         }
@@ -101,9 +106,9 @@ final class Fixer
     }
 
     /**
-     * @param array<array{int, int, string}> $edits
+     * @param array<array{int, int, string, string}> $edits
      *
-     * @return array<array{int, int, string}>
+     * @return array<array{int, int, string, string}>
      */
     private static function nonconflicting(array $edits): array
     {
