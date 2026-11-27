@@ -149,9 +149,22 @@ final class Inline
     private array $caseEightLinks = [];
 
     /**
-     * @var array<string, bool> Whether `[candidate][]` reads alone as the collapsed reference, by key, children and candidate.
+     * @var array<string, string|null> `collapsedShape()` by key and candidate. Kept across the writes of one outer
+     *   write: each round writes every link again.
      */
-    private array $collapsedReads = [];
+    private static array $collapsedReads = [];
+
+    /**
+     * The bytes of the keys and shapes `$collapsedReads` holds.
+     */
+    private static int $collapsedBytes = 0;
+
+    /**
+     * The bytes `$collapsedReads` holds at most before it starts again.
+     *
+     * @var int
+     */
+    private const COLLAPSED_BYTES = 4194304;
 
     /**
      * Whether the span being written follows a bare `!`, behind which its bracket reads as span text (C2-W-125).
@@ -3222,8 +3235,11 @@ final class Inline
      */
     private function labelLike(string $content, string $key, array $children): ?string
     {
+        $shape = null;
         foreach ([self::escapedLike($content, $key), self::spacedLike($content, $key), $key] as $candidate) {
-            if ($candidate !== null && $this->readsAsCollapsed($candidate, $key, $children)) {
+            $read = $candidate === null ? null : self::collapsedShape($candidate, $key);
+            // The inline read alone numbers no footnote; the resolution stage does that.
+            if ($read !== null && $read === ($shape ??= self::treeShape($children, false))) {
                 return $candidate;
             }
         }
@@ -3245,27 +3261,40 @@ final class Inline
     }
 
     /**
-     * Whether `[$candidate][]` read inside its brackets, with no definitions, is one link with the key `$key` and the
-     * children `$children`.
+     * Drops the kept `collapsedShape()` results, so each outer write starts without those of the last.
+     */
+    public static function forgetCollapsedReads(): void
+    {
+        self::$collapsedReads = [];
+        self::$collapsedBytes = 0;
+    }
+
+    /**
+     * The shape of the children of `[$candidate][]` read inside its brackets, with no definitions, where it reads as one
+     * link with the key `$key`; null otherwise.
      *
      * @param string $candidate
      * @param string $key
-     * @param array<mixed> $children
      */
-    private function readsAsCollapsed(string $candidate, string $key, array $children): bool
+    private static function collapsedShape(string $candidate, string $key): ?string
     {
-        // The inline read alone numbers no footnote; the resolution stage does that.
-        $shape = self::treeShape($children, false);
-        $memo = $key . "\0" . $candidate . "\0" . $shape;
-        if (isset($this->collapsedReads[$memo])) {
-            return $this->collapsedReads[$memo];
+        $memo = $key . "\0" . $candidate;
+        if (array_key_exists($memo, self::$collapsedReads)) {
+            return self::$collapsedReads[$memo];
         }
         $source = '[' . $candidate . '][]';
         $read = InlineRunner::parse($source, self::lineSpans($source), new InlineContext());
         $link = count($read) === 1 ? $read[0] : null;
+        $shape = $link !== null && $link->type === 'link' && ($link->f['key'] ?? null) === $key
+            ? self::shape($link->children ?? [])
+            : null;
+        self::$collapsedBytes += strlen($memo) + strlen($shape ?? '');
+        if (self::$collapsedBytes > self::COLLAPSED_BYTES) {
+            self::$collapsedReads = [];
+            self::$collapsedBytes = strlen($memo) + strlen($shape ?? '');
+        }
 
-        return $this->collapsedReads[$memo] = $link !== null && $link->type === 'link' && ($link->f['key'] ?? null) === $key
-            && self::shape($link->children ?? []) === $shape;
+        return self::$collapsedReads[$memo] = $shape;
     }
 
     /**

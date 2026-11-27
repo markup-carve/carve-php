@@ -982,7 +982,8 @@ final class Resolver
 
             return;
         }
-        if ($node->type === 'image' || ($node->f['refForm'] ?? null) === 'shortcut') {
+        // The key is read only to meet a heading id; without headings a long key costs its parse for nothing.
+        if ($node->type === 'image' || ($node->f['refForm'] ?? null) === 'shortcut' || $this->headingKeys === []) {
             return;
         }
         $plain = $this->plainKeys[$key] ??= self::nfc(Chars::fold(PlainText::of(
