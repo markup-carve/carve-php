@@ -41,7 +41,7 @@ final class WriteMemo
     /**
      * @var array<string, int>
      */
-    private const WEIGHTS = ['bare' => 1, 'marked' => 40, 'decoded' => 2, 'print' => 0, 'probe' => 0];
+    private const WEIGHTS = ['bare' => 1, 'marked' => 40, 'decoded' => 2, 'print' => 0, 'probe' => 64];
 
     /**
      * @var array<string, int> The weighed bytes each kind holds.
@@ -176,7 +176,7 @@ final class WriteMemo
      */
     private static function keep(string $kind, string $key, array $entry): void
     {
-        $bytes = self::sourceBytes($entry[0]);
+        $bytes = self::entryBytes($kind, $entry);
         $size = self::WEIGHTS[$kind] * $bytes;
         if ($bytes > self::MAX_SOURCE || $size > self::BYTES[$kind] || self::$entries === null) {
             return;
@@ -187,11 +187,26 @@ final class WriteMemo
         $count = count($kept);
         while ($count-- > self::LIMITS[$kind] || $held > self::BYTES[$kind]) {
             $oldest = array_key_first($kept);
-            $held -= self::WEIGHTS[$kind] * self::sourceBytes($kept[$oldest][0]);
+            $held -= self::WEIGHTS[$kind] * self::entryBytes($kind, $kept[$oldest]);
             unset($kept[$oldest]);
         }
         self::$entries[$kind] = $kept;
         self::$held[$kind] = $held;
+    }
+
+    /**
+     * A probe holds no source but escapes and a write state, weighed by the values they hold.
+     *
+     * @param string $kind
+     * @param array{mixed, WriteState|null, bool} $entry
+     */
+    private static function entryBytes(string $kind, array $entry): int
+    {
+        if ($kind === 'probe') {
+            return count([$entry[0], $entry[1]], COUNT_RECURSIVE);
+        }
+
+        return self::sourceBytes($entry[0]);
     }
 
     private static function sourceBytes(mixed $value): int

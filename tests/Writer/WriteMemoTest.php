@@ -136,6 +136,21 @@ final class WriteMemoTest extends TestCase
         $this->assertSame(4, $runs);
     }
 
+    public function testAProbeHoldingTooManyValuesIsNotKept(): void
+    {
+        $runs = 0;
+        $run = static function () use (&$runs): array {
+            $runs++;
+
+            return [array_fill(0, 70_000, true), 0];
+        };
+        WriteMemo::scoped(static function () use ($run): void {
+            WriteMemo::probe(['inlines'], 100, $run);
+            WriteMemo::probe(['inlines'], 100, $run);
+        });
+        $this->assertSame(2, $runs);
+    }
+
     /**
      * carve-php#6081: a leaf takes the same content probe in more than one round, and a repeated paragraph takes the
      * probes of the first one.
