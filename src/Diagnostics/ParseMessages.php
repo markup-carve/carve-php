@@ -159,17 +159,17 @@ final class ParseMessages
             $label = substr($rest, $open);
             $rest = trim(substr($rest, 0, $open));
         }
-        $slots = ['type' => $type !== '' ? $type : $run, 'fence' => $run, 'label' => $label];
+        $slots = ['type' => $type, 'fence' => $run, 'label' => $label];
         $first = mb_substr($rest, 0, 1);
         $afterFence = substr($s, $afterRun, $lineEnd - $afterRun);
-        if ($code && $type === '' && preg_match('/^[ \t]{2,}\{[.#][^{}]*\}/', $afterFence) === 1) {
+        if ($code && $type === '' && preg_match('/^ {2,}\{[^{}]*\}/', $afterFence) === 1) {
             return Message::fill('fence-title-syntax', ['correctedOpener' => $run], 4);
         }
         $spacing = $code ? self::spacing($s, $afterRun, $before, $type, $run, $afterFence) : null;
         if ($spacing !== null) {
             return $spacing;
         }
-        if ($code && $rest !== '' && in_array($first, self::CURLY, true)) {
+        if ($code && $type !== '' && $rest !== '' && in_array($first, self::CURLY, true)) {
             $title = mb_substr($rest, 1);
             if (in_array(mb_substr($title, -1), self::CURLY, true)) {
                 $title = mb_substr($title, 0, -1);
@@ -223,7 +223,7 @@ final class ParseMessages
             return Message::fill('fence-title-syntax', ['respaced' => $respaced], 5);
         }
         $wordEnd = $afterRun + strlen($before) - strlen(ltrim($before, " \t")) + strlen($type);
-        if ($type !== '' && (str_contains($before, "\t") || ($s[$wordEnd] ?? '') === "\t")) {
+        if ($type !== '' && ($s[$wordEnd] ?? '') === "\t") {
             return Message::fill('fence-title-syntax', ['respaced' => $respaced], 6);
         }
 
