@@ -2612,7 +2612,12 @@ final class RepairPlanner
             return $kind === 'break' && $after && $backslash ? '\\' : null;
         }
 
-        return preg_match($after ? '/^\X/u' : '/\X$/u', $value, $match) === 1 ? $match[0] : null;
+        // One code point, as carve-js `codePointAt` reads it, not the grapheme around it.
+        if (preg_match($after ? '/^./su' : '/.$/su', $value, $match) === 1) {
+            return $match[0];
+        }
+
+        return $after ? $value[0] : substr($value, -1);
     }
 
     /**

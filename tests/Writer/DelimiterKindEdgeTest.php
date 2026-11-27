@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\Writer;
 
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Writer\RepairPlanner;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -21,6 +22,25 @@ final class DelimiterKindEdgeTest extends TestCase
 
         $this->assertSame([], $result->diagnostics);
         $this->assertSame("^\\[\\/\\`[\\`\\[\\/[^-]\\]][<] and [lck \\[i0][k] text \\/i0 [c][]\n", $result->source);
+    }
+
+    public function testTheNeighborIsOneCodePoint(): void
+    {
+        // The `/` before a text that starts with `/` and a combining mark has that `/` beside it, so neither opens.
+        $tree = [
+            'type' => 'doc',
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'text', 'value' => 'a /'],
+                        ['type' => 'text', 'value' => "/\u{0301}b"],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->assertTrue(RepairPlanner::settlesKinds($tree, ['/children/0/children/1' => [0 => true]]));
     }
 
     public function testThePlainFormIsUnchanged(): void
