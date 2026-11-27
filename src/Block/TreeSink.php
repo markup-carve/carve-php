@@ -214,6 +214,9 @@ final class TreeSink implements Sink
             if ($code === 'fence-title-syntax') {
                 $end = strpos($this->s, "\n", $from);
                 $end = $end === false ? strlen($this->s) : $end;
+                if ($end > $from && $this->s[$end - 1] === "\r") {
+                    $end--;
+                }
                 // C2-B-122: the finding starts at the further words; only a tab glued to a code fence run is itself reported.
                 if ($node->type !== 'code_block' || $this->s[$from] !== "\t" || ($this->s[$from - 1] ?? '') !== '`') {
                     $start += strspn($this->s, " \t", $from, $end - $from);
