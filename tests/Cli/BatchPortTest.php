@@ -35,7 +35,9 @@ final class BatchPortTest extends TestCase
 
     public function testFixUsesCatalogAndLeavesConflictingRanges(): void
     {
-        $this->assertSame([0, "a *b* {~c~}\n\n+ x\n", ''], self::callCommand(['fix'], "a **b** ~~c~~\n\n+ x\n"));
+        $notes = "<stdin>: fixed markdown-strong-double-star 1\n"
+            . "<stdin>: fixed markdown-strikethrough-double-tilde 1\n";
+        $this->assertSame([0, "a *b* {~c~}\n\n+ x\n", $notes], self::callCommand(['fix'], "a **b** ~~c~~\n\n+ x\n"));
         [$status, $source] = self::callCommand(['lint', '--fix', '--upgrade', '--rules', '{"djot-subscript-tilde":"on"}'], "a ~s~ b\n");
         $this->assertSame(1, $status);
         $this->assertSame("a ~s~ b\n", $source);
