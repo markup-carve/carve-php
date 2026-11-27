@@ -61,6 +61,13 @@ final class DataRules
     private static ?array $data = null;
 
     /**
+     * Byte-mode fallback for patterns that gained Unicode whitespace matching.
+     *
+     * @var array<string, string>
+     */
+    private static array $bytePatterns = [];
+
+    /**
      * @var array<string, true>|null
      */
     private static ?array $ids = null;
@@ -550,7 +557,8 @@ final class DataRules
                 'in' => is_array($literal) && in_array($value, $literal, true),
                 'starts' => is_string($value) && is_string($literal) && str_starts_with($value, $literal),
                 'contains' => is_string($value) && is_string($literal) && str_contains($value, $literal),
-                default => is_string($value) && is_string($literal) && preg_match($literal, $value) !== 0,
+                default => is_string($value) && is_string($literal)
+                    && self::matchOne($literal, $value, $parts, 0) !== 0,
             };
             if (!$pass) {
                 return false;
@@ -1761,6 +1769,9 @@ final class DataRules
     private static function matchOne(string $pattern, string $value, mixed &$parts, int $flags): int|false
     {
         $found = preg_match($pattern, $value, $parts, $flags);
+        if ($found === false && preg_last_error() === PREG_BAD_UTF8_ERROR && isset(self::$bytePatterns[$pattern])) {
+            return preg_match(self::$bytePatterns[$pattern], $value, $parts, $flags);
+        }
         if ($found === false && preg_last_error() === PREG_JIT_STACKLIMIT_ERROR) {
             $jit = ini_set('pcre.jit', '0');
             $found = preg_match(self::withoutJit($pattern), $value, $parts, $flags);
@@ -1784,7 +1795,13 @@ final class DataRules
     private static function matchAll(string $pattern, string $value, mixed &$matches): void
     {
         $flags = PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL;
-        if (preg_match_all($pattern, $value, $matches, $flags) === false && preg_last_error() === PREG_JIT_STACKLIMIT_ERROR) {
+        $found = preg_match_all($pattern, $value, $matches, $flags);
+        if ($found === false && preg_last_error() === PREG_BAD_UTF8_ERROR && isset(self::$bytePatterns[$pattern])) {
+            preg_match_all(self::$bytePatterns[$pattern], $value, $matches, $flags);
+
+            return;
+        }
+        if ($found === false && preg_last_error() === PREG_JIT_STACKLIMIT_ERROR) {
             $jit = ini_set('pcre.jit', '0');
             preg_match_all(self::withoutJit($pattern), $value, $matches, $flags);
             ini_set('pcre.jit', $jit === false ? '1' : $jit);
@@ -1808,6 +1825,9 @@ final class DataRules
     private static function pattern(string $source, string $flags = ''): string
     {
         static $cache = [];
+        // ECMAScript's whitespace class includes FEFF and excludes NEL and the obsolete Mongolian vowel separator.
+        $whitespace = '\\x{0009}-\\x{000D}\\x{0020}\\x{00A0}\\x{1680}\\x{2000}-\\x{200A}'
+            . '\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}';
         $key = $flags . "\0" . $source;
         if (isset($cache[$key])) {
             return $cache[$key];
@@ -1815,22 +1835,64 @@ final class DataRules
         if (str_contains($source, '\\u{')) {
             $source = str_replace('\\u{', '\\x{', $source);
         }
-        if (str_contains($source, '\\p{') || str_contains($source, '\\x{')) {
-            $flags .= 'u';
-        }
+        $originalUnicode = str_contains($flags, 'u') || str_contains($source, '\\p{') || str_contains($source, '\\x{');
 
         $escaped = '';
+        $byteEscaped = '';
         $slashes = 0;
+        $inClass = false;
+        $translated = false;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
             $char = $source[$i];
+            $pair = substr($source, $i, 6);
+            if ($char === '[' && ($pair === '[\\s\\S]' || $pair === '[\\S\\s]') && $slashes % 2 === 0) {
+                // The complementary pair means any character, including the characters where PCRE and JS disagree.
+                $escaped .= $pair;
+                $byteEscaped .= $pair;
+                $i += 5;
+                $slashes = 0;
+
+                continue;
+            }
+            if ($char === '\\' && $slashes % 2 === 0 && ($source[$i + 1] ?? '') === 's') {
+                $escaped .= $inClass ? $whitespace : '[' . $whitespace . ']';
+                $byteEscaped .= '\\s';
+                $translated = true;
+                $i++;
+                $slashes = 0;
+
+                continue;
+            }
+            if ($char === '\\' && $slashes % 2 === 0 && ($source[$i + 1] ?? '') === 'S' && !$inClass) {
+                $escaped .= '[^' . $whitespace . ']';
+                $byteEscaped .= '\\S';
+                $translated = true;
+                $i++;
+                $slashes = 0;
+
+                continue;
+            }
+            if ($slashes % 2 === 0 && ($char === '[' || $char === ']')) {
+                $inClass = $char === '[';
+            }
             if ($char === '~' && $slashes % 2 === 0) {
                 $escaped .= '\\';
+                $byteEscaped .= '\\';
             }
             $escaped .= $char;
+            $byteEscaped .= $char;
             $slashes = $char === '\\' ? $slashes + 1 : 0;
         }
 
-        return $cache[$key] = '~' . $escaped . '~' . $flags;
+        if (!str_contains($flags, 'u') && ($originalUnicode || $translated)) {
+            $flags .= 'u';
+        }
+        $pattern = '~' . $escaped . '~' . $flags;
+        if ($translated && !$originalUnicode) {
+            self::$bytePatterns[$pattern] = '~' . $byteEscaped . '~' . str_replace('u', '', $flags);
+        }
+
+        return $cache[$key] = $pattern;
     }
 
     /**
