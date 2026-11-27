@@ -9,9 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * C2-W-088, C2-W-125: a construct the parse reads inside a link that did not form is no reported kind, the lone link
- * brackets of the link fallback are no logged trials, and a bracketed node that ends early cuts its list (carve-php#6116).
- * Expected outputs are carve-js `main`.
+ * C2-W-088, C2-W-125: a construct the parse reads inside a link that did not form is reported (carve#6802), the lone
+ * link brackets of the link fallback are no logged trials, and a bracketed node that ends early cuts its list.
  */
 final class UnformedLinkRoundsTest extends TestCase
 {
@@ -23,7 +22,7 @@ final class UnformedLinkRoundsTest extends TestCase
         return [
             'footnote reference inside a collapsed label' => [
                 "\\[^[\\` [`[[^]]\\]][]\\[\n",
-                "\\[^[\\` [`[[^]]\\]][][\n",
+                "\\[^[\\` [`[[^]]\\]][]\\[\n",
                 true,
             ],
             // Under normalize this shape still differs from carve-js, as before this change.
