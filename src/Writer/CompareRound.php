@@ -37,6 +37,14 @@ final class CompareRound
      */
     private array $nodeStarts = [];
 
+    /** @var array<array{string, int}> Inline sibling lists the comparison stopped before finishing. */
+    private array $stops = [];
+
+    private const BLOCK_LISTS = [
+        'document', 'block_quote', 'list', 'list_item', 'div', 'admonition', 'description_list', 'description',
+        'footnote', 'table', 'table_row', 'figure', 'figure_group', 'section',
+    ];
+
     /**
      * @var array<string, int> The written end offset of each expected inline node, by `RepairTrace::packPath()`.
      */
@@ -105,6 +113,7 @@ final class CompareRound
      *   otherwise, which the round adds as reported kinds.
      * @param array<string, array<int, true>> $keys Set to the `=` of each node whose braced spelling read as an
      *   attribute block (C2-W-125, case nine), which the round asks only where no other repair applies.
+     * @param array<array{string, int}> $stops Inline sibling lists the comparison stopped before finishing.
      *
      * @return array<string, array<int, true>>
      */
@@ -117,6 +126,7 @@ final class CompareRound
         ?array &$firsts = null,
         array &$differs = [],
         array &$keys = [],
+        array &$stops = [],
     ): array {
         $comparison = new self($expected, $escapes);
         $comparison->probed = $probed;
@@ -137,6 +147,7 @@ final class CompareRound
         }
         $firsts = $comparison->firsts;
         $differs = $comparison->differs;
+        $stops = $comparison->stops;
 
         return $comparison->asks;
     }
@@ -172,6 +183,9 @@ final class CompareRound
                 $this->keyBehindText($want, $have, $path, $nodePath, $i, $j, $aj);
             }
             if (!$more && !$this->resync($want, $have, $path, $i, $j)) {
+                if ($i + 1 < $count && !in_array($expected['type'] ?? '', self::BLOCK_LISTS, true)) {
+                    $this->stops[] = [$path . '/children/', $i];
+                }
                 return;
             }
             if (!$more) {
