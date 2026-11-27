@@ -356,6 +356,14 @@ final class HtmlParser
         $at = $lt + strlen($tag[0]);
         $name = strtolower($tag[2]);
         $end = $tag[1] === '/';
+        if ($end && $foreign->foreignAncestor($name)) {
+            return ['', $at, $at];
+        }
+        if ($end && $name === 'p' && $foreign->htmlInsideIntegration() && !$foreign->openedInsideIntegration('p')) {
+            $placeholder = self::placeholder('p');
+
+            return ['<' . $placeholder . '></' . $placeholder . '>', $at, $at];
+        }
         $inForeign = $foreign->foreign();
         $raw = in_array($name, self::RAW_TEXT, true);
         // In SVG and MathML raw text element names are ordinary elements: libxml gets a placeholder name for them.
