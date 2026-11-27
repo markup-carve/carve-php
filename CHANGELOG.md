@@ -9,15 +9,40 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-27
+
+carve-php 0.2.0 implements Carve 0.2 and replaces the 0.1 engine in the same package (#5249).
+
 ### Breaking
 
-- Carve 0.2 replaces 0.1. The 0.2 engine moves to the package root: namespace `MarkupCarve\Carve2` becomes `MarkupCarve\Carve`, the entry class `Carve2` becomes `Carve`, and the program `carve2` becomes `carve`. See `docs/migration.md`.
-- The 0.1 engine is removed: `CarveConverter`, its parser, AST nodes, renderers (HTML, Markdown, plain text, ANSI, Carve), extensions, lint, Markdown, Djot and BBCode importers, ProseMirror bridge and the 0.1 `carve` commands. Markdown, plain text and ANSI output return as 0.2 writers.
+- Carve 0.2 replaces 0.1. The 0.2 engine moves to the package root: namespace `MarkupCarve\Carve2` becomes `MarkupCarve\Carve`, the entry class `Carve2` becomes `Carve`, and the program `carve2` becomes `carve`. See `docs/migration.md` (#5248).
+- `CarveConverter` and every other 0.1 class are gone. Calls move to static methods on `MarkupCarve\Carve\Carve` that each take one validated options array; `docs/migration.md` maps each 0.1 call to its 0.2 call (#5248, #5249).
+- Render events, output transformers, the 0.1 extensions and BBCode import are not part of 0.2. Markdown and Djot import move to `Carve::importDocument()`, Markdown, plain-text and ANSI output to `Carve::writeTo()`, and the ProseMirror bridge keeps its class names on the schema of the 0.2 Tiptap kit (#5248, #5249).
+- `vendor/bin/carve` runs the 0.2 commands: `render`, `ast`, `diagnostics`, `lint`, `fix`, `fmt`, `flatten`, `migrate-ast` and `import`. Documents written for 0.1 move with the `upgrade` tool of the reference engine; `carve lint --upgrade` finds text that 0.1 read differently (#5249).
 
 ### Fixes
 
-- `convert()` renders a list with a blank line before a nested list on the fast HTML path again, as fast as the tight shape; it had fallen back to the full parser (carve#6026).
-- A fence after a closed `+`-attached fence keeps its blank lines and the lines after them as payload; only the attached fence ends at a line that misses its host. Documents that hit this nested every later container and, on carve-bench `large.crv`, needed 149 MB and wrote 1.64 MB of HTML; now 69 MB and 650 KB (#5215).
+- HTML import no longer writes an empty critic comment as `{##}`, and the writer reports one it is given (#6096, #6097).
+- `carve fmt` no longer garbles a reference nested in the link text of another one; a second `fmt` gives the same output (#6099, #6101).
+- A definition-shaped line that opens no snippet definition is written bare (#6095, #6104).
+- A reference label that wraps inside a container keeps its continuation prefix (#6106, #6107).
+- The writer treats a hard break written with its backslash as text, not a space: a `/` on a line below a hard-break opener takes no escape, and emphasis spanning the break gets the braced form (#6103, #6109).
+- `Carve::decodeTree()` of an envelope keeps the extension declarations that only the envelope carries (carve#6888, #6111).
+- When written output does not read back, the writer falls back to the authored text of the affected blocks, under `normalize` too, instead of refusing the write (carve#6848, #6098).
+
+### Improvements
+
+- Annotation ranges accept declared `data` (carve#6885, #6108).
+- The writer spends less time on documents with many links and spans: traced writes are memoized and each content probe runs once per write (carve#6852, #6093, #6094, #6081, #6112).
+
+## [0.1.18] - 2026-11-21
+
+### Fixes
+
+- HTML import and `carve fmt` write a `|` in table cell text with its backslash directly instead of searching for a shorter spelling. A table with pipes in many cells took seconds and grew faster than its row count; a 73-row table now converts in 0.6s instead of 6s. The written Carve drops escapes the search had left behind and renders the same (#5473).
+- On PHP 8.2 and 8.3, HTML import keeps a processing instruction whose text holds `--` or ends in `-` (`<?a--b>`) as a `{% ?a--b %}` comment, the way the HTML5 path reads it. It used to depend on libxml: 2.9 dropped it and 2.15 kept it (#5473).
+- `convert()` renders a list with a blank line before a nested list on the fast HTML path again, as fast as the tight shape; it had fallen back to the full parser (carve#6026, #5216).
+- A fence after a closed `+`-attached fence keeps its blank lines and the lines after them as payload; only the attached fence ends at a line that misses its host. Documents that hit this nested every later container and, on carve-bench `large.crv`, needed 149 MB and wrote 1.64 MB of HTML; now 69 MB and 650 KB (#5215, #5220).
 
 ## [0.1.17] - 2026-11-12
 
