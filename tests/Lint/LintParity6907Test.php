@@ -90,6 +90,13 @@ final class LintParity6907Test extends TestCase
         ];
     }
 
+    /**
+     * @param string $source
+     * @param int $variant
+     * @param string $text
+     *
+     * @return void
+     */
     #[DataProvider('fenceMessages')]
     public function testFenceTitleMessage(string $source, int $variant, string $text): void
     {
@@ -100,7 +107,7 @@ final class LintParity6907Test extends TestCase
     }
 
     /**
-     * @return array<string, array{0: string, 1: array<array{0: string, 1: string, 2: int, 3: int}>}>
+     * @return array<string, array{0: string, 1: string, 2: array<array{0: string, 1: string, 2: int, 3: int}>}>
      */
     public static function selections(): array
     {
@@ -115,6 +122,13 @@ final class LintParity6907Test extends TestCase
         ];
     }
 
+    /**
+     * @param string $source
+     * @param string $child
+     * @param array<array{0: string, 1: string, 2: int, 3: int}> $expected
+     *
+     * @return void
+     */
     #[DataProvider('selections')]
     public function testParseEntriesOutsideTheLintedPart(string $source, string $child, array $expected): void
     {
