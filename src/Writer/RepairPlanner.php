@@ -1007,6 +1007,16 @@ final class RepairPlanner
     }
 
     /**
+     * The escapes of the last round `repair()` wrote, also where it returned none.
+     *
+     * @return array<string, array<int, true>>
+     */
+    public function lastEscapes(): array
+    {
+        return $this->escapes;
+    }
+
+    /**
      * C2-W-133: null means the repair could not settle inside the existing character budget.
      */
     // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded
