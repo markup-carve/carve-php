@@ -62,4 +62,18 @@ final class ImportAbbreviationI02Test extends TestCase
         [$status, , $err] = self::cli([], $html);
         self::assertSame(0, $status, $err);
     }
+
+    public function testAdjacentTextDoesNotEraseImportedAbbreviationWithoutLoss(): void
+    {
+        $html = "<template data-carve-abbreviations>*[A]: Able\n\n*[B]: Bee</template>"
+            . '<p>A<abbr title="Bee">B</abbr></p>';
+        $result = HtmlImporter::import($html);
+        $lost = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->code === 'structure-unspellable'));
+        self::assertCount(1, $lost);
+        self::assertSame('/children/2/children/1', $lost[0]->path);
+        [$status, $out, $err] = self::cli([], $html);
+        self::assertSame(1, $status);
+        self::assertSame('', $out);
+        self::assertStringStartsWith('carve[writer-refused]:', $err);
+    }
 }

@@ -10,7 +10,10 @@ use MarkupCarve\Carve\Inline\Chars;
 /**
  * Text fields of an imported tree that its written abbreviation definitions turn into abbreviation nodes.
  *
- * @phpstan-type ScanState array{word: string, before: int, last: int, paths: array<string, true>, inWord: bool, tooLong: bool, split: bool}
+ * @phpstan-type ScanState array{
+ *   word: string, before: int, last: int, paths: array<string, true>,
+ *   abbreviations: array<string, string>, inWord: bool, tooLong: bool, split: bool
+ * }
  */
 final class AbbreviationLosses
 {
@@ -134,7 +137,16 @@ final class AbbreviationLosses
      */
     private function flow(array $items, string $path): void
     {
-        $state = ['word' => '', 'before' => -1, 'last' => -1, 'paths' => [], 'inWord' => false, 'tooLong' => false, 'split' => false];
+        $state = [
+            'word' => '',
+            'before' => -1,
+            'last' => -1,
+            'paths' => [],
+            'abbreviations' => [],
+            'inWord' => false,
+            'tooLong' => false,
+            'split' => false,
+        ];
         foreach ($items as $i => $node) {
             if (is_array($node)) {
                 $this->inline($node, $path . '/' . $i, $state);
@@ -155,7 +167,7 @@ final class AbbreviationLosses
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
         $literal = self::visible($node, $type);
         if ($literal !== null) {
-            $this->feed($literal, $type === 'text' ? $path : null, $state);
+            $this->feed($literal, $type === 'text' ? $path : null, $state, $type === 'abbreviation' ? $path : null);
 
             return;
         }
@@ -208,8 +220,9 @@ final class AbbreviationLosses
      * @param string $value
      * @param string|null $path
      * @param array<string, mixed> $state
+     * @param string|null $abbreviationPath
      */
-    private function feed(string $value, ?string $path, array &$state): void
+    private function feed(string $value, ?string $path, array &$state, ?string $abbreviationPath = null): void
     {
         $length = strlen($value);
         for ($at = 0; $at < $length;) {
@@ -219,6 +232,9 @@ final class AbbreviationLosses
             }
             $wordLength = strspn($value, self::ASCII_WORD, $at);
             if ($wordLength > 0) {
+                if ($abbreviationPath !== null) {
+                    $state['abbreviations'][$abbreviationPath] = $value;
+                }
                 if (!$state['inWord']) {
                     $state['inWord'] = true;
                     $state['before'] = $state['last'];
@@ -268,6 +284,25 @@ final class AbbreviationLosses
         if (!$state['inWord']) {
             return;
         }
+        foreach ($state['abbreviations'] as $path => $key) {
+            if (
+                !isset($this->keys[$key]) || (
+                    !$state['tooLong'] && $state['word'] === $key && $state['paths'] === []
+                    && count($state['abbreviations']) === 1
+                    && !Chars::isWord($state['before']) && !Chars::isWord($next)
+                ) || isset($this->reported[$path])
+            ) {
+                continue;
+            }
+            $this->reported[$path] = true;
+            $this->losses[] = new Diagnostic(
+                'structure-unspellable',
+                'warning',
+                'render-loss',
+                'Carve source cannot spell an abbreviation node here',
+                $path,
+            );
+        }
         if (
             !$state['tooLong'] && isset($this->keys[$state['word']])
             && !Chars::isWord($state['before']) && !Chars::isWord($next)
@@ -288,6 +323,7 @@ final class AbbreviationLosses
         }
         $state['word'] = '';
         $state['paths'] = [];
+        $state['abbreviations'] = [];
         $state['inWord'] = false;
         $state['tooLong'] = false;
     }
