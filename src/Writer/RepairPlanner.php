@@ -81,6 +81,11 @@ final class RepairPlanner
     private bool $kindRounds = true;
 
     /**
+     * @var array<string, true> The missing nodes of the round that no trial is left for.
+     */
+    private array $lostNodes = [];
+
+    /**
      * @var array<string, array<string, true>> The kinds already escaped, by leaf path.
      */
     private array $kindsDone = [];
@@ -1397,7 +1402,7 @@ final class RepairPlanner
         $this->trialled = [];
         $reports = $this->outsideUnformed($comparison);
         if ($reports !== []) {
-            if ($this->gluedCloser($placed) || $this->breaksLink($candidate, $comparison, $links)) {
+            if ($this->breaksLink($candidate, $comparison, $links)) {
                 return null;
             }
             $state = get_object_vars($this);
@@ -1484,11 +1489,20 @@ final class RepairPlanner
      */
     private function reachedOpeners(array $openers, array $stops): array
     {
-        if ($this->kindRounds || $this->parent !== null || $stops === []) {
+        if ($this->kindRounds || $this->parent !== null || ($stops === [] && $this->lostNodes === [])) {
             return $openers;
         }
+        $lost = array_keys($this->lostNodes);
 
-        return array_filter($openers, static fn (string $path): bool => !self::behindStop($path, $stops), ARRAY_FILTER_USE_KEY);
+        return array_filter($openers, static function (string $path) use ($stops, $lost): bool {
+            foreach ($lost as $node) {
+                if (str_starts_with($path, $node . '/')) {
+                    return false;
+                }
+            }
+
+            return !self::behindStop($path, $stops);
+        }, ARRAY_FILTER_USE_KEY);
     }
 
     /**
@@ -1561,24 +1575,6 @@ final class RepairPlanner
         return false;
     }
 
-    /**
-     * Whether a lone `]` of link text stands right before `[`, `{` or `(`, where read bare it opens another construct.
-     *
-     * @param array<string, array<int, true>> $placed
-     */
-    private function gluedCloser(array $placed): bool
-    {
-        foreach ($placed as $path => $offsets) {
-            $value = self::leafValue($this->tree, $path) ?? '';
-            foreach ($offsets as $at => $_) {
-                if ($value[$at] === ']' && str_contains('[{(', $value[$at + 1] ?? 'x')) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
 
     /**
      * Whether the bare round broke a link with a lone bracket where carve-js, which compares in source order, reports
@@ -1822,9 +1818,15 @@ final class RepairPlanner
         $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys, $stops);
         $missing = $this->reachedMissing(self::missingSiblings($candidate, $read), $stops);
         $this->trialled = [];
+        $this->lostNodes = [];
         $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
         $comparison['openers'] = $this->reachedOpeners($this->outsideUnformed($comparison), $stops);
-        $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
+        // C2-W-125 case five: whether a round by kinds asks for a change inside a link is read where its comparison
+        // reaches, as in the rounds of the reported openers (carve-js `linkRepairRequested`).
+        $reached = $this->kindRounds && $this->parent === null && $stops !== []
+            ? array_filter($comparison['openers'], static fn (string $path): bool => !self::behindStop($path, $stops), ARRAY_FILTER_USE_KEY)
+            : $comparison['openers'];
+        $this->compareAsks = self::mergedEscapes($reached, $asked);
         unset($read);
         if ($asked === [] && $trials === [] && $comparison['openers'] === []) {
             $asked = $keys;
@@ -2749,6 +2751,7 @@ final class RepairPlanner
             } elseif (!$this->kindRounds && $this->parent === null) {
                 // C2-W-125: a node no trial is left for is lost, and the comparison of its list ends there.
                 $spent[$leaf] = true;
+                $this->lostNodes[$path] = true;
             }
         }
 
