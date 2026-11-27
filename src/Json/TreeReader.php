@@ -245,8 +245,46 @@ final class TreeReader
         if (array_key_exists('annotations', $options)) {
             AnnotationRanges::check($root, $options['annotations'], $declared);
         }
+        if ($envelope) {
+            self::liftDeclarations($root, $decoded);
+        }
 
         return $root;
+    }
+
+    /**
+     * C2-A-013 (carve#6888): the envelope declarations the root lacks go to the end of the root `extensions`, so the
+     * decoded tree is valid without its envelope.
+     *
+     * @param \stdClass $root
+     * @param \stdClass $envelope
+     */
+    private static function liftDeclarations(stdClass $root, stdClass $envelope): void
+    {
+        $own = [];
+        foreach ($root->extensions ?? [] as $item) {
+            $own[$item->name] = true;
+        }
+        $lifted = $root->extensions ?? [];
+        foreach ($envelope->extensions ?? [] as $item) {
+            if (!isset($own[$item->name])) {
+                $lifted[] = $item;
+            }
+        }
+        if (count($lifted) !== count($root->extensions ?? [])) {
+            $root->extensions = $lifted;
+        }
+    }
+
+    /**
+     * C2-A-017: the root and envelope declarations of one name agree in version, required flag and ordered slots.
+     *
+     * @param \stdClass $one
+     * @param \stdClass $other
+     */
+    private static function sameDeclaration(stdClass $one, stdClass $other): bool
+    {
+        return $one->version === $other->version && $one->required === $other->required && $one->slots === $other->slots;
     }
 
     public static function schema(): stdClass
@@ -296,7 +334,7 @@ final class TreeReader
                     throw new TreeError('duplicate-extension-declaration', $path . '/name');
                 }
                 $seen[$item->name] = true;
-                if (isset($all[$item->name]) && json_encode($all[$item->name]) !== json_encode($item)) {
+                if (isset($all[$item->name]) && !self::sameDeclaration($all[$item->name], $item)) {
                     throw new TreeError('extension-declaration', $path);
                 }
                 $all[$item->name] = $item;

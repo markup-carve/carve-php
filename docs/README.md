@@ -91,7 +91,8 @@ limit it stays under about 40 MB. Code blocks do not count, and each block count
 ## Tree JSON
 
 `encodeTree()` gives the bare tree, `encodeEnvelope()` the envelope for storage, and `decodeTree()` reads either one
-back, refusing a tree the reader checks refuse with `Json\TreeError`.
+back, refusing a tree the reader checks refuse with `Json\TreeError`. Reading an envelope appends the extension
+declarations its root lacks to the root `extensions` (C2-A-013), so the decoded tree is valid on its own.
 
 ```php
 use MarkupCarve\Carve\Carve;
