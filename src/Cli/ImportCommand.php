@@ -41,7 +41,8 @@ final class ImportCommand
     public static function main(array $args, $in, $out, $err): int
     {
         try {
-            [$from, $options, $files, $output, $directory] = self::parse($args);
+            [$from, $options, $files, $output, $directory, $report] = self::parse($args);
+            self::validatePaths($output, $report);
         } catch (OptionError $e) {
             return self::fail($err, 'usage', $e->getMessage(), 2);
         }
@@ -87,7 +88,22 @@ final class ImportCommand
             return self::fail($err, 'import-tree-invalid', $display . ': ' . $e->getMessage(), 1);
         }
 
-        return self::finish($result, $options, $display, [$from, $html], $output, $out, $err);
+        return self::finish($result, $options, $display, [$from, $html], $output, $report, $out, $err);
+    }
+
+    private static function validatePaths(?string $output, ?string $report): void
+    {
+        if ($output === null || $report === null || $output === '-' || $report === '-') {
+            return;
+        }
+        $outputParent = realpath(dirname($output));
+        $reportParent = realpath(dirname($report));
+        if (
+            $outputParent !== false && $reportParent !== false
+            && $outputParent . '/' . basename($output) === $reportParent . '/' . basename($report)
+        ) {
+            throw new OptionError('--output shares a path with --report-losses');
+        }
     }
 
     /**
@@ -96,6 +112,7 @@ final class ImportCommand
      * @param string $display
      * @param array{string, string} $input The format and the input, for the line and column of an entry with a range.
      * @param string|null $output
+     * @param string|null $report
      * @param resource $out
      * @param resource $err
      *
@@ -107,19 +124,70 @@ final class ImportCommand
         string $display,
         array $input,
         ?string $output,
+        ?string $report,
         $out,
         $err,
     ): int {
         $losses = array_filter($result->diagnostics, static fn (Diagnostic $d): bool => isset(Writer::REFUSING_CODES[$d->code]));
         if (($options['strictLosses'] ?? false) && $result->diagnostics !== []) {
-            return self::fail($err, 'render-loss', $display . ': import reported a loss', 1);
+            self::fail($err, 'render-loss', $display . ': import reported a loss', 1);
+            self::writeDiagnostics($result, $display, $input, $err);
+
+            return max(1, self::writeReport($result, $display, $input, $report, $err));
         }
         if ($losses !== []) {
             $named = array_map(static fn (Diagnostic $d): string => $d->code . ' at ' . ($d->path ?: '/'), $losses);
+            self::fail($err, 'writer-refused', $display . ': ' . implode(', ', $named), 1);
 
-            return self::fail($err, 'writer-refused', $display . ': ' . implode(', ', $named), 1);
+            return max(1, self::writeReport($result, $display, $input, $report, $err));
         }
         // C2-T-019: a diagnostic line, so `carve[...]:` stays the failure line of C2-T-039.
+        self::writeDiagnostics($result, $display, $input, $err);
+        $status = self::writeProduct($result->source, $output, $out, $err);
+
+        return max($status, self::writeReport($result, $display, $input, $report, $err));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Import\ImportResult $result
+     * @param string $display
+     * @param array{string, string} $input
+     * @param string|null $report
+     * @param resource $err
+     */
+    private static function writeReport(ImportResult $result, string $display, array $input, ?string $report, $err): int
+    {
+        if ($report === null) {
+            return 0;
+        }
+        $entries = [];
+        $position = ['offset' => 0, 'line' => 1, 'column' => 1];
+        foreach ($result->diagnostics as $entry) {
+            $data = $entry->toArray();
+            if ($input[0] === 'html' && $entry->startOffset >= 0) {
+                [$data['line'], $data['column']] = Command::location($input[1], $entry->startOffset, $position);
+            }
+            $entries[] = $data;
+        }
+        $record = ['files' => [['file' => $display, 'diagnostics' => $entries, 'suppressed' => $result->suppressedDiagnostics]]];
+        $json = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        if ($report === '-') {
+            fwrite($err, $json);
+        } elseif (@file_put_contents($report, $json) === false) {
+            return self::fail($err, 'output-unwritable', $report . ': cannot be written', 2);
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Import\ImportResult $result
+     * @param string $display
+     * @param array{string, string} $input
+     * @param resource $err
+     */
+    private static function writeDiagnostics(ImportResult $result, string $display, array $input, $err): void
+    {
         $position = ['offset' => 0, 'line' => 1, 'column' => 1];
         // The hub's offsets point into the HTML it built, not into the input.
         $html = $input[0] === 'html' ? $input[1] : null;
@@ -131,8 +199,6 @@ final class ImportCommand
             }
             fwrite($err, $where . ': ' . $entry->severity . ' ' . $entry->code . ' ' . $entry->message . "\n");
         }
-
-        return self::writeProduct($result->source, $output, $out, $err);
     }
 
     /**
@@ -155,12 +221,14 @@ final class ImportCommand
         return 0;
     }
 
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded -- each import flag has one parsing branch.
+
     /**
      * @param array<string> $args
      *
      * @throws \MarkupCarve\Carve\OptionError
      *
-     * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>, 3: string|null, 4: string|null}
+     * @return array{0: string|null, 1: array<string, mixed>, 2: array<string>, 3: string|null, 4: string|null, 5: string|null}
      */
     private static function parse(array $args): array
     {
@@ -169,6 +237,7 @@ final class ImportCommand
         $files = [];
         $output = null;
         $directory = null;
+        $report = null;
         $count = count($args);
         for ($i = 0; $i < $count; $i++) {
             $arg = $args[$i];
@@ -179,6 +248,13 @@ final class ImportCommand
                 $options[self::SWITCHES[$arg]] = true;
             } elseif ($arg === '--no-list-table') {
                 unset($options['listTable']);
+            } elseif ($arg === '--no-raw-html' || $arg === '--no-strict-losses') {
+                $options[$arg === '--no-raw-html' ? 'rawHtml' : 'strictLosses'] = false;
+            } elseif (preg_match('/^--report-losses(?:=(.*))?$/s', $arg, $match) === 1) {
+                $report = $match[1] ?? ($args[++$i] ?? null);
+                if ($report === null) {
+                    throw new OptionError('missing value for --report-losses');
+                }
             } elseif ($arg === '-o' || preg_match('/^--(output|directory)(?:=(.*))?$/s', $arg, $match) === 1) {
                 $name = $arg === '-o' ? 'output' : ($match[1] ?? 'output');
                 $value = $match[2] ?? ($args[++$i] ?? null);
@@ -193,12 +269,14 @@ final class ImportCommand
             } elseif ($arg === '-' || !str_starts_with($arg, '-')) {
                 $files[] = $arg;
             } else {
-                return [null, [], [], null, null];
+                return [null, [], [], null, null, null];
             }
         }
 
-        return [$from, $options, $files, $output, $directory];
+        return [$from, $options, $files, $output, $directory, $report];
     }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
 
     /**
      * A flag with a value: `--from`, `--adapter` (C2-M-102), and `--allow-loss` and `--max-render-losses`, which the

@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
 use MarkupCarve\Carve\Options;
+use MarkupCarve\Carve\Utf8;
 use MarkupCarve\Carve\Writer\CarveWriteError;
 use stdClass;
 
@@ -104,6 +105,7 @@ final class Command
         'no-includes' => false,
         'strict' => true,
         'strict-losses' => true,
+        'envelope' => true,
         'fix' => true,
         'from-ast' => true,
         'positions' => true,
@@ -129,6 +131,8 @@ final class Command
         'from-ast' => true,
     ];
 
+    // phpcs:disable Generic.Metrics.CyclomaticComplexity.MaxExceeded -- command dispatch follows the CLI table.
+
     /**
      * @param array<string> $args
      * @param resource $in
@@ -145,6 +149,9 @@ final class Command
             return 0;
         }
         if (in_array('--help', $args, true)) {
+            if (self::commandHelp($args[0] ?? null, $out)) {
+                return 0;
+            }
             $help = <<<'HELP'
 Carve 0.2 command line
 
@@ -215,6 +222,68 @@ HELP;
 
             return 1;
         }
+    }
+
+    // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * @param string|null $command
+     * @param resource $out
+     */
+    private static function commandHelp(?string $command, $out): bool
+    {
+        if ($command !== 'import' && !isset(self::COMMANDS[$command ?? ''])) {
+            return false;
+        }
+        $command = $command === 'format' ? 'fmt' : $command;
+        $catalog = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/spec/data/cli.json'), true);
+        $sources = self::flagSources(is_array($catalog) ? $catalog : [], $command);
+        $flags = [];
+        foreach (is_array($catalog) && is_array($catalog['flags'] ?? null) ? $catalog['flags'] : [] as $flag) {
+            if (
+                is_array($flag) && is_string($flag['name'] ?? null) && is_array($flag['commands'] ?? null)
+                && self::hasFlagSource($sources, $flag['commands'])
+            ) {
+                $flags[] = '--' . $flag['name'];
+            }
+        }
+        sort($flags);
+        fwrite($out, 'Usage: carve ' . $command . " [flags] [file ...]\nFlags: " . implode(', ', $flags) . "\n");
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $catalog
+     * @param string $command
+     *
+     * @return array<string>
+     */
+    private static function flagSources(array $catalog, string $command): array
+    {
+        $sources = [$command];
+        foreach (is_array($catalog['commands'] ?? null) ? $catalog['commands'] : [] as $entry) {
+            if (is_array($entry) && ($entry['name'] ?? null) === $command && is_string($entry['flags_of'] ?? null)) {
+                $sources[] = $entry['flags_of'];
+            }
+        }
+
+        return $sources;
+    }
+
+    /**
+     * @param array<string> $sources
+     * @param array<mixed> $commands
+     */
+    private static function hasFlagSource(array $sources, array $commands): bool
+    {
+        foreach ($sources as $source) {
+            if (in_array($source, $commands, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -327,11 +396,10 @@ HELP;
     private static function option(array $args, int $i, array &$parsed): int
     {
         $arg = $args[$i];
-        if (str_starts_with($arg, '--option=')) {
-            [$key, $value] = explode('=', substr($arg, 9), 2) + [1 => ''];
-            $parsed['options'][$key] = json_decode($value, true) ?? $value;
+        if ($arg === '--option' || str_starts_with($arg, '--option=')) {
+            self::namedOption($arg === '--option' ? ($args[$i + 1] ?? null) : substr($arg, 9), $parsed);
 
-            return $i;
+            return $arg === '--option' ? $i + 1 : $i;
         }
         $equals = strpos($arg, '=');
         $name = substr($arg, 2, $equals === false ? null : $equals - 2);
@@ -360,6 +428,24 @@ HELP;
         }
 
         return self::switchOption($args, $i, $arg, $name, $equals, $parsed, !$negated);
+    }
+
+    /**
+     * @param string|null $setting
+     * @param array{command: string, files: array<string>, values: array<string, mixed>, options: array<string, mixed>} $parsed
+     *
+     * @throws \MarkupCarve\Carve\OptionError
+     */
+    private static function namedOption(?string $setting, array &$parsed): void
+    {
+        if ($setting === null || !str_contains($setting, '=')) {
+            throw new OptionError('--option takes NAME=JSON');
+        }
+        [$key, $value] = explode('=', $setting, 2);
+        if ($key === '') {
+            throw new OptionError('--option takes NAME=JSON');
+        }
+        $parsed['options'][$key] = self::json('option', $value);
     }
 
     /**
@@ -695,7 +781,7 @@ HELP;
         if ($source === false) {
             throw new InputError($display . ': cannot be read');
         }
-        if (($parsed['values']['from-ast'] ?? false) && !mb_check_encoding($source, 'UTF-8')) {
+        if ((($parsed['values']['from-ast'] ?? false) || $parsed['command'] === 'migrate-ast') && !mb_check_encoding($source, 'UTF-8')) {
             throw new InputError($display . ': not UTF-8', 'input-unreadable');
         }
         $options = $parsed['options'] + self::includes($parsed, $file);
@@ -747,6 +833,13 @@ HELP;
                 }
                 if (($parsed['values']['positions'] ?? true) === false) {
                     self::removePositions($tree);
+                }
+                if ($parsed['values']['envelope'] ?? false) {
+                    $envelope = ['astVersion' => $tree['astVersion'] ?? '2.0', 'document' => $tree];
+                    if (isset($tree['extensions'])) {
+                        $envelope['extensions'] = $tree['extensions'];
+                    }
+                    $tree = $envelope;
                 }
                 fwrite($out, json_encode($tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
 
@@ -865,6 +958,7 @@ HELP;
         $fix = $parsed['command'] === 'fix' || ($parsed['values']['fix'] ?? false);
         if ($fix) {
             $fixed = Fixer::fix($source, $lint);
+            $fixed = Utf8::repair($fixed);
             if ($parsed['values']['write'] ?? false) {
                 if ($fixed !== $source && @file_put_contents($file, $fixed) === false) {
                     throw new InputError($file . ': cannot be written', 'output-unwritable');
@@ -961,6 +1055,9 @@ HELP;
         }
         if (($v['upgrade'] ?? false) && !in_array($parsed['command'], ['lint', 'fix'], true)) {
             throw new OptionError('--upgrade is for lint');
+        }
+        if (isset($v['envelope']) && $parsed['command'] !== 'ast') {
+            throw new OptionError('--envelope is for ast');
         }
         self::validateReportFormat($parsed);
         self::validateOutputCombination($parsed);
