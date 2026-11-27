@@ -18,12 +18,16 @@ final class SourceLocations
     private const VOID = [
         'area' => true,
         'base' => true,
+        'basefont' => true,
+        'bgsound' => true,
         'br' => true,
         'col' => true,
         'embed' => true,
+        'frame' => true,
         'hr' => true,
         'img' => true,
         'input' => true,
+        'keygen' => true,
         'link' => true,
         'meta' => true,
         'param' => true,
@@ -46,12 +50,8 @@ final class SourceLocations
         while (preg_match('/<!--.*?-->|<!doctype[^>]*>|<\/?[A-Za-z][^>]*>/is', $html, $match, PREG_OFFSET_CAPTURE, $at) === 1) {
             [$source, $offset] = $match[0];
             $at = $offset + strlen($source);
-            if ($raw !== null) {
-                if (self::rawCloses($raw, $source)) {
-                    $raw = null;
-                } else {
-                    continue;
-                }
+            if (self::consumesRaw($raw, $source)) {
+                continue;
             }
             if (preg_match('/^<([A-Za-z][A-Za-z0-9:-]*)\b/', $source, $name) === 1) {
                 $tag = strtolower($name[1]);
@@ -72,10 +72,11 @@ final class SourceLocations
             $index = intdiv(count($tokens[$tag] ?? []), 4);
             $tokens[$tag][] = $offset;
             $tokens[$tag][] = $at;
-            $implicitEnd = self::implicitEnd($tag, $at, $inputEnd);
+            $selfClosed = self::isSelfClosed($tag, $source);
+            $implicitEnd = $selfClosed ? $at : $inputEnd;
             $tokens[$tag][] = $implicitEnd;
             $tokens[$tag][] = $implicitEnd;
-            if ($tag[0] !== '#' && !isset(self::VOID[$tag])) {
+            if (!$selfClosed) {
                 $open[] = [$tag, $nextId];
                 $byTag[$tag][] = [$nextId, $index];
                 $active[$nextId++] = true;
@@ -102,15 +103,32 @@ final class SourceLocations
         self::bound($root->children, strlen($html));
     }
 
-    private static function implicitEnd(string $tag, int $openingEnd, int $inputEnd): int
+    private static function isSelfClosed(string $tag, string $source): bool
     {
-        return $tag[0] === '#' || isset(self::VOID[$tag]) ? $openingEnd : $inputEnd;
+        // SVG and MathML root tags accept a self-closing slash; HTML non-void tags do not.
+        $foreignSelfClosing = in_array($tag, ['svg', 'math'], true) && preg_match('/\/\s*>$/', $source) === 1;
+
+        return $tag[0] === '#' || isset(self::VOID[$tag]) || $foreignSelfClosing;
     }
 
     private static function rawCloses(string $tag, string $source): bool
     {
         // HTML treats every apparent tag after a plaintext opener as text, including </plaintext>.
         return $tag !== 'plaintext' && preg_match('/^<\/\s*' . preg_quote($tag, '/') . '\s*>$/i', $source) === 1;
+    }
+
+    private static function consumesRaw(?string &$raw, string $source): bool
+    {
+        if ($raw === null) {
+            return false;
+        }
+        if (self::rawCloses($raw, $source)) {
+            $raw = null;
+
+            return false;
+        }
+
+        return true;
     }
 
     /**

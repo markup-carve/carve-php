@@ -64,4 +64,17 @@ final class ImportRangeI02Test extends TestCase
             self::assertSame([0, strlen($html)], [$entry->startOffset, $entry->endOffset]);
         }
     }
+
+    public function testForeignSelfClosingAndLegacyVoidRangesEndAtOpeningTag(): void
+    {
+        foreach (['<svg/>tail', '<math onclick=x/>tail', '<keygen onclick=x>tail', '<basefont onclick=x>tail'] as $html) {
+            $result = HtmlImporter::import($html);
+            $tagEnd = strpos($html, '>') + 1;
+            $ranged = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->startOffset === 0));
+            self::assertNotEmpty($ranged, $html);
+            foreach ($ranged as $entry) {
+                self::assertSame($tagEnd, $entry->endOffset, $html);
+            }
+        }
+    }
 }
