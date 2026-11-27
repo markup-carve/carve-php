@@ -2028,7 +2028,7 @@ final class Writer
                 }
             }
         }
-        if ($kept === [] || count($kept) === count($ranges) || array_diff_key($keep, $grouped) !== []) {
+        if ($kept === [] || array_diff_key($keep, $grouped) !== []) {
             return null;
         }
         $seeds = [];
