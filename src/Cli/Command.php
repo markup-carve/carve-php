@@ -971,7 +971,8 @@ HELP;
         );
         $fix = $parsed['command'] === 'fix' || ($parsed['values']['fix'] ?? false);
         if ($fix) {
-            $fixed = Fixer::fix($source, $lint);
+            $counts = [];
+            $fixed = Fixer::fix($source, $lint, $counts);
             $fixed = Utf8::repair($fixed);
             if ($parsed['values']['write'] ?? false) {
                 if ($fixed !== $source && @file_put_contents($file, $fixed) === false) {
@@ -980,6 +981,7 @@ HELP;
             } else {
                 self::product($fixed, $out);
             }
+            self::writeFixedCounts($counts, $display, $err);
             $source = $fixed;
         }
         $ignore = $parsed['values']['ignore'] ?? [];
@@ -1000,6 +1002,18 @@ HELP;
         );
 
         return [$failed ? 1 : 0, $report];
+    }
+
+    /**
+     * @param array<string, int> $counts
+     * @param string $display
+     * @param resource $err
+     */
+    private static function writeFixedCounts(array $counts, string $display, $err): void
+    {
+        foreach ($counts as $code => $count) {
+            fwrite($err, $display . ': fixed ' . $code . ' ' . $count . "\n");
+        }
     }
 
     /**
