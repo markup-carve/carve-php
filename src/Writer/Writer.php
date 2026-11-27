@@ -349,17 +349,19 @@ final class Writer
         }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
         $parsed = Carve::parseWithLayout($written->source, $parseOptions);
-        $read = TreeEncoder::decodedForWriter($parsed->tree);
+        // The offsets give the line prefixes the written blocks spell; equality ignores them.
+        $read = TreeEncoder::decodedWithOffsets($parsed->tree, $written->source);
         $from = self::blockSpans($layout);
         $to = self::blockSpans($parsed->layout);
         $print = self::trimmedPrint($tree, $layout, $options);
+        $authoredRead = null;
         $failing = [];
         $rest = [];
         foreach (self::leafPaths($tree, '') as $path => $leaf) {
             if (!isset($from[$path], $to[$path])) {
                 continue;
             }
-            $block = self::authoredSlice($authored, $from[$path][0], $from[$path][1]);
+            $block = self::authoredBlock($authored, $from[$path], $authoredRead, $options, $written->source, $to[$path], $read, $path);
             if (!TreeEquality::equal($leaf, self::nodeAt($read, $path) ?? [])) {
                 $failing[$path] = $block;
             } elseif ($block !== substr($written->source, $to[$path][0], $to[$path][1] - $to[$path][0])) {
@@ -406,6 +408,215 @@ final class Writer
         $slice = (string)preg_replace('/[ \t]+(?=\n)/', '', $slice);
 
         return $next === "\n" || $next === "\r" ? rtrim($slice, " \t") : $slice;
+    }
+
+    /**
+     * C2-W-088 (carve-js `authoredContent`): the written block with its inline content taken as authored, each line
+     * without the container prefix or lazy quote markers and blanks it starts with, behind the prefix the written
+     * block spells. The authored slice of the block where no line of it starts behind a prefix or blanks, and where the
+     * positions do not give the content.
+     *
+     * @param string $authored
+     * @param array{int, int} $block The block in `$authored`.
+     * @param array<mixed>|null $authoredRead The read of `$authored` with offsets, taken when first needed.
+     * @param array<string, mixed> $options
+     * @param string $source
+     * @param array{int, int} $span The written block in `$source`.
+     * @param array<mixed> $writtenRead The read of `$source`, with offsets.
+     * @param string $path
+     */
+    private static function authoredBlock(
+        string $authored,
+        array $block,
+        ?array &$authoredRead,
+        array $options,
+        string $source,
+        array $span,
+        array $writtenRead,
+        string $path,
+    ): string {
+        $slice = self::authoredSlice($authored, $block[0], $block[1]);
+        if (($block[0] === 0 || $authored[$block[0] - 1] === "\n") && preg_match('/\n[ \t>]/', $slice) !== 1) {
+            return $slice;
+        }
+        $authoredRead ??= ReadbackRound::read($authored, $options);
+
+        return self::authoredContentBlock($authored, self::nodeAt($authoredRead, $path), $source, $span, self::nodeAt($writtenRead, $path))
+            ?? $slice;
+    }
+
+    /**
+     * @param string $authored
+     * @param array<mixed>|null $authoredLeaf
+     * @param string $source
+     * @param array{int, int} $span
+     * @param array<mixed>|null $writtenLeaf
+     */
+    private static function authoredContentBlock(
+        string $authored,
+        ?array $authoredLeaf,
+        string $source,
+        array $span,
+        ?array $writtenLeaf,
+    ): ?string {
+        $content = $authoredLeaf === null ? null : self::authoredContent($authored, $authoredLeaf);
+        $range = $writtenLeaf === null || ($writtenLeaf['type'] ?? null) !== ($authoredLeaf['type'] ?? null)
+            ? null : self::inlineRange($writtenLeaf);
+        if ($content === null || $range === null || $range[0] < $span[0] || $range[1] > $span[1]) {
+            return null;
+        }
+        $prefix = str_contains($content, "\n") ? self::firstPrefix($source, $writtenLeaf) : '';
+        if ($prefix === null) {
+            return null;
+        }
+
+        return substr($source, $span[0], $range[0] - $span[0]) . str_replace("\n", "\n" . $prefix, $content)
+            . substr($source, $range[1], $span[1] - $range[1]);
+    }
+
+    /**
+     * The inline content of a leaf as authored: its byte range, each line break without the container prefix that
+     * follows it, and a line no break shows without the quote markers the first line stands behind.
+     *
+     * @param string $authored
+     * @param array<mixed> $leaf
+     */
+    private static function authoredContent(string $authored, array $leaf): ?string
+    {
+        $range = self::inlineRange($leaf);
+        if ($range === null) {
+            return null;
+        }
+        [$from, $to] = $range;
+        $decode = static fn (int $start, int $end): string => str_replace("\r\n", "\n", substr($authored, $start, $end - $start));
+        $prefix = self::firstPrefix($authored, $leaf) ?? '';
+        $newline = $from === 0 ? false : strrpos($authored, "\n", $from - 1 - strlen($authored));
+        $lineStart = $newline === false ? 0 : $newline + 1;
+        $depth = substr_count(substr($authored, $lineStart, $from - $lineStart), '>');
+        $quotes = $depth === 0 ? null : '/^(?:[ \t]*>[ \t]?){1,' . $depth . '}/';
+        $breaks = self::lineBreaks(is_array($leaf['children'] ?? null) ? $leaf['children'] : []);
+        $text = '';
+        $at = $from;
+        foreach ($breaks as $node) {
+            $pos = TreeEncoder::offsets($node['pos'] ?? null);
+            if ($pos === null || $pos[0] < $at) {
+                return null;
+            }
+            $spelled = $decode($pos[0], $pos[1]);
+            $end = strpos($spelled, "\n");
+            if ($end === false) {
+                return null;
+            }
+            $text .= self::withoutPrefixes($decode($at, $pos[0]), $prefix, $quotes)
+                . rtrim(substr($spelled, 0, $end), " \t\r") . "\n";
+            $prefix = substr($spelled, $end + 1);
+            $at = $pos[1];
+        }
+        $text .= self::withoutPrefixes($decode($at, $to), $prefix, $quotes);
+        // C2-W-016: a lone CR at the end of a written line has no spelling.
+        if (preg_match('/\r[ \t]*(?:\n|$)/', $text) === 1) {
+            return null;
+        }
+        // C2-W-022, C2-W-024: no line ends with a blank, except the one space of a hard break (C2-I-011), and the
+        // writer indents the next line itself.
+        $text = (string)preg_replace_callback(
+            '/(\\\\*)[ \t]+\n/',
+            static fn (array $m): string => strlen($m[1]) % 2 === 0 ? $m[1] . "\n" : $m[1] . " \n",
+            $text,
+        );
+
+        return (string)preg_replace('/\n[ \t]+/', "\n", $text);
+    }
+
+    /**
+     * The container prefix the first line break of `$leaf` spells behind its line end: '' where it has none, null where
+     * its position is not known.
+     *
+     * @param string $source
+     * @param array<mixed> $leaf
+     */
+    private static function firstPrefix(string $source, array $leaf): ?string
+    {
+        $breaks = self::lineBreaks(is_array($leaf['children'] ?? null) ? $leaf['children'] : []);
+        if ($breaks === []) {
+            return '';
+        }
+        $first = TreeEncoder::offsets($breaks[0]['pos'] ?? null);
+        if ($first === null) {
+            return null;
+        }
+        $spelled = str_replace("\r\n", "\n", substr($source, $first[0], $first[1] - $first[0]));
+        $end = strpos($spelled, "\n");
+
+        return $end === false ? '' : substr($spelled, $end + 1);
+    }
+
+    /**
+     * `$text` with `$prefix` taken off each line after the first that holds it; a line that does not drops the leading
+     * quote markers `$quotes` matches.
+     */
+    private static function withoutPrefixes(string $text, string $prefix, ?string $quotes): string
+    {
+        if (!str_contains($text, "\n") || ($prefix === '' && $quotes === null)) {
+            return $text;
+        }
+        $lines = explode("\n", $text);
+        foreach ($lines as $at => $line) {
+            if ($at === 0) {
+                continue;
+            }
+            if ($prefix !== '' && str_starts_with($line, $prefix)) {
+                $lines[$at] = substr($line, strlen($prefix));
+            } elseif ($quotes !== null) {
+                $lines[$at] = (string)preg_replace($quotes, '', $line);
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * The bytes from the first inline node of `$leaf` to the end of its last.
+     *
+     * @param array<mixed> $leaf
+     *
+     * @return array{int, int}|null
+     */
+    private static function inlineRange(array $leaf): ?array
+    {
+        $children = is_array($leaf['children'] ?? null) ? array_values($leaf['children']) : [];
+        $head = $children[0] ?? null;
+        $tail = $children[count($children) - 1] ?? null;
+        $first = is_array($head) ? TreeEncoder::offsets($head['pos'] ?? null) : null;
+        $last = is_array($tail) ? TreeEncoder::offsets($tail['pos'] ?? null) : null;
+
+        return $first === null || $last === null || $last[1] < $first[0] ? null : [$first[0], $last[1]];
+    }
+
+    /**
+     * The soft and hard breaks below `$nodes`, in document order.
+     *
+     * @param array<mixed> $nodes
+     *
+     * @return array<array<mixed>>
+     */
+    private static function lineBreaks(array $nodes): array
+    {
+        $breaks = [];
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $type = $node['type'] ?? null;
+            if ($type === 'soft_break' || $type === 'hard_break') {
+                $breaks[] = $node;
+            }
+            foreach (is_array($node['children'] ?? null) ? self::lineBreaks($node['children']) : [] as $below) {
+                $breaks[] = $below;
+            }
+        }
+
+        return $breaks;
     }
 
     /**
