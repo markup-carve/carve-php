@@ -481,9 +481,9 @@ final class RepairPlanner
     }
 
     /**
-     * Everything the rounds after the first comparison read: the planner without its budget, its log and the caches,
-     * and the round's source and the escapes its candidate was written with, which give the comparison. Null where
-     * those escapes are not known.
+     * Everything the rounds from the first comparison on read: the planner without its budget, its log, the caches
+     * and what a comparison derives from its read-back, and the round's source and the escapes its candidate was
+     * written with, which give the comparison. Null where those escapes are not known.
      *
      * @param string $source
      * @param array<string, array<int, true>>|null $escapes
@@ -510,6 +510,8 @@ final class RepairPlanner
             $state['stopRetests'],
             $state['placedOrder'],
             $state['trialled'],
+            $state['singleParagraph'],
+            $state['readParts'],
         );
 
         return [$state, $source, $escapes];
@@ -541,7 +543,7 @@ final class RepairPlanner
     }
 
     /**
-     * After the first comparison of a pass with a trial log: where its twin stopped from the same state, inside this
+     * Before the first comparison of a pass with a trial log: where its twin stopped from the same state, inside this
      * pass's budget, this pass takes over that stop and returns the loop state there. Otherwise it keeps its own state
      * for a later twin.
      *
@@ -1178,10 +1180,10 @@ final class RepairPlanner
                 return $settled;
             }
             $seen[$key] = true;
-            $compared = $first ?? $this->compared($source, $escapes, $this->layout);
+            // A pass that takes over its twin's stop does not need the comparison of its first round.
             $resumed = $round === 0 ? $this->resumedStop($source, $first === null ? $escapes : $this->firstEscapes) : null;
             if ($resumed !== null) {
-                unset($compared, $first);
+                unset($first);
                 [$seen, $settled, $pairRounds, $run, $logged, $round] = $resumed;
                 if ($this->retestsAtStop($logged)) {
                     continue;
@@ -1189,6 +1191,7 @@ final class RepairPlanner
 
                 return $settled;
             }
+            $compared = $first ?? $this->compared($source, $escapes, $this->layout);
             unset($first);
             if ($round === 0 && $compared !== null && !$compared[1]['equal'] && $this->probed === null) {
                 $fallback = $this->linkFallback($escapes, $compared);
