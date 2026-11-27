@@ -35,11 +35,14 @@ final class Includes
      */
     private array $out = [];
 
+    private References $references;
+
     /**
      * @param array<string, mixed> $options The lint options without `includes`.
      */
     private function __construct(private array $options)
     {
+        $this->references = new References();
     }
 
     /**
@@ -61,8 +64,11 @@ final class Includes
         $tree = json_decode(Carve::encodeTree($parsed->tree), true, 4096, JSON_THROW_ON_ERROR);
         $visit->out = $parsed->diagnostics;
         if (is_array($tree)) {
-            $visit->walk(Support::node($tree), '');
+            $root = Support::node($tree);
+            $visit->walkReferences($root, '', '', '', [self::scope(Support::kids($root), '')]);
+            $visit->walk($root, '');
         }
+        $own = array_filter($own, $visit->references->kept(...));
         // C2-N-096: a definition one file of the expansion uses is used, and one that loses to an earlier one takes no hint.
         $kept = static function (Diagnostic $entry) use ($losing, $used): bool {
             if ($entry->code !== 'unused-snippet') {
@@ -74,6 +80,77 @@ final class Includes
         };
 
         return [...array_filter($own, $kept), ...array_filter($visit->out, $kept)];
+    }
+
+    /**
+     * The link and footnote definitions among the direct children of a document or an include; the first one of a key wins.
+     *
+     * @param array<int, array<string, mixed>> $children
+     * @param string $file
+     *
+     * @return array{links: array<string, string>, notes: array<string, string>}
+     */
+    private static function scope(array $children, string $file): array
+    {
+        $scope = ['links' => [], 'notes' => []];
+        foreach ($children as $child) {
+            $kind = match ($child['type'] ?? null) {
+                'link_reference_definition' => 'links',
+                'footnote' => 'notes',
+                default => null,
+            };
+            $pos = is_array($child['pos'] ?? null) ? $child['pos'] : [];
+            $start = $pos['startOffset'] ?? null;
+            if ($kind !== null && is_string($child['key'] ?? null) && is_int($start)) {
+                $scope[$kind][$child['key']] ??= $file . "\0" . $start;
+            }
+        }
+
+        return $scope;
+    }
+
+    /**
+     * C2-N-054, C2-N-055: the expanded tree decides which file's definition a reference uses, so the reference findings of
+     * the per-file lint are checked against it.
+     *
+     * @param array<string, mixed> $node
+     * @param string $path
+     * @param string $file
+     * @param string $inclusion The path of the include whose file holds the node; empty for the top-level document.
+     * @param array<array{links: array<string, string>, notes: array<string, string>}> $scopes Innermost last.
+     *
+     * @return void
+     */
+    private function walkReferences(array $node, string $path, string $file, string $inclusion, array $scopes): void
+    {
+        $this->references->record($node, $file, $inclusion, $scopes);
+        $inner = [$file, $inclusion, $scopes];
+        if (($node['type'] ?? null) === 'include' && is_array($node['children'] ?? null)) {
+            $innerFile = is_string($node['file'] ?? null) ? $node['file'] : $file;
+            $inner = [$innerFile, $path, [...$scopes, self::scope(Support::kids($node), $innerFile)]];
+        }
+        foreach ($node as $key => $value) {
+            if ($key === 'pos' || $key === 'attrs' || !is_array($value)) {
+                continue;
+            }
+            [$underFile, $underInclusion, $underScopes] = $key === 'children' ? $inner : [$file, $inclusion, $scopes];
+            if (is_string($value['type'] ?? null)) {
+                $this->walkReferences(Support::node($value), $path . '/' . $key, $underFile, $underInclusion, $underScopes);
+
+                continue;
+            }
+            foreach ($value as $i => $child) {
+                if (is_int($i) && is_array($child) && is_string($child['type'] ?? null)) {
+                    $this->walkReferences(
+                        Support::node($child),
+                        $path . '/' . $key . '/' . $i,
+                        $underFile,
+                        $underInclusion,
+                        $underScopes,
+                    );
+                }
+            }
+        }
     }
 
     /**
@@ -398,6 +475,9 @@ final class Includes
         // A file included twice repeats a finding with only another path; per-column findings share a range.
         $key = implode("\0", [$file, $entry->code, $entry->severity, $entry->channel, $entry->message, $start, $end]);
         if (isset($this->seen[$key])) {
+            return;
+        }
+        if (!$this->references->keeps($entry->code, $file, $start, $path)) {
             return;
         }
         $this->seen[$key] = true;
