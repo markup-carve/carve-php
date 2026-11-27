@@ -12,10 +12,11 @@ final class ImportSuppressedRefusalI02Test extends TestCase
     /**
      * @param array<string> $args
      * @param string $html
+     * @param string $from
      *
      * @return array{int, string, string}
      */
-    private static function cli(array $args, string $html): array
+    private static function cli(array $args, string $html, string $from = 'html'): array
     {
         $in = fopen('php://memory', 'r+');
         $out = fopen('php://memory', 'r+');
@@ -25,7 +26,7 @@ final class ImportSuppressedRefusalI02Test extends TestCase
         self::assertNotFalse($err);
         fwrite($in, $html);
         rewind($in);
-        $status = Command::main(['import', '--from', 'html', ...$args], $in, $out, $err);
+        $status = Command::main(['import', '--from', $from, ...$args], $in, $out, $err);
         rewind($out);
         rewind($err);
 
@@ -50,5 +51,13 @@ final class ImportSuppressedRefusalI02Test extends TestCase
         }
         self::assertCount(100, $report['files'][0]['diagnostics']);
         self::assertSame(4, $report['files'][0]['suppressed']);
+    }
+
+    public function testHubFilteredLossDoesNotCauseStrictFailure(): void
+    {
+        [$status, $out, $err] = self::cli(['--strict-losses'], "a  \nb\n", 'markdown');
+        self::assertSame(0, $status);
+        self::assertSame('', $err);
+        self::assertNotSame('', $out);
     }
 }

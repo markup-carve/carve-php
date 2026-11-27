@@ -37,6 +37,9 @@ final class SourceLocations
         // Start, opening end, and whole-element end packed per tag: a match array per tag costs hundreds of bytes.
         $tokens = [];
         $open = [];
+        $byTag = [];
+        $active = [];
+        $nextId = 0;
         $raw = null;
         $at = 0;
         while (preg_match('/<!--.*?-->|<!doctype[^>]*>|<\/?[A-Za-z][^>]*>/is', $html, $match, PREG_OFFSET_CAPTURE, $at) === 1) {
@@ -59,7 +62,7 @@ final class SourceLocations
             } elseif (str_starts_with($source, '<!--')) {
                 $tag = '#comment';
             } elseif (preg_match('/^<\/\s*([A-Za-z][A-Za-z0-9:-]*)\b/', $source, $name) === 1) {
-                self::close(strtolower($name[1]), $at, $open, $tokens);
+                self::close(strtolower($name[1]), $at, $open, $byTag, $active, $tokens);
 
                 continue;
             } else {
@@ -69,8 +72,10 @@ final class SourceLocations
             $tokens[$tag][] = $offset;
             $tokens[$tag][] = $at;
             $tokens[$tag][] = $at;
-            if ($tag[0] !== '#' && !isset(self::VOID[$tag]) && !str_ends_with($source, '/>')) {
-                $open[] = [$tag, $index];
+            if ($tag[0] !== '#' && !isset(self::VOID[$tag])) {
+                $open[] = [$tag, $nextId];
+                $byTag[$tag][] = [$nextId, $index];
+                $active[$nextId++] = true;
             }
         }
         $positions = [];
@@ -96,17 +101,25 @@ final class SourceLocations
      * @param string $tag
      * @param int $end
      * @param array<array{string, int}> $open
+     * @param array<string, array<array{int, int}>> $byTag
+     * @param array<int, true> $active
      * @param array<string, array<int>> $tokens
      */
-    private static function close(string $tag, int $end, array &$open, array &$tokens): void
+    private static function close(string $tag, int $end, array &$open, array &$byTag, array &$active, array &$tokens): void
     {
-        for ($i = count($open) - 1; $i >= 0; $i--) {
-            if ($open[$i][0] !== $tag) {
+        while (isset($byTag[$tag]) && $byTag[$tag] !== []) {
+            [$id, $index] = $byTag[$tag][array_key_last($byTag[$tag])];
+            array_pop($byTag[$tag]);
+            if (!isset($active[$id])) {
                 continue;
             }
-            $tokens[$tag][3 * $open[$i][1] + 2] = $end;
-            for ($k = count($open) - 1; $k >= $i; $k--) {
-                array_pop($open);
+            $tokens[$tag][3 * $index + 2] = $end;
+            while ($open !== []) {
+                [, $popped] = array_pop($open);
+                unset($active[$popped]);
+                if ($popped === $id) {
+                    break;
+                }
             }
 
             return;

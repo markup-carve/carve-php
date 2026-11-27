@@ -170,6 +170,9 @@ final class HtmlImporter
             HeapPages::release(self::FREED);
             $tree = self::readJson($json);
         }
+        if ($report !== null) {
+            $diagnostics = $report($diagnostics);
+        }
         $unallowed = array_values(array_filter(
             $diagnostics,
             static fn (Diagnostic $d): bool => $d->channel === 'render-loss' && !isset($opts->allowLosses[$d->code]),
@@ -189,10 +192,6 @@ final class HtmlImporter
                 $d->file,
                 $d->foreignType,
             ), $diagnostics);
-        }
-
-        if ($report !== null) {
-            $diagnostics = $report($diagnostics);
         }
 
         return new ImportResult($tree, [], $diagnostics, $source, $suppressed, $json, $hasRefusingLoss, $hasUnallowedLoss);
