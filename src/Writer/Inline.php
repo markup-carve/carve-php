@@ -1664,7 +1664,9 @@ final class Inline
             'text' => self::str($node, 'value'),
             'smart_punctuation' => self::str($node, 'source'),
             'abbreviation' => self::str($node, 'key'),
-            'hard_break' => $c->bareBreaks && !$c->lineStart ? "\n" : '\\',
+            // C2-W-080: below a hard-break opener the break behind written text is the bare line ending; the line
+            // start belongs to the node before it.
+            'hard_break' => $c->bareBreaks ? "\n" : '\\',
             'comment' => ($node['form'] ?? '') === 'braced' ? '{' : ' ',
             default => self::FIRST[$type] ?? '{',
         };
@@ -2373,7 +2375,8 @@ final class Inline
         $spanTexts = $c->spanTexts;
         // Only the escape decisions read the facts, and a traced write spells its texts bare.
         if ($c->writerState?->repairTrace === null) {
-            $braced = isset($open[$type]) || self::bracedAlways($node, $prev, $next, $path . '/children', $this->bracedPaired);
+            $braced = isset($open[$type])
+                || self::bracedAlways($node, $prev, $next, $path . '/children', $this->bracedPaired, $c->bareBreaks);
             // A span not braced whatever its texts is written bare; where it still takes the braced form, the
             // read-back reports a closer its texts left bare (C2-W-069, C2-W-125).
             $behind = $braced ? 0x7D : $next;
@@ -2386,7 +2389,7 @@ final class Inline
         $visibleInner = $this->w->repairTrace?->decode($inner)['source'] ?? $inner;
         $bare = !isset($open[$type])
             && !self::holdsKind($children, $type)
-            && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired)
+            && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
             && self::bareFits($visibleInner, $mark, $prev, $next);
         if ($bare) {
             unset($this->bracedPaired[$path]);
@@ -2469,11 +2472,18 @@ final class Inline
      * @param int $after The character behind the node, or -1 where it is not known.
      * @param string|null $path The path of the node's children, to look up `$braced`; null where it is not known.
      * @param array<string, true> $braced The emphasis and strong nodes written braced.
+     * @param bool $bareBreaks Whether a hard break is written as the bare line ending (C2-W-080).
      *
      * @return bool
      */
-    public static function bracedAlways(array $node, int $before, int $after = -1, ?string $path = null, array $braced = []): bool
-    {
+    public static function bracedAlways(
+        array $node,
+        int $before,
+        int $after = -1,
+        ?string $path = null,
+        array $braced = [],
+        bool $bareBreaks = false,
+    ): bool {
         $type = self::str($node, 'type');
         $mark = self::PAIRED[$type] ?? null;
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
@@ -2500,7 +2510,9 @@ final class Inline
             return true;
         }
         // Without the paths of the spans written braced, only a mark that can pair counts (C2-I-053).
-        $holds = $path === null ? self::holdsMark($children, $mark, false) : self::holdsMark($children, $mark, true, $path, $braced);
+        $holds = $path === null
+            ? self::holdsMark($children, $mark, false, bareBreaks: $bareBreaks)
+            : self::holdsMark($children, $mark, true, $path, $braced, bareBreaks: $bareBreaks);
 
         return $holds || self::holdsKind($children, $type);
     }
@@ -2598,6 +2610,7 @@ final class Inline
      *   between word characters its span held (C2-I-053).
      * @param bool $nested Whether `$nodes` is the content of a span inside the content tested. Its closer drops the
      *   openers opened in it (C2-I-047), so there only a mark that can close counts.
+     * @param bool $bareBreaks Whether a hard break is written as the bare line ending (C2-W-080).
      *
      * @return bool
      */
@@ -2608,6 +2621,7 @@ final class Inline
         string $path = '',
         array $braced = [],
         bool $nested = false,
+        bool $bareBreaks = false,
     ): bool {
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
@@ -2630,7 +2644,7 @@ final class Inline
                         continue;
                     }
                     $before = $at > 0 ? Chars::before($value, $at) : 0x20;
-                    $after = $at + 1 < $n ? Chars::at($value, $at + 1) : 0x20;
+                    $after = $at + 1 < $n ? Chars::at($value, $at + 1) : self::breakAfter($nodes, $k, $bareBreaks);
                     $counts = Chars::isWord($before) && Chars::isWord($after)
                         ? $words
                         : !(Chars::isSpace($before) && Chars::isSpace($after))
@@ -2644,13 +2658,31 @@ final class Inline
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                 $at = $path . '/' . $k . '/children';
                 $wordsInside = $words && !isset(self::BRACED[$type]) && !isset($braced[$path . '/' . $k]);
-                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true)) {
+                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true, $bareBreaks)) {
                     return true;
                 }
             }
         }
 
         return false;
+    }
+
+    /**
+     * What the text `$nodes[$k]` reads at its end: the backslash of a hard break behind it, which is no whitespace and
+     * lets a mark before it open (C2-I-047), else a line edge. Written as the bare line ending (C2-W-080), a hard
+     * break is a line edge too.
+     *
+     * @param array<mixed> $nodes
+     * @param string|int $k
+     * @param bool $bareBreaks
+     *
+     * @return int
+     */
+    private static function breakAfter(array $nodes, string|int $k, bool $bareBreaks): int
+    {
+        $next = !$bareBreaks && is_int($k) ? $nodes[$k + 1] ?? null : null;
+
+        return is_array($next) && ($next['type'] ?? null) === 'hard_break' ? 0x5C : 0x20;
     }
 
     /**
