@@ -86,6 +86,11 @@ final class NodeRulesB
         if ($open === false || strpos($before, ']', $open) !== false) {
             return;
         }
+        // C2-I-072, C2-I-087: only the bracket glued behind a pair (a full reference) or a `[^` holds a label; any other
+        // bracket is link text, and a shortcut has no separate label.
+        if (!str_ends_with(rtrim(substr($before, 0, $open)), ']') && ($before[$open + 1] ?? '') !== '^') {
+            return;
+        }
         $c->report('comment-in-reference-label', $range[0], $range[1], $path);
     }
 
