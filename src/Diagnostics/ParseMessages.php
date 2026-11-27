@@ -187,7 +187,7 @@ final class ParseMessages
             return Message::fill('fence-title-syntax', [], 1);
         }
         // A brace block or a title behind the label is no unquoted title (C2-B-117).
-        if ($code && $type !== '' && $first !== '{' && !str_contains($before, ']')) {
+        if ($code && $type !== '' && $type[0] !== '=' && $from > $wordEnd && $first !== '{' && !str_contains($before, ']')) {
             return Message::fill('fence-title-syntax', $slots + ['title' => (string)preg_replace('/^"|"\z/', '', $rest)], 3);
         }
         if (!$code && trim($before, " \t") === '') {

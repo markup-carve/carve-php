@@ -27,6 +27,10 @@ final class FenceTitleSyntax6137Test extends TestCase
             'tab inside label' => ["```js [foo\tbar] junk\nx\n```", $further . ' Use "``` js [foo' . "\t" . 'bar]"'],
             'spaced brace block' => ["```  {a=1}\nx\n```", $further . ' Use "```"'],
             'tab then space before brace' => ["```\t {.a}\nx\n```", 'The whitespace in this fence opener is invalid'],
+            'glued closing brace after language' => ["```js}\nx\n```", $further . ' Use "``` js"'],
+            'glued tilde after language' => ["````php~\nx\n````", $further . ' Use "```` php"'],
+            'glued angle after language' => ["```go>\nx\n```", $further . ' Use "``` go"'],
+            'spaced unquoted title after language' => ["```js Title\nx\n```", 'Text after "js" must be a quoted title'],
         ];
     }
 
