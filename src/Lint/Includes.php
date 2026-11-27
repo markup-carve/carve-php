@@ -35,6 +35,12 @@ final class Includes
      */
     private array $out = [];
 
+    /**
+     * @var list<array{0: string, 1: string, 2: array{0: string, 1: int, 2: array{0: int, 1: int}|null, 3: array<string, string>|null}}>
+     *   The children path, the file text and the linted part of each expanded Carve include.
+     */
+    private array $parts = [];
+
     private References $references;
 
     /**
@@ -62,12 +68,13 @@ final class Includes
         $losing = self::losingSnippets($parsed->tree, $parsed->diagnostics);
         $used = Snippets::usedNames($parsed->tree);
         $tree = json_decode(Carve::encodeTree($parsed->tree), true, 4096, JSON_THROW_ON_ERROR);
-        $visit->out = $parsed->diagnostics;
         if (is_array($tree)) {
             $root = Support::node($tree);
             $visit->walkReferences($root, '', '', '', [self::scope(Support::kids($root), '')]);
             $visit->walk($root, '');
         }
+        // C2-N-086: an entry of the expanded parse counts only inside the part of its file that was linted.
+        $visit->out = [...array_filter($parsed->diagnostics, $visit->inLintedPart(...)), ...$visit->out];
         $own = array_filter($own, $visit->references->kept(...));
         // C2-N-096: a definition one file of the expansion uses is used, and one that loses to an earlier one takes no hint.
         $kept = static function (Diagnostic $entry) use ($losing, $used): bool {
@@ -302,9 +309,39 @@ final class Includes
             return;
         }
         $part = $this->part($node, $options, $text);
+        $this->parts[] = [$path . '/children/', $text, $part];
         foreach (Linter::lintSource($part[0], $this->options) as $entry) {
             $this->keep($node, $text, $part, $entry, $path, $chain);
         }
+    }
+
+    /**
+     * Whether an entry of the expanded parse stands in the linted part of the deepest include whose children hold it; a
+     * line or region selection appends definitions of its file that it did not select (C2-N-020).
+     */
+    private function inLintedPart(Diagnostic $entry): bool
+    {
+        if ($entry->file === null || $entry->startOffset < 0) {
+            return true;
+        }
+        $deepest = null;
+        foreach ($this->parts as $at) {
+            if (str_starts_with((string)$entry->path, $at[0]) && ($deepest === null || strlen($at[0]) > strlen($deepest[0]))) {
+                $deepest = $at;
+            }
+        }
+        if ($deepest === null) {
+            return true;
+        }
+        [, $text, $part] = $deepest;
+        $start = $entry->startOffset;
+        if ($part[2] !== null) {
+            $line = substr_count($text, "\n", 0, min($start, strlen($text))) + 1;
+
+            return $line > $part[2][0] && $line <= $part[2][1];
+        }
+
+        return $part[0] === $text || ($start >= $part[1] && $start < $part[1] + strlen($part[0]));
     }
 
     /**

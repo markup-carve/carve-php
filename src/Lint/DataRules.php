@@ -180,6 +180,11 @@ final class DataRules
     private array $compiledKeys = [];
 
     /**
+     * @var array<string, array{dependent: bool, guard: array{test: \Closure, key: \Closure, miss: string}|null}>
+     */
+    private array $keyShapes = [];
+
+    /**
      * @var array{0: mixed, 1: array<string>}|null The `extensions` option and its `id_extensions`, for the last run.
      */
     private ?array $idExtensions = null;
@@ -2877,44 +2882,105 @@ final class DataRules
     private function lookup(array $expr, stdClass $record, ?string $site = null, ?Closure $valueOf = null): mixed
     {
         $over = $expr['over'] ?? null;
-        $types = is_array($expr['types'] ?? null) ? $expr['types'] : null;
         $field = is_string($expr['field'] ?? null) ? $expr['field'] : '';
         if (!in_array($over, ['block', 'inline', 'id', 'line'], true)) {
             return null;
         }
         $site ??= self::lookupSite($expr, $this->vars);
+        $shape = $this->keyShapes[$site] ??= $this->keyShape($expr);
+        $value = $valueOf !== null ? $valueOf($record) : (isset($expr['value']) ? $this->value($expr['value'], $record) : null);
+        $key = serialize($value);
+        $guard = $shape['guard'];
+        if ($guard !== null && $key !== $guard['miss']) {
+            // A key `if: [test, k, miss]` whose `k` reads only the candidate: the index on `k` is shared, the test
+            // reads the record being tested too, so it filters the candidates of this record.
+            $guardSite = $site . '#guard';
+            $this->lookupIndexes[$guardSite] ??= $this->lookupIndex($over, $expr, $record, $guard['key']);
+            $list = [];
+            foreach ($this->lookupIndexes[$guardSite][$key] ?? [] as $candidate) {
+                if (self::truthy($this->withItem($guard['test'], $record, $candidate))) {
+                    $list[] = $candidate;
+                }
+            }
+
+            return $this->pick($expr, $record, $field, $list, null);
+        }
+        if ($shape['dependent']) {
+            // The key reads the record being tested (C2-W-141), so its index holds for this record only.
+            $keyOf = $this->compiledKeys[$site] ??= $this->compile($expr['key'], $this->vars);
+
+            return $this->pick($expr, $record, $field, $this->lookupIndex($over, $expr, $record, $keyOf)[$key] ?? [], null);
+        }
         if (!isset($this->lookupIndexes[$site])) {
-            $index = [];
-            $records = $over === 'line' ? $this->lineRecords() : $this->lookupRecords[$over];
             $simpleKey = is_array($expr['key'] ?? null) && count($expr['key']) === 1
                 && is_string($expr['key']['f'] ?? null) && str_starts_with($expr['key']['f'], 'item.')
                 ? substr($expr['key']['f'], 5) : null;
             $keyOf = $simpleKey === null && isset($expr['key'])
                 ? ($this->compiledKeys[$site] ??= $this->compile($expr['key'], $this->vars)) : null;
-            foreach ($records as $candidate) {
-                $type = $candidate->type ?? null;
-                // C2-W-150: a lookup with no types reads every block or every inline node; a text run is no node.
-                if ($types === null ? $type === 'text_run' : ($over !== 'line' && !in_array($type, $types, true))) {
-                    continue;
-                }
-                if ($simpleKey !== null) {
-                    $key = $this->field($simpleKey, $candidate);
-                } else {
-                    $copy = clone $candidate;
-                    $copy->item = $candidate;
-                    $oldGroups = $this->groups;
-                    $oldBase = $this->base;
-                    $key = $keyOf === null ? null : $keyOf($copy);
-                    $this->groups = $oldGroups;
-                    $this->base = $oldBase;
-                }
-                $index[serialize($key)][] = $candidate;
-            }
-            $this->lookupIndexes[$site] = $index;
+            $this->lookupIndexes[$site] = $this->lookupIndex($over, $expr, $record, $keyOf, $simpleKey);
         }
-        $value = $valueOf !== null ? $valueOf($record) : (isset($expr['value']) ? $this->value($expr['value'], $record) : null);
-        $key = serialize($value);
-        $list = $this->lookupIndexes[$site][$key] ?? [];
+
+        return $this->pick($expr, $record, $field, $this->lookupIndexes[$site][$key] ?? [], [$site, $key]);
+    }
+
+    /**
+     * The records a lookup reads, by the serialized key of each. A key reads its candidate as `item` and any other field
+     * from the record being tested, as `some` and `count` read theirs.
+     *
+     * @param string $over
+     * @param array<mixed> $expr
+     * @param \stdClass $record
+     * @param \Closure|null $keyOf
+     * @param string|null $simpleKey A field of the candidate that is the whole key.
+     *
+     * @return array<string, list<\stdClass>>
+     */
+    private function lookupIndex(string $over, array $expr, stdClass $record, ?Closure $keyOf, ?string $simpleKey = null): array
+    {
+        $types = is_array($expr['types'] ?? null) ? $expr['types'] : null;
+        $index = [];
+        $records = $over === 'line' ? $this->lineRecords() : $this->lookupRecords[$over];
+        foreach ($records as $candidate) {
+            $type = $candidate->type ?? null;
+            // C2-W-150: a lookup with no types reads every block or every inline node; a text run is no node.
+            if ($types === null ? $type === 'text_run' : ($over !== 'line' && !in_array($type, $types, true))) {
+                continue;
+            }
+            if ($simpleKey !== null) {
+                $key = $this->field($simpleKey, $candidate);
+            } else {
+                $key = $keyOf === null ? null : $this->withItem($keyOf, $record, $candidate);
+            }
+            $index[serialize($key)][] = $candidate;
+        }
+
+        return $index;
+    }
+
+    private function withItem(Closure $expr, stdClass $record, stdClass $candidate): mixed
+    {
+        $copy = clone $record;
+        $copy->item = $candidate;
+        $oldGroups = $this->groups;
+        $oldBase = $this->base;
+        $value = $expr($copy);
+        $this->groups = $oldGroups;
+        $this->base = $oldBase;
+
+        return $value;
+    }
+
+    /**
+     * The field of the record a lookup selects from the records whose key equals its value.
+     *
+     * @param array<mixed> $expr
+     * @param \stdClass $record
+     * @param string $field
+     * @param list<\stdClass> $list
+     * @param array{0: string, 1: string}|null $startsAt Where the starts of a shared index list are cached.
+     */
+    private function pick(array $expr, stdClass $record, string $field, array $list, ?array $startsAt): mixed
+    {
         // C2-W-150: with all, every record whose key equals the value, in document order.
         if (($expr['all'] ?? false) === true) {
             return array_map(fn (stdClass $found): mixed => $this->lookupField($field, $found), $list);
@@ -2925,7 +2991,9 @@ final class DataRules
         $from = isset($expr['from']) ? self::integer($this->value($expr['from'], $record)) : ($record->start ?? 0);
         $before = ($expr['before'] ?? false) === true;
         if ($before || ($expr['after'] ?? false) === true) {
-            $starts = $this->lookupStarts[$site][$key] ??= self::startsInOrder($list);
+            $starts = $startsAt === null
+                ? self::startsInOrder($list)
+                : ($this->lookupStarts[$startsAt[0]][$startsAt[1]] ??= self::startsInOrder($list));
             if ($starts !== false) {
                 // The first record at or past `from` (before) or past it (after).
                 $low = 0;
@@ -2965,6 +3033,61 @@ final class DataRules
         }
 
         return $this->lookupField($field, $chosen);
+    }
+
+    /**
+     * Whether a lookup key reads the record being tested, and its guard: a key `if: [test, k, miss]` whose `k` reads
+     * only the candidate and whose `miss` is a constant.
+     *
+     * @param array<mixed> $expr
+     *
+     * @return array{dependent: bool, guard: array{test: \Closure, key: \Closure, miss: string}|null}
+     */
+    private function keyShape(array $expr): array
+    {
+        $key = $expr['key'] ?? null;
+        if (!self::readsRecord($key)) {
+            return ['dependent' => false, 'guard' => null];
+        }
+        $if = is_array($key) && !array_is_list($key) && array_key_first($key) === 'if' ? $key['if'] : null;
+        if (is_array($if) && count($if) === 3 && !self::readsRecord($if[1]) && !is_array($if[2])) {
+            return [
+                'dependent' => true,
+                'guard' => [
+                    'test' => $this->compile($if[0], $this->vars),
+                    'key' => $this->compile($if[1], $this->vars),
+                    'miss' => serialize($if[2]),
+                ],
+            ];
+        }
+
+        return ['dependent' => true, 'guard' => null];
+    }
+
+    /**
+     * Whether an expression reads a field, a group or a let of the record being tested rather than of `item`.
+     */
+    private static function readsRecord(mixed $expr): bool
+    {
+        if (!is_array($expr)) {
+            return false;
+        }
+        if (!array_is_list($expr)) {
+            $op = array_key_first($expr);
+            if (($op === 'f' || $op === 'has') && is_string($expr[$op])) {
+                return $expr[$op] !== 'item' && !str_starts_with($expr[$op], 'item.');
+            }
+            if ($op === 'match' || $op === 'v') {
+                return true;
+            }
+        }
+        foreach ($expr as $part) {
+            if (self::readsRecord($part)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

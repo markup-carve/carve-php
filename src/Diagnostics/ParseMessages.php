@@ -177,17 +177,28 @@ final class ParseMessages
 
             return Message::fill('fence-title-syntax', $slots + ['title' => $title], 2);
         }
-        if ($code && str_contains($before, '"') && !str_contains($before, ']')) {
+        $wordEnd = $afterRun + strlen($before) - strlen(ltrim($before, " \t")) + strlen($type);
+        if (
+            $code && (
+                (str_contains($before, '"') && !str_contains($before, ']'))
+                || preg_match('/^"[^"\n]*"[ \t]+\S/', ltrim(substr($s, $wordEnd, $lineEnd - $wordEnd), " \t")) === 1
+            )
+        ) {
             return Message::fill('fence-title-syntax', [], 1);
         }
-        if ($code && $type !== '') {
-            return Message::fill('fence-title-syntax', $slots + ['title' => $rest], 3);
+        // A brace block or a title behind the label is no unquoted title (C2-B-117).
+        if ($code && $type !== '' && $first !== '{' && !str_contains($before, ']')) {
+            return Message::fill('fence-title-syntax', $slots + ['title' => (string)preg_replace('/^"|"\z/', '', $rest)], 3);
         }
         if (!$code && trim($before, " \t") === '') {
             return Message::fill('fence-title-syntax', [], 0);
         }
+        $parts = trim($before, " \t");
+        $corrected = $run[0] === '`' && $parts !== ''
+            ? $run . ' ' . $parts
+            : rtrim(substr($s, $start, $from - $start));
 
-        return Message::fill('fence-title-syntax', ['correctedOpener' => rtrim(substr($s, $start, $from - $start))], 4);
+        return Message::fill('fence-title-syntax', ['correctedOpener' => $corrected], 4);
     }
 
     /**
