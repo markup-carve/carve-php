@@ -155,7 +155,11 @@ final class HtmlImporter
         // C2-M-074: the writer's loss entries follow the importer's.
         $written = Writer::writeWithDiagnostics($document, readsSupplied: false);
         $source = $written->source;
-        $diagnostics = array_merge($diagnostics, $written->diagnostics);
+        $diagnostics = array_merge(
+            $diagnostics,
+            $written->diagnostics,
+            AbbreviationLosses::find($document, $context->abbreviations),
+        );
         unset($written);
         // The array and the Node tree are never held together: the tree is read from the JSON text alone.
         $json = self::encode($document);
@@ -166,6 +170,15 @@ final class HtmlImporter
             HeapPages::release(self::FREED);
             $tree = self::readJson($json);
         }
+        if ($report !== null) {
+            $diagnostics = $report($diagnostics);
+        }
+        $unallowed = array_values(array_filter(
+            $diagnostics,
+            static fn (Diagnostic $d): bool => $d->channel === 'render-loss' && !isset($opts->allowLosses[$d->code]),
+        ));
+        $hasRefusingLoss = Writer::refusing($unallowed) !== [];
+        $hasUnallowedLoss = $unallowed !== [];
         [$diagnostics, $suppressed] = Cap::apply($diagnostics, $opts, true);
         if ($opts->strictLosses) {
             $diagnostics = array_map(static fn (Diagnostic $d): Diagnostic => new Diagnostic(
@@ -181,11 +194,7 @@ final class HtmlImporter
             ), $diagnostics);
         }
 
-        if ($report !== null) {
-            $diagnostics = $report($diagnostics);
-        }
-
-        return new ImportResult($tree, [], $diagnostics, $source, $suppressed, $json);
+        return new ImportResult($tree, [], $diagnostics, $source, $suppressed, $json, $hasRefusingLoss, $hasUnallowedLoss);
     }
 
     /**

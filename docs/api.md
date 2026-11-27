@@ -96,7 +96,7 @@ Fields: `string $source`, `array $diagnostics`.
 
 Class. C2-M-001: the tree of an import, its canonical Carve source and the diagnostics record.
 
-Fields: `Node $tree`, `array $document`, `array $diagnostics`, `string $source`, `int $suppressedDiagnostics`.
+Fields: `Node $tree`, `array $document`, `array $diagnostics`, `string $source`, `int $suppressedDiagnostics`, `bool $hasRefusingLoss`, `bool $hasUnallowedLoss`.
 
 - `codes(): array`
 
