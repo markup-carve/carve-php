@@ -38,6 +38,21 @@ final class CompareRound
     private array $nodeStarts = [];
 
     /**
+     * @var array<string, int> The written end offset of each expected inline node, by `RepairTrace::packPath()`.
+     */
+    private array $nodeEnds = [];
+
+    /**
+     * The source the expected nodes were written in, or null.
+     */
+    private ?string $source = null;
+
+    /**
+     * The number of asks so far.
+     */
+    private int $asked = 0;
+
+    /**
      * The type of the node whose content a probe compares: it owns the probe's paragraph (carve-js `probeRound`).
      */
     private ?string $probed = null;
@@ -78,7 +93,11 @@ final class CompareRound
      * @param array<mixed> $expected
      * @param array<mixed> $actual
      * @param array<string, array<int, true>> $escapes
-     * @param array{nodes?: array<int, array{string, string, int, int}>, ranges?: array<string, array{int, int}>} $candidate
+     * @param array{
+     *     source?: string,
+     *     nodes?: array<int, array{string, string, int, int}>,
+     *     ranges?: array<string, array{int, int}>
+     * } $candidate
      * @param string|null $probed
      * @param array<string, array<int, true>>|null $firsts Set to the asks for the first character of a node that did
      *   not form.
@@ -104,9 +123,11 @@ final class CompareRound
         foreach ($candidate['ranges'] ?? [] as $path => [$start]) {
             $comparison->starts[$path] = $start;
         }
-        foreach ($candidate['nodes'] ?? [] as [$path, , $start]) {
+        foreach ($candidate['nodes'] ?? [] as [$path, , $start, $end]) {
             $comparison->nodeStarts[$path] = $start;
+            $comparison->nodeEnds[$path] = $end;
         }
+        $comparison->source = $candidate['source'] ?? null;
         $comparison->children($expected, $actual, '', '');
         $keys = [];
         foreach ($comparison->attributeKeys as [$path, $at]) {
@@ -369,8 +390,12 @@ final class CompareRound
         }
         $outer = $this->cut;
         $this->cut = false;
+        $asked = $this->asked;
         $this->children($node, $other, $path, $this->probed !== null && $path === '/children/0' ? $this->probed : $type);
-        $this->cut = self::closer($type) !== '' ? $this->cut || $outer : $outer;
+        // C2-W-125: a bracketed content that read on or ended early was repaired inside; behind it the parse is read
+        // again in the next round (carve-js `matchNode`).
+        $cut = $this->asked > $asked && self::closer($type) === ']' && $this->extentDiffers($path, $other);
+        $this->cut = $cut || (self::closer($type) !== '' ? $this->cut || $outer : $outer);
         $i++;
         $j++;
 
@@ -695,6 +720,7 @@ final class CompareRound
             && !isset($this->escapes[$path][$offset]) && !isset($this->asks[$path][$offset])
         ) {
             $this->asks[$path][$offset] = true;
+            $this->asked++;
         }
     }
 
@@ -766,6 +792,25 @@ final class CompareRound
         }
 
         return $bytes === 0 ? $at : null;
+    }
+
+    /**
+     * Whether the parsed node spans other bytes than the written spelling of the expected node at `$path`, on one line.
+     *
+     * @param string $path
+     * @param array<mixed> $other
+     */
+    private function extentDiffers(string $path, array $other): bool
+    {
+        $packed = RepairTrace::packPath($path);
+        $start = $this->nodeStarts[$packed] ?? null;
+        $end = $this->nodeEnds[$packed] ?? null;
+        $pos = TreeEncoder::offsets($other['pos'] ?? null);
+        if ($start === null || $end === null || $pos === null || $this->source === null) {
+            return false;
+        }
+
+        return !str_contains(substr($this->source, $start, $end - $start), "\n") && $pos[1] - $pos[0] !== $end - $start;
     }
 
     private static function closer(string $type): string
