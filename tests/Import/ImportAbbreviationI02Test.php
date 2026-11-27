@@ -53,4 +53,13 @@ final class ImportAbbreviationI02Test extends TestCase
         self::assertCount(1, $lost);
         self::assertSame('/children/1/children/0/value', $lost[0]->path);
     }
+
+    public function testTermDoesNotSpanAnInlineElement(): void
+    {
+        $html = '<template data-carve-abbreviations>*[AB]: Able</template><p>A<em>B</em></p>';
+        $result = HtmlImporter::import($html);
+        self::assertNotContains('field-unspellable', $result->codes());
+        [$status, , $err] = self::cli([], $html);
+        self::assertSame(0, $status, $err);
+    }
 }

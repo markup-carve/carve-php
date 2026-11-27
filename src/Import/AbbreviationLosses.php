@@ -10,7 +10,7 @@ use MarkupCarve\Carve\Inline\Chars;
 /**
  * Text fields of an imported tree that its written abbreviation definitions turn into abbreviation nodes.
  *
- * @phpstan-type ScanState array{word: string, before: int, last: int, paths: array<string, true>, inWord: bool, tooLong: bool}
+ * @phpstan-type ScanState array{word: string, before: int, last: int, paths: array<string, true>, inWord: bool, tooLong: bool, split: bool}
  */
 final class AbbreviationLosses
 {
@@ -134,7 +134,7 @@ final class AbbreviationLosses
      */
     private function flow(array $items, string $path): void
     {
-        $state = ['word' => '', 'before' => -1, 'last' => -1, 'paths' => [], 'inWord' => false, 'tooLong' => false];
+        $state = ['word' => '', 'before' => -1, 'last' => -1, 'paths' => [], 'inWord' => false, 'tooLong' => false, 'split' => false];
         foreach ($items as $i => $node) {
             if (is_array($node)) {
                 $this->inline($node, $path . '/' . $i, $state);
@@ -160,6 +160,8 @@ final class AbbreviationLosses
             return;
         }
         if ($type === 'comment' && ($node['form'] ?? null) === 'brace') {
+            $state['split'] = true;
+
             return;
         }
         if ($type === 'inline_footnote' && is_array($node['children'] ?? null)) {
@@ -170,11 +172,14 @@ final class AbbreviationLosses
             return;
         }
         if (is_array($node['children'] ?? null) && !isset(self::ATOMS[$type])) {
+            // Markup keeps word-edge context, but a term cannot start in one element and end in another.
+            $state['split'] = true;
             foreach ($node['children'] as $i => $child) {
                 if (is_array($child)) {
                     $this->inline($child, $path . '/children/' . $i, $state);
                 }
             }
+            $state['split'] = true;
 
             return;
         }
@@ -208,6 +213,10 @@ final class AbbreviationLosses
     {
         $length = strlen($value);
         for ($at = 0; $at < $length;) {
+            if ($state['split']) {
+                $this->finish(Chars::at($value, $at), $state);
+                $state['split'] = false;
+            }
             $wordLength = strspn($value, self::ASCII_WORD, $at);
             if ($wordLength > 0) {
                 if (!$state['inWord']) {
@@ -245,6 +254,7 @@ final class AbbreviationLosses
     {
         $this->finish(-1, $state);
         $state['last'] = -1;
+        $state['split'] = false;
     }
 
     /**
