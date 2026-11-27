@@ -1156,6 +1156,7 @@ final class RepairPlanner
         $pairRounds = 0;
         $run = null;
         $logged = $this->escapes;
+        $priorCandidate = null;
         for ($round = 0; $round < 8192; $round++) {
             $this->logTrials($logged);
             $logged = $this->escapes;
@@ -1184,8 +1185,11 @@ final class RepairPlanner
 
                 return $settled;
             }
-            $compared = $first ?? $this->compared($source, $escapes, $this->layout);
+            $compared = $first ?? $this->compared($source, $escapes, $this->layout, $priorCandidate);
             unset($first);
+            if ($compared !== null) {
+                $priorCandidate = $compared[0];
+            }
             if ($round === 0 && $compared !== null && !$compared[1]['equal'] && $this->probed === null) {
                 $fallback = $this->linkFallback($escapes, $compared);
                 if ($fallback === true) {
@@ -1197,7 +1201,10 @@ final class RepairPlanner
                         return $settled;
                     }
                     $seen[hash('xxh3', $source . "\0" . serialize($this->attempts))] = true;
-                    $compared = $this->compared($source, $escapes, $this->layout);
+                    $compared = $this->compared($source, $escapes, $this->layout, $priorCandidate);
+                    if ($compared !== null) {
+                        $priorCandidate = $compared[0];
+                    }
                 }
             }
             if ($compared === null || $compared[1]['equal']) {
@@ -1619,7 +1626,7 @@ final class RepairPlanner
      *     }
      * }|null
      */
-    private function compared(string $source, array $escapes, ?array $layout): ?array
+    private function compared(string $source, array $escapes, ?array $layout, ?array $priorCandidate = null): ?array
     {
         $read = $this->readOf($source);
         $blocks = is_array($read['children'] ?? null) ? $read['children'] : [];
@@ -1629,7 +1636,8 @@ final class RepairPlanner
             return null;
         }
         $this->readParts = $parts;
-        $candidate = Writer::markedCandidate($this->tree, $layout, $this->options, $escapes, $source);
+        $candidate = $priorCandidate === null ? null : RepairAlignment::ontoInsertedEscapes($priorCandidate, $source);
+        $candidate ??= Writer::markedCandidate($this->tree, $layout, $this->options, $escapes, $source);
 
         return [$candidate, ReadbackRound::compare($candidate, $read, $this->tree, $this->treePrint, false)];
     }

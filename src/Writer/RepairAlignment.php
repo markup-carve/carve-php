@@ -33,15 +33,64 @@ final class RepairAlignment
             return $candidate;
         }
         $map = self::boundaries($candidate['source'], $source);
-        $old = $candidate['source'];
-        $candidate['source'] = $source;
         if ($map === null) {
+            $candidate['source'] = $source;
             $candidate['text'] = [];
             $candidate['nodes'] = [];
             $candidate['ranges'] = [];
 
             return $candidate;
         }
+
+        return self::mapped($candidate, $source, $map);
+    }
+
+    /**
+     * Reuse a positioned candidate when the next repair round has inserted only escape backslashes. The map is
+     * accepted only after every old byte and every new byte is accounted for; ambiguous slash runs use a marked write.
+     *
+     * @param array<string, mixed> $candidate
+     * @return array<string, mixed>|null
+     */
+    public static function ontoInsertedEscapes(array $candidate, string $source): ?array
+    {
+        $old = $candidate['source'];
+        if ($old === $source) {
+            return $candidate;
+        }
+        $map = [0 => 0];
+        $oldLength = strlen($old);
+        $newLength = strlen($source);
+        $at = 0;
+        $next = 0;
+        while ($at < $oldLength && $next < $newLength) {
+            if ($old[$at] === $source[$next]) {
+                if ($old[$at] === '\\' && ($source[$next + 1] ?? '') === '\\') {
+                    return null;
+                }
+                $map[++$at] = ++$next;
+            } elseif ($source[$next] === '\\' && $old[$at] === ($source[$next + 1] ?? '')) {
+                $map[$at] = ++$next;
+            } else {
+                return null;
+            }
+        }
+        if ($at !== $oldLength || $next !== $newLength) {
+            return null;
+        }
+
+        return self::mapped($candidate, $source, $map);
+    }
+
+    /**
+     * @param array<string, mixed> $candidate
+     * @param array<int, int> $map
+     * @return array<string, mixed>
+     */
+    private static function mapped(array $candidate, string $source, array $map): array
+    {
+        $old = $candidate['source'];
+        $candidate['source'] = $source;
         $text = [];
         foreach ($candidate['text'] as $at => $owner) {
             $next = $map[$at] ?? strlen($source);
