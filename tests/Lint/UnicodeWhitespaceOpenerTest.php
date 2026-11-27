@@ -31,6 +31,16 @@ final class UnicodeWhitespaceOpenerTest extends TestCase
         self::assertNotContains('unclosed-inline-emphasis', $codes);
     }
 
+    public function testAnyCharacterClassStillMatchesNextLine(): void
+    {
+        $codes = array_map(
+            static fn ($finding): string => $finding->code,
+            Carve::lint("{% if x\u{0085} %}"),
+        );
+
+        self::assertContains('braced-comment-in-a-template-source', $codes);
+    }
+
     #[DataProvider('spaces')]
     public function testUnclosedEmphasisAfterUnicodeWhitespace(string $space, int $offset): void
     {

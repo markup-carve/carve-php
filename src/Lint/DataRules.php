@@ -1836,9 +1836,6 @@ final class DataRules
             $source = str_replace('\\u{', '\\x{', $source);
         }
         $originalUnicode = str_contains($flags, 'u') || str_contains($source, '\\p{') || str_contains($source, '\\x{');
-        if (!str_contains($flags, 'u') && ($originalUnicode || str_contains($source, '\\s') || str_contains($source, '\\S'))) {
-            $flags .= 'u';
-        }
 
         $escaped = '';
         $byteEscaped = '';
@@ -1847,6 +1844,16 @@ final class DataRules
         $translated = false;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
             $char = $source[$i];
+            $pair = substr($source, $i, 6);
+            if ($char === '[' && ($pair === '[\\s\\S]' || $pair === '[\\S\\s]') && $slashes % 2 === 0) {
+                // The complementary pair means any character, including the characters where PCRE and JS disagree.
+                $escaped .= $pair;
+                $byteEscaped .= $pair;
+                $i += 5;
+                $slashes = 0;
+
+                continue;
+            }
             if ($char === '\\' && $slashes % 2 === 0 && ($source[$i + 1] ?? '') === 's') {
                 $escaped .= $inClass ? $whitespace : '[' . $whitespace . ']';
                 $byteEscaped .= '\\s';
@@ -1877,6 +1884,9 @@ final class DataRules
             $slashes = $char === '\\' ? $slashes + 1 : 0;
         }
 
+        if (!str_contains($flags, 'u') && ($originalUnicode || $translated)) {
+            $flags .= 'u';
+        }
         $pattern = '~' . $escaped . '~' . $flags;
         if ($translated && !$originalUnicode) {
             self::$bytePatterns[$pattern] = '~' . $byteEscaped . '~' . str_replace('u', '', $flags);
