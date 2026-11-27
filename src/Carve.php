@@ -887,7 +887,7 @@ final class Carve
         }
         $line = 1;
         $column = 1;
-        $at = 0;
+        $at = $offset >= 3 && str_starts_with($source, "\xEF\xBB\xBF") ? 3 : 0;
         while ($at < $offset) {
             if ($source[$at] === "\n") {
                 $line++;
