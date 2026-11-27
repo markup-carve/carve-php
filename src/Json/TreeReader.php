@@ -245,8 +245,35 @@ final class TreeReader
         if (array_key_exists('annotations', $options)) {
             AnnotationRanges::check($root, $options['annotations'], $declared);
         }
+        if ($envelope) {
+            self::liftDeclarations($root, $decoded);
+        }
 
         return $root;
+    }
+
+    /**
+     * C2-A-013 (carve#6888): the envelope declarations the root lacks go to the end of the root `extensions`, so the
+     * decoded tree is valid without its envelope.
+     *
+     * @param \stdClass $root
+     * @param \stdClass $envelope
+     */
+    private static function liftDeclarations(stdClass $root, stdClass $envelope): void
+    {
+        $own = [];
+        foreach ($root->extensions ?? [] as $item) {
+            $own[$item->name] = true;
+        }
+        $lifted = $root->extensions ?? [];
+        foreach ($envelope->extensions ?? [] as $item) {
+            if (!isset($own[$item->name])) {
+                $lifted[] = $item;
+            }
+        }
+        if (count($lifted) !== count($root->extensions ?? [])) {
+            $root->extensions = $lifted;
+        }
     }
 
     public static function schema(): stdClass
