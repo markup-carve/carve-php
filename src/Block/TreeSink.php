@@ -210,9 +210,14 @@ final class TreeSink implements Sink
     {
         foreach ($frame->findings as [$code, $from]) {
             $end = $from >= 0 ? $from + 1 : -1;
+            $start = $from;
             if ($code === 'fence-title-syntax') {
                 $end = strpos($this->s, "\n", $from);
                 $end = $end === false ? strlen($this->s) : $end;
+                // C2-B-122: the finding starts at the further words; only a tab glued to a code fence run is itself reported.
+                if ($node->type !== 'code_block' || $this->s[$from] !== "\t" || ($this->s[$from - 1] ?? '') !== '`') {
+                    $start += strspn($this->s, " \t", $from, $end - $from);
+                }
             }
             if ($code === 'fence-opener-fallback' && $from >= 0 && $this->s[$from] === '{') {
                 $close = strpos($this->s, '}', $from);
@@ -223,7 +228,7 @@ final class TreeSink implements Sink
             $this->findings->add(
                 $code,
                 $node,
-                start: $from,
+                start: $start,
                 end: $end,
                 message: ParseMessages::of($code, $this->s, $node, $from),
             );

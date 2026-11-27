@@ -161,18 +161,13 @@ final class ParseMessages
         }
         $slots = ['type' => $type !== '' ? $type : $run, 'fence' => $run, 'label' => $label];
         $first = mb_substr($rest, 0, 1);
-        $glued = $afterRun < strlen($s) ? $s[$afterRun] : '';
         $afterFence = substr($s, $afterRun, $lineEnd - $afterRun);
         if ($code && $type === '' && preg_match('/^[ \t]{2,}\{[.#][^{}]*\}/', $afterFence) === 1) {
             return Message::fill('fence-title-syntax', ['correctedOpener' => $run], 4);
         }
-        if ($code && $type === '' && ($glued === "\t" || ($glued === ' ' && in_array($s[$afterRun + 1] ?? '', [' ', "\t"], true)))) {
-            return Message::fill('fence-title-syntax', ['respaced' => $run], 5);
-        }
-        if ($code && $type !== '' && str_contains($before, "\t")) {
-            $respaced = $run . ' ' . str_replace("\t", ' ', trim(substr($s, $afterRun, $lineEnd - $afterRun)));
-
-            return Message::fill('fence-title-syntax', ['respaced' => $respaced], 6);
+        $spacing = $code ? self::spacing($s, $afterRun, $before, $type, $run, $afterFence) : null;
+        if ($spacing !== null) {
+            return $spacing;
         }
         if ($code && $rest !== '' && in_array($first, self::CURLY, true)) {
             $title = mb_substr($rest, 1);
@@ -193,6 +188,35 @@ final class ParseMessages
         }
 
         return Message::fill('fence-title-syntax', ['correctedOpener' => rtrim(substr($s, $start, $from - $start))], 4);
+    }
+
+    /**
+     * C2-B-117, C2-B-122: the message for a code fence opener whose whitespace is wrong: a second space or a tab behind
+     * the run, or a tab behind the language word; null for any other opener.
+     *
+     * @param string $s
+     * @param int $afterRun
+     * @param string $before
+     * @param string $type
+     * @param string $run
+     * @param string $afterFence
+     *
+     * @return string|null
+     */
+    private static function spacing(string $s, int $afterRun, string $before, string $type, string $run, string $afterFence): ?string
+    {
+        $line = trim($afterFence);
+        $respaced = $line === '' ? $run : $run . ' ' . preg_replace('/\s+/', ' ', $line);
+        $glued = $s[$afterRun] ?? '';
+        if ($type === '' && ($glued === "\t" || ($glued === ' ' && in_array($s[$afterRun + 1] ?? '', [' ', "\t"], true)))) {
+            return Message::fill('fence-title-syntax', ['respaced' => $respaced], 5);
+        }
+        $wordEnd = $afterRun + strlen($before) - strlen(ltrim($before, " \t")) + strlen($type);
+        if ($type !== '' && (str_contains($before, "\t") || ($s[$wordEnd] ?? '') === "\t")) {
+            return Message::fill('fence-title-syntax', ['respaced' => $respaced], 6);
+        }
+
+        return null;
     }
 
     /**
