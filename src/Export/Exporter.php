@@ -301,7 +301,6 @@ final class Exporter
 
             return true;
         }
-        $this->derivedLeft = 0;
         if (!$this->derivedReported) {
             $this->derivedReported = true;
             $this->loss($node, 'derived-text-budget', 'Wrote an abbreviation or a cross-reference in its plain form: '
