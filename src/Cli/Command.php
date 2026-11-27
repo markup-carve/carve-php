@@ -237,11 +237,12 @@ HELP;
         }
         $command = $command === 'format' ? 'fmt' : $command;
         $catalog = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/spec/data/cli.json'), true);
+        $sources = self::flagSources(is_array($catalog) ? $catalog : [], $command);
         $flags = [];
         foreach (is_array($catalog) && is_array($catalog['flags'] ?? null) ? $catalog['flags'] : [] as $flag) {
             if (
                 is_array($flag) && is_string($flag['name'] ?? null) && is_array($flag['commands'] ?? null)
-                && in_array($command, $flag['commands'], true)
+                && self::hasFlagSource($sources, $flag['commands'])
             ) {
                 $flags[] = '--' . $flag['name'];
             }
@@ -250,6 +251,39 @@ HELP;
         fwrite($out, 'Usage: carve ' . $command . " [flags] [file ...]\nFlags: " . implode(', ', $flags) . "\n");
 
         return true;
+    }
+
+    /**
+     * @param array<string, mixed> $catalog
+     * @param string $command
+     *
+     * @return array<string>
+     */
+    private static function flagSources(array $catalog, string $command): array
+    {
+        $sources = [$command];
+        foreach (is_array($catalog['commands'] ?? null) ? $catalog['commands'] : [] as $entry) {
+            if (is_array($entry) && ($entry['name'] ?? null) === $command && is_string($entry['flags_of'] ?? null)) {
+                $sources[] = $entry['flags_of'];
+            }
+        }
+
+        return $sources;
+    }
+
+    /**
+     * @param array<string> $sources
+     * @param array<mixed> $commands
+     */
+    private static function hasFlagSource(array $sources, array $commands): bool
+    {
+        foreach ($sources as $source) {
+            if (in_array($source, $commands, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

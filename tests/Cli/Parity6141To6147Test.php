@@ -41,6 +41,10 @@ final class Parity6141To6147Test extends TestCase
         [$status, $out] = self::call(['import', '--help']);
         self::assertSame(0, $status);
         self::assertStringContainsString('--report-losses', $out);
+        [$status, $out] = self::call(['fix', '--help']);
+        self::assertSame(0, $status);
+        self::assertStringContainsString('--rules', $out);
+        self::assertStringContainsString('--write', $out);
     }
 
     public function test6142AstEnvelope(): void
@@ -82,6 +86,19 @@ final class Parity6141To6147Test extends TestCase
         self::assertSame('', $out);
         self::assertStringContainsString('carve[render-loss]:', $err);
         self::assertStringContainsString(': error image-alt-unknown ', $err);
+    }
+
+    public function test6143ReportCannotOverwriteOutput(): void
+    {
+        $path = sys_get_temp_dir() . '/carve-import-shared-' . bin2hex(random_bytes(6));
+        [$status, $out, $err] = self::call(
+            ['import', '--from', 'html', '--output', $path, '--report-losses', dirname($path) . '/./' . basename($path)],
+            '<p>ok</p>',
+        );
+        self::assertSame(2, $status);
+        self::assertSame('', $out);
+        self::assertStringContainsString('shares a path', $err);
+        self::assertFileDoesNotExist($path);
     }
 
     public function test6145InvalidUtf8AstInputIsUnreadable(): void

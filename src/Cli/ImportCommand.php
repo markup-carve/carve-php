@@ -42,6 +42,7 @@ final class ImportCommand
     {
         try {
             [$from, $options, $files, $output, $directory, $report] = self::parse($args);
+            self::validatePaths($output, $report);
         } catch (OptionError $e) {
             return self::fail($err, 'usage', $e->getMessage(), 2);
         }
@@ -88,6 +89,21 @@ final class ImportCommand
         }
 
         return self::finish($result, $options, $display, [$from, $html], $output, $report, $out, $err);
+    }
+
+    private static function validatePaths(?string $output, ?string $report): void
+    {
+        if ($output === null || $report === null || $output === '-' || $report === '-') {
+            return;
+        }
+        $outputParent = realpath(dirname($output));
+        $reportParent = realpath(dirname($report));
+        if (
+            $outputParent !== false && $reportParent !== false
+            && $outputParent . '/' . basename($output) === $reportParent . '/' . basename($report)
+        ) {
+            throw new OptionError('--output shares a path with --report-losses');
+        }
     }
 
     /**
