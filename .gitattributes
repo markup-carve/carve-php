@@ -26,3 +26,13 @@ spec/trees/ export-ignore
 phpcs.xml export-ignore
 phpstan.neon export-ignore
 renovate.json export-ignore
+.changelog-exempt export-ignore
+# spec/data feeds scripts/generate-tables.php and the tests; only the files src/ reads at runtime ship
+# (tests/Build/DistArchiveTest.php keeps this list in step with src/).
+spec/data/* export-ignore
+spec/data/annotation-ranges.schema.json -export-ignore
+spec/data/ast-schema.json -export-ignore
+spec/data/layout-schema.json -export-ignore
+spec/data/lint-model.json -export-ignore
+spec/data/lint-rules.json -export-ignore
+spec/data/node-slots.json -export-ignore
