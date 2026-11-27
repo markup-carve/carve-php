@@ -165,8 +165,11 @@ final class Linter
         unset($parsed);
         // The encoder below releases the tree as it goes.
         $snippets = Snippets::findings($document, $source);
+        $snippetNotes = self::snippetNotes($document, $source);
         $tree = (new TreeEncoder())->encodeForLint($document, $source);
         unset($document);
+        [$authoredNotes, $unresolvedSnippetNotes] = self::authoredSnippetNotes($tree, $source);
+        $snippetNotes += $authoredNotes;
         $c = new Context($source, $options, self::catalog());
 
         $c->layoutEntries = $entries;
@@ -190,6 +193,7 @@ final class Linter
                 $c->report($id, $start, $end, $path, $values);
             }
         }
+        self::reportSnippetNotes($c, $unresolvedSnippetNotes);
         NodeRulesB::finish($c);
         usort($c->leafMask, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
 
@@ -199,6 +203,7 @@ final class Linter
         }
 
         $findings = self::ordered(self::filter($c, $controls), $c->nodeTypes);
+        $findings = self::withoutUsedSnippetNotes($findings, $snippetNotes);
         $dataRules = $c->dataRules;
         unset($c);
         if ($dataRules) {
@@ -206,6 +211,57 @@ final class Linter
         }
 
         return $findings;
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private static function snippetNotes(Node $document, string $source): array
+    {
+        return str_contains($source, '{$') && str_contains($source, '{{') && str_contains($source, '[^')
+            ? SnippetFootnotes::used($document) : [];
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     * @param string $source
+     *
+     * @return array{0: array<string, true>, 1: list<array{0: int, 1: int, 2: string, 3: string}>}
+     */
+    private static function authoredSnippetNotes(array $tree, string $source): array
+    {
+        return str_contains($source, '{$') && str_contains($source, '[^')
+            ? SnippetFootnotes::authored($tree) : [[], []];
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Lint\Context $context
+     * @param list<array{0: int, 1: int, 2: string, 3: string}> $unresolved
+     */
+    private static function reportSnippetNotes(Context $context, array $unresolved): void
+    {
+        if (!$context->activeRule('unresolved-footnote')) {
+            return;
+        }
+        foreach ($unresolved as [$start, $end, $path, $key]) {
+            $context->report('unresolved-footnote', $start, $end, $path, ['id' => $key]);
+        }
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Diagnostics\Diagnostic> $findings
+     * @param array<string, true> $used
+     *
+     * @return array<\MarkupCarve\Carve\Diagnostics\Diagnostic>
+     */
+    private static function withoutUsedSnippetNotes(array $findings, array $used): array
+    {
+        if ($used === []) {
+            return $findings;
+        }
+
+        return array_values(array_filter($findings, static fn (Diagnostic $entry): bool => $entry->code !== 'unused-footnote-definition'
+            || !isset($used[($entry->file ?? '') . "\0" . $entry->startOffset])));
     }
 
     /**

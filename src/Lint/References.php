@@ -33,10 +33,11 @@ final class References
      * @param string $file
      * @param string $inclusion
      * @param array<array{links: array<string, string>, notes: array<string, string>}> $scopes Innermost last.
+     * @param bool $inSnippet
      *
      * @return void
      */
-    public function record(array $node, string $file, string $inclusion, array $scopes): void
+    public function record(array $node, string $file, string $inclusion, array $scopes, bool $inSnippet): void
     {
         $type = $node['type'] ?? null;
         if ($type !== 'link' && $type !== 'image' && $type !== 'footnote_ref') {
@@ -51,7 +52,7 @@ final class References
         $occurrence = implode("\0", [$file, $start, $note ? 'unresolved-footnote' : 'unresolved-reference-link', $inclusion]);
         $this->observed[$occurrence] = true;
         $resolved = match ($type) {
-            'footnote_ref' => isset($node['number']),
+            'footnote_ref' => isset($node['number']) || ($inSnippet && $this->target($node['key'] ?? null, true, $scopes) !== null),
             'link' => isset($node['href']),
             default => isset($node['src']),
         };
@@ -61,9 +62,29 @@ final class References
             return;
         }
         $key = $node['key'] ?? null;
-        if (is_string($key)) {
+        if (is_string($key) && (!$note || !$inSnippet)) {
             $this->use($key, $note, $scopes);
         }
+    }
+
+    /**
+     * @param mixed $key
+     * @param bool $note
+     * @param array<array{links: array<string, string>, notes: array<string, string>}> $scopes
+     */
+    private function target(mixed $key, bool $note, array $scopes): ?string
+    {
+        if (!is_string($key)) {
+            return null;
+        }
+        $kind = $note ? 'notes' : 'links';
+        for ($i = count($scopes) - 1; $i >= 0; $i--) {
+            if (isset($scopes[$i][$kind][$key])) {
+                return $scopes[$i][$kind][$key];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -77,14 +98,19 @@ final class References
      */
     private function use(string $key, bool $note, array $scopes): void
     {
-        $kind = $note ? 'notes' : 'links';
-        for ($i = count($scopes) - 1; $i >= 0; $i--) {
-            $target = $scopes[$i][$kind][$key] ?? null;
-            if ($target !== null) {
-                $this->used[$target . "\0" . ($note ? 'unused-footnote-definition' : 'unused-link-reference-definition')] = true;
+        $target = $this->target($key, $note, $scopes);
+        if ($target !== null) {
+            $this->used[$target . "\0" . ($note ? 'unused-footnote-definition' : 'unused-link-reference-definition')] = true;
+        }
+    }
 
-                return;
-            }
+    /**
+     * @param array<string, true> $targets Definition file and start offset.
+     */
+    public function useFootnotes(array $targets): void
+    {
+        foreach ($targets as $target => $_) {
+            $this->used[$target . "\0unused-footnote-definition"] = true;
         }
     }
 
