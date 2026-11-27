@@ -706,15 +706,14 @@ final class RepairPlanner
             }
         }
         $changed = false;
+        $ofChild = $this->escapesByChild();
         foreach ($byChild as $child => $leaves) {
             [$tree, $layout] = Writer::isolatedBlock($this->tree, $this->layout, $index, $child);
             $prefix = '/children/' . $child;
             $local = static fn (string $path): string => '/children/0' . substr($path, strlen($prefix));
             $escapes = [];
-            foreach ($this->escapes as $path => $offsets) {
-                if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
-                    $escapes[$local($path)] = $offsets;
-                }
+            foreach ($ofChild[$child] ?? [] as $path => $offsets) {
+                $escapes[$local($path)] = $offsets;
             }
             $wanted = self::readPrints($tree)[1];
             foreach ($leaves as $leaf => $log) {
@@ -723,7 +722,7 @@ final class RepairPlanner
                     continue;
                 }
                 $log = array_map(static fn (array $entry): array => [$local($entry[0]), $entry[1]], $log);
-                $found = $this->retestedLeaf($tree, $layout, $escapes, $log, $local($leaf), $want);
+                $found = $this->rememberedRetest($tree, $layout, $escapes, $log, $local($leaf), $want);
                 if ($found === null) {
                     break 2;
                 }
@@ -732,10 +731,8 @@ final class RepairPlanner
                     $changed = true;
                 }
             }
-            foreach (array_keys($this->escapes) as $path) {
-                if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
-                    unset($this->escapes[$path]);
-                }
+            foreach (array_keys($ofChild[$child] ?? []) as $path) {
+                unset($this->escapes[$path]);
             }
             foreach ($escapes as $path => $offsets) {
                 $this->escapes[$prefix . substr($path, strlen('/children/0'))] = $offsets;
@@ -743,6 +740,96 @@ final class RepairPlanner
         }
 
         return $changed;
+    }
+
+    /**
+     * `retestedLeaf()`, run once per isolated block, escapes, log and write state: blocks of the same content in one
+     * write take the same retest.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, array<int, true>> $escapes
+     * @param array<array{string, int}> $log
+     * @param string $leaf
+     * @param string $want
+     *
+     * @return array<string, array<int, true>>|null
+     */
+    private function rememberedRetest(array $tree, ?array $layout, array $escapes, array $log, string $leaf, string $want): ?array
+    {
+        $flag = Writer::repairFlag();
+        if ($flag === null) {
+            return $this->retestedLeaf($tree, $layout, $escapes, $log, $leaf, $want);
+        }
+        $root = $this->root();
+        $read = $root->read;
+        $inputs = ['retest', $tree, self::retestLayoutKey($tree, $layout), $escapes, $log, $leaf, $want, $this->options, $flag];
+        $retest = function () use ($tree, $layout, $escapes, $log, $leaf, $want, $root, $read): array {
+            $found = $this->retestedLeaf($tree, $layout, $escapes, $log, $leaf, $want);
+
+            return [[$found, Writer::repairFlag() ?? false], $root->read - $read];
+        };
+        [[$found, $after], $charged] = WriteMemo::probe($inputs, $root->limit - $read, $retest);
+        $root->read = $read + $charged;
+        Writer::restoreRepairFlag($after);
+
+        return $found;
+    }
+
+    /**
+     * The layout of an isolated block as its writes read it: they read the sidecar source only for a control comment
+     * (`ControlLines::keepAbove()`) and the byte offsets only in the authored-block fallback, so the key leaves out the
+     * source and holds the offsets relative to the block.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     *
+     * @return array<mixed>|null
+     */
+    private static function retestLayoutKey(array $tree, ?array $layout): ?array
+    {
+        $nodes = $layout['nodes'] ?? null;
+        if (!is_array($nodes) || str_contains(serialize($tree), 'carve-lint-disable-next-line')) {
+            return $layout;
+        }
+        $base = null;
+        foreach ($nodes as $entry) {
+            if (is_array($entry) && is_int($entry['startByte'] ?? null)) {
+                $base = min($base ?? $entry['startByte'], $entry['startByte']);
+            }
+        }
+        foreach ($nodes as $i => $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            foreach (['startByte', 'endByte'] as $field) {
+                if (is_int($entry[$field] ?? null)) {
+                    $entry[$field] -= (int)$base;
+                }
+            }
+            $nodes[$i] = $entry;
+        }
+        unset($layout['source']);
+        $layout['nodes'] = $nodes;
+
+        return $layout;
+    }
+
+    /**
+     * The escapes by the top-level child they stand in, in their order.
+     *
+     * @return array<int, array<string, array<int, true>>>
+     */
+    private function escapesByChild(): array
+    {
+        $ofChild = [];
+        foreach ($this->escapes as $path => $offsets) {
+            if (preg_match('~^/children/(\d+)(?:/|$)~', (string)$path, $m) === 1) {
+                $ofChild[(int)$m[1]][$path] = $offsets;
+            }
+        }
+
+        return $ofChild;
     }
 
     /**
@@ -1345,13 +1432,22 @@ final class RepairPlanner
     private function outsideUnformed(array $comparison): array
     {
         $openers = $comparison['openers'];
+        $unformed = [];
         foreach ($this->kindRounds ? $comparison['unformed'] ?? [] : [] as $path) {
-            if (isset($this->trialled[$path])) {
-                continue;
+            if (!isset($this->trialled[$path])) {
+                $unformed[$path] = true;
             }
-            foreach (array_keys($openers) as $owner) {
-                if (str_starts_with((string)$owner, $path . '/')) {
+        }
+        if ($unformed === []) {
+            return $openers;
+        }
+        foreach (array_keys($openers) as $owner) {
+            $owner = (string)$owner;
+            for ($at = strpos($owner, '/', 1); $at !== false; $at = strpos($owner, '/', $at + 1)) {
+                if (isset($unformed[substr($owner, 0, $at)])) {
                     unset($openers[$owner]);
+
+                    break;
                 }
             }
         }
