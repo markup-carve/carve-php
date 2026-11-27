@@ -1479,6 +1479,9 @@ HELP;
             $position['column'] = mb_strlen(mb_scrub(substr($chunk, (int)strrpos($chunk, "\n") + 1), 'UTF-8'), 'UTF-8') + 1;
         } else {
             $position['column'] += mb_strlen(mb_scrub($chunk, 'UTF-8'), 'UTF-8');
+            if ($position['offset'] < 3 && $offset >= 3 && str_starts_with($source, "\xEF\xBB\xBF")) {
+                $position['column']--;
+            }
         }
         $position['offset'] = $offset;
 
