@@ -41,9 +41,14 @@ final class DistArchiveTest extends TestCase
         $ignored = [];
         foreach (array_keys($read) as $path) {
             $this->assertFileExists($root . '/' . $path);
-            $out = (string)shell_exec('git -C ' . escapeshellarg($root) . ' check-attr export-ignore -- ' . escapeshellarg($path));
-            if (str_ends_with(trim($out), ': set')) {
-                $ignored[] = $path;
+            // An export-ignored ancestor directory drops the file too, while check-attr on the file says unspecified.
+            for ($p = $path; $p !== 'spec'; $p = dirname($p)) {
+                $out = (string)shell_exec('git -C ' . escapeshellarg($root) . ' check-attr export-ignore -- ' . escapeshellarg($p));
+                if (str_ends_with(trim($out), ': set')) {
+                    $ignored[] = $path;
+
+                    break;
+                }
             }
         }
         $this->assertSame([], $ignored, 'src/ reads these at runtime; unset export-ignore for them in .gitattributes');
