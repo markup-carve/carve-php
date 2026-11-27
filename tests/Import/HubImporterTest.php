@@ -509,4 +509,17 @@ final class HubImporterTest extends TestCase
             $this->assertSame($from === 'gfm' ? "{-a-}\n" : "/a/\n", stream_get_contents($out));
         }
     }
+
+    public function testDjotAttributesRespectEscapedRunAndRejectBareSpecifier(): void
+    {
+        $cases = [
+            "a\\]{.c}\n" => "a[\\]]{.c}\n",
+            "{=x}\\]{.c}\n" => "{=x}[\\]]{.c}\n",
+            "(x)\\]{.c}\n" => "(x)[\\]]{.c}\n",
+            "a{x}\n" => "a{x}\n",
+        ];
+        foreach ($cases as $input => $expected) {
+            $this->assertSame($expected, self::source($input, 'djot'), $input);
+        }
+    }
 }

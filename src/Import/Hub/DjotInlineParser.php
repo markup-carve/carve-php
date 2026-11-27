@@ -69,6 +69,54 @@ final class DjotInlineParser extends InlineParser
     }
 
     /**
+     * djot.js starts a new attribute target at an escape and requires each attribute to have a marker or value.
+     * The library otherwise folds an escaped punctuation into the word before it and accepts boolean bare words.
+     *
+     * @return array{textBuffer: string, pos: int}|null
+     */
+    protected function parseInlineAttributes(string $text, int $pos, string $textBuffer, Node $parent): ?array
+    {
+        $first = $text[$pos + 1] ?? '';
+        $simple = $first === '.' || $first === '#';
+        if ($simple) {
+            $end = strpos($text, '}', $pos + 2);
+            $simple = $end !== false && strcspn($text, " \t\n\r\f", $pos + 1, $end - $pos - 1) === $end - $pos - 1;
+        }
+        if (!$simple) {
+            $end = $this->findAttributeEnd($text, $pos);
+            if ($end !== null && !$this->djotAttributes(substr($text, $pos + 1, $end - $pos - 1))) {
+                return null;
+            }
+        }
+        if ($pos >= 2 && $text[$pos - 2] === '\\' && ctype_punct($text[$pos - 1])) {
+            $this->attributeWordBoundary = max($this->attributeWordBoundary, count($parent->getChildren()) - 1);
+        }
+
+        return parent::parseInlineAttributes($text, $pos, $textBuffer, $parent);
+    }
+
+    protected function isValidAttrPayload(string $attrStr): bool
+    {
+        return $this->djotAttributes($attrStr) && parent::isValidAttrPayload($attrStr);
+    }
+
+    private function djotAttributes(string $payload): bool
+    {
+        // The common single specifier already has the reference grammar's required marker or equals sign.
+        if (
+            $payload !== '' && strcspn($payload, " \t\n\r\f") === strlen($payload)
+            && (str_starts_with($payload, '.') || str_starts_with($payload, '#') || str_contains($payload, '='))
+        ) {
+            return true;
+        }
+        $payload = $this->removeAttributeComments($payload);
+        $quoted = '(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')';
+        $token = '(?:[.#][A-Za-z0-9_:-]+|[A-Za-z0-9_:-]+=(?:' . $quoted . '|[A-Za-z0-9_:-]+))';
+
+        return preg_match('/^\s*(?:' . $token . '(?:\s+' . $token . ')*)?\s*$/D', $payload) === 1;
+    }
+
+    /**
      * The library link with the brackets of `findBalancedBracketEnd()`: a reference label ends where djot.js ends it,
      * and `]{` closes a span even when no attribute block follows, as in djot.js.
      */

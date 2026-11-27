@@ -241,6 +241,13 @@ final class LegacyForeignContent
      */
     private array $open = [];
 
+    /**
+     * HTML element names in opening order.
+     *
+     * @var array<string>
+     */
+    private array $htmlNames = [];
+
     private int $depth = 0;
 
     /**
@@ -364,6 +371,7 @@ final class LegacyForeignContent
         if (($this->open[$name] ?? 0) > 0) {
             $this->open[$name]--;
             $this->depth--;
+            array_pop($this->htmlNames);
         }
     }
 
@@ -373,6 +381,33 @@ final class LegacyForeignContent
     public function closesForeign(string $name): bool
     {
         return ($this->onStack[$name] ?? 0) > 0;
+    }
+
+    /**
+     * An HTML child of a foreign integration point is the current node for end-tag processing. A foreign ancestor's
+     * end tag cannot jump over it; the in-body rules ignore that tag until the HTML child closes.
+     */
+    public function htmlInsideIntegration(): bool
+    {
+        $top = $this->top();
+
+        return $top !== null && $top[0] === 'html' && $this->depth > $top[3];
+    }
+
+    public function foreignAncestor(string $name): bool
+    {
+        return $this->htmlInsideIntegration() && ($this->onStack[$name] ?? 0) > 0
+            && !$this->openedInsideIntegration($name);
+    }
+
+    public function openedInsideIntegration(string $name): bool
+    {
+        $top = $this->top();
+        if ($top === null || $top[0] !== 'html') {
+            return false;
+        }
+
+        return in_array($name, array_slice($this->htmlNames, $top[3]), true);
     }
 
     /**
@@ -397,6 +432,7 @@ final class LegacyForeignContent
             if ($mode === null && !$selfClosing && !isset(self::VOIDS[$name])) {
                 $this->open[$name] = ($this->open[$name] ?? 0) + 1;
                 $this->depth++;
+                $this->htmlNames[] = $name;
             }
         } elseif (isset(self::BREAKOUT[$name]) || ($name === 'font' && self::attribute($source, '(?:color|face|size)') !== null)) {
             $closed = $this->leave();
@@ -434,6 +470,13 @@ final class LegacyForeignContent
      */
     private function close(string $name): array
     {
+        if ($this->openedInsideIntegration($name)) {
+            $this->open[$name]--;
+            $this->depth--;
+            array_pop($this->htmlNames);
+
+            return [];
+        }
         if ($this->foreign() && in_array($name, self::BREAKOUT_END, true)) {
             return $this->leave();
         }
@@ -450,6 +493,7 @@ final class LegacyForeignContent
         }
         $this->open[$name]--;
         $this->depth--;
+        array_pop($this->htmlNames);
 
         // An end tag for an open HTML ancestor closes the foreign content in between.
         return $this->leave();

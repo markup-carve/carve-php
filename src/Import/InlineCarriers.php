@@ -547,6 +547,7 @@ final class InlineCarriers
             $this->ends[$id][] = [$place, $node];
             if (isset($pending[$id])) {
                 unset($pending[$id]);
+                $this->commentEnds[$node] = true;
 
                 return false;
             }
