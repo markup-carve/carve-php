@@ -45,4 +45,12 @@ final class ImportAbbreviationI02Test extends TestCase
         self::assertSame('', $out);
         self::assertStringStartsWith('carve[writer-refused]:', $err);
     }
+
+    public function testRepeatedTermDrawsOneLossForItsTextField(): void
+    {
+        $result = HtmlImporter::import('<template data-carve-abbreviations>*[A]: Able</template><p>A A</p>');
+        $lost = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->code === 'field-unspellable'));
+        self::assertCount(1, $lost);
+        self::assertSame('/children/1/children/0/value', $lost[0]->path);
+    }
 }

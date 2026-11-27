@@ -61,6 +61,11 @@ final class AbbreviationLosses
     private array $losses = [];
 
     /**
+     * @var array<string, true> A field draws one loss even when it holds several matching terms.
+     */
+    private array $reported = [];
+
+    /**
      * @param array<string, array<string, mixed>> $abbreviations
      */
     private function __construct(array $abbreviations)
@@ -258,6 +263,10 @@ final class AbbreviationLosses
             && !Chars::isWord($state['before']) && !Chars::isWord($next)
         ) {
             foreach (array_keys($state['paths']) as $path) {
+                if (isset($this->reported[$path])) {
+                    continue;
+                }
+                $this->reported[$path] = true;
                 $this->losses[] = new Diagnostic(
                     'field-unspellable',
                     'warning',
