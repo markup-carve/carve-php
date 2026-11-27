@@ -77,4 +77,29 @@ final class ImportRangeI02Test extends TestCase
             }
         }
     }
+
+    public function testTemplateContentTokensDoNotShiftFollowingSiblingRanges(): void
+    {
+        $html = '<template onclick=x><p>hi</p></template><p>tail</p>';
+        foreach ([false, true] as $legacy) {
+            $result = HtmlImporter::import($html, [], $legacy);
+            $drop = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->foreignType === 'template'));
+            self::assertCount(1, $drop);
+            self::assertSame([0, strpos($html, '<p>tail')], [$drop[0]->startOffset, $drop[0]->endOffset]);
+        }
+    }
+
+    public function testRawTextEndTagAllowsTrailingAttributes(): void
+    {
+        $html = '<script onclick=x>foo</script foo><p onclick=y>bar</p>';
+        foreach ([false, true] as $legacy) {
+            $result = HtmlImporter::import($html, [], $legacy);
+            $script = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->foreignType === 'script'));
+            $paragraph = array_values(array_filter($result->diagnostics, static fn ($d): bool => $d->foreignType === 'p'));
+            self::assertCount(1, $script);
+            self::assertCount(1, $paragraph);
+            self::assertSame([0, strpos($html, '<p onclick=y>')], [$script[0]->startOffset, $script[0]->endOffset]);
+            self::assertSame([strpos($html, '<p onclick=y>'), strlen($html)], [$paragraph[0]->startOffset, $paragraph[0]->endOffset]);
+        }
+    }
 }

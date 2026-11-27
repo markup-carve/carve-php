@@ -83,7 +83,18 @@ final class SourceLocations
             }
         }
         $positions = [];
-        $walk = static function (HtmlNode $node) use (&$walk, &$positions, $tokens): void {
+        self::assignNodes($root->children, $positions, $tokens);
+        self::bound($root->children, strlen($html));
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
+     * @param array<string, int> $positions
+     * @param array<string, array<int>> $tokens
+     */
+    private static function assignNodes(array $nodes, array &$positions, array $tokens): void
+    {
+        foreach ($nodes as $node) {
             $tag = $node->tag();
             $at = $positions[$tag] ?? 0;
             if (isset($tokens[$tag][4 * $at])) {
@@ -93,14 +104,13 @@ final class SourceLocations
                 $node->sourceCloseStart = $tokens[$tag][4 * $at + 3];
                 $positions[$tag] = $at + 1;
             }
-            foreach ($node->children as $child) {
-                $walk($child);
+            if ($node->children !== []) {
+                self::assignNodes($node->children, $positions, $tokens);
             }
-        };
-        foreach ($root->children as $child) {
-            $walk($child);
+            if ($node->content !== null) {
+                self::assignNodes($node->content, $positions, $tokens);
+            }
         }
-        self::bound($root->children, strlen($html));
     }
 
     private static function isSelfClosed(string $tag, string $source): bool
@@ -114,7 +124,7 @@ final class SourceLocations
     private static function rawCloses(string $tag, string $source): bool
     {
         // HTML treats every apparent tag after a plaintext opener as text, including </plaintext>.
-        return $tag !== 'plaintext' && preg_match('/^<\/\s*' . preg_quote($tag, '/') . '\s*>$/i', $source) === 1;
+        return $tag !== 'plaintext' && preg_match('/^<\/\s*' . preg_quote($tag, '/') . '(?=[\s\/>])[^>]*>$/i', $source) === 1;
     }
 
     private static function consumesRaw(?string &$raw, string $source): bool
@@ -151,6 +161,7 @@ final class SourceLocations
             $childLimit = $node->sourceCloseStart >= $node->contentStart
                 ? min($limit, $node->sourceCloseStart) : $limit;
             self::bound($node->children, $childLimit);
+            self::bound($node->content ?? [], $childLimit);
         }
     }
 
