@@ -506,7 +506,7 @@ final class CompareRound
     {
         $type = $other['type'] ?? '';
         $shifted = $at + strspn($value, " \t", $at) + match ($type) {
-            'image', 'literal_inline', 'inline_footnote' => 1,
+            'image', 'literal_inline' => 1,
             'math' => ($other['display'] ?? false) === true ? 2 : 1,
             'smart_punctuation' => ($value[$at] ?? '') === '-' ? 1 : 0,
             default => 0,
