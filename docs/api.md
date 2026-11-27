@@ -377,7 +377,7 @@ Class. Provisional. `<n>` markers that end a code line become callout bubbles, a
 Class. Provisional. `::: details "Title"` as a native disclosure (`carve.details`); static mode writes it expanded.
 
 - `static bundle(): Bundle`
-- `static definition(string $name, string $source, Closure $render, Closure $static): ExtensionDefinition`: The definition of a titled div with the slots `summary` and `body`.
+- `static definition(string $name, string $source, Closure $render, Closure $static): ExtensionDefinition`: The definition of a titled div with the slots `title` and `body`.
 - `static titledFallback(array $title, array $body): array`: C2-X-042 precedent: the title as a `strong` paragraph, then the body.
 - `static container(string $head, string $inner, array $body, string $tail, RenderHost $host): string`: Writes `head`, `inner` and the body one level in, then `tail`; the body is rendered at its actual depth.
 - `static attrs(Node $node, RenderHost $host, ?string $base = null): string`

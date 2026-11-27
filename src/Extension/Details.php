@@ -22,7 +22,7 @@ final class Details
     }
 
     /**
-     * The definition of a titled div with the slots `summary` and `body`.
+     * The definition of a titled div with the slots `title` and `body`.
      *
      * @param string $name
      * @param string $source
@@ -36,7 +36,7 @@ final class Details
         return new ExtensionDefinition(
             $name,
             '1',
-            ['summary', 'body'],
+            ['title', 'body'],
             matcher: ['form' => 'div', 'name' => $source],
             transform: static function (Claim $claim) use ($name): ?Node {
                 if ($claim->form !== 'div') {
@@ -47,7 +47,7 @@ final class Details
                 $node = new Node('block_extension', []);
                 $node->f['name'] = $name;
                 $node->f['version'] = '1';
-                $node->f['slots'] = ['summary' => $title, 'body' => $body];
+                $node->f['slots'] = ['title' => $title, 'body' => $body];
                 $node->f['fallback'] = self::titledFallback($title, $body);
 
                 return $node;
@@ -111,7 +111,7 @@ final class Details
     public static function disclosure(Node $node, RenderHost $host, string $label, ?string $base = null): string
     {
         $slots = is_array($node->f['slots'] ?? null) ? $node->f['slots'] : [];
-        $summary = PlainText::nodes($slots['summary'] ?? []);
+        $summary = PlainText::nodes($slots['title'] ?? $slots['summary'] ?? []);
         $text = $summary === [] ? '' : trim(($host->inlines)($summary));
         $attrs = $node->f['attrs'] ?? null;
         $authoredOpen = AuthorAttrs::value($attrs instanceof Attrs ? $attrs : null, 'open') !== null;

@@ -155,6 +155,44 @@ final class BlocksInlineTest extends TestCase
         $this->assertContains('extension-fallback-rendered', $result->codes());
     }
 
+    public function testTitledDisclosureAstUsesTitleSlot(): void
+    {
+        $cases = [
+            ['details', 'carve.details', Details::bundle()],
+            ['spoiler', 'carve.spoilerBlock', Spoiler::bundle()],
+        ];
+        foreach ($cases as [$sourceName, $extensionName, $bundle]) {
+            $source = "::: {$sourceName} \"More\"\nHidden.\n:::\n";
+            $tree = json_decode(Carve::encodeTree(Carve::parse($source, ['extensions' => [$bundle]])), true);
+            $node = $tree['children'][0];
+
+            self::assertSame($extensionName, $node['name']);
+            self::assertSame(['title', 'body'], $tree['extensions'][0]['slots']);
+            self::assertSame('More', $node['slots']['title'][0]['value']);
+            self::assertArrayNotHasKey('summary', $node['slots']);
+            self::assertSame('strong', $node['fallback'][0]['children'][0]['type']);
+        }
+    }
+
+    public function testTitledDisclosureRendererReadsStoredSummarySlot(): void
+    {
+        $cases = [
+            ['details', Details::bundle()],
+            ['spoiler', Spoiler::bundle()],
+        ];
+        foreach ($cases as [$sourceName, $bundle]) {
+            $options = ['extensions' => [$bundle]];
+            $tree = Carve::parse("::: {$sourceName} \"More\"\nHidden.\n:::\n", $options);
+            $node = $tree->children[0];
+            $slots = $node->f['slots'];
+            $slots['summary'] = $slots['title'];
+            unset($slots['title']);
+            $node->f['slots'] = $slots;
+
+            self::assertStringContainsString('<summary>More</summary>', Carve::render($tree, $options));
+        }
+    }
+
     /**
      * A registered definition without a renderer is not unknown (C2-X-035, C2-W-106).
      */
