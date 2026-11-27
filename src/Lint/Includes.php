@@ -67,6 +67,9 @@ final class Includes
         $parsed = Carve::parseWithDiagnostics($source, $parseOptions);
         $losing = self::losingSnippets($parsed->tree, $parsed->diagnostics);
         $used = Snippets::usedNames($parsed->tree);
+        if ($used !== []) {
+            $visit->references->useFootnotes(SnippetFootnotes::used($parsed->tree));
+        }
         $tree = json_decode(Carve::encodeTree($parsed->tree), true, 4096, JSON_THROW_ON_ERROR);
         if (is_array($tree)) {
             $root = Support::node($tree);
@@ -125,12 +128,20 @@ final class Includes
      * @param string $file
      * @param string $inclusion The path of the include whose file holds the node; empty for the top-level document.
      * @param array<array{links: array<string, string>, notes: array<string, string>}> $scopes Innermost last.
+     * @param bool $inSnippet
      *
      * @return void
      */
-    private function walkReferences(array $node, string $path, string $file, string $inclusion, array $scopes): void
-    {
-        $this->references->record($node, $file, $inclusion, $scopes);
+    private function walkReferences(
+        array $node,
+        string $path,
+        string $file,
+        string $inclusion,
+        array $scopes,
+        bool $inSnippet = false,
+    ): void {
+        $this->references->record($node, $file, $inclusion, $scopes, $inSnippet);
+        $belowSnippet = $inSnippet || ($node['type'] ?? null) === 'snippet_definition';
         $inner = [$file, $inclusion, $scopes];
         if (($node['type'] ?? null) === 'include' && is_array($node['children'] ?? null)) {
             $innerFile = is_string($node['file'] ?? null) ? $node['file'] : $file;
@@ -142,7 +153,7 @@ final class Includes
             }
             [$underFile, $underInclusion, $underScopes] = $key === 'children' ? $inner : [$file, $inclusion, $scopes];
             if (is_string($value['type'] ?? null)) {
-                $this->walkReferences(Support::node($value), $path . '/' . $key, $underFile, $underInclusion, $underScopes);
+                $this->walkReferences(Support::node($value), $path . '/' . $key, $underFile, $underInclusion, $underScopes, $belowSnippet);
 
                 continue;
             }
@@ -154,6 +165,7 @@ final class Includes
                         $underFile,
                         $underInclusion,
                         $underScopes,
+                        $belowSnippet,
                     );
                 }
             }
