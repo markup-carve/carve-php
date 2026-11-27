@@ -103,7 +103,7 @@ jobs:
 
       # The spec is released first; an engine release implements a spec release.
       - name: The spec pin is a published spec release
-        run: ./scripts/check-spec-pin-is-tag.sh tests/spec
+        run: ./scripts/check-spec-pin-is-tag.sh spec/PINNED
 
       - name: No tag of this name exists yet
         env:
