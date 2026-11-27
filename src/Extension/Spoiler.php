@@ -78,7 +78,7 @@ final class Spoiler
     private static function section(Node $node, RenderHost $host): string
     {
         $slots = is_array($node->f['slots'] ?? null) ? $node->f['slots'] : [];
-        $summary = PlainText::nodes($slots['summary'] ?? []);
+        $summary = PlainText::nodes($slots['title'] ?? []);
         $title = $summary === [] ? '' : trim(($host->inlines)($summary));
         $title = $title === '' ? RenderHost::escapeText($host->label('spoiler', 'Spoiler')) : $title;
         $heading = '<h3 class="spoiler-title">' . $title . '</h3>';
