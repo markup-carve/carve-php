@@ -24,7 +24,18 @@ final class Fixer
                 }
                 $replacement = self::replacement($source, $entry);
                 if ($replacement !== null && ($entry->code !== 'djot-plus-bullet' || self::opensList($source, $entry, $replacement))) {
-                    $edits[] = [$entry->startOffset, $entry->endOffset, $replacement];
+                    $start = $entry->startOffset;
+                    $end = $entry->endOffset;
+                    if ($entry->code === 'heading-closing-hashes') {
+                        $sourceLength = strlen($source);
+                        while ($start > 0 && ($source[$start - 1] === ' ' || $source[$start - 1] === "\t")) {
+                            $start--;
+                        }
+                        while ($end < $sourceLength && ($source[$end] === ' ' || $source[$end] === "\t")) {
+                            $end++;
+                        }
+                    }
+                    $edits[] = [$start, $end, $replacement];
                 }
             }
             $selected = self::nonconflicting($edits);

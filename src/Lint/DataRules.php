@@ -1808,6 +1808,9 @@ final class DataRules
     private static function pattern(string $source, string $flags = ''): string
     {
         static $cache = [];
+        // ECMAScript's whitespace class includes FEFF and excludes NEL and the obsolete Mongolian vowel separator.
+        $whitespace = '\\x{0009}-\\x{000D}\\x{0020}\\x{00A0}\\x{1680}\\x{2000}-\\x{200A}'
+            . '\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}';
         $key = $flags . "\0" . $source;
         if (isset($cache[$key])) {
             return $cache[$key];
@@ -1815,14 +1818,35 @@ final class DataRules
         if (str_contains($source, '\\u{')) {
             $source = str_replace('\\u{', '\\x{', $source);
         }
-        if (str_contains($source, '\\p{') || str_contains($source, '\\x{')) {
+        if (
+            str_contains($source, '\\p{') || str_contains($source, '\\x{')
+            || str_contains($source, '\\s') || str_contains($source, '\\S')
+        ) {
             $flags .= 'u';
         }
 
         $escaped = '';
         $slashes = 0;
+        $inClass = false;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
             $char = $source[$i];
+            if ($char === '\\' && $slashes % 2 === 0 && ($source[$i + 1] ?? '') === 's') {
+                $escaped .= $inClass ? $whitespace : '[' . $whitespace . ']';
+                $i++;
+                $slashes = 0;
+
+                continue;
+            }
+            if ($char === '\\' && $slashes % 2 === 0 && ($source[$i + 1] ?? '') === 'S' && !$inClass) {
+                $escaped .= '[^' . $whitespace . ']';
+                $i++;
+                $slashes = 0;
+
+                continue;
+            }
+            if ($slashes % 2 === 0 && ($char === '[' || $char === ']')) {
+                $inClass = $char === '[';
+            }
             if ($char === '~' && $slashes % 2 === 0) {
                 $escaped .= '\\';
             }
