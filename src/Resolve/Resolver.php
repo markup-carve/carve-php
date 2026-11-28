@@ -974,11 +974,14 @@ final class Resolver
     private function linkReference(Node $node, string $key): void
     {
         $field = $node->type === 'image' ? 'src' : 'href';
-        // C2-A-115, C2-A-135: the tooltip of a reference use is a result field; the renderer takes it from the definition.
+        // C2-A-115, C2-A-135: the tooltip of a reference use is a result field, copied from its definition.
         unset($node->f[$field], $node->f['tooltip']);
         $definition = $this->definition($node, $key, 'link');
         if ($definition !== null) {
             $node->f[$field] = $definition->f['href'] ?? '';
+            if (isset($definition->f['tooltip'])) {
+                $node->f['tooltip'] = $definition->f['tooltip'];
+            }
 
             return;
         }

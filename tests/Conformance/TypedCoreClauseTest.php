@@ -30,6 +30,16 @@ final class TypedCoreClauseTest extends TestCase
      * @var array<string, string>
      */
     private const KNOWN_FAIL = [
+        'CC-1787' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1791' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1793' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1794' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1796' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1890' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1892' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1895' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1897' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
+        'CC-1899' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
         'CC-2270' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2271' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
