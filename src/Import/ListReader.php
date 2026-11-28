@@ -224,16 +224,8 @@ final class ListReader
 
             break;
         }
-        $image = false;
-        foreach ($p->children as $kid) {
-            if ($kid->isElement('img')) {
-                $image = true;
-            } elseif (!$kid->isBlank() && !$kid->isComment()) {
-                return false;
-            }
-        }
 
-        return $image;
+        return Elements::isImageRun($p->children);
     }
 
     /**
