@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Writer\Check;
 
 use MarkupCarve\Carve\Writer\Inline;
 use MarkupCarve\Carve\Writer\LinkFallback;
+use MarkupCarve\Carve\Writer\PairGlue;
 use MarkupCarve\Carve\Writer\Text;
 use MarkupCarve\Carve\Writer\Writer;
 
@@ -32,7 +33,15 @@ final class TreeGroupWriter implements GroupWriter
         if (self::escapeLoneLinkBrackets($w, $group, $tree)) {
             [$tree, $escapes] = self::document($w, $group);
         }
-        $candidate = Writer::bareCandidate($tree, null, $this->options, $escapes);
+        PairGlue::start();
+        try {
+            $candidate = Writer::bareCandidate($tree, null, $this->options, $escapes);
+        } finally {
+            $glued = PairGlue::take();
+        }
+        if ($glued !== []) {
+            self::glue($w, $group, $glued);
+        }
         $source = $candidate['source'];
         $w->lines = explode("\n", str_ends_with($source, "\n") ? substr($source, 0, -1) : $source);
         $w->starts = [];
@@ -42,6 +51,38 @@ final class TreeGroupWriter implements GroupWriter
         }
         foreach ($group as $at => $node) {
             self::notePlaces($w, $node, "/children/{$at}", $candidate['ranges'], $lineStarts);
+        }
+    }
+
+    /**
+     * carve-js `gluedPart`: a pair the write braced for its neighbors takes the braced form, glued, so the next round
+     * decides it again (carve#6420).
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     * @param array<string, true> $paths
+     */
+    private static function glue(WriterState $w, array $group, array $paths): void
+    {
+        $pending = [];
+        foreach ($group as $at => $node) {
+            $pending[] = [$node, "/children/{$at}"];
+        }
+        while (($item = array_pop($pending)) !== null) {
+            [$node, $path] = $item;
+            if (isset($paths[$path])) {
+                $id = spl_object_id($node);
+                if (!isset($w->forms[$id])) {
+                    $w->glued[$id] = true;
+                }
+                $w->forms[$id] = 1;
+            }
+            foreach ($node->slots as $name => $list) {
+                foreach ($list as $at => $child) {
+                    $single = $child->path === "{$node->path}/{$name}";
+                    $pending[] = [$child, $single ? "{$path}/{$name}" : "{$path}/{$name}/{$at}"];
+                }
+            }
         }
     }
 
@@ -137,9 +178,7 @@ final class TreeGroupWriter implements GroupWriter
         foreach ($group as $at => $node) {
             $roots[$node->path] = "/children/{$at}";
             $array = $node->toArray();
-            if ($w->forms !== []) {
-                self::markForms($w, $node, $array);
-            }
+            self::markForms($w, $node, $array, [], true);
             $children[] = $array;
         }
         $escapes = [];
@@ -157,16 +196,26 @@ final class TreeGroupWriter implements GroupWriter
     }
 
     /**
-     * Marks each emphasis and strong node below `node` that a round asked to take its braced form (carve-js `forms`).
+     * Gives each emphasis and strong node below `node` its form (carve-js `bracedPair`): braced for its content or
+     * place, which `bracedAnyway` records, or where a round asked for it (`forms`), and bare otherwise.
      *
      * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
      * @param \MarkupCarve\Carve\Writer\Check\Node $node
      * @param array<mixed> $array `node` as its array, changed in place.
+     * @param array<string, true> $open The kinds of the emphasis and strong nodes around `node`.
+     * @param bool $note
      */
-    private static function markForms(WriterState $w, Node $node, array &$array): void
+    public static function markForms(WriterState $w, Node $node, array &$array, array $open, bool $note = false): void
     {
-        if (($node->type === 'emphasis' || $node->type === 'strong') && ($w->forms[spl_object_id($node)] ?? 0) > 0) {
-            $array[Inline::BRACED_FORM] = true;
+        if ($node->type === 'emphasis' || $node->type === 'strong') {
+            $id = spl_object_id($node);
+            $anyway = PairForm::bracedAnyway($node, isset($open[$node->type]));
+            if ($anyway && $note) {
+                $w->bracedAnyway[$id] = true;
+                $w->shared->held[] = $node;
+            }
+            $array[Inline::BRACED_FORM] = $anyway || ($w->forms[$id] ?? 0) > 0;
+            $open[$node->type] = true;
         }
         foreach ($node->slots as $name => $list) {
             if (!is_array($array[$name] ?? null)) {
@@ -175,10 +224,10 @@ final class TreeGroupWriter implements GroupWriter
             $slot = $array[$name];
             foreach ($list as $at => $child) {
                 if ($child->path === "{$node->path}/{$name}") {
-                    self::markForms($w, $child, $slot);
+                    self::markForms($w, $child, $slot, $open, $note);
                 } elseif (is_array($slot[$at] ?? null)) {
                     $item = $slot[$at];
-                    self::markForms($w, $child, $item);
+                    self::markForms($w, $child, $item, $open, $note);
                     $slot[$at] = $item;
                 }
             }

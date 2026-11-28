@@ -53,8 +53,16 @@ final class TreeSpell implements Spell
         }
         $escapes = [];
         $list = [];
+        $open = [];
+        foreach ([self::IN_EMPHASIS => 'emphasis', self::IN_STRONG => 'strong'] as $flag => $type) {
+            if (($flags & $flag) !== 0) {
+                $open[$type] = true;
+            }
+        }
         foreach ($nodes as $at => $node) {
-            $list[] = $node->toArray();
+            $array = $node->toArray();
+            TreeGroupWriter::markForms($w, $node, $array, $open);
+            $list[] = $array;
             self::collect($w, $node, self::LIST . '/' . $at, $escapes);
         }
         $state = new State([], false, false);

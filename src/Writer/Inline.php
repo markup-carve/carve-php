@@ -41,8 +41,8 @@ final class Inline
     private const PAIRED = ['emphasis' => '/', 'strong' => '*'];
 
     /**
-     * @var string The key of an emphasis or strong node array that the rounds of `Writer\Check` asked to write braced
-     *     (carve-js `forms`). No tree field starts with a NUL, so the key reaches no reader of the tree.
+     * @var string The key of an emphasis or strong node array that holds the form `Writer\Check` decided for it, true
+     *     for braced (carve-js `bracedPair`). No tree field starts with a NUL, so the key reaches no reader of the tree.
      */
     public const BRACED_FORM = "\0braced";
 
@@ -2418,6 +2418,48 @@ final class Inline
     }
 
     /**
+     * Whether the pair takes its bare form. A form `Writer\Check` decided stands for the content, and the neighbors as
+     * written still brace the bare form, which the write reports as glued (carve-js `gluedPart`). Without one the pair
+     * is braced inside its own kind, for its content, or for its neighbors.
+     *
+     * @param mixed $form
+     * @param array<mixed> $children
+     * @param string $type
+     * @param bool $inside
+     * @param string $inner
+     * @param array{int, int} $around The characters before and after the pair.
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     */
+    private function bareForm(
+        mixed $form,
+        array $children,
+        string $type,
+        bool $inside,
+        string $inner,
+        array $around,
+        string $path,
+        Context $c,
+    ): bool {
+        $mark = self::PAIRED[$type];
+        if (is_bool($form)) {
+            if ($form) {
+                return false;
+            }
+            if (self::bareFits($inner, $mark, $around[0], $around[1])) {
+                return true;
+            }
+            PairGlue::note($path);
+
+            return false;
+        }
+
+        return !$inside && !self::holdsKind($children, $type)
+            && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
+            && self::bareFits($inner, $mark, $around[0], $around[1]);
+    }
+
+    /**
      * C2-W-069, C2-W-070: emphasis and strong, bare where that reads back and braced otherwise.
      *
      * @param array<mixed> $node
@@ -2463,10 +2505,8 @@ final class Inline
         $c->open = $open;
         $c->marks = $marks;
         $visibleInner = $this->w->repairTrace?->decode($inner)['source'] ?? $inner;
-        $bare = !isset($open[$type]) && !isset($node[self::BRACED_FORM])
-            && !self::holdsKind($children, $type)
-            && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
-            && self::bareFits($visibleInner, $mark, $prev, $next);
+        $form = $node[self::BRACED_FORM] ?? null;
+        $bare = $this->bareForm($form, $children, $type, isset($open[$type]), $visibleInner, [$prev, $next], $path, $c);
         if ($bare) {
             if ($this->w->plan !== null) {
                 $this->w->planForms[$path] = false;
