@@ -17,4 +17,14 @@ interface GroupWriter
      * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
      */
     public function write(WriterState $w, array $group): void;
+
+    /**
+     * C2-W-146: the escapes the pair rules of lint ask for in `$group` as it is written now, beside those placed.
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     *
+     * @return list<\MarkupCarve\Carve\Writer\Check\Escape>
+     */
+    public function pairEscapes(WriterState $w, array $group): array;
 }

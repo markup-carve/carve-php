@@ -59,6 +59,11 @@ final class WriterState
 
     public bool $linkFallback = false;
 
+    /**
+     * @var array<int, array<int, true>> The backslashes `linkFallback` placed, by text node id.
+     */
+    public array $linkPlaced = [];
+
     // C2-W-005: the group is written below one blank line.
     public bool $blankFirst = false;
 
@@ -178,6 +183,27 @@ final class WriterState
             throw new LogicException('A round writes its group through a group writer.');
         }
         $this->groupWriter->write($this, $group);
+    }
+
+    /**
+     * Takes back the losses recorded after the first `count` (carve-js `rollBackLosses`).
+     */
+    public function rollBackLosses(int $count): void
+    {
+        foreach (array_slice($this->lossLog, $count) as [$node]) {
+            unset($this->lost[spl_object_id($node)]);
+        }
+        $this->lossLog = array_slice($this->lossLog, 0, $count);
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     *
+     * @return list<\MarkupCarve\Carve\Writer\Check\Escape>
+     */
+    public function pairEscapes(array $group): array
+    {
+        return $this->groupWriter?->pairEscapes($this, $group) ?? [];
     }
 
     public function isLost(Node $node): bool
