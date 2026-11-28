@@ -265,6 +265,7 @@ final class Passes
         $w->shared->contentKeys = [];
         $w->linkFallback = false;
         $w->sawLink = false;
+        $reported = count($w->lossLog);
         $seen = [];
         $recent = [];
         $nodes = self::groupNodes($group);
@@ -292,7 +293,7 @@ final class Passes
             if ($settled || $w->shared->chars > $w->shared->limit) {
                 continue;
             }
-            self::finishRounds($w, $group, $first && !$w->blankFirst);
+            self::finishRounds($w, $group, $first && !$w->blankFirst, $reported);
 
             return;
         }
@@ -304,10 +305,35 @@ final class Passes
      * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
      * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
      * @param bool $first
+     * @param int $reported
      */
-    private static function finishRounds(WriterState $w, array $group, bool $first): void
+    private static function finishRounds(WriterState $w, array $group, bool $first, int $reported): void
     {
+        if (count($w->lossLog) === $reported) {
+            self::reportUnread($w, $group);
+        }
         self::pruneGroupEscapes($w, $group, $first);
+    }
+
+    /**
+     * The rounds ended with no loss reported, yet a block reads back different: the first such block is lost.
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     */
+    private static function reportUnread(WriterState $w, array $group): void
+    {
+        $parsed = $w->parsed?->children() ?? [];
+        $count = count($group);
+        for ($at = 0, $n = max($count, count($parsed)); $at < $n; $at++) {
+            $block = $parsed[$at] ?? null;
+            if ($block !== null && $at < $count && Compare::writerEqual($w, $group[$at], $block)) {
+                continue;
+            }
+            $w->lose($group[min($at, $count - 1)], null);
+
+            return;
+        }
     }
 
     /**
