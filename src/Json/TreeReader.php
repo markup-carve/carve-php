@@ -366,9 +366,11 @@ final class TreeReader
         $counters = [0, 0, 0, 0];
         $annotationIds = [];
         $acceptedTabs = [];
+        $resourceReferences = 0;
         while ($nodes !== []) {
             [$node, $path, $blocks, $inlines, $qualified, $unqualified] = self::popFrame($nodes, $paths, $counters);
             self::checkNode($node, $path, $declared);
+            self::checkBounds($node, $path, $resourceReferences);
             self::checkAnnotationIds($node, $path, $annotationIds);
             $type = is_string($node->type ?? null) ? $node->type : '';
             if ($standardTabs) {
@@ -401,6 +403,71 @@ final class TreeReader
                 $blocks = 0;
             }
             self::pushNodes($node, $path, [$blocks, $inlines, $qualified, $unqualified], $nodes, $paths, $counters);
+        }
+    }
+
+    /**
+     * C2-A-132: bounds that accumulate across nodes or inspect an extension's opaque values.
+     *
+     * @param \stdClass $node
+     * @param string $path
+     * @param int $resourceReferences
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     */
+    private static function checkBounds(stdClass $node, string $path, int &$resourceReferences): void
+    {
+        if (isset($node->metadata->fields)) {
+            self::checkMetadata($node->metadata->fields, $path . '/metadata/fields');
+        }
+        if (isset($node->resourceIds)) {
+            $resourceReferences += count($node->resourceIds);
+            if ($resourceReferences > 4096) {
+                throw new TreeError('more than 4096 resource references', $path);
+            }
+        }
+        foreach ($node->payload ?? [] as $item) {
+            $payload = $item->value;
+            $bytes = is_string($payload)
+                ? strlen($payload)
+                : strlen((string)json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            if ($bytes > 8388608) {
+                throw new TreeError('extension-payload-bytes', $path . '/payload');
+            }
+        }
+    }
+
+    /**
+     * C2-A-132 and C2-A-212: count nested metadata values, including each list or map member.
+     *
+     * @param \stdClass $fields
+     * @param string $path
+     *
+     * @throws \MarkupCarve\Carve\Json\TreeError
+     */
+    private static function checkMetadata(stdClass $fields, string $path): void
+    {
+        $stack = [];
+        foreach (get_object_vars($fields) as $name => $value) {
+            $stack[] = [$value, $path . '/' . self::escape((string)$name), 1];
+        }
+        while ($stack !== []) {
+            [$value, $valuePath, $depth] = array_pop($stack);
+            if (!$value instanceof stdClass) {
+                continue;
+            }
+            if ($depth > 64) {
+                throw new TreeError('metadata-depth', $valuePath);
+            }
+            if ($value->kind === 'list') {
+                foreach ($value->value as $i => $child) {
+                    $stack[] = [$child, $valuePath . '/value/' . $i, $depth + 1];
+                }
+            } elseif ($value->kind === 'map') {
+                foreach (get_object_vars($value->value) as $name => $child) {
+                    $stack[] = [$child, $valuePath . '/value/' . self::escape((string)$name), $depth + 1];
+                }
+            }
         }
     }
 
