@@ -6,8 +6,10 @@ namespace MarkupCarve\Carve\Extension;
 
 use Closure;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\PlainText;
+use MarkupCarve\Carve\Resolve\Walk;
 
 /**
  * C2-X-005: the pass that claims core nodes after the core parse and replaces each with the node its transform gives.
@@ -17,8 +19,9 @@ final class Extensions
     /**
      * @param array<\MarkupCarve\Carve\Extension\ExtensionDefinition> $definitions
      * @param \Closure(\MarkupCarve\Carve\Node): string $body The canonical spelling of the blocks of a div (C2-X-026).
+     * @param \MarkupCarve\Carve\Diagnostics\Findings|null $findings
      */
-    private function __construct(private array $definitions, private Closure $body)
+    private function __construct(private array $definitions, private Closure $body, private ?Findings $findings)
     {
     }
 
@@ -26,15 +29,16 @@ final class Extensions
      * @param \MarkupCarve\Carve\Node $doc
      * @param array<\MarkupCarve\Carve\Extension\ExtensionDefinition> $definitions
      * @param \Closure(\MarkupCarve\Carve\Node): string $body
+     * @param \MarkupCarve\Carve\Diagnostics\Findings|null $findings Where a refused transform is noted.
      *
      * @return void
      */
-    public static function apply(Node $doc, array $definitions, Closure $body): void
+    public static function apply(Node $doc, array $definitions, Closure $body, ?Findings $findings = null): void
     {
         if ($definitions === []) {
             return;
         }
-        $pass = new self($definitions, $body);
+        $pass = new self($definitions, $body, $findings);
         $pass->replaceIn($doc);
         $used = [];
         $pass->used($doc, $used);
@@ -204,6 +208,12 @@ final class Extensions
                 continue;
             }
             if (!$this->valid($transformed, $claim, $definition, $parent)) {
+                $this->findings?->add(
+                    'extension-fallback-rendered',
+                    $node,
+                    message: 'Invalid transform of ' . $definition->name . '; the core source node was retained',
+                );
+
                 break;
             }
             $this->attach($transformed, $claim);
@@ -359,7 +369,7 @@ final class Extensions
 
     /**
      * C2-X-015, C2-X-018: one extension node of the claimed role, with the declared name and version, in the slot its
-     * declaration names.
+     * declaration names, whose fallback holds no extension node.
      *
      * @param \MarkupCarve\Carve\Node $node
      * @param \MarkupCarve\Carve\Extension\Claim $claim
@@ -376,7 +386,45 @@ final class Extensions
             return false;
         }
 
-        return $definition->parent === null || $definition->parent === $parent;
+        if ($definition->parent !== null && $definition->parent !== $parent) {
+            return false;
+        }
+        $fallback = $node->f['fallback'] ?? [];
+
+        return !is_array($fallback) || !self::holdsExtension($fallback);
+    }
+
+    /**
+     * C2-X-022: whether an extension node is among the nodes or anywhere inside them.
+     *
+     * @param array<mixed> $nodes
+     *
+     * @return bool
+     */
+    private static function holdsExtension(array $nodes): bool
+    {
+        $pending = [$nodes];
+        while ($pending !== []) {
+            foreach (array_pop($pending) as $value) {
+                if (is_array($value)) {
+                    $pending[] = $value;
+
+                    continue;
+                }
+                if (!$value instanceof Node) {
+                    continue;
+                }
+                if ($value->type === 'inline_extension' || $value->type === 'block_extension') {
+                    return true;
+                }
+                if ($value->children !== null) {
+                    $pending[] = $value->children;
+                }
+                $pending[] = array_diff_key($value->f, Walk::OPAQUE);
+            }
+        }
+
+        return false;
     }
 
     private function attach(Node $node, Claim $claim): void
