@@ -225,7 +225,6 @@ final class Passes
         $w->shared->contentKeys = [];
         $w->linkFallback = false;
         $w->sawLink = false;
-        $reported = count($w->lossLog);
         $seen = [];
         $recent = [];
         for ($round = 0;; $round++) {
@@ -252,7 +251,7 @@ final class Passes
             if ($settled || $w->shared->chars > $w->shared->limit) {
                 continue;
             }
-            self::finishRounds($w, $group, $first && !$w->blankFirst, $reported);
+            self::finishRounds($w, $group, $first && !$w->blankFirst);
 
             return;
         }
@@ -263,14 +262,11 @@ final class Passes
      *
      * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
      * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
-     * @param int $reported
      * @param bool $first
      */
-    private static function finishRounds(WriterState $w, array $group, bool $first, int $reported): void
+    private static function finishRounds(WriterState $w, array $group, bool $first): void
     {
-        if (count($w->lossLog) === $reported) {
-            self::pruneGroupEscapes($w, $group, $first);
-        }
+        self::pruneGroupEscapes($w, $group, $first);
     }
 
     /**
