@@ -2649,6 +2649,7 @@ final class Inline
     ): bool {
         $first = array_key_first($nodes);
         $last = array_key_last($nodes);
+        $siblingsHold = self::textsHold($nodes, $mark);
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
                 continue;
@@ -2684,7 +2685,7 @@ final class Inline
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                 $at = $path . '/' . $k . '/children';
                 $wordsInside = $words && !isset(self::BRACED[$type]) && !isset($braced[$path . '/' . $k]);
-                $inner = self::nestedEdge($nodes, $type, $mark);
+                $inner = self::nestedEdge($siblingsHold, $type);
                 if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true, $bareBreaks, $inner)) {
                     return true;
                 }
@@ -2695,19 +2696,18 @@ final class Inline
     }
 
     /**
-     * The delimiter a mark at the edges of a nested node of `$type` stands beside. Where a text among `$nodes` holds the
-     * mark, the C2-W-088 round for that kind escapes every potential opener of it in the block, the one at the edge
-     * too, so the edges read as before.
+     * The delimiter a mark at the edges of a nested node of `$type` stands beside. Where a sibling text holds the mark,
+     * the C2-W-088 round for that kind escapes every potential opener of it in the block, the one at the edge too, so
+     * the edges read as before.
      *
-     * @param array<mixed> $nodes
+     * @param bool $siblingsHold
      * @param string $type
-     * @param string $mark
      *
      * @return int
      */
-    private static function nestedEdge(array $nodes, string $type, string $mark): int
+    private static function nestedEdge(bool $siblingsHold, string $type): int
     {
-        return self::textsHold($nodes, $mark) ? 0x20 : self::pairEdge($type);
+        return $siblingsHold ? 0x20 : self::pairEdge($type);
     }
 
     /**
