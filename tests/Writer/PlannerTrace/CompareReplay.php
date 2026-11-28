@@ -24,13 +24,13 @@ final class CompareReplay
      * The fields of the record's check, and the same fields of the PHP check.
      *
      * @param array<string, mixed> $record
-     * @param string $input
+     * @param array<string, mixed>|string $input The source the trace formatted, or the tree it wrote on the repair path.
      *
      * @return array{array<string, mixed>, array<string, mixed>}
      */
-    public static function run(array $record, string $input): array
+    public static function run(array $record, array|string $input): array
     {
-        $document = Node::mirror(ReadbackRound::read($input));
+        $document = Node::mirror(is_string($input) ? ReadbackRound::read($input) : $input);
         $w = self::state($document, self::map($record['state'] ?? null));
         self::scope($w, $document);
         $group = array_map(static fn (mixed $path): Node => self::node($document, $path), self::list($record['group'] ?? null));

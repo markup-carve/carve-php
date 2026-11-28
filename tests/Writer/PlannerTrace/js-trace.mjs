@@ -12,6 +12,7 @@ const { register: registerTsx } = await import(pathToFileURL(resolve(root, 'node
 registerTsx()
 register(pathToFileURL(resolve(import.meta.dirname, 'js-trace-hooks.mjs')).href)
 const { format } = await import(pathToFileURL(resolve(root, 'src/index.ts')).href)
+const { writeTreeWithStats } = await import(pathToFileURL(resolve(root, 'src/write.ts')).href)
 
 // JS_TRACE_COMPARES=1: one record per `compareGroup` instead, with the writer state it starts from and what its check
 // asks, each node as its path from the document (`/children/0/children/3`) and each offset in UTF-8 bytes of the value.
@@ -113,7 +114,7 @@ globalThis.__plannerTrace = {
   },
 }
 
-// A `.jsonl` argument holds one `{"id", "input"}` row per line.
+// A `.jsonl` argument holds one `{"id", "input"}` or `{"id", "tree"}` row per line.
 const items = inputs.flatMap((file) => file.endsWith('.jsonl')
   ? readFileSync(file, 'utf8').split('\n').filter((line) => line !== '').map((line) => JSON.parse(line))
   : [{ id: basename(file), input: readFileSync(file, 'utf8') }])
@@ -124,7 +125,10 @@ for (const item of items) {
   compares = []
   paths = new WeakMap()
   current = null
-  const output = format(input, {})
+  // A row with a `tree` is written on the repair path instead (RepairReplayTest), the way `writeTreeWithStats` does.
+  const output = item.tree === undefined
+    ? format(input, {})
+    : writeTreeWithStats({ type: 'document', astVersion: '2.0', children: item.tree }, undefined, 'repair').output.source
   if (COMPARES) {
     compares.forEach((record, at) => process.stdout.write(JSON.stringify({ input: item.id, at, ...record }) + '\n'))
     continue
