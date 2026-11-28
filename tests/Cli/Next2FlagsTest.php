@@ -23,7 +23,7 @@ final class Next2FlagsTest extends TestCase
             'CC-519', 'CC-520', 'CC-521', 'CC-526', 'CC-527', 'CC-529', 'CC-532', 'CC-538',
             'CC-540', 'CC-541', 'CC-543', 'CC-555', 'CC-556', 'CC-559', 'CC-560', 'CC-562',
             'CC-565', 'CC-566', 'CC-567', 'CC-568', 'CC-571', 'CC-572', 'CC-576', 'CC-910',
-            'CC-1051', 'CC-1105',
+            'CC-1051', 'CC-1105', 'CC-2521', 'CC-2522', 'CC-2527',
         ];
         $out = [];
         foreach (Corpus::clauseCases() as $case) {
@@ -102,6 +102,15 @@ final class Next2FlagsTest extends TestCase
         if (array_key_exists('stderrCategory', $expected)) {
             preg_match('/^carve\[([^\]]+)\]:/', $stderr, $match);
             self::assertSame($expected['stderrCategory'], $match[1] ?? null, $case['id'] . ' stderr category');
+        }
+        if (isset($expected['stderrDiagnostics'])) {
+            $diagnostics = [];
+            foreach (explode("\n", rtrim($stderr, "\n")) as $line) {
+                if (preg_match('/^(<stdin>|[^:]+)(?::\d+:\d+)?: (?:warning|error|info) (\S+) /', $line, $match) === 1) {
+                    $diagnostics[] = ['code' => $match[2], 'file' => $match[1]];
+                }
+            }
+            self::assertSame($expected['stderrDiagnostics'], $diagnostics, $case['id'] . ' stderr diagnostics');
         }
         foreach ($expected['filesAfter'] ?? [] as $name => $wanted) {
             $path = $dir . '/' . $name;
