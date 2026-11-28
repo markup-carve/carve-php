@@ -55,6 +55,10 @@ final class WriterRefusalParity6944Test extends TestCase
         return [
             'only the comment' => [[$comment], '/children/0/children/0/children/0'],
             'text and the comment' => [[['type' => 'text', 'value' => 'a'], $comment], '/children/0/children/0/children/1'],
+            'the comment before a hard break' => [
+                [$comment, ['type' => 'hard_break'], ['type' => 'text', 'value' => 'x']],
+                '/children/0/children/0/children/0',
+            ],
         ];
     }
 
