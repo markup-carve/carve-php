@@ -67,7 +67,7 @@ final class Plan
     public array $respell = [];
 
     /**
-     * @phpstan-var array<string, Place>
+     * @var array<string, int> Packed leaf positions, decoded by PlanPlaces::get().
      */
     public array $places = [];
 

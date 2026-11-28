@@ -13,6 +13,24 @@ namespace MarkupCarve\Carve\Writer;
 final class PlanPlaces
 {
     /**
+     * @var array<int, string>
+     */
+    private const FLAGS = [
+        'paragraph', 'inItem', 'inQuote', 'inDescriptionList', 'nested', 'followed',
+        'attributed', 'documentStart', 'line', 'term', 'capped',
+    ];
+
+    /**
+     * @var array<string, int>
+     */
+    private static array $beforeIds = [];
+
+    /**
+     * @var array<int, string>
+     */
+    private static array $beforeNames = [];
+
+    /**
      * @var int
      */
     private const MAX_DEPTH = 200;
@@ -64,11 +82,62 @@ final class PlanPlaces
                 $inner['capped'] = $below >= self::MAX_DEPTH;
                 foreach (self::slots($node) as $slot => $children) {
                     $childPath = $listPath . '/' . $at . '/' . $slot;
-                    $plan->places[$childPath] = $inner;
+                    $plan->places[$childPath] = self::pack($inner);
                     $pending[] = [$children, $childPath, $depth + 1, $below, $inner];
                 }
             }
         }
+    }
+
+    /**
+     * @phpstan-return Place|null
+     */
+    public static function get(Plan $plan, string $path): ?array
+    {
+        $bits = $plan->places[$path] ?? null;
+        if ($bits === null) {
+            return null;
+        }
+        $place = [];
+        foreach (self::FLAGS as $at => $name) {
+            $place[$name] = ($bits & (1 << $at)) !== 0;
+        }
+        $item = ($bits >> 11) & 3;
+        $place['item'] = $item === 1 ? 'plain' : ($item === 2 ? 'task' : null);
+        $before = $bits >> 13;
+        $place['before'] = $before === 0 ? null : (self::$beforeNames[$before] ?? null);
+
+        return $place;
+    }
+
+    /**
+     * @phpstan-param Place $place
+     */
+    private static function pack(array $place): int
+    {
+        $bits = 0;
+        foreach (self::FLAGS as $at => $name) {
+            if ($place[$name]) {
+                $bits |= 1 << $at;
+            }
+        }
+        $bits |= match ($place['item']) {
+            'plain' => 1 << 11,
+            'task' => 2 << 11,
+            default => 0,
+        };
+        $before = $place['before'];
+        if ($before !== null) {
+            $id = self::$beforeIds[$before] ?? null;
+            if ($id === null) {
+                $id = count(self::$beforeNames) + 1;
+                self::$beforeIds[$before] = $id;
+                self::$beforeNames[$id] = $before;
+            }
+            $bits |= $id << 13;
+        }
+
+        return $bits;
     }
 
     /**

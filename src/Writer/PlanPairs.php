@@ -9,9 +9,9 @@ use MarkupCarve\Carve\Inline\Chars;
 /**
  * Delimiter pairing of one planned leaf.
  *
- * @phpstan-type Token array{kind: int, start: int, end: int, mark: int, flags: int, pair: int}
+ * @phpstan-type Token \MarkupCarve\Carve\Writer\PlanToken
  * @phpstan-type Entry array{token: int, cls: int, below: int, slash: int, star: int}
- * @phpstan-type Stack array{tokens: array<int, Token>, entries: array<int, Entry>, top: array<int, int>, floor: int,
+ * @phpstan-type Stack array{tokens: \MarkupCarve\Carve\Writer\PlanTokens, entries: array<int, Entry>, top: array<int, int>, floor: int,
  *   lastSlash: int, lastStar: int, live: int, demoted: bool, fullAt: int, peak: int}
  */
 final class PlanPairs
@@ -198,25 +198,25 @@ final class PlanPairs
     }
 
     /**
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      * @param int $flags
      * @param int $mark
      * @param int $end
      * @param int $start
      * @param int $kind
      */
-    private static function addToken(array &$tokens, int $kind, int $start, int $end, int $mark, int $flags): void
+    private static function addToken(PlanTokens $tokens, int $kind, int $start, int $end, int $mark, int $flags): void
     {
-        $tokens[] = ['kind' => $kind, 'start' => $start, 'end' => $end, 'mark' => $mark, 'flags' => $flags, 'pair' => -1];
+        $tokens[] = new PlanToken($kind, $start, $end, $mark, $flags);
     }
 
     /**
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      * @param int $at
      * @param \MarkupCarve\Carve\Writer\PlanLeaf $leaf
      * @param array<int, int> $escaped
      */
-    private static function bareMark(array &$tokens, PlanLeaf $leaf, int $at, array $escaped): int
+    private static function bareMark(PlanTokens $tokens, PlanLeaf $leaf, int $at, array $escaped): int
     {
         $codes = $leaf->codes;
         $code = $codes[$at];
@@ -262,11 +262,11 @@ final class PlanPairs
     }
 
     /**
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      * @param int $at
      * @param \MarkupCarve\Carve\Writer\PlanLeaf $leaf
      */
-    private static function bracketToken(array &$tokens, PlanLeaf $leaf, int $at): bool
+    private static function bracketToken(PlanTokens $tokens, PlanLeaf $leaf, int $at): bool
     {
         $kind = $leaf->kinds[$at];
         $code = $leaf->codes[$at];
@@ -294,12 +294,12 @@ final class PlanPairs
     }
 
     /**
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      * @param int $at
      * @param \MarkupCarve\Carve\Writer\PlanLeaf $leaf
      * @param array<int, int> $escaped
      */
-    private static function scanAt(array &$tokens, PlanLeaf $leaf, int $at, array $escaped): int
+    private static function scanAt(PlanTokens $tokens, PlanLeaf $leaf, int $at, array $escaped): int
     {
         $codes = $leaf->codes;
         $code = $codes[$at];
@@ -331,11 +331,11 @@ final class PlanPairs
      * @param \MarkupCarve\Carve\Writer\PlanLeaf $leaf
      * @param array<int, int> $escaped
      *
-     * @return array<int, Token>
+     * @return \MarkupCarve\Carve\Writer\PlanTokens
      */
-    private static function scan(PlanLeaf $leaf, array $escaped): array
+    private static function scan(PlanLeaf $leaf, array $escaped): PlanTokens
     {
-        $tokens = [];
+        $tokens = new PlanTokens();
         for ($at = 0, $count = count($leaf->codes); $at < $count;) {
             $kind = $leaf->kinds[$at];
             if ($kind === PlanLeaf::ESCAPE) {
@@ -370,7 +370,7 @@ final class PlanPairs
         $s['live']++;
         $s['peak'] = max($s['peak'], $s['live']);
         if ($s['live'] >= self::DEPTH_CAP && $s['fullAt'] < 0) {
-            $s['fullAt'] = $s['tokens'][$token]['start'];
+            $s['fullAt'] = $s['tokens'][$token]->start;
         }
 
         return count($s['entries']) - 1;
@@ -438,10 +438,10 @@ final class PlanPairs
         self::unlink($s, $at);
         self::pop($s);
         $open = $s['tokens'][$opener];
-        $open['pair'] = $token;
+        $open->pair = $token;
         $s['tokens'][$opener] = $open;
         $close = $s['tokens'][$token];
-        $close['pair'] = $opener;
+        $close->pair = $opener;
         $s['tokens'][$token] = $close;
     }
 
@@ -479,18 +479,18 @@ final class PlanPairs
     private static function bareDelimiter(array &$s, int $token): void
     {
         $t = $s['tokens'][$token];
-        $slash = $t['mark'] === strpos(self::MARKS, '/');
+        $slash = $t->mark === strpos(self::MARKS, '/');
         $cls = $slash ? self::BARE_CLASS : self::BARE_CLASS + 1;
         $top = $s['top'][$cls];
-        if (($t['flags'] & self::BETWEEN_WORDS) !== 0) {
+        if (($t->flags & self::BETWEEN_WORDS) !== 0) {
             if ($slash) {
                 $s['lastSlash'] = $token;
             } else {
                 $s['lastStar'] = $token;
             }
-        } elseif (($t['flags'] & self::CAN_CLOSE) !== 0 && $top > $s['floor']) {
+        } elseif (($t->flags & self::CAN_CLOSE) !== 0 && $top > $s['floor']) {
             self::closeBare($s, $top, $token, $slash ? $s['lastSlash'] : $s['lastStar']);
-        } elseif (($t['flags'] & self::CAN_OPEN) !== 0 && $s['live'] < self::DEPTH_CAP) {
+        } elseif (($t->flags & self::CAN_OPEN) !== 0 && $s['live'] < self::DEPTH_CAP) {
             $s['top'][$cls] = self::push($s, $token, $cls, $top);
         }
     }
@@ -504,13 +504,13 @@ final class PlanPairs
     private static function bracedCloser(array &$s, int $token): void
     {
         $t = $s['tokens'][$token];
-        $top = $s['top'][$t['mark']];
+        $top = $s['top'][$t->mark];
         if ($top <= $s['floor']) {
-            if ($t['flags'] === 0) {
+            if ($t->flags === 0) {
                 return;
             }
-            $t['kind'] = self::DELIMITER;
-            $t['end']--;
+            $t->kind = self::DELIMITER;
+            $t->end--;
             $s['tokens'][$token] = $t;
             self::bareDelimiter($s, $token);
 
@@ -519,7 +519,7 @@ final class PlanPairs
         $entry = $s['entries'][$top];
         $s['lastSlash'] = $entry['slash'];
         $s['lastStar'] = $entry['star'];
-        if ($s['tokens'][$entry['token']]['end'] !== $t['start']) {
+        if ($s['tokens'][$entry['token']]->end !== $t->start) {
             self::closeEntry($s, $top, $token);
 
             return;
@@ -574,18 +574,18 @@ final class PlanPairs
      */
     private static function braceOpener(array &$s, int $token): void
     {
-        $mark = $s['tokens'][$token]['mark'];
+        $mark = $s['tokens'][$token]->mark;
         if ($s['live'] < self::DEPTH_CAP) {
             $s['top'][$mark] = self::push($s, $token, $mark, $s['top'][$mark]);
         }
     }
 
     /**
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      *
      * @return Stack
      */
-    private static function pairAll(array $tokens): array
+    private static function pairAll(PlanTokens $tokens): array
     {
         /** @var Stack $s */
         $s = [
@@ -601,7 +601,7 @@ final class PlanPairs
             'peak' => 0,
         ];
         for ($at = 0, $count = count($tokens); $at < $count; $at++) {
-            $kind = $s['tokens'][$at]['kind'];
+            $kind = $s['tokens'][$at]->kind;
             if ($kind === self::DELIMITER) {
                 self::bareDelimiter($s, $at);
             } elseif ($kind === self::BRACED_OPEN) {
@@ -620,27 +620,27 @@ final class PlanPairs
 
     /**
      * @param \MarkupCarve\Carve\Writer\PlanLeaf $leaf
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      *
      * @return array<string, true>|null
      */
-    private static function formedNodes(PlanLeaf $leaf, array $tokens): ?array
+    private static function formedNodes(PlanLeaf $leaf, PlanTokens $tokens): ?array
     {
         $formed = [];
         foreach ($tokens as $token) {
-            if ($token['kind'] === self::ENTER || $token['kind'] === self::LEAVE) {
+            if ($token->kind === self::ENTER || $token->kind === self::LEAVE) {
                 continue;
             }
-            $leaf->cursor = $token['start'];
-            $owner = self::ownerOf($leaf, $token['start'], $token['end']);
+            $leaf->cursor = $token->start;
+            $owner = self::ownerOf($leaf, $token->start, $token->end);
             if ($owner === self::MIXED) {
                 return null;
             }
-            if ($token['pair'] < 0) {
+            if ($token->pair < 0) {
                 continue;
             }
-            $pair = $tokens[$token['pair']];
-            if ($owner === null || self::ownerOf($leaf, $pair['start'], $pair['end']) !== $owner) {
+            $pair = $tokens[$token->pair];
+            if ($owner === null || self::ownerOf($leaf, $pair->start, $pair->end) !== $owner) {
                 return null;
             }
             $formed[$owner] = true;
@@ -682,33 +682,33 @@ final class PlanPairs
 
     /**
      * @param \MarkupCarve\Carve\Writer\PlanLeaf $leaf
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      *
      * @return array<int, int>|null
      */
-    private static function textPairOpeners(PlanLeaf $leaf, array $tokens): ?array
+    private static function textPairOpeners(PlanLeaf $leaf, PlanTokens $tokens): ?array
     {
         $openers = [];
         foreach ($tokens as $token) {
-            if (in_array($token['kind'], [self::ENTER, self::LEAVE], true) || $token['pair'] < 0) {
+            if (in_array($token->kind, [self::ENTER, self::LEAVE], true) || $token->pair < 0) {
                 continue;
             }
-            $pair = $tokens[$token['pair']];
-            if ($pair['start'] < $token['start']) {
+            $pair = $tokens[$token->pair];
+            if ($pair->start < $token->start) {
                 continue;
             }
-            $owner = self::ownerOf($leaf, $token['start'], $token['end']);
+            $owner = self::ownerOf($leaf, $token->start, $token->end);
             if ($owner !== null) {
-                if ($owner === self::MIXED || self::ownerOf($leaf, $pair['start'], $pair['end']) !== $owner) {
+                if ($owner === self::MIXED || self::ownerOf($leaf, $pair->start, $pair->end) !== $owner) {
                     return null;
                 }
 
                 continue;
             }
-            if (self::ownerOf($leaf, $pair['start'], $pair['end']) !== null) {
+            if (self::ownerOf($leaf, $pair->start, $pair->end) !== null) {
                 return null;
             }
-            $openers[] = $token['start'];
+            $openers[] = $token->start;
         }
 
         return $openers;
@@ -737,10 +737,10 @@ final class PlanPairs
      * @phpstan-param Stack $s
      *
      * @param \MarkupCarve\Carve\Writer\PlanLeaf $leaf
-     * @param array<int, Token> $tokens
+     * @param \MarkupCarve\Carve\Writer\PlanTokens $tokens
      * @param array $s
      */
-    private static function beyondCap(PlanLeaf $leaf, array $tokens, array $s): bool
+    private static function beyondCap(PlanLeaf $leaf, PlanTokens $tokens, array $s): bool
     {
         $count = count($leaf->codes);
         $inside = array_fill(0, $count, 0);
@@ -760,8 +760,8 @@ final class PlanPairs
         $stuck = 0;
         foreach ($tokens as $token) {
             if (
-                $inside[$token['start']] === 1 && ($token['kind'] === self::BRACED_OPEN
-                || ($token['kind'] === self::DELIMITER && ($token['flags'] & self::CAN_OPEN) !== 0))
+                $inside[$token->start] === 1 && ($token->kind === self::BRACED_OPEN
+                || ($token->kind === self::DELIMITER && ($token->flags & self::CAN_OPEN) !== 0))
             ) {
                 $stuck++;
             }

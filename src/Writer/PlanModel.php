@@ -59,7 +59,7 @@ final class PlanModel
                 $leaf->trimLast();
             }
         }
-        if ($end === Plan::AS_LINE && $leaf->codes !== []) {
+        if ($end === Plan::AS_LINE && count($leaf->codes) > 0) {
             if ($leaf->codes[count($leaf->codes) - 1] !== 10) {
                 $leaf->undecide('line end');
             } else {
@@ -70,7 +70,7 @@ final class PlanModel
         if ($leaf->undecided === null && $leaf->text() !== $content) {
             $leaf->undecide('model');
         }
-        $place = $plan->places[$path] ?? null;
+        $place = PlanPlaces::get($plan, $path);
         if ($place === null) {
             $leaf->undecide('place');
         }

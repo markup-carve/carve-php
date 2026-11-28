@@ -1317,12 +1317,12 @@ final class PlanResolver
         }
         foreach (array_reverse($ends) as $at) {
             $leaf->lostValues[] = $leaf->owners[$at];
-            array_splice($leaf->codes, $at, 1);
-            array_splice($leaf->kinds, $at, 1);
-            array_splice($leaf->owners, $at, 1);
-            array_splice($leaf->ownerTypes, $at, 1);
-            array_splice($leaf->ownerForms, $at, 1);
-            array_splice($leaf->offsets, $at, 1);
+            $leaf->codes->splice($at);
+            $leaf->kinds->splice($at);
+            $leaf->owners->splice($at);
+            $leaf->ownerTypes->splice($at);
+            $leaf->ownerForms->splice($at);
+            $leaf->offsets->splice($at);
             foreach ($doubled as &$value) {
                 $value--;
             }
@@ -1663,7 +1663,7 @@ final class PlanResolver
         while ($stop < $length && $leaf->kinds[$stop] === PlanLeaf::TEXT && $leaf->codes[$stop] !== 10) {
             $stop++;
         }
-        $codes = array_slice($leaf->codes, $at + 1, $stop - $at - 1);
+        $codes = $leaf->codes->slice($at + 1, $stop - $at - 1);
         $run = $end - $at - 1;
         $codeLength = count($codes);
         while ($run < $codeLength && self::nameUnit($codes[$run])) {
@@ -1835,8 +1835,8 @@ final class PlanResolver
     private static function percentsWithinTextOpeners(PlanLeaf $leaf, array $escaped): void
     {
         if (
-            !in_array(37, $leaf->codes, true)
-            || (!in_array(91, $leaf->codes, true) && !in_array(123, $leaf->codes, true))
+            !$leaf->codes->contains(37)
+            || (!$leaf->codes->contains(91) && !$leaf->codes->contains(123))
         ) {
             return;
         }

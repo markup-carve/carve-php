@@ -37,40 +37,32 @@ final class PlanLeaf
      */
     public const ATOM = 4;
 
-    /**
-     * @var array<int, int>
-     */
-    public array $codes = [];
+    public PlanVector $codes;
 
-    /**
-     * @var array<int, int>
-     */
-    public array $kinds = [];
+    public PlanVector $kinds;
 
-    /**
-     * @var array<int, string>
-     */
-    public array $owners = [];
+    public PlanStringVector $owners;
 
-    /**
-     * @var array<int, string>
-     */
-    public array $ownerTypes = [];
+    public PlanStringVector $ownerTypes;
 
-    /**
-     * @var array<int, string|null>
-     */
-    public array $ownerForms = [];
+    public PlanStringVector $ownerForms;
 
     /**
      * @var array<string, array<mixed>>
      */
     public array $nodes = [];
 
-    /**
-     * @var array<int, int>
-     */
-    public array $offsets = [];
+    public PlanVector $offsets;
+
+    public function __construct()
+    {
+        $this->codes = new PlanVector('u16');
+        $this->kinds = new PlanVector('u8');
+        $this->owners = new PlanStringVector();
+        $this->ownerTypes = new PlanStringVector();
+        $this->ownerForms = new PlanStringVector();
+        $this->offsets = new PlanVector('i32');
+    }
 
     public ?string $undecided = null;
 
@@ -193,7 +185,7 @@ final class PlanLeaf
         $this->kinds[] = $kind;
         $this->owners[] = $owner;
         $this->ownerTypes[] = $ownerType;
-        $this->ownerForms[] = $ownerForm;
+        $this->ownerForms[] = $ownerForm ?? '';
         $this->offsets[] = $offset;
     }
 
@@ -284,22 +276,22 @@ final class PlanLeaf
 
     public function trimLast(): void
     {
-        array_pop($this->codes);
-        array_pop($this->kinds);
-        array_pop($this->owners);
-        array_pop($this->ownerTypes);
-        array_pop($this->ownerForms);
-        array_pop($this->offsets);
+        $this->codes->pop();
+        $this->kinds->pop();
+        $this->owners->pop();
+        $this->ownerTypes->pop();
+        $this->ownerForms->pop();
+        $this->offsets->pop();
         $this->notes = null;
     }
 
     public function text(int $from = 0, ?int $to = null): string
     {
-        $codes = array_slice($this->codes, $from, ($to ?? count($this->codes)) - $from);
-        if ($codes === []) {
+        $length = ($to ?? count($this->codes)) - $from;
+        if ($length <= 0) {
             return '';
         }
 
-        return mb_convert_encoding(pack('v*', ...$codes), 'UTF-8', 'UTF-16LE');
+        return mb_convert_encoding($this->codes->raw($from, $length), 'UTF-8', 'UTF-16LE');
     }
 }
