@@ -207,6 +207,7 @@ final class Extensions
                 break;
             }
             $this->attach($transformed, $claim);
+            self::coreFallbacks($transformed);
             $this->replaceIn($transformed);
 
             return $transformed;
@@ -214,6 +215,65 @@ final class Extensions
         $this->replaceIn($node);
 
         return $node;
+    }
+
+    /**
+     * C2-X-022: a fallback holds no extension node, so a claimed body copied into one gives each of its unqualified
+     * inline extensions as the span the renderer writes for it (C2-A-124). The qualified nodes a transform creates in
+     * its slots, as the tabs of a group, are checked too.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return void
+     */
+    private static function coreFallbacks(Node $node): void
+    {
+        $fallback = $node->f['fallback'] ?? null;
+        if (is_array($fallback)) {
+            $root = new Node('div', PlainText::nodes($fallback));
+            $found = false;
+            Apparatus::walk($root, static function (Node $child) use (&$found): ?bool {
+                $found = $found || self::coreExtension($child);
+
+                return $found ? false : null;
+            });
+            if ($found) {
+                $root->children = array_map(self::copy(...), $root->children ?? []);
+                Apparatus::walk($root, self::lowered(...));
+                $node->f['fallback'] = $root->children;
+            }
+        }
+        foreach (is_array($node->f['slots'] ?? null) ? $node->f['slots'] : [] as $list) {
+            foreach (PlainText::nodes($list) as $child) {
+                $name = PlainText::str($child->f['name'] ?? '');
+                if (in_array($child->type, ['block_extension', 'inline_extension'], true) && str_contains($name, '.')) {
+                    self::coreFallbacks($child);
+                }
+            }
+        }
+    }
+
+    private static function coreExtension(Node $node): bool
+    {
+        return $node->type === 'inline_extension' && !str_contains(PlainText::str($node->f['name'] ?? ''), '.');
+    }
+
+    private static function lowered(Node $node): ?Node
+    {
+        if (!self::coreExtension($node)) {
+            return null;
+        }
+        $inner = new Node('div', $node->children ?? []);
+        Apparatus::walk($inner, self::lowered(...));
+        $span = new Node('span', $inner->children);
+        $own = $node->f['attrs'] ?? null;
+        $attrs = $own instanceof Attrs ? clone $own : new Attrs();
+        $attrs->classes = ['ext-' . PlainText::str($node->f['name'] ?? ''), ...$attrs->classes];
+        $span->f['attrs'] = $attrs;
+        $span->start = $node->start;
+        $span->end = $node->end;
+
+        return $span;
     }
 
     private function claim(Node $node, ExtensionDefinition $definition): ?Claim
