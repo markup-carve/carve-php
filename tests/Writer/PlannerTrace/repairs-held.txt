@@ -1,7 +1,6 @@
 # Repair records that Writer\Check\Passes does not write as carve-js yet (RepairReplayTest). The port removes
 # lines; never add one.
 nested11-75
-nested11-134
 nested11-170
 spans23-36
 spans23-47

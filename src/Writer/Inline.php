@@ -2449,7 +2449,7 @@ final class Inline
             if (self::bareFits($inner, $mark, $around[0], $around[1])) {
                 return true;
             }
-            PairGlue::note($path);
+            GroupWrite::note($path);
 
             return false;
         }

@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer;
 
 /**
- * The emphasis and strong nodes one write of `Writer\Check\TreeGroupWriter` braced for their neighbors (carve-js
- * `gluedPart` and `markForm`), by path. Collected only while that write runs.
+ * One write of `Writer\Check\TreeGroupWriter`, as carve-js writes a group: the inline writer leaves the escapes it
+ * cannot decide alone to the rounds, and reports the emphasis and strong nodes it braced for their neighbors (carve-js
+ * `gluedPart` and `markForm`), by path. The `Writer` memo keys on whether one runs.
  *
  * @internal
  */
-final class PairGlue
+final class GroupWrite
 {
     /**
      * @var array<string, true>|null
      */
     private static ?array $paths = null;
+
+    public static function active(): bool
+    {
+        return self::$paths !== null;
+    }
 
     public static function start(): void
     {

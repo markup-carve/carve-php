@@ -4461,6 +4461,7 @@ final class Writer
     private static function remembered(string $kind, array $inputs, Closure $write): mixed
     {
         $inputs[] = self::$bareRepaired;
+        $inputs[] = GroupWrite::active();
         [$result, self::$bareRepaired] = self::$captured !== null ? $write() : WriteMemo::remember($kind, $inputs, $write);
 
         return $result;

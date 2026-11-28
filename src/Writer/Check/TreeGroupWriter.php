@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer\Check;
 
+use MarkupCarve\Carve\Writer\GroupWrite;
 use MarkupCarve\Carve\Writer\Inline;
 use MarkupCarve\Carve\Writer\LinkFallback;
-use MarkupCarve\Carve\Writer\PairGlue;
 use MarkupCarve\Carve\Writer\Text;
 use MarkupCarve\Carve\Writer\Writer;
 
@@ -49,12 +49,12 @@ final class TreeGroupWriter implements GroupWriter
         $plain = count($group) === 1 && $group[0]->type === 'paragraph' && is_array($roots[0] ?? null)
             && array_diff(array_keys($roots[0]), ['type', 'pos', 'children']) === [];
         $key = md5(serialize([$tree, $escapes, $this->options]));
-        PairGlue::start();
+        GroupWrite::start();
         try {
             $candidate = $plain ? null : Writer::bareCandidate($tree, null, $this->options, $escapes);
             $source = $candidate['source'] ?? Writer::bareSource($tree, null, $this->options, $escapes);
         } finally {
-            $glued = PairGlue::take();
+            $glued = GroupWrite::take();
         }
         $glued = self::rememberGlue($key, $glued);
         if ($glued !== []) {
