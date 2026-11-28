@@ -2412,6 +2412,7 @@ final class Inline
         $bare = !isset($open[$type])
             && !self::holdsKind($children, $type)
             && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
+            && self::transparentCommentFlanksAllowBare($children, $mark)
             && self::bareFits($visibleInner, $mark, $prev, $next);
         if ($bare) {
             unset($this->bracedPaired[$path]);
@@ -2482,6 +2483,77 @@ final class Inline
         }
 
         return $slashes % 2 === 0;
+    }
+
+    /**
+     * C2-I-026, C2-W-069: a braced comment does not supply a flank for a bare pair mark. The source spelling of
+     * the comment ends in `}`, which would otherwise hide whitespace or a mark on the visible child beside it.
+     *
+     * @param array<mixed> $children
+     * @param string $mark
+     *
+     * @return bool
+     */
+    private static function transparentCommentFlanksAllowBare(array $children, string $mark): bool
+    {
+        return self::commentFlankAllowsBare($children, $mark, true)
+            && self::commentFlankAllowsBare($children, $mark, false);
+    }
+
+    /**
+     * A visible child is the first one past any transparent comments at an edge of a paired span.
+     *
+     * @param array<mixed> $children
+     * @param bool $leading
+     *
+     * @return array<mixed>|null
+     */
+    private static function visibleChildPastComments(array $children, bool $leading): ?array
+    {
+        $count = count($children);
+        for ($offset = 0; $offset < $count; $offset++) {
+            $node = $children[$leading ? $offset : $count - $offset - 1];
+            if (!self::isBracedComment($node)) {
+                return is_array($node) ? $node : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the visible child beside a transparent comment allows the bare opener or closer.
+     *
+     * @param array<mixed> $children
+     * @param string $mark
+     * @param bool $leading
+     *
+     * @return bool
+     */
+    private static function commentFlankAllowsBare(array $children, string $mark, bool $leading): bool
+    {
+        $edge = $children[$leading ? 0 : count($children) - 1] ?? null;
+        if (!self::isBracedComment($edge)) {
+            return true;
+        }
+        $visible = self::visibleChildPastComments($children, $leading);
+        if ($visible === null || in_array($visible['type'] ?? '', ['soft_break', 'hard_break', 'non_breaking_space', 'comment'], true)) {
+            return false;
+        }
+        if (($visible['type'] ?? '') !== 'text') {
+            return true;
+        }
+        $value = self::str($visible, 'value');
+        if ($value === '') {
+            return false;
+        }
+        $char = $leading ? Chars::at($value, 0) : Chars::before($value, strlen($value));
+        if (!$leading) {
+            return $char !== ord($mark) && !Chars::isSpace($char);
+        }
+
+        return $char !== ord($mark) && !Chars::isSpace($char) && !Chars::isGlue($char)
+            && !str_starts_with($value, '\\ ');
     }
 
     /**
