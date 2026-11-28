@@ -35,7 +35,6 @@ final class RepairReplayTest extends TestCase
                     $children[] = self::fields($child);
                 }
             }
-
             $source = is_string($record['source'] ?? null) ? $record['source'] : '';
 
             yield $record['id'] => [$record['id'], $children, $source, ($record['lost'] ?? false) === true];
@@ -70,7 +69,7 @@ final class RepairReplayTest extends TestCase
      */
     private static function repair(array $children): array
     {
-        $document = Node::mirror(['type' => 'document', 'children' => $children]);
+        $document = Node::mirror(['type' => 'document', 'children' => array_map(self::trimmed(...), $children)]);
         $written = [];
         $lost = false;
         foreach ($document->children() as $at => $group) {
@@ -82,6 +81,34 @@ final class RepairReplayTest extends TestCase
         }
 
         return [implode("\n\n", $written) . "\n", $lost];
+    }
+
+    /**
+     * C2-W-151 (carve-js `trimLineEnds`, which the document write runs before any group): the spaces and tabs that end
+     * a text before a soft break or at the end of the paragraph are insignificant, and a text left empty goes.
+     *
+     * @param array<string, mixed> $paragraph
+     *
+     * @return array<string, mixed>
+     */
+    private static function trimmed(array $paragraph): array
+    {
+        $children = is_array($paragraph['children'] ?? null) ? array_values($paragraph['children']) : [];
+        $kept = [];
+        foreach ($children as $at => $child) {
+            $next = $children[$at + 1] ?? null;
+            $lineEnd = $next === null || (is_array($next) && ($next['type'] ?? null) === 'soft_break');
+            if (is_array($child) && ($child['type'] ?? null) === 'text' && is_string($child['value'] ?? null) && $lineEnd) {
+                $child['value'] = rtrim($child['value'], " \t");
+                if ($child['value'] === '') {
+                    continue;
+                }
+            }
+            $kept[] = $child;
+        }
+        $paragraph['children'] = $kept;
+
+        return $paragraph;
     }
 
     /**
