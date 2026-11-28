@@ -4094,6 +4094,7 @@ final class Inline
         $name = self::str($node, 'name');
         if (!str_contains($name, '.')) {
             $c->last = 0x5B;
+            $this->loseCommentBeforeCloser($node, $path, $c->bareBreaks);
 
             return ':' . $name . $this->bracketed('[', $node + ['children' => []], $path, $c);
         }
@@ -4107,6 +4108,32 @@ final class Inline
         }
 
         return null;
+    }
+
+    /**
+     * C2-I-024, C2-W-117: a line comment takes the closing bracket and a hard-break backslash on its line, so one that
+     * no bare line end follows in the content has no spelling. A tree with an extension is not compared on read-back,
+     * so the loss is reported here.
+     *
+     * @param array<mixed> $node
+     * @param string $path
+     * @param bool $bareBreaks
+     *
+     * @return void
+     */
+    private function loseCommentBeforeCloser(array $node, string $path, bool $bareBreaks): void
+    {
+        $ends = $bareBreaks ? ['soft_break', 'hard_break'] : ['soft_break'];
+        $children = is_array($node['children'] ?? null) ? array_values($node['children']) : [];
+        foreach ($children as $at => $child) {
+            if (!is_array($child) || ($child['type'] ?? null) !== 'comment' || ($child['form'] ?? null) !== 'line') {
+                continue;
+            }
+            $after = $children[$at + 1] ?? null;
+            if (!is_array($after) || !in_array($after['type'] ?? null, $ends, true)) {
+                $this->w->lose($path . '/children/' . $at, 'comment', null);
+            }
+        }
     }
 
     /**
