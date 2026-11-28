@@ -75,6 +75,13 @@ jobs:
       - name: Run tests
         run: composer test
 
+      - name: Writer gates on generated inputs
+        if: matrix.php == '8.5'
+        run: |
+          php scripts/writer-gates.php tokens 3
+          php scripts/writer-gates.php lines 2
+          php scripts/writer-gates.php random 20000 1
+
       - name: Fuzz smoke (crash, hang, memory and time properties)
         if: matrix.php == '8.5'
         timeout-minutes: 10
@@ -83,17 +90,6 @@ jobs:
       - name: Install into a scratch consumer and call every public entry
         if: matrix.php == '8.2'
         run: scripts/consumer-smoke.sh
-
-      - name: Writer gates on generated inputs (held for candidate 12)
-        if: false
-        run: |
-          php scripts/writer-gates.php tokens 3
-          php scripts/writer-gates.php lines 2
-          php scripts/writer-gates.php random 20000 1
-
-      - name: Check older JS differential corpus (held for candidate 12)
-        if: false
-        run: python3 oracle/verify_corpus.py
 
       # Dom\HTMLDocument and grapheme_str_split exist from PHP 8.4; 8.2 runs the fallbacks in the tests above.
       - name: Run PHPStan
