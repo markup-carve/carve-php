@@ -49,6 +49,7 @@ final class LeadingThematicBreakTest extends TestCase
         yield 'empty' => ['', false];
         yield 'comments only' => ["# note\n# more", false];
         yield 'list first' => ["- one\n- two", false];
+        yield 'hyphen-prefixed key' => ['-foo: bar', false];
         yield 'indented key' => ['  title: Hi', false];
         yield 'colon in key' => ['a:b: Hi', false];
         yield 'mapping' => ['title: Hi', true];
