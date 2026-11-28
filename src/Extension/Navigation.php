@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Extension;
 
+use InvalidArgumentException;
 use MarkupCarve\Carve\Attrs;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\PlainText;
@@ -242,6 +243,9 @@ final class Navigation
      * @param string $target `''` removes it.
      * @param string $rel
      * @param bool $nofollow Adds `nofollow` to `rel`.
+     * @param array<mixed> $internalHosts Host names whose links stay as written, compared without case.
+     *
+     * @throws \InvalidArgumentException An internal host that is no string.
      *
      * @return \MarkupCarve\Carve\Extension\ExtensionDefinition
      */
@@ -249,16 +253,25 @@ final class Navigation
         string $target = '_blank',
         string $rel = 'noopener noreferrer',
         bool $nofollow = false,
+        array $internalHosts = [],
     ): ExtensionDefinition {
+        if (!array_is_list($internalHosts) || array_filter($internalHosts, 'is_string') !== $internalHosts) {
+            throw new InvalidArgumentException('External link internal_hosts must be a list of host names.');
+        }
+        $hosts = array_fill_keys(array_map('strtolower', $internalHosts), true);
         $rels = array_values(array_filter(preg_split('/\s+/u', $rel) ?: [], static fn (string $p): bool => $p !== ''));
         if ($nofollow && !in_array('nofollow', $rels, true)) {
             $rels[] = 'nofollow';
         }
-        $run = static function (Node $view) use ($target, $rels): Node {
-            NavTree::rewrite($view, static function (Node $node) use ($target, $rels): ?array {
+        $run = static function (Node $view) use ($target, $rels, $hosts): Node {
+            NavTree::rewrite($view, static function (Node $node) use ($target, $rels, $hosts): ?array {
                 $href = $node->f['href'] ?? null;
                 $linkish = $node->type === 'link' || $node->type === 'autolink';
                 if (!$linkish || !is_string($href) || preg_match('~^https?://~iu', $href) !== 1) {
+                    return null;
+                }
+                $host = $hosts === [] ? null : parse_url($href, PHP_URL_HOST);
+                if ($hosts !== [] && (!is_string($host) || isset($hosts[strtolower($host)]))) {
                     return null;
                 }
                 $link = $node->type === 'autolink' ? LinkPolicy::asLink($node) : $node;

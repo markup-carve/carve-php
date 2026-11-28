@@ -14,6 +14,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Carve 0.2 replaces 0.1. The 0.2 engine moves to the package root: namespace `MarkupCarve\Carve2` becomes `MarkupCarve\Carve`, the entry class `Carve2` becomes `Carve`, and the program `carve2` becomes `carve`. See `docs/migration.md`.
 - The 0.1 engine is removed: `CarveConverter`, its parser, AST nodes, renderers (HTML, Markdown, plain text, ANSI, Carve), extensions, lint, Markdown, Djot and BBCode importers, ProseMirror bridge and the 0.1 `carve` commands. Markdown, plain text and ANSI output return as 0.2 writers.
 
+### Improvements
+
+- `Extension\Name` is a string-backed enum of the extension configuration names the framework adapters accept, with `create()` building the extensions of a name from snake_case options. `Navigation::externalLinks()` takes `internalHosts`, whose links stay as written (#6184).
+
 ### Fixes
 
 - `convert()` renders a list with a blank line before a nested list on the fast HTML path again, as fast as the tight shape; it had fallen back to the full parser (carve#6026).
