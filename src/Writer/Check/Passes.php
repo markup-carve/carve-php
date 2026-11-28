@@ -14,6 +14,12 @@ namespace MarkupCarve\Carve\Writer\Check;
 final class Passes
 {
     /**
+     * @var array{string, int, array<int, true>}|null The source, line start and note offsets `behindNoteOpener` last
+     *     scanned.
+     */
+    private static ?array $noteSpans = null;
+
+    /**
      * @var int The rounds of one pass at most (carve-js `history.rounds > 8192`).
      */
     private const MAX_ROUNDS = 8192;
@@ -357,8 +363,14 @@ final class Passes
     private static function prunableOpener(WriterState $w, string $source, int $at): bool
     {
         $next = $source[$at + 1] ?? '';
+        // C2-W-125, case five: behind a text `^[` whose caret pairs are ordinary brackets, link text can start with a
+        // bare caret.
+        if ($next === '^') {
+            return ($source[$at - 1] ?? '') === '[' && !self::isNoteBracket($source, $at - 1)
+                && self::behindNoteOpener($source, $at);
+        }
         if ($next === '[') {
-            return substr($source, $at + 2, 4) === '----' && ($source[$at - 1] ?? '') !== '^';
+            return self::prunableBracket($source, $at);
         }
         if ($next !== '{') {
             return false;
@@ -374,6 +386,67 @@ final class Passes
         $dash = strpos($source, '\\-', $at + 3);
 
         return $close !== false && ($dash === false || $dash > $close);
+    }
+
+    private static function prunableBracket(string $source, int $at): bool
+    {
+        if (substr($source, $at + 2, 4) !== '----') {
+            return false;
+        }
+        if (($source[$at - 1] ?? '') !== '^') {
+            return true;
+        }
+        $close = strpos($source, ']', $at + 2);
+        $lineEnd = strpos($source, "\n", $at + 2);
+
+        return $close === false || ($lineEnd !== false && $close > $lineEnd);
+    }
+
+    /**
+     * Whether the bracket at `at` follows a caret, with or without a backslash between them.
+     */
+    private static function isNoteBracket(string $source, int $at): bool
+    {
+        return ($source[$at - 1] ?? '') === '^' || (($source[$at - 1] ?? '') === '\\' && ($source[$at - 2] ?? '') === '^');
+    }
+
+    /**
+     * Whether the offset `at` stands inside the brackets of a `^[` on its line, its backslashes read as text. The
+     * offsets of the last line asked are kept, as the prune asks for each backslash of it.
+     */
+    private static function behindNoteOpener(string $source, int $at): bool
+    {
+        $found = $at === 0 ? false : strrpos($source, "\n", $at - strlen($source));
+        $lineStart = $found === false ? 0 : $found + 1;
+        if (self::$noteSpans === null || self::$noteSpans[0] !== $source || self::$noteSpans[1] !== $lineStart) {
+            self::$noteSpans = [$source, $lineStart, self::noteSpans($source, $lineStart)];
+        }
+
+        return isset(self::$noteSpans[2][$at]);
+    }
+
+    /**
+     * @return array<int, true>
+     */
+    private static function noteSpans(string $source, int $lineStart): array
+    {
+        $inside = [];
+        $open = [];
+        $notes = 0;
+        for ($at = $lineStart, $n = strlen($source); $at < $n && $source[$at] !== "\n"; $at++) {
+            if ($notes > 0) {
+                $inside[$at] = true;
+            }
+            if ($source[$at] === '[') {
+                $note = self::isNoteBracket($source, $at);
+                $open[] = $note;
+                $notes += $note ? 1 : 0;
+            } elseif ($source[$at] === ']' && ($source[$at - 1] ?? '') !== '\\' && array_pop($open) === true) {
+                $notes--;
+            }
+        }
+
+        return $inside;
     }
 
     /**
