@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer\Check;
 
+use MarkupCarve\Carve\Writer\Inline;
 use MarkupCarve\Carve\Writer\Text;
 use MarkupCarve\Carve\Writer\Writer;
 
@@ -83,7 +84,11 @@ final class TreeGroupWriter implements GroupWriter
         $children = [];
         foreach ($group as $at => $node) {
             $roots[$node->path] = "/children/{$at}";
-            $children[] = $node->toArray();
+            $array = $node->toArray();
+            if ($w->forms !== []) {
+                self::markForms($w, $node, $array);
+            }
+            $children[] = $array;
         }
         $escapes = [];
         foreach ($w->escapes as $id => $offsets) {
@@ -97,6 +102,36 @@ final class TreeGroupWriter implements GroupWriter
         }
 
         return [['type' => 'document', 'children' => $children], $escapes];
+    }
+
+    /**
+     * Marks each emphasis and strong node below `node` that a round asked to take its braced form (carve-js `forms`).
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param \MarkupCarve\Carve\Writer\Check\Node $node
+     * @param array<mixed> $array `node` as its array, changed in place.
+     */
+    private static function markForms(WriterState $w, Node $node, array &$array): void
+    {
+        if (($node->type === 'emphasis' || $node->type === 'strong') && ($w->forms[spl_object_id($node)] ?? 0) > 0) {
+            $array[Inline::BRACED_FORM] = true;
+        }
+        foreach ($node->slots as $name => $list) {
+            if (!is_array($array[$name] ?? null)) {
+                continue;
+            }
+            $slot = $array[$name];
+            foreach ($list as $at => $child) {
+                if ($child->path === "{$node->path}/{$name}") {
+                    self::markForms($w, $child, $slot);
+                } elseif (is_array($slot[$at] ?? null)) {
+                    $item = $slot[$at];
+                    self::markForms($w, $child, $item);
+                    $slot[$at] = $item;
+                }
+            }
+            $array[$name] = $slot;
+        }
     }
 
     /**

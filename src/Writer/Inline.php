@@ -41,6 +41,12 @@ final class Inline
     private const PAIRED = ['emphasis' => '/', 'strong' => '*'];
 
     /**
+     * @var string The key of an emphasis or strong node array that the rounds of `Writer\Check` asked to write braced
+     *     (carve-js `forms`). No tree field starts with a NUL, so the key reaches no reader of the tree.
+     */
+    public const BRACED_FORM = "\0braced";
+
+    /**
      * The nodes whose content stands between brackets, a barrier of the delimiter stack.
      *
      * @var array<string>
@@ -2457,7 +2463,7 @@ final class Inline
         $c->open = $open;
         $c->marks = $marks;
         $visibleInner = $this->w->repairTrace?->decode($inner)['source'] ?? $inner;
-        $bare = !isset($open[$type])
+        $bare = !isset($open[$type]) && !isset($node[self::BRACED_FORM])
             && !self::holdsKind($children, $type)
             && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
             && self::bareFits($visibleInner, $mark, $prev, $next);
