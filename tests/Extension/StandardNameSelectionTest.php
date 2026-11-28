@@ -41,6 +41,19 @@ final class StandardNameSelectionTest extends TestCase
         ));
     }
 
+    public function testEitherSpoilerNameRegistersBothHalves(): void
+    {
+        // C2-X-064 (carve#6982): without a renderer both nodes write their fallback.
+        $source = "A :spoiler[secret] word.\n\n::: spoiler \"Hint\"\nHidden body.\n:::\n";
+        foreach (['carve.spoiler', 'carve.spoilerBlock'] as $name) {
+            self::assertSame(
+                "<p>A secret word.</p>\n<p><strong>Hint</strong></p>\n<p>Hidden body.</p>",
+                Carve::render($source, ['extensions' => [$name]]),
+                $name,
+            );
+        }
+    }
+
     public function testCodeGroupNamedRendererAcceptsItsAriaMode(): void
     {
         $source = "::: code-group\n```js [A]\na\n```\n:::\n";

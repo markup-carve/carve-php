@@ -6,12 +6,13 @@ namespace MarkupCarve\Carve\Extension;
 
 use InvalidArgumentException;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Lint\Support;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\PlainText;
 
 /**
- * Provisional. `:color[value]` (`carve.colorSwatch`) with a swatch chip, for a safe CSS color only. Both channels write
- * the same HTML.
+ * Provisional. `:color[value]` (`carve.colorSwatch`) with a swatch chip for a safe CSS color, and the fallback for any
+ * other value. Both channels write the same HTML.
  */
 final class ColorSwatch
 {
@@ -194,6 +195,12 @@ final class ColorSwatch
             $value = is_array($props) ? PlainText::str($props['value'] ?? '') : '';
             $attrs = $node->f['attrs'] ?? null;
             $attrs = $attrs instanceof Attrs ? $attrs : null;
+            if (self::safeColor($value) === null) {
+                // C2-X-035: the fallback of a node with attributes stands in a span that carries them.
+                $fallback = ($host->inlines)(PlainText::nodes($node->f['fallback'] ?? []));
+
+                return $attrs === null ? $fallback : '<span' . AuthorAttrs::write($attrs, $host) . '>' . $fallback . '</span>';
+            }
             $contrast = AuthorAttrs::value($attrs, 'contrast') !== null ? self::contrastText($value) : null;
             if ($contrast !== null) {
                 $style = 'background:' . $value . ';color:' . $contrast;
@@ -224,10 +231,8 @@ final class ColorSwatch
             return null;
         }
         $children = $claim->node->children ?? [];
-        $value = self::safeColor(self::textOf($children));
-        if ($value === null) {
-            return null;
-        }
+        // C2-X-074: every `:color[value]` is claimed; a value that is no color writes the fallback.
+        $value = self::safeColor(self::textOf($children)) ?? Support::trim(self::textOf($children));
         $node = new Node('inline_extension', []);
         $node->f['name'] = 'carve.colorSwatch';
         $node->f['version'] = '1';
@@ -259,7 +264,7 @@ final class ColorSwatch
 
     private static function safeColor(string $input): ?string
     {
-        $value = trim($input);
+        $value = Support::trim($input);
         if (strlen($value) > 256) {
             return null;
         }

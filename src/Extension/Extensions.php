@@ -6,8 +6,10 @@ namespace MarkupCarve\Carve\Extension;
 
 use Closure;
 use MarkupCarve\Carve\Attrs;
+use MarkupCarve\Carve\Diagnostics\Findings;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\Resolve\PlainText;
+use MarkupCarve\Carve\Resolve\Walk;
 
 /**
  * C2-X-005: the pass that claims core nodes after the core parse and replaces each with the node its transform gives.
@@ -17,8 +19,9 @@ final class Extensions
     /**
      * @param array<\MarkupCarve\Carve\Extension\ExtensionDefinition> $definitions
      * @param \Closure(\MarkupCarve\Carve\Node): string $body The canonical spelling of the blocks of a div (C2-X-026).
+     * @param \MarkupCarve\Carve\Diagnostics\Findings|null $findings
      */
-    private function __construct(private array $definitions, private Closure $body)
+    private function __construct(private array $definitions, private Closure $body, private ?Findings $findings)
     {
     }
 
@@ -26,15 +29,16 @@ final class Extensions
      * @param \MarkupCarve\Carve\Node $doc
      * @param array<\MarkupCarve\Carve\Extension\ExtensionDefinition> $definitions
      * @param \Closure(\MarkupCarve\Carve\Node): string $body
+     * @param \MarkupCarve\Carve\Diagnostics\Findings|null $findings Where a refused transform is noted.
      *
      * @return void
      */
-    public static function apply(Node $doc, array $definitions, Closure $body): void
+    public static function apply(Node $doc, array $definitions, Closure $body, ?Findings $findings = null): void
     {
         if ($definitions === []) {
             return;
         }
-        $pass = new self($definitions, $body);
+        $pass = new self($definitions, $body, $findings);
         $pass->replaceIn($doc);
         $used = [];
         $pass->used($doc, $used);
@@ -203,7 +207,14 @@ final class Extensions
             if ($transformed === null) {
                 continue;
             }
+            self::coreFallbacks($transformed);
             if (!$this->valid($transformed, $claim, $definition, $parent)) {
+                $this->findings?->add(
+                    'extension-fallback-rendered',
+                    $node,
+                    message: 'Invalid transform of ' . $definition->name . '; the core source node was retained',
+                );
+
                 break;
             }
             $this->attach($transformed, $claim);
@@ -214,6 +225,65 @@ final class Extensions
         $this->replaceIn($node);
 
         return $node;
+    }
+
+    /**
+     * C2-X-022: a fallback holds no extension node, so a claimed body copied into one gives each of its unqualified
+     * inline extensions as the span the renderer writes for it (C2-A-124). The qualified nodes a transform creates in
+     * its slots, as the tabs of a group, are checked too.
+     *
+     * @param \MarkupCarve\Carve\Node $node
+     *
+     * @return void
+     */
+    private static function coreFallbacks(Node $node): void
+    {
+        $fallback = $node->f['fallback'] ?? null;
+        if (is_array($fallback)) {
+            $root = new Node('div', PlainText::nodes($fallback));
+            $found = false;
+            Apparatus::walk($root, static function (Node $child) use (&$found): ?bool {
+                $found = $found || self::coreExtension($child);
+
+                return $found ? false : null;
+            });
+            if ($found) {
+                $root->children = array_map(self::copy(...), $root->children ?? []);
+                Apparatus::walk($root, self::lowered(...));
+                $node->f['fallback'] = $root->children;
+            }
+        }
+        foreach (is_array($node->f['slots'] ?? null) ? $node->f['slots'] : [] as $list) {
+            foreach (PlainText::nodes($list) as $child) {
+                $name = PlainText::str($child->f['name'] ?? '');
+                if (in_array($child->type, ['block_extension', 'inline_extension'], true) && str_contains($name, '.')) {
+                    self::coreFallbacks($child);
+                }
+            }
+        }
+    }
+
+    private static function coreExtension(Node $node): bool
+    {
+        return $node->type === 'inline_extension' && !str_contains(PlainText::str($node->f['name'] ?? ''), '.');
+    }
+
+    private static function lowered(Node $node): ?Node
+    {
+        if (!self::coreExtension($node)) {
+            return null;
+        }
+        $inner = new Node('div', $node->children ?? []);
+        Apparatus::walk($inner, self::lowered(...));
+        $span = new Node('span', $inner->children);
+        $own = $node->f['attrs'] ?? null;
+        $attrs = $own instanceof Attrs ? clone $own : new Attrs();
+        $attrs->classes = ['ext-' . PlainText::str($node->f['name'] ?? ''), ...$attrs->classes];
+        $span->f['attrs'] = $attrs;
+        $span->start = $node->start;
+        $span->end = $node->end;
+
+        return $span;
     }
 
     private function claim(Node $node, ExtensionDefinition $definition): ?Claim
@@ -299,7 +369,7 @@ final class Extensions
 
     /**
      * C2-X-015, C2-X-018: one extension node of the claimed role, with the declared name and version, in the slot its
-     * declaration names.
+     * declaration names, whose fallback holds no extension node.
      *
      * @param \MarkupCarve\Carve\Node $node
      * @param \MarkupCarve\Carve\Extension\Claim $claim
@@ -316,7 +386,45 @@ final class Extensions
             return false;
         }
 
-        return $definition->parent === null || $definition->parent === $parent;
+        if ($definition->parent !== null && $definition->parent !== $parent) {
+            return false;
+        }
+        $fallback = $node->f['fallback'] ?? [];
+
+        return !is_array($fallback) || !self::holdsExtension($fallback);
+    }
+
+    /**
+     * C2-X-022: whether an extension node is among the nodes or anywhere inside them.
+     *
+     * @param array<mixed> $nodes
+     *
+     * @return bool
+     */
+    private static function holdsExtension(array $nodes): bool
+    {
+        $pending = [$nodes];
+        while ($pending !== []) {
+            foreach (array_pop($pending) as $value) {
+                if (is_array($value)) {
+                    $pending[] = $value;
+
+                    continue;
+                }
+                if (!$value instanceof Node) {
+                    continue;
+                }
+                if ($value->type === 'inline_extension' || $value->type === 'block_extension') {
+                    return true;
+                }
+                if ($value->children !== null) {
+                    $pending[] = $value->children;
+                }
+                $pending[] = array_diff_key($value->f, Walk::OPAQUE);
+            }
+        }
+
+        return false;
     }
 
     private function attach(Node $node, Claim $claim): void

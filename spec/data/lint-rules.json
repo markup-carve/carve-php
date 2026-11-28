@@ -215,7 +215,7 @@
       "default": "on",
       "messages": [
         {
-          "when": "the bare run is shorter than the innermost opener and long enough for no open div",
+          "when": "the bare run is shorter than the innermost opener, long enough for no open div, and the anonymous div it opens has no closer of its own",
           "text": "Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it opens an anonymous div."
         },
         {
@@ -230,8 +230,8 @@
       "message_notes": ["`${kind}` names the innermost open colon container: `div`, `admonition`, `figure group`, `line block` or `hard-break block` (C2-B-119, C2-B-125)."],
       "message_origin": "engine_0_1",
       "range": "the colon run, without indentation and without the spaces and tabs after it",
-      "reports": "a bare colon run, three or more colons and nothing after them but spaces and tabs, inside an open colon container (a div of any name, a line block or a hard-break block) whose innermost opener run has another length; the container counts only where it is open inside the run's own innermost container, so a run in a quote or list item that sits in a div, with no colon container open inside that quote or item, is not reported, since it cannot close the outer div (C2-B-109); the run closes the innermost open container it is long enough for and every one inside it, or opens an anonymous div when it is long enough for none, and the message names that outcome; once per run (C2-B-108, C2-B-109, C2-B-125)",
-      "clauses": ["C2-B-108", "C2-B-109", "C2-B-125"]
+      "reports": "a bare colon run, three or more colons and nothing after them but spaces and tabs, inside an open colon container (a div of any name, a line block or a hard-break block) whose innermost opener run has another length; the container counts only where it is open inside the run's own innermost container, so a run in a quote or list item that sits in a div, with no colon container open inside that quote or item, is not reported, since it cannot close the outer div (C2-B-109); the run closes the innermost open container it is long enough for and every one inside it, or opens an anonymous div when it is long enough for none, and the message names that outcome; a run that opens an anonymous div is not reported when that div has its own closer, a later bare run for which the div is the innermost open container it is long enough for, so that the run closes this div and no enclosing one, as every div the canonical writer writes has (C2-W-039); a div that runs to the end of its container, or that a closer of an enclosing container ends, is reported; once per run (C2-B-108, C2-B-109, C2-B-125)",
+      "clauses": ["C2-B-108", "C2-B-109", "C2-B-125", "C2-W-039"]
     },
     {
       "id": "comment-fence-closer-with-text",
@@ -1161,6 +1161,14 @@
       "clauses": ["C2-W-011", "C2-W-104"]
     },
     {
+      "id": "image-src-unknown",
+      "severity": "warning",
+      "channel": "render-loss",
+      "status": "new",
+      "reports": "an image with neither `src` nor `key`, as an import of an `<img>` with no `src` attribute gives, which the writer writes with an empty destination that reads back as `src: \"\"`; no code of C2-W-134, so a write returns the source and `carve import` does not fail on it (C2-M-050, C2-W-011, C2-T-034)",
+      "clauses": ["C2-W-011", "C2-W-104"]
+    },
+    {
       "id": "import-attribute-dropped",
       "severity": "warning",
       "channel": "render-loss",
@@ -1647,6 +1655,16 @@
       "change": "new message text",
       "reports": "a pair of two-star runs in text, as `**b**`, whose content is at least one character, holds no star and no blank line, and neither starts nor ends with whitespace, once per pair, pairs taken from left to right; a letter, a digit or a further star next to a run does not prevent it; the range runs from the first star to the last (C2-I-049)",
       "clauses": ["C2-I-049"]
+    },
+    {
+      "id": "migration-loss",
+      "severity": "warning",
+      "channel": "render-loss",
+      "status": "new",
+      "messages": ["Migration could not preserve ${what}."],
+      "message_origin": "data_file",
+      "reports": "a stored fact other than spelling that `migrateTree` reports as lost while moving a 1.x or draft tree to 2.0, at its path in the input tree or envelope; spelling loss alone is not reported (C2-A-180)",
+      "clauses": ["C2-A-180"]
     },
     {
       "id": "non-descriptive-link-text",

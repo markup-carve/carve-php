@@ -96,7 +96,8 @@ final class PositionChecker
             if ($char === "\n") {
                 $line++;
                 $column = 1;
-            } else {
+            } elseif ($offset !== 3 || $char !== "\u{FEFF}") {
+                // C2-B-165: a leading byte-order mark is no column of line 1.
                 $column++;
             }
             $map[$offset] = [$line, $column];

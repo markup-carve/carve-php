@@ -76,14 +76,10 @@ final class BlockReader
             return [];
         }
         $raw = true;
-        $images = false;
-        $imageRun = true;
         foreach ($solid as $node) {
             $raw = $raw && Elements::isRaw($node);
-            $images = $images || $node->isElement('img');
-            $imageRun = $imageRun && ($node->isElement('img') || $node->isComment());
         }
-        if ($raw || ($images && $imageRun)) {
+        if ($raw || Elements::isImageRun($solid)) {
             $out = [];
             foreach ($solid as $node) {
                 array_push($out, ...($top ? $this->documentChild($node) : $this->block($node)));

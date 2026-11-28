@@ -468,6 +468,7 @@ final class Carve
                     $doc,
                     $opts->extensions,
                     static fn (Node $div): string => self::divBody($div, $linkKeys[$div->file ?? ''] ?? []),
+                    $findings,
                 );
             }
             if ($keep) {

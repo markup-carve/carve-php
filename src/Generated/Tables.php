@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '8ae88a7425d05085b4426f596729654484aa6119',
+        'commit' => '9d8f2eb915046c1e0e8323cb10731bf7b12ff6c1',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6789,7 +6789,7 @@ final class Tables
         ],
         'colon-fence-length-mismatch' => [
             [
-                'when' => 'the bare run is shorter than the innermost opener and long enough for no open div',
+                'when' => 'the bare run is shorter than the innermost opener, long enough for no open div, and the anonymous div it opens has no closer of its own',
                 'text' => 'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it opens an anonymous div.',
             ],
             [
@@ -7215,6 +7215,9 @@ final class Tables
         'markdown-strong-double-star' => [
             'Markdown `**strong**` is literal text in Carve, asterisks included. Carve strong is a single `*`.',
         ],
+        'migration-loss' => [
+            'Migration could not preserve ${what}.',
+        ],
         'non-descriptive-link-text' => [
             'Use descriptive link text or a specific aria-label.',
         ],
@@ -7552,6 +7555,11 @@ final class Tables
             'render-loss',
             'image-alt-unknown',
         ],
+        'image-src-unknown' => [
+            'warning',
+            'render-loss',
+            'image-src-unknown',
+        ],
         'import-attribute-dropped' => [
             'warning',
             'render-loss',
@@ -7684,6 +7692,11 @@ final class Tables
             'warning',
             'render-loss',
             'Include "${path}" could not be resolved.',
+        ],
+        'migration-loss' => [
+            'warning',
+            'render-loss',
+            'Migration could not preserve ${what}.',
         ],
         'profile-construct-degraded' => [
             'warning',

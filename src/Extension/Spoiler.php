@@ -19,7 +19,6 @@ final class Spoiler
         $inline = new ExtensionDefinition(
             'carve.spoiler',
             '1',
-            ['content'],
             matcher: ['form' => 'inline', 'name' => 'spoiler'],
             transform: self::transform(...),
             renderer: static fn (Node $node, RenderHost $host): string => self::span($node, $host, ['spoiler']),
@@ -54,7 +53,6 @@ final class Spoiler
         $node = new Node('inline_extension', []);
         $node->f['name'] = 'carve.spoiler';
         $node->f['version'] = '1';
-        $node->f['slots'] = ['content' => $children];
         $node->f['fallback'] = array_map(Extensions::copy(...), $children);
 
         return $node;
@@ -70,9 +68,9 @@ final class Spoiler
         $attrs = $node->f['attrs'] ?? null;
         $attrs = $attrs instanceof Attrs ? clone $attrs : new Attrs();
         $attrs->classes = [...$classes, ...$attrs->classes];
-        $slots = is_array($node->f['slots'] ?? null) ? $node->f['slots'] : [];
+        $fallback = PlainText::nodes($node->f['fallback'] ?? []);
 
-        return '<span' . AuthorAttrs::write($attrs, $host) . '>' . ($host->inlines)(PlainText::nodes($slots['content'] ?? [])) . '</span>';
+        return '<span' . AuthorAttrs::write($attrs, $host) . '>' . ($host->inlines)($fallback) . '</span>';
     }
 
     private static function section(Node $node, RenderHost $host): string

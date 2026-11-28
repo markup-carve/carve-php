@@ -29,13 +29,7 @@ final class TypedCoreClauseTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [
-        'CC-2270' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2271' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2273' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2274' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-    ];
+    private const KNOWN_FAIL = [];
 
     /**
      * The files of the running case, for the positions of an entry in an included file.
@@ -123,7 +117,8 @@ final class TypedCoreClauseTest extends TestCase
             if (in_array('C2-N-081', $case['clauses'], true)) {
                 self::assertTrue(TreeEquality::equal($expected['children'], $actual['children']));
             } else {
-                self::assertSame(Corpus::sorted($expected['children']), Corpus::sorted(Corpus::withoutPositions($actual['children'])));
+                $children = self::compared($expected['children'], $actual['children']);
+                self::assertSame(Corpus::sorted($expected['children']), Corpus::sorted($children));
             }
         }
         if (isset($expected['html'])) {
@@ -141,6 +136,19 @@ final class TypedCoreClauseTest extends TestCase
             $this->files = $case['files'] ?? [];
             $this->diagnostics($source, $expected, self::actualDiagnostics($case, $source, $options));
         }
+    }
+
+    /**
+     * An expectation with positions (CC-2505) checks them; the rest compare without.
+     *
+     * @param mixed $expected
+     * @param mixed $actual
+     *
+     * @return mixed
+     */
+    private static function compared(mixed $expected, mixed $actual): mixed
+    {
+        return Corpus::hasPositions($expected) ? $actual : Corpus::withoutPositions($actual);
     }
 
     /**

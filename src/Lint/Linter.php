@@ -152,7 +152,11 @@ final class Linter
             $source,
             array_intersect_key($options, ['extensions' => true, 'headingIds' => true]),
         ));
-        $parseDiagnostics = $parsed->diagnostics;
+        // A refused extension transform is a render loss, not a lint finding (carve-js lints the same way).
+        $parseDiagnostics = array_values(array_filter(
+            $parsed->diagnostics,
+            static fn (Diagnostic $d): bool => $d->channel !== 'render-loss',
+        ));
         $document = $parsed->tree;
         $options['upgrade'] = ($options['upgrade'] ?? false) === true || self::declaresBelow02($document);
         $rawRefs = [];
