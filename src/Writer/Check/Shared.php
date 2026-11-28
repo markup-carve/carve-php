@@ -39,6 +39,11 @@ final class Shared
     public array $cappedRuns = [];
 
     /**
+     * @var array<int, string> The content key of each node `extendClosers` compared, by node id.
+     */
+    public array $contentKeys = [];
+
+    /**
      * @var array<string, true> C2-W-088: the braced kinds a round reported, `{` and its mark.
      */
     public array $reportedBraceKinds = [];

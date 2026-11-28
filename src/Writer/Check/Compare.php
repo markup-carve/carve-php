@@ -1927,6 +1927,49 @@ final class Compare
     }
 
     /**
+     * C2-W-002, C2-A-193: the readback equality of the writer, which disregards the standard data namespaces
+     * (carve-js `writerEqual`; inline extensions are compared through `TreeEquality` as the PHP readback does).
+     */
+    public static function writerEqual(WriterState $w, Node $expected, Node $actual): bool
+    {
+        if (self::treesEqual($expected, $actual) || self::sourceCoreEquivalent($expected, $actual)) {
+            return true;
+        }
+        $plain = self::withoutStandardData($expected->toArray());
+
+        return $plain !== null && TreeEquality::equal($plain, $actual->toArray());
+    }
+
+    /**
+     * `tree` without the standard data namespaces, or null where it holds none.
+     *
+     * @param array<mixed> $tree
+     *
+     * @return array<mixed>|null
+     */
+    private static function withoutStandardData(array $tree): ?array
+    {
+        $changed = false;
+        $walk = static function (mixed $value) use (&$walk, &$changed): mixed {
+            if (!is_array($value)) {
+                return $value;
+            }
+            if (isset($value['data']) && is_array($value['data']) && array_intersect_key($value['data'], self::IGNORED_DATA) !== []) {
+                $changed = true;
+                $value['data'] = array_diff_key($value['data'], self::IGNORED_DATA);
+                if ($value['data'] === []) {
+                    unset($value['data']);
+                }
+            }
+
+            return array_map($walk, $value);
+        };
+        $copy = $walk($tree);
+
+        return $changed && is_array($copy) ? $copy : null;
+    }
+
+    /**
      * Whether the bare brackets of `e` in `[from, to)` close each other as ordinary brackets.
      */
     private static function bracketsBalance(Check $c, Node $e, int $from, int $to): bool

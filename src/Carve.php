@@ -53,6 +53,7 @@ use MarkupCarve\Carve\Resolve\Slug;
 use MarkupCarve\Carve\Resolve\TableGrid;
 use MarkupCarve\Carve\Resolve\Walk;
 use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
+use MarkupCarve\Carve\Writer\ReadScope;
 use MarkupCarve\Carve\Writer\Writer;
 use MarkupCarve\Carve\Writer\WriteResult;
 use Throwable;
@@ -98,27 +99,6 @@ final class Carve
     public static function parse(string $source, array $options = []): Node
     {
         return self::remember(self::parsed($source, Options::from(self::normalize($options), ['parse', 'resolve']))[0], $source);
-    }
-
-    /**
-     * Parse and resolve a part of a document with the link keys and abbreviations of the whole document in place of
-     * its own (carve-js `buildSource` with `linkKeys` and `abbreviations`): the writer reads back one group of blocks
-     * as the document reads it.
-     *
-     * @internal
-     *
-     * @param string $source
-     * @param array<string, mixed> $options
-     * @param array<string, true> $linkKeys The link definition keys of the document, as written.
-     * @param array<string, string> $abbreviations The abbreviation terms of the document, each with its expansion.
-     *
-     * @return \MarkupCarve\Carve\Node
-     */
-    public static function parseInScope(string $source, array $options, array $linkKeys, array $abbreviations): Node
-    {
-        $opts = Options::from(self::normalize($options), ['parse', 'resolve']);
-
-        return self::remember(self::parsed($source, $opts, false, [$linkKeys, $abbreviations])[0], $source);
     }
 
     /**
@@ -472,16 +452,15 @@ final class Carve
      * @param string $source
      * @param \MarkupCarve\Carve\Options $opts
      * @param bool $keep Keep the facts of the resolve for the renderer.
-     * @param array{array<string, true>, array<string, string>}|null $scope The scope of an outer document (`parseInScope`).
      *
      * @return array{0: \MarkupCarve\Carve\Node, 1: \MarkupCarve\Carve\Diagnostics\Findings, 2: \MarkupCarve\Carve\Resolve\Facts|null}
      */
-    private static function parsed(string $source, Options $opts, bool $keep = false, ?array $scope = null): array
+    private static function parsed(string $source, Options $opts, bool $keep = false): array
     {
         $gc = self::collectorOff();
         $abbreviations = Finisher::$abbreviations;
         try {
-            [$doc, $findings, $hasInclude] = self::stages($source, [], true, $scope);
+            [$doc, $findings, $hasInclude] = self::stages($source, [], true, ReadScope::$scope);
             self::expand($doc, $findings, $opts, $hasInclude);
             if ($opts->extensions !== []) {
                 $linkKeys = self::linkKeysByFile($doc);
@@ -565,7 +544,7 @@ final class Carve
      * @param string $source
      * @param array<string, string> $inheritedAbbreviations
      * @param bool $fileStart
-     * @param array{array<string, true>, array<string, string>}|null $scope The scope of an outer document (`parseInScope`).
+     * @param array{array<string, true>, array<string, string>}|null $scope The scope of an outer document (`ReadScope`).
      *
      * @return array{0: \MarkupCarve\Carve\Node, 1: \MarkupCarve\Carve\Diagnostics\Findings, 2: bool}
      */

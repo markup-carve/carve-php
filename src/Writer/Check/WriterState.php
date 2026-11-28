@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer\Check;
 
+use LogicException;
+
 /**
  * What the comparison and the rounds read and change of the writer (the fields of carve-js `Writer` in write-state.ts
  * that write-check.ts uses). Maps by node are keyed by `spl_object_id` of the `Node`.
@@ -43,6 +45,41 @@ final class WriterState
      * @var array<int, int> The form each node is written in, by node id (carve-js `forms`).
      */
     public array $forms = [];
+
+    /**
+     * @var array<int, true> The nodes whose form the group writer glued to the text before them, by node id.
+     */
+    public array $glued = [];
+
+    // The writer of the group's lines (carve-js `writeBlocks`).
+    public ?GroupWriter $groupWriter = null;
+
+    // C2-W-125 case five: the group holds link text, and its bare brackets took their backslash.
+    public bool $sawLink = false;
+
+    public bool $linkFallback = false;
+
+    // C2-W-005: the group is written below one blank line.
+    public bool $blankFirst = false;
+
+    public ?Check $lastCheck = null;
+
+    // The switches of the pass (write-passes.ts): the whole-tree trial test and the closer kinds of C2-W-088.
+    public bool $wholeTrials = false;
+
+    public bool $closerKinds = false;
+
+    /**
+     * @var list<\MarkupCarve\Carve\Writer\Check\Escape>|null The trials of a `wholeTrials` pass, or null outside one.
+     */
+    public ?array $trialLog = null;
+
+    public bool $trialsRetested = false;
+
+    /**
+     * @var list<array{\MarkupCarve\Carve\Writer\Check\Node, string|null}> Each loss in the order it was recorded.
+     */
+    public array $lossLog = [];
 
     /**
      * @var array<int, \MarkupCarve\Carve\Writer\Check\Attempt>
@@ -112,6 +149,35 @@ final class WriterState
     public function escapesOf(Node $node): array
     {
         return $this->escapes[spl_object_id($node)] ?? [];
+    }
+
+    /**
+     * C2-W-011, C2-W-117: records that `node`, or its field `field`, could not be written. One entry per node.
+     */
+    public function lose(Node $node, ?string $field): void
+    {
+        $id = spl_object_id($node);
+        if (isset($this->lost[$id])) {
+            return;
+        }
+        $this->lost[$id] = true;
+        $this->shared->held[] = $node;
+        $this->lossLog[] = [$node, $field];
+    }
+
+    /**
+     * Writes `group` into `lines` with the escapes and forms of this state.
+     *
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     *
+     * @throws \LogicException Where no group writer is set.
+     */
+    public function writeGroup(array $group): void
+    {
+        if ($this->groupWriter === null) {
+            throw new LogicException('A round writes its group through a group writer.');
+        }
+        $this->groupWriter->write($this, $group);
     }
 
     public function isLost(Node $node): bool

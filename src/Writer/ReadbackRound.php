@@ -166,7 +166,12 @@ final class ReadbackRound
             return Carve::parse($source, $options);
         }
 
-        return Carve::parseInScope($source, $options, self::keys($scope['linkKeys'] ?? null), self::terms($scope['abbreviations'] ?? null));
+        ReadScope::$scope = [self::keys($scope['linkKeys'] ?? null), self::terms($scope['abbreviations'] ?? null)];
+        try {
+            return Carve::parse($source, $options);
+        } finally {
+            ReadScope::$scope = null;
+        }
     }
 
     /**
