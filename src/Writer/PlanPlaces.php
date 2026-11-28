@@ -72,7 +72,7 @@ final class PlanPlaces
     }
 
     /**
-     * @return array<string, mixed>
+     * @phpstan-return Place
      */
     private static function top(): array
     {
@@ -94,12 +94,14 @@ final class PlanPlaces
     }
 
     /**
+     * @phpstan-param Place $place
+     *
+     * @phpstan-return Place
+     *
      * @param array<mixed> $node
-     * @param array<string, mixed> $place
+     * @param array $place
      * @param bool $followed
      * @param string|null $before
-     *
-     * @return array<string, mixed>
      */
     private static function inner(array $node, array $place, ?string $before, bool $followed): array
     {

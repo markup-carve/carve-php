@@ -7,6 +7,8 @@ namespace MarkupCarve\Carve\Writer;
 /**
  * One group's planned write, with its escapes and undecided leaves.
  * The fields correspond to carve-js write-plan.ts Plan.
+ *
+ * @phpstan-import-type Place from \MarkupCarve\Carve\Writer\PlanLines
  */
 final class Plan
 {
@@ -65,7 +67,7 @@ final class Plan
     public array $respell = [];
 
     /**
-     * @var array<string, array<string, mixed>>
+     * @phpstan-var array<string, Place>
      */
     public array $places = [];
 

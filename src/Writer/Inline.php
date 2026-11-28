@@ -264,6 +264,27 @@ final class Inline
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
     {
+        if ($this->w->plan !== null && $c->flat === null) {
+            $outer = $this->w->planLeafDepth === 0;
+            $start = $c->lineStart ? Plan::LINE_START : Plan::AFTER_MARK;
+            $end = $c->inLineBlock ? Plan::AS_LINE : Plan::AS_CONTENT;
+            if (str_ends_with($path, '/title')) {
+                $start = Plan::IN_TITLE;
+                $end = Plan::AS_INLINES;
+            }
+            $flags = ($c->inCell ? 1 : 0) | ($c->bareBreaks ? 8 : 0);
+            $this->w->planLeafDepth++;
+            try {
+                $out = $this->contentOnce($nodes, $path, $c, $next);
+            } finally {
+                $this->w->planLeafDepth--;
+            }
+            if ($outer) {
+                PlanModel::leaf($this->w, $nodes, $path, $end, $start, $flags);
+            }
+
+            return $out;
+        }
         if ($c->flat !== null) {
             $siblings = $c->siblings;
             $c->siblings = self::siblingFlat($nodes, $path, $next);
@@ -736,6 +757,16 @@ final class Inline
             $parts[0][] = strlen($out);
             $parts[1][] = $first;
             $parts[2][] = $at;
+            if ($this->w->plan !== null) {
+                if ($first !== $at && $this->w->plan->undecided === null) {
+                    $this->w->plan->undecided = 'code run';
+                }
+                $this->w->planParts[$path . '/' . $first] = [
+                    'part' => $part,
+                    'node' => $node,
+                    'escaped' => $text ? $c->escapedAt : [],
+                ];
+            }
             $out .= $part;
             if (!$traced) {
                 // The hyphens the node ends a run with: a text's, with those before it when it is all hyphens, and one
@@ -759,6 +790,10 @@ final class Inline
         }
         if (!$c->inCell && $this->w->repairTrace === null) {
             $this->readBack($nodes, $parts, $out, $path);
+        }
+
+        if ($this->w->plan !== null) {
+            $this->w->planContents[$path] = $out;
         }
 
         return $out;

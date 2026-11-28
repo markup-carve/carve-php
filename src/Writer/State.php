@@ -14,6 +14,20 @@ final class State
 {
     public ?RepairTrace $repairTrace = null;
 
+    public ?Plan $plan = null;
+
+    /**
+     * @var array<string, array{part: string, node: array<mixed>, escaped: array<int, bool|int>}>
+     */
+    public array $planParts = [];
+
+    /**
+     * @var array<string, string>
+     */
+    public array $planContents = [];
+
+    public int $planLeafDepth = 0;
+
     /**
      * @var array<string>
      */

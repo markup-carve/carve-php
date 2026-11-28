@@ -4517,6 +4517,7 @@ final class Writer
     private static function writeInternal(array $tree, ?array $layout, array $options, ?RepairTrace $trace): WriteResult
     {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
+        $w->plan = self::planFrom($options);
         $w->repairTrace = $trace;
         $w->recordGroups = self::$captured !== null;
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
@@ -4551,6 +4552,16 @@ final class Writer
         self::record($w, $joined, $source);
 
         return new WriteResult($source, $w->losses);
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    private static function planFrom(array $options): ?Plan
+    {
+        $plan = $options['__plan'] ?? null;
+
+        return $plan instanceof Plan ? $plan : null;
     }
 
     /**
