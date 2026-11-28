@@ -123,7 +123,8 @@ final class TypedCoreClauseTest extends TestCase
             if (in_array('C2-N-081', $case['clauses'], true)) {
                 self::assertTrue(TreeEquality::equal($expected['children'], $actual['children']));
             } else {
-                self::assertSame(Corpus::sorted($expected['children']), Corpus::sorted(Corpus::withoutPositions($actual['children'])));
+                $children = self::compared($expected['children'], $actual['children']);
+                self::assertSame(Corpus::sorted($expected['children']), Corpus::sorted($children));
             }
         }
         if (isset($expected['html'])) {
@@ -141,6 +142,19 @@ final class TypedCoreClauseTest extends TestCase
             $this->files = $case['files'] ?? [];
             $this->diagnostics($source, $expected, self::actualDiagnostics($case, $source, $options));
         }
+    }
+
+    /**
+     * An expectation with positions (CC-2505) checks them; the rest compare without.
+     *
+     * @param mixed $expected
+     * @param mixed $actual
+     *
+     * @return mixed
+     */
+    private static function compared(mixed $expected, mixed $actual): mixed
+    {
+        return Corpus::hasPositions($expected) ? $actual : Corpus::withoutPositions($actual);
     }
 
     /**
