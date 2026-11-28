@@ -2412,6 +2412,7 @@ final class Inline
         $bare = !isset($open[$type])
             && !self::holdsKind($children, $type)
             && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
+            && self::transparentCommentFlanksAllowBare($children, $mark)
             && self::bareFits($visibleInner, $mark, $prev, $next);
         if ($bare) {
             unset($this->bracedPaired[$path]);
@@ -2482,6 +2483,59 @@ final class Inline
         }
 
         return $slashes % 2 === 0;
+    }
+
+    /**
+     * C2-I-026, C2-W-069: a braced comment does not supply a flank for a bare pair mark. The source spelling of
+     * the comment ends in `}`, which would otherwise hide whitespace or a mark on the visible child beside it.
+     *
+     * @param array<mixed> $children
+     */
+    private static function transparentCommentFlanksAllowBare(array $children, string $mark): bool
+    {
+        if (self::isBracedComment($children[0] ?? null)) {
+            $first = null;
+            foreach ($children as $child) {
+                if (!self::isBracedComment($child)) {
+                    $first = $child;
+
+                    break;
+                }
+            }
+            if (!is_array($first) || in_array($first['type'] ?? '', ['soft_break', 'hard_break', 'non_breaking_space'], true)) {
+                return false;
+            }
+            if (($first['type'] ?? '') === 'text') {
+                $value = self::str($first, 'value');
+                $char = $value === '' ? -1 : Chars::at($value, 0);
+                if ($char === -1 || $char === ord($mark) || Chars::isSpace($char) || Chars::isGlue($char)
+                    || str_starts_with($value, '\\ ')) {
+                    return false;
+                }
+            }
+        }
+        if (self::isBracedComment($children[count($children) - 1] ?? null)) {
+            $last = null;
+            for ($i = count($children) - 1; $i >= 0; $i--) {
+                if (!self::isBracedComment($children[$i])) {
+                    $last = $children[$i];
+
+                    break;
+                }
+            }
+            if (!is_array($last) || in_array($last['type'] ?? '', ['soft_break', 'hard_break', 'non_breaking_space'], true)) {
+                return false;
+            }
+            if (($last['type'] ?? '') === 'text') {
+                $value = self::str($last, 'value');
+                $char = $value === '' ? -1 : Chars::before($value, strlen($value));
+                if ($char === -1 || $char === ord($mark) || $char === 0x5C || Chars::isSpace($char)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
