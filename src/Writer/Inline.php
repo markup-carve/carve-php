@@ -761,7 +761,7 @@ final class Inline
                 if ($first !== $at && $this->w->plan->undecided === null) {
                     $this->w->plan->undecided = 'code run';
                 }
-                if (!PlanModel::directBraced($node)) {
+                if (!PlanModel::directContainer($node)) {
                     $partPath = $path . '/' . $first;
                     if (!$text) {
                         $this->w->planParts[$partPath] = $part;

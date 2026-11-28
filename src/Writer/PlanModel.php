@@ -43,6 +43,19 @@ final class PlanModel
     }
 
     /**
+     * Inline containers whose marks are determined by the tree, as in `modelInlines()`.
+     *
+     * @param array<mixed> $node
+     */
+    public static function directContainer(array $node): bool
+    {
+        $type = $node['type'] ?? null;
+
+        return self::directBraced($node)
+            || (is_array($node['children'] ?? null) && in_array($type, ['span', 'inline_footnote'], true));
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Writer\State $w
 @param array<mixed> $nodes
      * @param int $flags
@@ -190,7 +203,7 @@ final class PlanModel
                 continue;
             }
             $nodePath = $path . '/' . $at;
-            $part = ($node['type'] ?? null) === 'text' || self::directBraced($node)
+            $part = ($node['type'] ?? null) === 'text' || self::directContainer($node)
                 ? '' : ($w->planParts[$nodePath] ?? null);
             if ($part === null) {
                 $leaf->undecide('model');
@@ -248,6 +261,24 @@ final class PlanModel
             self::inlines($w, $leaf, $children, $path . '/children', $flags);
             $leaf->pushString($mark . '}', PlanLeaf::CLOSE, $path, $type);
             $leaf->pushString(BraceBlock::of($node, ['pipes' => ($flags & 1) !== 0]), PlanLeaf::ATOM, $path, $type);
+
+            return;
+        }
+        if (($type === 'span' || $type === 'inline_footnote') && is_array($children)) {
+            $first = $children[0] ?? null;
+            if (
+                $type === 'span' && ($flags & 64) === 0 && is_array($first) && ($first['type'] ?? null) === 'text'
+                && is_string($first['value'] ?? null) && str_starts_with($first['value'], '^')
+            ) {
+                $leaf->undecide('span caret');
+
+                return;
+            }
+            $leaf->pushString($type === 'span' ? '[' : '^[', PlanLeaf::OPEN, $path, $type);
+            self::inlines($w, $leaf, $children, $path . '/children', $flags);
+            $leaf->pushString(']', PlanLeaf::CLOSE, $path, $type);
+            $block = BraceBlock::of($node, ['pipes' => ($flags & 1) !== 0]);
+            $leaf->pushString($type === 'span' && $block === '' ? '{}' : $block, PlanLeaf::ATOM, $path, $type);
 
             return;
         }
