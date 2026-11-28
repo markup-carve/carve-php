@@ -23,16 +23,7 @@ final class CorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    public const HELD = [
-        'syntax-blocks-276' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'syntax-blocks-290' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'syntax-blocks-296' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'syntax-inline-67' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'html-51' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'writer-43' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'writer-47' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'CC-102' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-    ];
+    public const HELD = [];
 
     /**
      * @var array<string, true>

@@ -278,7 +278,6 @@ i) y',
 :::',
                 'colon-fence-length-mismatch',
                 [
-                    ['colon-fence-length-mismatch', 5, 8],
                     ['colon-fence-length-mismatch', 13, 16],
                 ],
             ],

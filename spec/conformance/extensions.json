@@ -2616,6 +2616,29 @@
           "extension-fallback-rendered"
         ]
       }
+    },
+    {
+      "id": "EXT-124",
+      "extension": "carve.colorSwatch",
+      "summary": "a value that is no color is claimed and writes the fallback",
+      "clauses": [
+        "C2-X-074",
+        "C2-X-035"
+      ],
+      "expectedFrom": "0.2",
+      "kind": "render",
+      "input": "A :color[nope] and :color[banana]{.k} dot.\n",
+      "options": {
+        "extensions": [
+          "carve.colorSwatch"
+        ],
+        "renderers": {
+          "carve.colorSwatch": "standard"
+        }
+      },
+      "expected": {
+        "html": "<p>A nope and <span class=\"k\">banana</span> dot.</p>"
+      }
     }
   ]
 }
