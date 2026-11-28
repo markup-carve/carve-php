@@ -12,17 +12,29 @@ namespace MarkupCarve\Carve\Writer;
  */
 final class PlanPlaces
 {
+    /**
+     * @var int
+     */
     private const MAX_DEPTH = 200;
 
+    /**
+     * @var array<int, string>
+     */
     private const BLOCK_CAP_CONTAINERS = [
         'block_quote', 'list', 'list_item', 'definition_list', 'definition_description', 'footnote', 'div',
         'admonition', 'directive', 'figure_group', 'line_block',
     ];
 
+    /**
+     * @var array<int, string>
+     */
     private const ITEM_BREAKERS = ['block_quote', 'div', 'admonition', 'directive', 'block_extension'];
 
     /**
+     * @param \MarkupCarve\Carve\Writer\Plan $plan
      * @param array<mixed> $nodes
+     * @param bool $first
+     * @param string $path
      */
     public static function note(Plan $plan, array $nodes, string $path, bool $first): void
     {
@@ -59,24 +71,40 @@ final class PlanPlaces
         }
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     */
     private static function top(): array
     {
         return [
-            'paragraph' => false, 'inItem' => false, 'inQuote' => false, 'inDescriptionList' => false,
-            'nested' => false, 'item' => null, 'before' => null, 'followed' => false, 'attributed' => false,
-            'documentStart' => false, 'line' => false, 'term' => false, 'capped' => false,
+            'paragraph' => false,
+            'inItem' => false,
+            'inQuote' => false,
+            'inDescriptionList' => false,
+            'nested' => false,
+            'item' => null,
+            'before' => null,
+            'followed' => false,
+            'attributed' => false,
+            'documentStart' => false,
+            'line' => false,
+            'term' => false,
+            'capped' => false,
         ];
     }
 
     /**
      * @param array<mixed> $node
      * @param array<string, mixed> $place
+     * @param bool $followed
+     * @param string|null $before
+     *
      * @return array<string, mixed>
      */
     private static function inner(array $node, array $place, ?string $before, bool $followed): array
     {
         $type = self::type($node);
+
         return [
             'paragraph' => $type === 'paragraph',
             'inItem' => !in_array($type, self::ITEM_BREAKERS, true)
@@ -96,23 +124,33 @@ final class PlanPlaces
         ];
     }
 
-    /** @param array<mixed> $node */
+    /**
+     * @param array<mixed> $node
+     * @param int $level
+     */
     private static function blockShape(array $node, int $level): ?string
     {
         $type = self::type($node);
         if ($level >= self::MAX_DEPTH && in_array($type, self::BLOCK_CAP_CONTAINERS, true)) {
             return 'block depth cap';
         }
-        if ($type === 'paragraph' && !isset($node['role']) && self::holdsOnly($node['children'] ?? [],
-            static fn (array $child): bool => ($child['type'] ?? '') === 'image'
-                || (($child['type'] ?? '') === 'math' && ($child['display'] ?? false) === true))) {
+        if (
+            $type === 'paragraph' && !isset($node['role']) && self::holdsOnly(
+                $node['children'] ?? [],
+                static fn (array $child): bool => ($child['type'] ?? '') === 'image'
+                || (($child['type'] ?? '') === 'math' && ($child['display'] ?? false) === true),
+            )
+        ) {
             return 'block role';
         }
         $children = $node['children'] ?? null;
-        if ($type === 'footnote' && is_array($children) && $children !== []
-            && (!is_array($children[0] ?? null) || ($children[0]['type'] ?? '') !== 'paragraph')) {
+        if (
+            $type === 'footnote' && is_array($children) && $children !== []
+            && (!is_array($children[0] ?? null) || ($children[0]['type'] ?? '') !== 'paragraph')
+        ) {
             return 'footnote container';
         }
+
         return null;
     }
 
@@ -136,10 +174,13 @@ final class PlanPlaces
                 return false;
             }
         }
+
         return $found === 1;
     }
 
-    /** @param array<mixed> $node */
+    /**
+     * @param array<mixed> $node
+     */
     private static function referenceNeedsCheck(array $node): bool
     {
         $type = self::type($node);
@@ -155,10 +196,13 @@ final class PlanPlaces
                 return true;
             }
         }
+
         return false;
     }
 
-    /** @param array<mixed> $node */
+    /**
+     * @param array<mixed> $node
+     */
     private static function type(array $node): string
     {
         return is_string($node['type'] ?? null) ? $node['type'] : '';
@@ -168,14 +212,17 @@ final class PlanPlaces
      * Only node lists are positions. Attribute pairs and opaque extension data have no child position.
      *
      * @param array<mixed> $node
+     *
      * @return array<string, array<mixed>>
      */
     private static function slots(array $node): array
     {
         $slots = [];
         foreach ($node as $name => $value) {
-            if (in_array($name, ['attrs', 'metadata', 'data', 'pos', 'segments', 'props'], true)
-                || !is_array($value) || !array_is_list($value)) {
+            if (
+                in_array($name, ['attrs', 'metadata', 'data', 'pos', 'segments', 'props'], true)
+                || !is_array($value) || !array_is_list($value)
+            ) {
                 continue;
             }
             if ($value !== [] && !is_array($value[0])) {
@@ -183,6 +230,7 @@ final class PlanPlaces
             }
             $slots[$name] = $value;
         }
+
         return $slots;
     }
 }
