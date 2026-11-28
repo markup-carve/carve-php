@@ -63,6 +63,11 @@ final class PlanLeaf
     public array $ownerForms = [];
 
     /**
+     * @var array<string, array<mixed>>
+     */
+    public array $nodes = [];
+
+    /**
      * @var array<int, int>
      */
     public array $offsets = [];
@@ -254,6 +259,14 @@ final class PlanLeaf
         }
 
         return $this->notes[$at] ?? false;
+    }
+
+    /**
+     * @return array<mixed>|null
+     */
+    public function nodeAt(int $unit): ?array
+    {
+        return $this->nodes[$this->owners[$unit] ?? ''] ?? null;
     }
 
     public function trimText(int $from): void

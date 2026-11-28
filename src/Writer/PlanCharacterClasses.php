@@ -62,6 +62,11 @@ final class PlanCharacterClasses
     public const MENTION = 4096;
 
     /**
+     * @var int
+     */
+    public const QUOTE_OPENS_AFTER = 1048576;
+
+    /**
      * @var array<int, int>
      */
     public const CLASSES = [
