@@ -265,6 +265,14 @@ final class Writer
         ) {
             return new WriteResult("\n", []);
         }
+        // C2-W-011: a root field has no spelling and no effect on the text, so its loss decides no escape of a block.
+        $rootLost = new State(self::facts(null), false, false);
+        self::rootLosses($tree, $rootLost);
+        if ($rootLost->losses !== []) {
+            $written = self::writeWithDiagnostics(self::withoutRootFields($tree), $layout, $options, $readsSupplied);
+
+            return new WriteResult($written->source, EntryOrder::sort($tree, [...$rootLost->losses, ...$written->diagnostics]));
+        }
 
         // A write nested in another, as of an extension body, keeps its own group check.
         $captured = self::$captured;
@@ -4810,6 +4818,26 @@ final class Writer
                 }
             }
         }
+    }
+
+    /**
+     * The tree without the root fields `rootLosses()` reports.
+     *
+     * @param array<string, mixed> $tree
+     *
+     * @return array<string, mixed>
+     */
+    private static function withoutRootFields(array $tree): array
+    {
+        unset($tree['metadata'], $tree['attrs'], $tree['lang'], $tree['dir']);
+        if (is_array($tree['data'] ?? null)) {
+            $tree['data'] = array_intersect_key($tree['data'], array_flip(['carve.source', 'carve.style', 'carve.annotation']));
+            if ($tree['data'] === []) {
+                unset($tree['data']);
+            }
+        }
+
+        return $tree;
     }
 
     /**
