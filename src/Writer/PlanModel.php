@@ -52,7 +52,9 @@ final class PlanModel
         $type = $node['type'] ?? null;
 
         return self::directBraced($node)
-            || (is_array($node['children'] ?? null) && in_array($type, ['span', 'inline_footnote'], true));
+            || (is_array($node['children'] ?? null) && in_array($type, ['span', 'inline_footnote'], true))
+            || (is_array($node['children'] ?? null) && $node['children'] !== []
+                && in_array($type, ['emphasis', 'strong'], true));
     }
 
     /**
@@ -260,6 +262,21 @@ final class PlanModel
             $leaf->pushString('{' . $mark, PlanLeaf::OPEN, $path, $type);
             self::inlines($w, $leaf, $children, $path . '/children', $flags);
             $leaf->pushString($mark . '}', PlanLeaf::CLOSE, $path, $type);
+            $leaf->pushString(BraceBlock::of($node, ['pipes' => ($flags & 1) !== 0]), PlanLeaf::ATOM, $path, $type);
+
+            return;
+        }
+        if (($type === 'emphasis' || $type === 'strong') && is_array($children) && $children !== []) {
+            $braced = $w->planForms[$path] ?? null;
+            if ($braced === null) {
+                $leaf->undecide('model');
+
+                return;
+            }
+            $mark = $type === 'emphasis' ? '/' : '*';
+            $leaf->pushString($braced ? '{' . $mark : $mark, PlanLeaf::OPEN, $path, $type);
+            self::inlines($w, $leaf, $children, $path . '/children', $flags | ($type === 'emphasis' ? 2 : 4));
+            $leaf->pushString($braced ? $mark . '}' : $mark, PlanLeaf::CLOSE, $path, $type);
             $leaf->pushString(BraceBlock::of($node, ['pipes' => ($flags & 1) !== 0]), PlanLeaf::ATOM, $path, $type);
 
             return;

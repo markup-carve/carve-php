@@ -2462,11 +2462,17 @@ final class Inline
             && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
             && self::bareFits($visibleInner, $mark, $prev, $next);
         if ($bare) {
+            if ($this->w->plan !== null) {
+                $this->w->planForms[$path] = false;
+            }
             unset($this->bracedPaired[$path]);
 
             return $mark . $inner . $mark;
         }
         $this->bracedPaired[$path] = true;
+        if ($this->w->plan !== null) {
+            $this->w->planForms[$path] = true;
+        }
 
         return '{' . $mark . $inner . $mark . '}';
     }

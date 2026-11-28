@@ -29,6 +29,11 @@ final class State
     public array $planParts = [];
 
     /**
+     * @var array<string, bool> The braced form of each paired mark in the planned write.
+     */
+    public array $planForms = [];
+
+    /**
      * @var array<string, array<int, bool|int>>
      */
     public array $planWrittenEscapes = [];
