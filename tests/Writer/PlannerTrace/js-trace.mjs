@@ -13,6 +13,29 @@ registerTsx()
 register(pathToFileURL(resolve(import.meta.dirname, 'js-trace-hooks.mjs')).href)
 const { format } = await import(pathToFileURL(resolve(root, 'src/index.ts')).href)
 
+// JS_TRACE_COMPARES=1: one record per `compareGroup` instead, with the writer state it starts from and what its check
+// asks, each node as its path from the document (`/children/0/children/3`) and each offset in UTF-8 bytes of the value.
+const COMPARES = process.env.JS_TRACE_COMPARES === '1'
+let compares = []
+let paths = new WeakMap()
+
+const indexPaths = (node, path) => {
+  paths.set(node, path)
+  for (const [key, value] of Object.entries(node)) {
+    if (key !== 'attrs' && value !== null && typeof value === 'object' && !Array.isArray(value) && typeof value.type === 'string') {
+      indexPaths(value, `${path}/${key}`)
+      continue
+    }
+    if (!Array.isArray(value)) continue
+    value.forEach((child, at) => {
+      if (child !== null && typeof child === 'object' && typeof child.type === 'string') indexPaths(child, `${path}/${key}/${at}`)
+    })
+  }
+}
+const pathOf = (node) => paths.get(node) ?? '?'
+const bytesAt = (node, at) => typeof node.value === 'string' ? Buffer.byteLength(node.value.slice(0, at)) : at
+const escapeAt = ([node, at]) => [pathOf(node), bytesAt(node, at)]
+
 let input = ''
 let rounds = []
 let current = null
@@ -26,6 +49,36 @@ const escapeOf = ([node, at]) => {
 const sorted = (escapes) => escapes.map(escapeOf).sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : 1))
 
 globalThis.__plannerTrace = {
+  state(w, document) {
+    if (!COMPARES) return null
+    if (!paths.has(document)) indexPaths(document, '')
+    return {
+      escapes: [...w.escapes].flatMap(([node, offsets]) => offsets.map((at) => escapeAt([node, at]))),
+      forms: [...w.forms].map(([node, form]) => [pathOf(node), form]),
+      attempts: [...w.attempts].map(([node, attempt]) => [pathOf(node), attempt.step, attempt.escapes.map(escapeAt)]),
+      lost: [...w.lost].map(pathOf),
+      lines: [...w.lines],
+      starts: [...w.starts].map(([node, place]) => [pathOf(node), place]),
+      bracedAnyway: [...w.bracedAnyway].map(pathOf),
+      lostKeys: [...w.lostKeys].map(([node, keys]) => [pathOf(node), [...keys]]),
+    }
+  },
+  compareDone(w, document, group, first, check, state) {
+    if (!COMPARES) return
+    compares.push({
+      group: group.map(pathOf),
+      source: `${first ? '' : '\n'}${w.lines.join('\n')}\n`,
+      state,
+      escapes: check.escapes.map(escapeAt),
+      trials: check.trials.map(escapeAt),
+      constructs: [...check.constructs].map(escapeAt),
+      retracted: check.retracted.map(escapeAt),
+      forms: check.forms.map(pathOf),
+      losses: check.losses.map(([node, field]) => [pathOf(node), field]),
+      misaligned: check.misaligned,
+      attempts: [...w.attempts].map(([node, attempt]) => [pathOf(node), attempt.step, attempt.escapes.map(escapeAt)]),
+    })
+  },
   compared(w, check, group) {
     const source = `${w.lines.join('\n')}\n`
     current = {
@@ -56,8 +109,14 @@ const items = inputs.flatMap((file) => file.endsWith('.jsonl')
 for (const item of items) {
   input = item.input
   rounds = []
+  compares = []
+  paths = new WeakMap()
   current = null
   const output = format(input, {})
+  if (COMPARES) {
+    compares.forEach((record, at) => process.stdout.write(JSON.stringify({ input: item.id, at, ...record }) + '\n'))
+    continue
+  }
   process.stdout.write(JSON.stringify({
     input: item.id,
     output: createHash('md5').update(output).digest('hex').slice(0, 8),

@@ -6,6 +6,10 @@ const PATCHES = [
   [/return\s+applyChanges\(\s*w\s*,\s*check\s*\)\s*;?\s*\}\s*__name\(\s*settle/,
     'const __traced=globalThis.__plannerTrace?.before(w);const __applied=applyChanges(w,check);' +
       'globalThis.__plannerTrace?.placed(w,check,__traced);return __applied}__name(settle'],
+  [/function\s+compareGroup\(\s*w\s*,\s*document\s*,\s*group\s*,\s*first\s*\)\s*\{/,
+    'function compareGroup(w,document,group,first){const __state=globalThis.__plannerTrace?.state(w,document);'],
+  [/return\s+check\s*;?\s*\}\s*__name\(\s*compareGroup/,
+    'globalThis.__plannerTrace?.compareDone(w,document,group,first,check,__state);return check}__name(compareGroup'],
 ]
 
 export async function load(url, context, nextLoad) {
