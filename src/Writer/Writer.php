@@ -317,7 +317,7 @@ final class Writer
             }
 
             $written = self::withAttributeValueLosses($written, $losses, $fallbackNodes);
-            $written = self::withUnreadLosses($written, $tree, $options);
+            $written = self::withUnreadLosses($written, $tree, $layout, $options);
 
             return count($written->diagnostics) < 2 ? $written
                 : new WriteResult($written->source, EntryOrder::sort($tree, $written->diagnostics));
@@ -4853,18 +4853,26 @@ final class Writer
      *
      * @param \MarkupCarve\Carve\Writer\WriteResult $written
      * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
      * @param array<string, mixed> $options
      */
-    private static function withUnreadLosses(WriteResult $written, array $tree, array $options): WriteResult
+    private static function withUnreadLosses(WriteResult $written, array $tree, ?array $layout, array $options): WriteResult
     {
+        // The loss paths, true for a lost node, and every loss path with its ancestors.
         $lost = [];
+        $below = [];
         $structure = false;
         foreach ($written->diagnostics as $entry) {
             if ($entry->code === 'writer-refused') {
                 return $written;
             }
+            $at = (string)$entry->path;
             $structure = $structure || $entry->code === 'structure-unspellable';
-            $lost[(string)$entry->path] = $entry->code === 'structure-unspellable';
+            $lost[$at] = ($lost[$at] ?? false) || $entry->code === 'structure-unspellable';
+            for (; $at !== '' && !isset($below[$at]); $at = substr($at, 0, (int)strrpos($at, '/'))) {
+                $below[$at] = true;
+            }
+            $below[''] = true;
         }
         if (!$structure || !self::comparableShape($tree)) {
             return $written;
@@ -4873,9 +4881,11 @@ final class Writer
         $read = TreeEncoder::decodedForWriter(Carve::parse($written->source, $parseOptions));
         unset($read['srcByteLength'], $read['stages']);
         $w = new State(self::facts(null), false, false);
-        self::unreadBlocks(LineEndBlanks::trimmed($tree), $read, '', $lost, $w);
+        $expected = LineEndBlanks::trimmed($tree, self::tableFormats($layout, $options));
+        self::unreadBlocks($expected, $read, '', $lost, $below, $w);
 
-        return $w->losses === [] ? $written
+        // A tree the reader rejects reads back with the fields a parse fills, so its read-back proves no misread.
+        return $w->losses === [] || !self::readerAccepts($tree, $options) ? $written
             : new WriteResult($written->source, EntryOrder::sort($tree, [...$written->diagnostics, ...$w->losses]));
     }
 
@@ -4884,9 +4894,10 @@ final class Writer
      * @param array<mixed>|null $read
      * @param string $path
      * @param array<string, bool> $lost The loss paths, true for a lost node.
+     * @param array<string, true> $below The loss paths and their ancestors.
      * @param \MarkupCarve\Carve\Writer\State $w
      */
-    private static function unreadBlocks(array $expected, ?array $read, string $path, array $lost, State $w): void
+    private static function unreadBlocks(array $expected, ?array $read, string $path, array $lost, array $below, State $w): void
     {
         if ($lost[$path] ?? false) {
             return;
@@ -4902,7 +4913,7 @@ final class Writer
         }
         if ($read === null || !isset(self::UNREAD_CONTAINERS[$type]) || ($read['type'] ?? null) !== $type) {
             // A leaf that holds a loss differs by that loss alone.
-            if ($read === null || isset(self::UNREAD_CONTAINERS[$type]) || !self::lossAtOrBelow($path, $lost)) {
+            if ($read === null || isset(self::UNREAD_CONTAINERS[$type]) || !isset($below[$path])) {
                 $w->lose($path, $type, null);
             }
 
@@ -4912,11 +4923,11 @@ final class Writer
         unset($pruned['children'], $read['children']);
         // A field that reads back otherwise is that field's loss; the children are compared on.
         foreach (self::changedFields($pruned, $read) as $field) {
-            if (!isset($lost[$path . '/' . $field])) {
+            if (!isset($below[$path . '/' . $field])) {
                 $w->lose($path, $type, $field);
             }
         }
-        self::unreadChildren($kept, $readChildren, $lost, $w);
+        self::unreadChildren($kept, $readChildren, $lost, $below, $w);
     }
 
     /**
@@ -4964,9 +4975,10 @@ final class Writer
      * @param array<string, array<mixed>> $kept The children that are not lost, by path.
      * @param array<mixed> $read
      * @param array<string, bool> $lost
+     * @param array<string, true> $below
      * @param \MarkupCarve\Carve\Writer\State $w
      */
-    private static function unreadChildren(array $kept, array $read, array $lost, State $w): void
+    private static function unreadChildren(array $kept, array $read, array $lost, array $below, State $w): void
     {
         $paths = array_keys($kept);
         $children = array_values($kept);
@@ -4982,23 +4994,8 @@ final class Writer
         }
         for ($i = $head; $i < $n - $tail; $i++) {
             $readChild = $i < $m - $tail ? $read[$i] ?? null : null;
-            self::unreadBlocks($children[$i], is_array($readChild) ? $readChild : null, (string)$paths[$i], $lost, $w);
+            self::unreadBlocks($children[$i], is_array($readChild) ? $readChild : null, (string)$paths[$i], $lost, $below, $w);
         }
-    }
-
-    /**
-     * @param string $path
-     * @param array<string, bool> $lost
-     */
-    private static function lossAtOrBelow(string $path, array $lost): bool
-    {
-        foreach (array_keys($lost) as $at) {
-            if ($at === $path || str_starts_with((string)$at, $path . '/')) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
