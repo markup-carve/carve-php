@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Extension\Citations;
 use MarkupCarve\Carve\Extension\Standard;
 use MarkupCarve\Carve\Include\FileResolver;
 use MarkupCarve\Carve\InputError as CoreInputError;
+use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeError;
 use MarkupCarve\Carve\Node;
 use MarkupCarve\Carve\OptionError;
@@ -831,8 +832,11 @@ HELP;
                 } catch (JsonException|TreeError $error) {
                     throw new InputError($display . ': ' . $error->getMessage(), 'ast-json-invalid');
                 }
-                $written = $migrated['envelope'] ?? $migrated['document'];
-                fwrite($out, json_encode($written, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+                // C2-A-217: the bare tree is JCS bytes; carve-js writes the envelope in insertion order.
+                $written = isset($migrated['envelope'])
+                    ? json_encode($migrated['envelope'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    : TreeEncoder::canonical($migrated['document']);
+                fwrite($out, $written . "\n");
                 foreach (is_array($migrated['diagnostics'] ?? null) ? $migrated['diagnostics'] : [] as $diagnostic) {
                     if (is_array($diagnostic) && is_string($diagnostic['code'] ?? null) && is_string($diagnostic['message'] ?? null)) {
                         fwrite($err, 'carve[' . $diagnostic['code'] . ']: ' . $diagnostic['message'] . "\n");
