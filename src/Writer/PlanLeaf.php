@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Writer;
 
+use MarkupCarve\Carve\Inline\Chars;
+
 /**
  * The source units of one inline leaf, with the node and offset that wrote each unit.
  * Mirrors the Leaf model in carve-js write-plan-model.ts.
@@ -54,6 +56,11 @@ final class PlanLeaf
      * @var array<int, string>
      */
     public array $ownerTypes = [];
+
+    /**
+     * @var array<int, string|null>
+     */
+    public array $ownerForms = [];
 
     /**
      * @var array<int, int>
@@ -146,10 +153,17 @@ final class PlanLeaf
      * @param int $kind
      * @param string $owner Path of the node that wrote this unit.
      * @param string $ownerType
+     * @param string|null $ownerForm
      * @param int $offset
      */
-    public function push(int $code, int $kind, string $owner, int $offset = -1, string $ownerType = ''): void
-    {
+    public function push(
+        int $code,
+        int $kind,
+        string $owner,
+        int $offset = -1,
+        string $ownerType = '',
+        ?string $ownerForm = null,
+    ): void {
         $last = count($this->kinds) - 1;
         $read = $kind === self::OPEN || $kind === self::CLOSE
             || ($kind === self::TEXT && ($this->kinds[$last] ?? null) !== self::ESCAPE);
@@ -174,13 +188,16 @@ final class PlanLeaf
         $this->kinds[] = $kind;
         $this->owners[] = $owner;
         $this->ownerTypes[] = $ownerType;
+        $this->ownerForms[] = $ownerForm;
         $this->offsets[] = $offset;
     }
 
-    public function pushString(string $value, int $kind, string $owner, string $ownerType): void
+    public function pushString(string $value, int $kind, string $owner, string $ownerType, ?string $ownerForm = null): void
     {
         for ($at = 0, $length = strlen($value); $at < $length; $at++) {
-            $this->push(ord($value[$at]), $kind, $owner, -1, $ownerType);
+            $code = Chars::at($value, $at);
+            $this->pushCodePoint($code, $kind, $owner, -1, $ownerType, $ownerForm);
+            $at += Chars::len($value, $at) - 1;
         }
     }
 
@@ -195,8 +212,28 @@ final class PlanLeaf
             if (isset($escapes[$at])) {
                 $this->push(92, self::ESCAPE, $owner, $at, 'text');
             }
-            $this->push(ord($value[$at]), self::TEXT, $owner, $at, 'text');
+            $code = Chars::at($value, $at);
+            $this->pushCodePoint($code, self::TEXT, $owner, $at, 'text');
+            $at += Chars::len($value, $at) - 1;
         }
+    }
+
+    private function pushCodePoint(
+        int $code,
+        int $kind,
+        string $owner,
+        int $offset,
+        string $ownerType,
+        ?string $ownerForm = null,
+    ): void {
+        if ($code <= 0xFFFF) {
+            $this->push($code, $kind, $owner, $offset, $ownerType, $ownerForm);
+
+            return;
+        }
+        $part = $code - 0x10000;
+        $this->push(0xD800 + ($part >> 10), $kind, $owner, $offset, $ownerType, $ownerForm);
+        $this->push(0xDC00 + ($part & 0x3FF), $kind, $owner, $offset, $ownerType, $ownerForm);
     }
 
     public function inNote(int $at): bool
@@ -222,17 +259,34 @@ final class PlanLeaf
     public function trimText(int $from): void
     {
         $end = count($this->codes);
-        while (
-            $end > $from && $this->kinds[$end - 1] === self::TEXT
-            && ($this->codes[$end - 1] === 32 || $this->codes[$end - 1] === 9)
-        ) {
+        while ($end > $from) {
+            $last = $end - 1;
+            if ($this->kinds[$last] !== self::TEXT || ($this->codes[$last] !== 32 && $this->codes[$last] !== 9)) {
+                break;
+            }
+            $this->trimLast();
             $end--;
         }
-        $this->codes = array_slice($this->codes, 0, $end);
-        $this->kinds = array_slice($this->kinds, 0, $end);
-        $this->owners = array_slice($this->owners, 0, $end);
-        $this->ownerTypes = array_slice($this->ownerTypes, 0, $end);
-        $this->offsets = array_slice($this->offsets, 0, $end);
+    }
+
+    public function trimLast(): void
+    {
+        array_pop($this->codes);
+        array_pop($this->kinds);
+        array_pop($this->owners);
+        array_pop($this->ownerTypes);
+        array_pop($this->ownerForms);
+        array_pop($this->offsets);
         $this->notes = null;
+    }
+
+    public function text(int $from = 0, ?int $to = null): string
+    {
+        $codes = array_slice($this->codes, $from, ($to ?? count($this->codes)) - $from);
+        if ($codes === []) {
+            return '';
+        }
+
+        return mb_convert_encoding(pack('v*', ...$codes), 'UTF-8', 'UTF-16LE');
     }
 }
