@@ -790,7 +790,7 @@ HELP;
      */
     private static function one(array $parsed, string $file, $in, $out, $err): array
     {
-        $source = $file === '-' ? stream_get_contents($in) : @file_get_contents($file);
+        $source = $file === '-' ? StdinReader::read($in) : @file_get_contents($file);
         $display = $file === '-' ? '<stdin>' : $file;
         if ($source === false) {
             throw new InputError($display . ': cannot be read');
