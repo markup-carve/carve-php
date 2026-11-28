@@ -23,7 +23,7 @@ final class CorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    public const HELD = ['CC-102' => 'markup-carve/carve#6973 (carve-php line): a resolved reference carries the tooltip of its definition'];
+    public const HELD = [];
 
     /**
      * @var array<string, true>

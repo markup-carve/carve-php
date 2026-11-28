@@ -25,11 +25,6 @@ use Throwable;
 final class TypedCoreClauseTest extends TestCase
 {
     /**
-     * @var string
-     */
-    private const REFERENCE_TOOLTIP = 'markup-carve/carve#6973 (carve-php line): a resolved reference takes its definition\'s tooltip';
-
-    /**
      * Cases of a ruling this engine has not implemented yet; the run fails as soon as one passes.
      *
      * @var array<string, string>
@@ -40,20 +35,6 @@ final class TypedCoreClauseTest extends TestCase
         'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2273' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2274' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-1787' => self::REFERENCE_TOOLTIP,
-        'CC-1791' => self::REFERENCE_TOOLTIP,
-        'CC-1793' => self::REFERENCE_TOOLTIP,
-        'CC-1794' => self::REFERENCE_TOOLTIP,
-        'CC-1796' => self::REFERENCE_TOOLTIP,
-        'CC-1890' => self::REFERENCE_TOOLTIP,
-        'CC-1892' => self::REFERENCE_TOOLTIP,
-        'CC-1895' => self::REFERENCE_TOOLTIP,
-        'CC-1897' => self::REFERENCE_TOOLTIP,
-        'CC-1899' => self::REFERENCE_TOOLTIP,
-        'CC-2510' => self::REFERENCE_TOOLTIP,
-        'CC-2511' => self::REFERENCE_TOOLTIP,
-        'CC-2512' => self::REFERENCE_TOOLTIP,
-        'CC-2513' => self::REFERENCE_TOOLTIP,
     ];
 
     /**
