@@ -1207,15 +1207,33 @@ final class Inline
         }
         $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
         if ($redo !== null && str_starts_with($part, '{')) {
-            [$from, $length, $text] = $redo;
-            // The replay revisits the same first-line lookahead with the next node now known.
-            $text->writerState = null;
-            $again = $this->node((array)$nodes[$at - 1], $path . '/' . ($at - 1), $text, 0x7B, $nodes[$at - 2] ?? null);
-            $out = substr_replace($out, $again, $from, $length);
+            $out = $this->replayBeforeBrace($nodes, $path, $at, $out, $redo);
         }
         $redo = $snapshot === null ? null : [strlen($out), strlen($part), $snapshot];
 
         return $part;
+    }
+
+    /**
+     * The text before a part that came out braced is written again with `{` behind it.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param int $at
+     * @param string $out
+     * @param array{int, int, \MarkupCarve\Carve\Writer\Context} $redo Where the text stands in `out`, and its context.
+     */
+    private function replayBeforeBrace(array $nodes, string $path, int $at, string $out, array $redo): string
+    {
+        [$from, $length, $text] = $redo;
+        // The replay revisits the same first-line lookahead with the next node now known. A group write keeps its
+        // trace, so the replayed text leaves its escapes to the rounds as the first write did.
+        if (!GroupWrite::active()) {
+            $text->writerState = null;
+        }
+        $again = $this->node((array)$nodes[$at - 1], $path . '/' . ($at - 1), $text, 0x7B, $nodes[$at - 2] ?? null);
+
+        return substr_replace($out, $again, $from, $length);
     }
 
     /**

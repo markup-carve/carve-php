@@ -39,6 +39,25 @@ final class PlacedEscapesTest extends TestCase
     }
 
     /**
+     * A text that ends with `{` before a pair is written again once the pair is braced; that write leaves the escapes
+     * to the rounds too, so the leading `/` stays bare until a round asks for it.
+     *
+     * @return void
+     */
+    public function testTextRewrittenBeforeABracedPair(): void
+    {
+        $paragraph = [
+            'type' => 'paragraph',
+            'children' => [
+                ['type' => 'text', 'value' => '/{'],
+                ['type' => 'emphasis', 'children' => [['type' => 'text', 'value' => '/.']]],
+            ],
+        ];
+
+        $this->assertSame('\\/{{/\\/./}', self::repaired($paragraph));
+    }
+
+    /**
      * @param array<string, mixed> $paragraph
      */
     private static function repaired(array $paragraph): string
