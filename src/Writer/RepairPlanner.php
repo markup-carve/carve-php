@@ -1845,6 +1845,46 @@ final class RepairPlanner
      */
     private function applyRound(array &$candidate, array &$comparison): bool
     {
+        if (RoundTrace::$hook === null) {
+            return $this->applyRoundOnce($candidate, $comparison);
+        }
+        $source = md5($candidate['source']);
+        $escapes = $this->escapes;
+        $trials = $this->trialEscapes;
+        $applied = $this->applyRoundOnce($candidate, $comparison);
+        (RoundTrace::$hook)(
+            $this->tree,
+            $source,
+            $comparison['openers'],
+            RoundTrace::added($trials, $this->trialEscapes),
+            RoundTrace::added($escapes, $this->escapes),
+        );
+
+        return $applied;
+    }
+
+    /**
+     * @param-out array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>
+     * } $comparison
+     *
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
+     * @param array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>,
+     *     read: array<string, mixed>
+     * } $comparison
+     */
+    private function applyRoundOnce(array &$candidate, array &$comparison): bool
+    {
         $firsts = [];
         $differs = [];
         $keys = [];
