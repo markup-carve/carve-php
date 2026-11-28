@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer\Check;
 
 use MarkupCarve\Carve\Writer\Context;
+use MarkupCarve\Carve\Writer\GroupWrite;
 use MarkupCarve\Carve\Writer\Inline;
 use MarkupCarve\Carve\Writer\RepairTrace;
 use MarkupCarve\Carve\Writer\State;
@@ -80,8 +81,18 @@ final class TreeSpell implements Spell
             }
         }
         $c->writerState = $state;
+        $outer = GroupWrite::startSpelled();
+        try {
+            $out = (new Inline($state))->content($list, self::LIST, $c, $next);
+        } finally {
+            $glued = GroupWrite::takeSpelled($outer);
+        }
+        // carve-js `gluedPart` braces a pair glued to its neighbors in every write, a probe's and a spelling's too.
+        if ($glued !== []) {
+            TreeGroupWriter::glue($w, $nodes, $glued, self::LIST);
+        }
 
-        return (new Inline($state))->content($list, self::LIST, $c, $next);
+        return $out;
     }
 
     /**

@@ -302,12 +302,13 @@ final class TreeGroupWriter implements GroupWriter
      * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
      * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
      * @param array<string, true> $paths
+     * @param string $prefix
      */
-    private static function glue(WriterState $w, array $group, array $paths): void
+    public static function glue(WriterState $w, array $group, array $paths, string $prefix = '/children'): void
     {
         $pending = [];
         foreach ($group as $at => $node) {
-            $pending[] = [$node, "/children/{$at}"];
+            $pending[] = [$node, "{$prefix}/{$at}"];
         }
         while (($item = array_pop($pending)) !== null) {
             [$node, $path] = $item;

@@ -705,6 +705,30 @@ final class Respell
     private static function runProbe(Check $c, Node $e, array $expected, int $flags, Closure $takes): ?bool
     {
         $w = self::probeWriter($c, $expected);
+        try {
+            return self::probeRounds($c, $w, $e, $expected, $flags, $takes);
+        } finally {
+            // carve-js spreads the writer into the probe, so the forms a probe write decides are the writer's own.
+            $c->w->forms = $w->forms;
+            $c->w->glued = $w->glued;
+            $c->w->bracedAnyway = $w->bracedAnyway;
+            $c->w->linkPlaced = $w->linkPlaced;
+            $c->w->lossLog = $w->lossLog;
+            $c->w->starts = $w->starts;
+            $c->w->raws = $w->raws;
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\Check\Check $c
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param \MarkupCarve\Carve\Writer\Check\Node $e
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $expected
+     * @param int $flags
+     * @param \Closure(\MarkupCarve\Carve\Writer\Check\Node, int): bool $takes
+     */
+    private static function probeRounds(Check $c, WriterState $w, Node $e, array $expected, int $flags, Closure $takes): ?bool
+    {
         $found = false;
         for ($round = 0; $round < self::MAX_PROBE_ROUNDS; $round++) {
             // C2-W-133: past the repair limit the group is refused after this round, so nothing more is probed.

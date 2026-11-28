@@ -18,6 +18,11 @@ final class GroupWrite
      */
     private static ?array $paths = null;
 
+    /**
+     * @var array<string, true>|null The glue of a spell write, which carve-js decides in every write of inlines.
+     */
+    private static ?array $spelled = null;
+
     public static function active(): bool
     {
         return self::$paths !== null;
@@ -33,6 +38,35 @@ final class GroupWrite
         if (self::$paths !== null) {
             self::$paths[$path] = true;
         }
+        if (self::$spelled !== null) {
+            self::$spelled[$path] = true;
+        }
+    }
+
+    /**
+     * Starts collecting the glue of a spell write, which leaves the group write behavior off.
+     *
+     * @return array<string, true>|null The collection of an enclosing spell write, for `takeSpelled`.
+     */
+    public static function startSpelled(): ?array
+    {
+        $outer = self::$spelled;
+        self::$spelled = [];
+
+        return $outer;
+    }
+
+    /**
+     * @param array<string, true>|null $outer
+     *
+     * @return array<string, true>
+     */
+    public static function takeSpelled(?array $outer): array
+    {
+        $paths = self::$spelled ?? [];
+        self::$spelled = $outer;
+
+        return $paths;
     }
 
     /**
