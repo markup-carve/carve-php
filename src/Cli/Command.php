@@ -884,7 +884,7 @@ HELP;
                 return [...self::lintFile($parsed, $file, $display, $source, $options, $out, $err), null];
             default:
                 $to = $parsed['values']['to'] ?? 'html';
-                $input = ($parsed['values']['from-ast'] ?? false) ? self::decodedTree($source) : $source;
+                $input = ($parsed['values']['from-ast'] ?? false) ? self::decodedTree($source, $options) : $source;
                 if ($to !== 'html') {
                     Options::from($options);
                     $parseOptions = array_intersect_key($options, ['includes' => true, 'extensions' => true]);
@@ -895,7 +895,8 @@ HELP;
                         'ansi' => new AnsiExporter(),
                         default => throw new OptionError('bad value for --to'),
                     };
-                    $exportOptions = array_intersect_key($options, array_flip(['smartTypography', 'urlPolicy', 'headingShift']));
+                    $exportKeys = ['smartTypography', 'urlPolicy', 'headingShift', 'extensions'];
+                    $exportOptions = array_intersect_key($options, array_flip($exportKeys));
                     $export = $exporter->export($tree, $exportOptions);
                     $allowed = $options['allowLosses'] ?? [];
                     $losses = array_values(array_filter(
@@ -1271,10 +1272,20 @@ HELP;
         return $tree;
     }
 
-    private static function decodedTree(string $json): Node
+    /**
+     * C2-X-003: a required extension that `--extensions` registers is known to the reader.
+     *
+     * @param string $json
+     * @param array<string, mixed> $options
+     *
+     * @throws \MarkupCarve\Carve\Cli\InputError
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    private static function decodedTree(string $json, array $options): Node
     {
         try {
-            return Carve::decodeTree($json);
+            return Carve::decodeTree($json, array_intersect_key($options, ['extensions' => true]));
         } catch (TreeError $error) {
             throw new InputError($error->getMessage(), 'ast-json-invalid');
         }
