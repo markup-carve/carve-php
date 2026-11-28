@@ -2633,6 +2633,7 @@ final class Inline
      * @param bool $nested Whether `$nodes` is the content of a span inside the content tested. Its closer drops the
      *   openers opened in it (C2-I-047), so there only a mark that can close counts.
      * @param bool $bareBreaks Whether a hard break is written as the bare line ending (C2-W-080).
+     * @param int $edge The delimiter of the pair whose content `$nodes` is, read beside a mark at its edges.
      *
      * @return bool
      */
@@ -2644,7 +2645,10 @@ final class Inline
         array $braced = [],
         bool $nested = false,
         bool $bareBreaks = false,
+        int $edge = 0x20,
     ): bool {
+        $first = array_key_first($nodes);
+        $last = array_key_last($nodes);
         foreach ($nodes as $k => $node) {
             if (!is_array($node)) {
                 continue;
@@ -2665,8 +2669,8 @@ final class Inline
 
                         continue;
                     }
-                    $before = $at > 0 ? Chars::before($value, $at) : 0x20;
-                    $after = $at + 1 < $n ? Chars::at($value, $at + 1) : self::breakAfter($nodes, $k, $bareBreaks);
+                    $before = $at > 0 ? Chars::before($value, $at) : self::edgeBefore($k === $first, $edge);
+                    $after = $at + 1 < $n ? Chars::at($value, $at + 1) : self::edgeAfter($nodes, $k, $k === $last, $edge, $bareBreaks);
                     $counts = Chars::isWord($before) && Chars::isWord($after)
                         ? $words
                         : !(Chars::isSpace($before) && Chars::isSpace($after))
@@ -2680,13 +2684,45 @@ final class Inline
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                 $at = $path . '/' . $k . '/children';
                 $wordsInside = $words && !isset(self::BRACED[$type]) && !isset($braced[$path . '/' . $k]);
-                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true, $bareBreaks)) {
+                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true, $bareBreaks, self::pairEdge($type))) {
                     return true;
                 }
             }
         }
 
         return false;
+    }
+
+    /**
+     * The delimiter beside the edges of the content of a node of `$type`, a space for a node that is no pair.
+     */
+    private static function pairEdge(string $type): int
+    {
+        return isset(self::PAIRED[$type]) ? ord(self::PAIRED[$type]) : 0x20;
+    }
+
+    /**
+     * At the start of a pair's content a mark stands next to that pair's own delimiter.
+     */
+    private static function edgeBefore(bool $first, int $edge): int
+    {
+        return $first ? $edge : 0x20;
+    }
+
+    /**
+     * At the end of a pair's content a mark stands next to that pair's own delimiter, elsewhere what `breakAfter` reads.
+     *
+     * @param array<mixed> $nodes
+     * @param string|int $k
+     * @param bool $last
+     * @param int $edge
+     * @param bool $bareBreaks
+     *
+     * @return int
+     */
+    private static function edgeAfter(array $nodes, string|int $k, bool $last, int $edge, bool $bareBreaks): int
+    {
+        return $last && $edge !== 0x20 ? $edge : self::breakAfter($nodes, $k, $bareBreaks);
     }
 
     /**
