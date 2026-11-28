@@ -61,6 +61,29 @@ $all = Bundle::merge(FencedRender::presets(), MathBlock::bundle(), CodeGroup::bu
 $html = Carve::renderWithDocumentTransforms($source, $all->transforms(), ['extensions' => [$all]])->html;
 ```
 
+## Configuration names
+
+`Extension\Name` is a string-backed enum of the names a configuration file uses for these extensions, the names the
+Laravel, Symfony, Tempest and CakePHP adapters accept. `create()` builds the extensions of one name from its options.
+An option is snake_case and binds to the factory parameter of the same name in camelCase, so `css_class` is
+`$cssClass`; an unknown option or one of the wrong type throws `InvalidArgumentException`.
+
+```php
+use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Extension\Name;
+
+$extensions = [
+    ...Name::CodeCallouts->create(),
+    ...Name::ExternalLinks->create(['internal_hosts' => ['example.com']]),
+    ...Name::from('table_of_contents')->create(),
+];
+$html = Carve::render($source, ['extensions' => $extensions]);
+```
+
+`tabs` takes `mode` (`css` or `aria`), `plantuml` takes `css_class`, `img_fence` takes `language` (one fence name or a
+list), and `wikilinks` takes `url_template` (with `{page}`), `css_class` and `new_window`. `index` is the same as
+`index_terms`. `Name::values()` lists every name.
+
 ## Fenced renderers
 
 `FencedRender::bundle(language, cssClass, tag, contentMode, wrapInFigure, figureClass, label, build)` claims one or
@@ -272,7 +295,8 @@ written as its fallback `<div class="toc">` and the render reports `extension-fa
   with the class `unnumbered`, or above `minLevel` take no number.
 - `headingReference(cssClass)`: a class on each reference link a heading resolves (`[Heading][]`). The 0.1
   `[[Heading]]` spelling is gone (C2-X-013).
-- `externalLinks(target, rel, nofollow)`: `target` and `rel` on links and autolinks to `http` and `https` URLs.
+- `externalLinks(target, rel, nofollow, internalHosts)`: `target` and `rel` on links and autolinks to `http` and
+  `https` URLs. Links to a host in `internalHosts` (compared without case) stay as written.
 - `linkPolicy(allowedSchemes, deniedSchemes, allowedDomains, deniedDomains, allowExternal, allowInternal, rel,
   baseHost)`: a link, autolink or image the policy refuses is written as its text; links that stay get the `rel`
   values. Hosts are read as a browser reads them (IPv4 number forms, IDNA), and a bare relative path is internal.
