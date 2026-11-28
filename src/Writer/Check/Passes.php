@@ -8,8 +8,8 @@ namespace MarkupCarve\Carve\Writer\Check;
  * The passes of the repair of a group (C2-W-089, C2-W-005, C2-W-088, C2-W-125), a port of carve-js write.ts
  * `repairGroup` to `finishRounds`: the rounds run by kind first, then with the closer kinds, by the reported openers
  * only, with the whole-tree trials, and last by openers again. The pair rounds of C2-W-146 run around them. Not ported
- * yet: the pass memo of write-passes.ts, the chain of write-chain.ts, `simpleSpanForest` and `earlyLoneNoteBrackets`
- * before the first round, `trimCappedRuns`, `reportUnread`, and the star, caret and note cases of `prunableOpener`.
+ * yet: the pass memo of write-passes.ts, the chain of write-chain.ts, `earlyLoneNoteBrackets` before the first
+ * round, `trimCappedRuns`, `reportUnread`, and the star, caret and note cases of `prunableOpener`.
  */
 final class Passes
 {
@@ -73,6 +73,15 @@ final class Passes
     {
         $reported = count($w->lossLog);
         self::dropLinkFallback($w);
+        // A bracket left open in a bracketed node's content would consume that node's closer. These independent
+        // escapes are placed before the readback instead of found one nest per parse.
+        $forest = [];
+        foreach (Forest::simpleSpanForest($group) as $escape) {
+            if (!in_array($escape->at, $w->escapes[spl_object_id($escape->node)] ?? [], true)) {
+                $forest[] = $escape;
+            }
+        }
+        Round::addEscapes($w, $forest);
         $caret = [];
         foreach (self::caretLineEscapes($group) as $text) {
             if (!in_array(0, $w->escapes[spl_object_id($text)] ?? [], true)) {
@@ -227,13 +236,14 @@ final class Passes
         $w->sawLink = false;
         $seen = [];
         $recent = [];
+        $nodes = self::groupNodes($group);
         for ($round = 0;; $round++) {
             self::resetLines($w);
             $w->writeGroup($group);
             if ($w->lines === []) {
                 return;
             }
-            $key = self::repairKey($w);
+            $key = self::repairKey($w, $nodes);
             if ($round >= self::MAX_ROUNDS || isset($seen[$key]) || $w->exhausted()) {
                 // carve-js `refuseRepair`: the rounds repeat or run out, so the group's first block has no spelling.
                 $w->lose($group[0], null);
@@ -385,16 +395,54 @@ final class Passes
     }
 
     /**
-     * The escapes and forms of the round, so a round that repeats an earlier one is seen.
+     * C2-W-133: the repair state of the group, including the attempts that can change its next round. A node without
+     * escapes, form, attempt or loss adds nothing (carve-js `repairKey`).
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $nodes The nodes of the group (carve-js `groupNodes`).
      */
-    private static function repairKey(WriterState $w): string
+    private static function repairKey(WriterState $w, array $nodes): string
     {
-        $escapes = array_filter($w->escapes, static fn (array $offsets): bool => $offsets !== []);
-        ksort($escapes);
-        $forms = $w->forms;
-        ksort($forms);
+        $states = '';
+        foreach ($nodes as $node) {
+            $id = spl_object_id($node);
+            $escapes = $node->type === 'text' ? ($w->escapes[$id] ?? null) : null;
+            $form = $w->forms[$id] ?? null;
+            $attempt = $w->attempts[$id] ?? null;
+            $lost = isset($w->lost[$id]);
+            if ($escapes === null && $form === null && $attempt === null && !$lost) {
+                continue;
+            }
+            $tried = '';
+            foreach ($attempt->escapes ?? [] as $escape) {
+                $tried .= spl_object_id($escape->node) . ".{$escape->at},";
+            }
+            $states .= $id . ':' . ($escapes === null ? '-' : implode(',', $escapes)) . ':' . ($form ?? '-') . ':'
+                . ($attempt->step ?? '-') . ":{$tried}:" . ($lost ? 1 : 0) . ';';
+        }
 
-        return json_encode([$escapes, $forms, $w->linkFallback, $w->blankFirst, implode("\n", $w->lines)]) ?: '';
+        return json_encode([$w->lines, $w->blankFirst, count($w->lossLog)]) . $states;
+    }
+
+    /**
+     * The nodes of `group`, each once (carve-js `groupNodes`).
+     *
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     *
+     * @return list<\MarkupCarve\Carve\Writer\Check\Node>
+     */
+    private static function groupNodes(array $group): array
+    {
+        $nodes = [];
+        $pending = $group;
+        while (($node = array_pop($pending)) !== null) {
+            $nodes[] = $node;
+            foreach ($node->slots as $children) {
+                array_push($pending, ...$children);
+            }
+        }
+
+        return $nodes;
     }
 
     private static function dropLinkFallback(WriterState $w): void
