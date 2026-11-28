@@ -79,6 +79,44 @@ final class FromAstRequiredExtensionTest extends TestCase
     }
 
     /**
+     * markup-carve/carve#6980, C2-A-188: `fmt --from-ast` reads the tree as `render --from-ast` does.
+     *
+     * @return array<string, array{0: array<string>}>
+     */
+    public static function unregisteredFmt(): array
+    {
+        return [
+            'no --extensions' => [[]],
+            'another extension' => [['--extensions', '["carve.details"]']],
+            'another extension, check' => [['--extensions', '["carve.details"]', '--check']],
+        ];
+    }
+
+    /**
+     * @param array<string> $args
+     *
+     * @return void
+     */
+    #[DataProvider('unregisteredFmt')]
+    public function testFmtRefusesWhenItIsNotRegistered(array $args): void
+    {
+        [$status, $stdout, $stderr] = self::cli(['fmt', '--from-ast', ...$args]);
+
+        self::assertSame("carve[ast-json-invalid]: required-extension at /extensions/0\n", $stderr);
+        self::assertSame('', $stdout);
+        self::assertSame(2, $status);
+    }
+
+    public function testFmtWritesWhenExtensionsRegistersIt(): void
+    {
+        [$status, $stdout, $stderr] = self::cli(['fmt', '--from-ast', '--extensions', '["carve.wiki"]']);
+
+        self::assertSame('', $stderr);
+        self::assertSame("See :wiki[Main]\n", $stdout);
+        self::assertSame(0, $status);
+    }
+
+    /**
      * @param array<string> $args
      *
      * @return array{0: int, 1: string, 2: string}

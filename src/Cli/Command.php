@@ -1040,7 +1040,7 @@ HELP;
         $values = $parsed['values'];
         $options = ['normalize' => ($values['normalize'] ?? false) === true, 'alignTables' => ($values['align-tables'] ?? false) === true];
         $output = ($values['from-ast'] ?? false) === true
-            ? Carve::write(self::tree($source), null, ['alignTables' => $options['alignTables']])
+            ? self::writtenTree($source, $parsed['options'], $options['alignTables'])
             : Carve::format($source, $options + $parsed['options']);
         $changed = $output !== $source;
         $check = ($values['check'] ?? false) === true;
@@ -1255,21 +1255,26 @@ HELP;
     }
 
     /**
+     * C2-A-188: `fmt --from-ast` refuses the trees `render --from-ast` refuses, then writes the tree as read.
+     *
      * @param string $json
+     * @param array<string, mixed> $options
+     * @param bool $alignTables
      *
      * @throws \MarkupCarve\Carve\Cli\InputError
      *
-     * @return array<string, mixed>
+     * @return string
      */
-    private static function tree(string $json): array
+    private static function writtenTree(string $json, array $options, bool $alignTables): string
     {
         $tree = json_decode($json, true, 100000);
         if (!is_array($tree) || ($tree['type'] ?? null) !== 'document') {
             throw new InputError('the input is not AST JSON', 'ast-json-invalid');
         }
+        self::decodedTree($json, $options);
 
         /** @var array<string, mixed> $tree */
-        return $tree;
+        return Carve::write($tree, null, ['alignTables' => $alignTables]);
     }
 
     /**
