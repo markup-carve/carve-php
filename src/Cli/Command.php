@@ -895,7 +895,8 @@ HELP;
                         'ansi' => new AnsiExporter(),
                         default => throw new OptionError('bad value for --to'),
                     };
-                    $exportOptions = array_intersect_key($options, array_flip(['smartTypography', 'urlPolicy', 'headingShift', 'extensions']));
+                    $exportKeys = ['smartTypography', 'urlPolicy', 'headingShift', 'extensions'];
+                    $exportOptions = array_intersect_key($options, array_flip($exportKeys));
                     $export = $exporter->export($tree, $exportOptions);
                     $allowed = $options['allowLosses'] ?? [];
                     $losses = array_values(array_filter(
