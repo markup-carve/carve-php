@@ -41,8 +41,11 @@ final class Passes
      */
     public static function writeGroup(WriterState $w, Node $document, array $group, bool $first): void
     {
-        $asked = $w->pairEscapes($group);
-        Round::addEscapes($w, $asked);
+        // carve-js `pairReach`: plain paragraphs take their pair escapes before the write (EARLY_PAIRS), any other
+        // group once its other escapes are settled (LATE_PAIRS).
+        if (self::onlyPlain($group)) {
+            Round::addEscapes($w, $w->pairEscapes($group));
+        }
         self::repairGroup($w, $document, $group, $first);
         for ($round = 0; $round < self::MAX_PAIR_ROUNDS; $round++) {
             $asked = $w->pairEscapes($group);
@@ -58,6 +61,28 @@ final class Passes
                 return;
             }
         }
+    }
+
+    /**
+     * Whether every block of `group` is a paragraph of text nodes that hold only letters, digits, ` .,;:!?-` and the
+     * pair marks `_~=*` (carve-js `readText` with ONLY_PLAIN).
+     *
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     */
+    private static function onlyPlain(array $group): bool
+    {
+        foreach ($group as $node) {
+            if ($node->type !== 'paragraph' || $node->field('metadata') !== null) {
+                return false;
+            }
+            foreach ($node->children() as $child) {
+                if ($child->type !== 'text' || preg_match('/^[\p{L}\p{N} .,;:!?\-_~=*]*$/u', $child->value ?? '') !== 1) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
