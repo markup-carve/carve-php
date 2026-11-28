@@ -81,6 +81,9 @@ final class WriterState
 
     public bool $trialsRetested = false;
 
+    // What the pass being run read and charged (`PassMemo`), shared with its probes; null outside a pass.
+    public ?PassTrace $pass = null;
+
     /**
      * @var list<array{\MarkupCarve\Carve\Writer\Check\Node, string|null}> Each loss in the order it was recorded.
      */
@@ -229,6 +232,15 @@ final class WriterState
      */
     public function isBracedAnyway(Node $node): bool
     {
-        return isset($this->bracedAnyway[spl_object_id($node)]);
+        $id = spl_object_id($node);
+        if (isset($this->bracedAnyway[$id])) {
+            return true;
+        }
+        // A pass notes a node it finds absent, which a later member would change.
+        if ($this->pass !== null) {
+            $this->pass->braced[$id] = $node;
+        }
+
+        return false;
     }
 }

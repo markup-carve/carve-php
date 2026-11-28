@@ -50,6 +50,8 @@ final class Shared
 
     public int $parses = 0;
 
+    public ParseCache $parseCache;
+
     /**
      * C2-W-133: the characters the repair of the group has parsed, and its limit.
      */
@@ -63,4 +65,9 @@ final class Shared
      * @var list<\MarkupCarve\Carve\Writer\Check\Node>
      */
     public array $held = [];
+
+    public function __construct()
+    {
+        $this->parseCache = new ParseCache();
+    }
 }

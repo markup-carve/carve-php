@@ -7,9 +7,9 @@ namespace MarkupCarve\Carve\Writer\Check;
 /**
  * The passes of the repair of a group (C2-W-089, C2-W-005, C2-W-088, C2-W-125), a port of carve-js write.ts
  * `repairGroup` to `finishRounds`: the rounds run by kind first, then with the closer kinds, by the reported openers
- * only, with the whole-tree trials, and last by openers again. The pair rounds of C2-W-146 run around them. Not ported
- * yet: the pass memo of write-passes.ts, the chain of write-chain.ts, `earlyLoneNoteBrackets` before the first
- * round, `trimCappedRuns`, `reportUnread`, and the star, caret and note cases of `prunableOpener`.
+ * only, with the whole-tree trials, and last by openers again, each through the pass memo (`PassMemo`). The pair
+ * rounds of C2-W-146 run around them. Not ported yet: the chain of write-chain.ts, `earlyLoneNoteBrackets` before the
+ * first round, and the star and note cases of `prunableOpener`.
  */
 final class Passes
 {
@@ -103,6 +103,7 @@ final class Passes
     public static function repairGroup(WriterState $w, Node $document, array $group, bool $first): void
     {
         $reported = count($w->lossLog);
+        $memo = new PassMemo();
         self::dropLinkFallback($w);
         // A bracket left open in a bracketed node's content would consume that node's closer. These independent
         // escapes are placed before the readback instead of found one nest per parse.
@@ -122,7 +123,7 @@ final class Passes
         Round::addEscapes($w, $caret);
         $w->kindRounds = true;
         $saved = self::save($w);
-        self::repairOnce($w, $document, $group, $first);
+        self::repairOnce($w, $document, $group, $first, $memo);
         if (self::passSettled($w, $reported)) {
             return;
         }
@@ -130,7 +131,7 @@ final class Passes
         $before = self::save($w);
         // C2-W-005: where that loses a node, the closer repairs give their kind too, the smallest departure that keeps it.
         $w->closerKinds = true;
-        self::repairOnce($w, $document, $group, $first);
+        self::repairOnce($w, $document, $group, $first, $memo);
         $w->closerKinds = false;
         if (self::passSettled($w, $reported)) {
             return;
@@ -139,7 +140,7 @@ final class Passes
         self::restore($w, $before);
         $unrepaired = self::save($w);
         $w->kindRounds = false;
-        self::repairOnce($w, $document, $group, $first);
+        self::repairOnce($w, $document, $group, $first, $memo);
         $w->kindRounds = true;
         if (self::passSettled($w, $reported)) {
             return;
@@ -153,7 +154,7 @@ final class Passes
             $w->wholeTrials = true;
             $w->trialsRetested = false;
             $w->kindRounds = $kinds;
-            self::repairOnce($w, $document, $group, $first);
+            self::repairOnce($w, $document, $group, $first, $memo);
             $w->wholeTrials = false;
             $w->kindRounds = true;
             if (self::passSettled($w, $reported)) {
@@ -165,7 +166,7 @@ final class Passes
         $w->trialLog = null;
         self::restore($w, $last);
         $w->kindRounds = false;
-        self::repairOnce($w, $document, $group, $first);
+        self::repairOnce($w, $document, $group, $first, $memo);
         $w->kindRounds = true;
     }
 
@@ -258,8 +259,22 @@ final class Passes
      * @param \MarkupCarve\Carve\Writer\Check\Node $document
      * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
      * @param bool $first
+     * @param \MarkupCarve\Carve\Writer\Check\PassMemo $memo
      */
-    private static function repairOnce(WriterState $w, Node $document, array $group, bool $first): void
+    private static function repairOnce(WriterState $w, Node $document, array $group, bool $first, PassMemo $memo): void
+    {
+        $memo->memoPass($w, 'rounds', static fn (): bool => self::repairRounds($w, $document, $group, $first));
+    }
+
+    /**
+     * The rounds of one pass; whether they reached a limit of C2-W-133 (carve-js `repairRounds`).
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param \MarkupCarve\Carve\Writer\Check\Node $document
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     * @param bool $first
+     */
+    private static function repairRounds(WriterState $w, Node $document, array $group, bool $first): bool
     {
         $w->shared->cappedRuns = [];
         $w->shared->contentKeys = [];
@@ -273,14 +288,15 @@ final class Passes
             self::resetLines($w);
             $w->writeGroup($group);
             if ($w->lines === []) {
-                return;
+                return $w->exhausted();
             }
             $key = self::repairKey($w, $nodes);
-            if ($round >= self::MAX_ROUNDS || isset($seen[$key]) || $w->exhausted()) {
+            $limited = $round >= self::MAX_ROUNDS || $w->exhausted();
+            if ($limited || isset($seen[$key])) {
                 // carve-js `refuseRepair`: the rounds repeat or run out, so the group's first block has no spelling.
                 $w->lose($group[0], null);
 
-                return;
+                return $limited;
             }
             $seen[$key] = true;
             $recent[] = $key;
@@ -295,7 +311,7 @@ final class Passes
             }
             self::finishRounds($w, $group, $first && !$w->blankFirst, $reported);
 
-            return;
+            return $w->exhausted();
         }
     }
 

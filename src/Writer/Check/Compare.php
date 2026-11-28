@@ -781,17 +781,67 @@ final class Compare
     }
 
     /**
-     * The tree of `$source`, with positions, as mirror nodes (carve-js `parseChunk`). Each call is counted.
+     * The tree of `$source`, with positions, as mirror nodes (carve-js `parseChunk`). Each call is counted in
+     * `parses`, except a repeated short source whose tree the parse cache keeps.
      */
     public static function parseChunk(WriterState $w, string $source): Node
     {
-        $w->shared->parses++;
-        $w->shared->chars += strlen($source);
+        $plain = self::plainParse($w);
+        $cacheable = $plain && strlen($source) <= 8192;
+        $cache = $w->shared->parseCache;
+        $known = $cacheable && array_key_exists($source, $cache->trees);
+        if ($known) {
+            $cached = $cache->trees[$source];
+            if ($cached !== null) {
+                return $cached;
+            }
+        }
+        $charge = PassMemo::noteCharge($w, $source, $cacheable);
+        if (!$known) {
+            $w->shared->parses++;
+            $w->shared->chars += strlen($source);
+        }
+        // A longer source that one of the last rounds wrote again is counted as a parse, but its tree is reused.
+        $recent = $plain && !$cacheable ? $cache->recentTree($source) : null;
+        if ($recent !== null) {
+            return $recent;
+        }
+        $parsed = self::parsedTree($w, $source, $cacheable);
+        if ($cacheable) {
+            $cache->remember($source, $parsed, $known);
+        } elseif ($plain) {
+            $cache->rememberRecent($source, $parsed);
+        }
+        PassMemo::keepCharged($w, $charge, $cacheable, $parsed);
 
+        return $parsed;
+    }
+
+    /**
+     * Whether a parse of the writer reads nothing but its source, so a tree of the same source can stand in for it.
+     */
+    private static function plainParse(WriterState $w): bool
+    {
+        return ($w->options['extensions'] ?? []) === [] && $w->abbreviations === [] && $w->linkKeys === [];
+    }
+
+    /**
+     * A source whose tree the parse cache gave up is counted as `parseChunk` counts it, but its tree is reused.
+     */
+    private static function parsedTree(WriterState $w, string $source, bool $cacheable): Node
+    {
+        $store = $w->shared->parseCache->kept;
+        $short = $cacheable && strlen($source) <= KeptTrees::MAX_PARSED_SOURCE;
+        if ($short && isset($store->parsed[$source])) {
+            return $store->parsed[$source];
+        }
         // A group is read with the link keys and abbreviations of its document in place of its own (carve-js `parsedTree`).
         $options = $w->options + ['scope' => ['linkKeys' => $w->linkKeys, 'abbreviations' => $w->abbreviations]];
         $parsed = Node::mirror(ReadbackRound::read($source, $options));
         $parsed->place($source);
+        if ($short) {
+            $store->keep($source, $parsed);
+        }
 
         return $parsed;
     }

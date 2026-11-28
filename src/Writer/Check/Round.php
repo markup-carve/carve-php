@@ -61,7 +61,7 @@ final class Round
         $check = self::compareWithLinkFallback($w, $document, $group, $first, $initial);
         // C2-W-125 tries to form a missing node separately from the constructs C2-W-088 found in the read-back parse.
         self::dropEarlyTrials($check);
-        self::logTrials($w, $check->trials);
+        PassMemo::logTrials($w, $check->trials);
         $dropped = self::dropIdleTrial($w, $check, $group, $first);
         $dropped = self::dropIdleLeads($w, $group, $first, $check) || $dropped;
         self::deferRepairs($check);
@@ -80,7 +80,7 @@ final class Round
         Compare::escapeCappedRun($check);
         self::dropEscapesAfterConstruct($w, $group, $first, $check);
         self::retestTrials($w, $group, $first, $check);
-        self::logTrials($w, $check->escapes);
+        PassMemo::logTrials($w, $check->escapes);
         if ($check->changes() === 0 && $check->losses !== [] && $first && !$w->blankFirst) {
             // C2-W-005: what only line 1 reads differently is written below one blank line, and the rounds go on there.
             $w->blankFirst = Compare::compareGroup($w, $document, $group, self::source($w, false), false)->losses === [];
@@ -720,7 +720,12 @@ final class Round
         $without = self::groupTree($w, $group, $first, $left);
         $asked = !Compare::treesEqual(self::groupTree($w, $group, $first, $escaped), $without);
         if (!$asked) {
+            PassMemo::noteRead($w, PassMemo::READ_WHOLE_TRIALS);
             $asked = $w->wholeTrials && self::givesTree($w, $group, $first, $saved['escapes'], $node, $at);
+            if (!$w->wholeTrials) {
+                $kept = $saved['escapes'];
+                PassMemo::noteWholeTest($w, static fn (): bool => self::givesTree($w, $group, $first, $kept, $node, $at));
+            }
         }
         self::restore($w, $saved);
 
@@ -750,6 +755,28 @@ final class Round
     }
 
     /**
+     * The trial log a retest of the round reads, or null where the round asks for a change, loses nothing, or finds
+     * the log empty or closed (none, retested or past its cap). The pass notes which of them it read (`PassMemo`).
+     *
+     * @return non-empty-list<\MarkupCarve\Carve\Writer\Check\Escape>|null
+     */
+    private static function retestLog(WriterState $w, Check $check): ?array
+    {
+        $log = $w->trialLog;
+        if ($check->changes() > 0 || $check->losses === []) {
+            return null;
+        }
+        if ($log === null || $w->trialsRetested || count($log) > self::MAX_RETESTED_TRIALS) {
+            PassMemo::noteLogClosed($w);
+
+            return null;
+        }
+        PassMemo::noteRead($w, PassMemo::READ_TRIAL_LOG);
+
+        return $log === [] ? null : $log;
+    }
+
+    /**
      * C2-W-125: where the pass loses a node, the trials of its log are tested again together with the other escapes
      * the pass asked for, fewest first, and the first set that gives the tree is taken.
      *
@@ -760,11 +787,8 @@ final class Round
      */
     private static function retestTrials(WriterState $w, array $group, bool $first, Check $check): void
     {
-        $log = $w->trialLog;
-        if ($check->changes() > 0 || $check->losses === []) {
-            return;
-        }
-        if ($log === null || $w->trialsRetested || count($log) > self::MAX_RETESTED_TRIALS || $log === []) {
+        $log = self::retestLog($w, $check);
+        if ($log === null) {
             return;
         }
         $w->trialsRetested = true;
@@ -868,7 +892,10 @@ final class Round
                 static fn (Escape $trial): bool => !self::trialOpensBracedConstruct($check, $trial, $located, $opened),
             ));
         }
-        Kinds::escapeKindsBeside($check, $group, $check->closers + $check->readOn, $w->closerKinds, $located);
+        // The switch changes the pass only where the asked escapes it keeps from giving a kind would add one.
+        if (Kinds::escapeKindsBeside($check, $group, $check->closers + $check->readOn, $w->closerKinds, $located)) {
+            PassMemo::noteRead($w, PassMemo::READ_CLOSER_KINDS);
+        }
         Kinds::escapePartnerClosers($check, $group);
     }
 
@@ -1079,31 +1106,6 @@ final class Round
         $w->glued = [];
         $w->lines = [];
         $w->starts = [];
-    }
-
-    /**
-     * C2-W-088: every escape of the round once in the log of a `wholeTrials` pass, up to its cap.
-     *
-     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
-     * @param list<\MarkupCarve\Carve\Writer\Check\Escape> $trials
-     */
-    private static function logTrials(WriterState $w, array $trials): void
-    {
-        if ($w->trialLog === null) {
-            return;
-        }
-        foreach ($trials as $trial) {
-            if (count($w->trialLog) > self::MAX_RETESTED_TRIALS) {
-                return;
-            }
-            $known = false;
-            foreach ($w->trialLog as $entry) {
-                $known = $known || ($entry->node === $trial->node && $entry->at === $trial->at);
-            }
-            if (!$known) {
-                $w->trialLog[] = $trial;
-            }
-        }
     }
 
     /**
