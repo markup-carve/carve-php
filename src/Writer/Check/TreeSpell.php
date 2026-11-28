@@ -84,39 +84,104 @@ final class TreeSpell implements Spell
         return (new Inline($state))->content($list, self::LIST, $c, $next);
     }
 
+    /**
+     * Where the text `node` from `from` ends after `bytes` of its written form (carve-js `spelledEnd`): each asked
+     * escape and each backslash of C2-W-097 and pipe of C2-W-098 add one byte.
+     */
     public function spelledEnd(WriterState $w, Node $node, int $from, int $bytes, int $flags): int
     {
         $value = $node->value ?? '';
         $escapes = array_flip($w->escapesOf($node));
         $rest = $bytes;
-        $inCell = ($flags & self::IN_CELL) !== 0;
+        $cursor = [0, false, ''];
         $valueLength = strlen($value);
         for ($at = $from; $rest > 0 && $at < $valueLength; $at++) {
-            $always = $inCell && $value[$at] === '|';
-            $rest -= 1 + (isset($escapes[$at]) || $always ? 1 : 0);
+            $rest -= 1 + (isset($escapes[$at]) || self::alwaysEscaped($value, $at, $flags, $cursor) ? 1 : 0);
         }
 
         return $rest === 0 ? $at : -1;
     }
 
     /**
-     * The escapes the text `$node` is written with: those asked for, and in a cell each `|`.
+     * The escapes the text `$node` is written with: those asked for and those of C2-W-097 and C2-W-098 (carve-js
+     * `escapeOffsets`).
      *
      * @return list<int>
      */
     public function escapeOffsets(WriterState $w, Node $node, int $flags): array
     {
         $offsets = array_flip($w->escapesOf($node));
-        if (($flags & self::IN_CELL) !== 0) {
-            $value = $node->value ?? '';
-            for ($at = strpos($value, '|'); $at !== false; $at = strpos($value, '|', $at + 1)) {
-                $offsets[$at] = true;
+        $value = $node->value ?? '';
+        if (str_contains($value, '\\') || (($flags & self::IN_CELL) !== 0 && str_contains($value, '|'))) {
+            $cursor = [0, false, ''];
+            $valueLength = strlen($value);
+            for ($at = 0; $at < $valueLength; $at++) {
+                if (self::alwaysEscaped($value, $at, $flags, $cursor)) {
+                    $offsets[$at] = true;
+                }
             }
         }
         $list = array_keys($offsets);
         sort($list);
 
         return $list;
+    }
+
+    /**
+     * Whether the character `at` of a text takes a backslash whatever the reparse finds (carve-js `alwaysEscaped`):
+     * a backslash that the next character of the same text would make an escape (C2-W-097), outside a quoted brace
+     * value (C2-I-033), and a pipe in a cell (C2-W-098).
+     *
+     * @param string $value
+     * @param int $at
+     * @param int $flags
+     * @param array{int, bool, string} $cursor The scan of `inQuotedBrace`: its offset, inside a brace, the open quote.
+     */
+    private static function alwaysEscaped(string $value, int $at, int $flags, array &$cursor): bool
+    {
+        $char = $value[$at];
+        if ($char === '|') {
+            return ($flags & self::IN_CELL) !== 0;
+        }
+        if ($char !== '\\' || $at + 1 >= strlen($value)) {
+            return false;
+        }
+        $next = $value[$at + 1];
+
+        return ($next === ' ' || Compare::isAsciiPunctuation($next)) && !self::inQuotedBrace($value, $at, $cursor);
+    }
+
+    /**
+     * C2-I-033: a quoted brace value is opaque, including its backslashes (carve-js `inQuotedBrace`).
+     *
+     * @param string $value
+     * @param int $at
+     * @param array{int, bool, string} $cursor
+     */
+    private static function inQuotedBrace(string $value, int $at, array &$cursor): bool
+    {
+        while ($cursor[0] < $at) {
+            $char = $value[$cursor[0]];
+            if ($cursor[2] !== '') {
+                if ($char === '\\') {
+                    $cursor[0] += 2;
+
+                    continue;
+                }
+                if ($char === $cursor[2]) {
+                    $cursor[2] = '';
+                }
+            } elseif ($char === '{') {
+                $cursor[1] = true;
+            } elseif ($char === '}') {
+                $cursor[1] = false;
+            } elseif ($cursor[1] && ($char === '"' || $char === "'")) {
+                $cursor[2] = $char;
+            }
+            $cursor[0]++;
+        }
+
+        return $cursor[2] !== '';
     }
 
     /**
