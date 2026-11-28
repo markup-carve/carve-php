@@ -309,9 +309,31 @@ final class MarkdownHtml
         }
         $at = (int)$close[0][1];
         $lines = $at < $start ? [] : (preg_split('/\r\n|\r|\n/', substr($input, $start, $at - $start)) ?: []);
+        // A bare `---` also starts a CommonMark thematic break. Only a mapping-shaped body makes it metadata (#2799).
+        if ($open[1] === '---' && !self::bareFrontmatterIsMapping($lines)) {
+            return $source;
+        }
         $sink->frontmatterFormat = $open[1] === '---' ? 'yaml' : 'toml';
         $sink->frontmatter = $lines === [] ? '' : implode("\n", $lines) . "\n";
 
         return substr($input, $at + strlen($close[0][0]));
+    }
+
+    /**
+     * The #2799 shape test: the first nonblank, noncomment line needs a YAML key at column zero.
+     *
+     * @param array<int, string> $lines
+     */
+    private static function bareFrontmatterIsMapping(array $lines): bool
+    {
+        foreach ($lines as $line) {
+            if (trim($line) === '' || preg_match('/^[ \t]*#/', $line) === 1) {
+                continue;
+            }
+
+            return preg_match('/^(?:"[^"]*"|\'[^\']*\'|[^\s\-\[\{"\'#:][^:]*):(?:[ \t]|$)/', $line) === 1;
+        }
+
+        return false;
     }
 }
