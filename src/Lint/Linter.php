@@ -331,7 +331,8 @@ final class Linter
         }
         $attrs = $node['attrs'] ?? null;
         $pos = Support::pos($node, $c);
-        if ($attrs !== null && $pos !== null) {
+        // C2-A-027: the parse lifts `{:fr}` into `lang` (and `dir`), so an attribute line may leave `attrs` unset.
+        if (($attrs !== null || isset($node['lang']) || isset($node['dir'])) && $pos !== null) {
             $c->attachedLines[$pos['startLine']] = true;
         }
         // C2-B-227: a table may have consumed every key it took.
