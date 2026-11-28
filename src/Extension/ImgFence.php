@@ -163,20 +163,19 @@ final class ImgFence
         self::clean($root);
         $root->setAttribute('xmlns', self::SVG_NS);
         $svg = $document->saveXML($root);
+        if (!is_string($svg)) {
+            return null;
+        }
+        // libxml's DOM API exposes namespace declarations inconsistently across PHP versions. The tokenizer applies
+        // the namespace value rule to the serialized, already reduced tree on every supported runtime.
+        $sanitized = SvgSanitizer::sanitize($svg);
 
-        return is_string($svg) && strlen(rawurlencode($svg)) <= self::MAX_URL_BYTES ? $svg : null;
+        return $sanitized['ok'] && strlen(rawurlencode($sanitized['svg'])) <= self::MAX_URL_BYTES
+            ? $sanitized['svg'] : null;
     }
 
     private static function clean(DOMElement $element): void
     {
-        // libxml stores namespace declarations separately from ordinary attributes.
-        $xlink = $element->getAttribute('xmlns:xlink');
-        if (
-            $element->hasAttribute('xmlns:xlink')
-            && ($xlink === '' || preg_match('/[ \t\n\r\x{A0}]/u', $xlink) === 1)
-        ) {
-            $element->removeAttribute('xmlns:xlink');
-        }
         foreach (iterator_to_array($element->attributes) as $attribute) {
             if ($attribute->name === 'xmlns' && $element->localName === 'svg') {
                 continue;
