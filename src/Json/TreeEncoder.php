@@ -277,6 +277,21 @@ final class TreeEncoder
     }
 
     /**
+     * C2-A-217: a decoded tree value as JCS bytes.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    public static function canonical(mixed $value): string
+    {
+        $out = '';
+        self::canonicalJson($value, $out);
+
+        return $out;
+    }
+
+    /**
      * C2-A-217: JCS orders object keys by UTF-16 code units and keeps array order. Written in one pass,
      * so no sorted copy of the tree is held beside it.
      */
