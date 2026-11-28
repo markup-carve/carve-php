@@ -72,6 +72,38 @@ final class TreeGateTest extends TestCase
         }
     }
 
+    public function testC2A132PayloadLimitCountsAllAlternatives(): void
+    {
+        $tree = [
+            'type' => 'document',
+            'astVersion' => '2.0',
+            'extensions' => [['name' => 'org.example.case', 'version' => '1', 'required' => false, 'slots' => []]],
+            'children' => [
+                [
+                    'type' => 'block_extension',
+                    'name' => 'org.example.case',
+                    'version' => '1',
+                    'children' => [],
+                    'fallback' => [['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'x']]]],
+                    'payload' => [
+                        ['format' => 'text/plain', 'value' => str_repeat('x', 4194304)],
+                        ['format' => 'application/json', 'value' => str_repeat('y', 4194304)],
+                    ],
+                ],
+            ],
+        ];
+        $this->assertNotNull(TreeReader::read(json_encode($tree, JSON_THROW_ON_ERROR)));
+        $tree['children'][0]['payload'][1]['value'] .= 'y';
+        try {
+            TreeReader::read(json_encode($tree, JSON_THROW_ON_ERROR));
+        } catch (TreeError $error) {
+            $this->assertSame('extension-payload-bytes', $error->reason);
+
+            return;
+        }
+        $this->fail('The combined payload was accepted');
+    }
+
     /**
      * @return array<string, array{0: array<string, mixed>}>
      */

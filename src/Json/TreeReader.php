@@ -426,12 +426,13 @@ final class TreeReader
                 throw new TreeError('more than 4096 resource references', $path);
             }
         }
+        $payloadBytes = 0;
         foreach ($node->payload ?? [] as $item) {
             $payload = $item->value;
-            $bytes = is_string($payload)
+            $payloadBytes += is_string($payload)
                 ? strlen($payload)
                 : strlen((string)json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-            if ($bytes > 8388608) {
+            if ($payloadBytes > 8388608) {
                 throw new TreeError('extension-payload-bytes', $path . '/payload');
             }
         }
