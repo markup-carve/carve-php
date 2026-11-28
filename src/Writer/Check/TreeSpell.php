@@ -71,6 +71,7 @@ final class TreeSpell implements Spell
         $c->counts = Inline::counts($list);
         $c->inCell = ($flags & self::IN_CELL) !== 0;
         $c->inBracket = ($flags & self::IN_BRACKET) !== 0;
+        $c->openEnd = true;
         // The paired nodes around the list: a nested one of the same type takes the braced form (C2-W-069).
         foreach ([self::IN_EMPHASIS => 'emphasis', self::IN_STRONG => 'strong'] as $flag => $type) {
             if (($flags & $flag) !== 0) {

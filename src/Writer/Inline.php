@@ -2168,7 +2168,7 @@ final class Inline
         // C2-W-022: no space or tab of text stands at the end of a line.
         if ($next === 10 && !$c->bareBreaks) {
             $value = rtrim($value, " \t");
-        } elseif ($next === -1) {
+        } elseif ($next === -1 && !$c->openEnd) {
             $value = rtrim($value, " \t");
         }
         $prefix = '';

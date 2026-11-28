@@ -182,6 +182,12 @@ final class Context
     public bool $bareBreaks = false;
 
     /**
+     * The list is written alone, as carve-js `writeInlines` writes a probe, so its end is no end of a line and its
+     * last text keeps its spaces (C2-W-022 trims them only at the end of the content).
+     */
+    public bool $openEnd = false;
+
+    /**
      * Whether line starts of this content are tested for block openers at all.
      */
     public bool $blockLines = true;
