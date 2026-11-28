@@ -2584,11 +2584,12 @@ final class Blocks
                 $c->inLineBlock = true;
                 $outer = $this->w->takeSmartRun();
                 $text = $this->inline->content($inlines, $path . '/children/' . $at . '/children', $c, -1);
-                // C2-B-123: bare, a line of three or more colons closes the line block. C2-W-088 escapes the line kind,
-                // its first character; where that is a space, which C2-B-130 keeps as content, the line has no spelling.
+                // C2-B-123: bare, a line of three or more colons closes the line block. C2-W-090 escapes its first
+                // colon, also behind the spaces that C2-B-130 keeps as content (carve#6944); a tab there has no spelling.
                 if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $text) === 1) {
-                    if ($text[0] === ':') {
-                        $text = '\\' . $text;
+                    $lead = strspn($text, ' ');
+                    if ($text[$lead] === ':') {
+                        $text = substr($text, 0, $lead) . '\\' . substr($text, $lead);
                     } else {
                         $this->w->lose($path . '/children/' . $at . '/children/0', 'text', null);
                         $this->w->lose('', 'document', null);

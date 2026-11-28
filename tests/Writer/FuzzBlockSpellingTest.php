@@ -37,9 +37,11 @@ final class FuzzBlockSpellingTest extends TestCase
         self::assertSame($result->source, Carve::format($result->source));
     }
 
-    public function testLineBlockContentThatClosesItsFenceReportsTheLoss(): void
+    public function testLineBlockContentThatClosesItsFenceTakesTheBackslash(): void
     {
+        // C2-W-002, C2-W-090 (carve#6944): the backslash stands before the first colon, behind the leading space.
         $result = Carve::formatWithDiagnostics(":::: |\n :::");
-        self::assertSame('structure-unspellable', $result->diagnostics[0]->code);
+        self::assertSame([], $result->diagnostics);
+        self::assertSame("::: |\n \\:::\n:::\n", $result->source);
     }
 }
