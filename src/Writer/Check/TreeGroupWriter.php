@@ -29,6 +29,7 @@ final class TreeGroupWriter implements GroupWriter
      */
     public function write(WriterState $w, array $group): void
     {
+        self::escapeLeadingCarets($w, $group);
         [$tree, $escapes] = self::document($w, $group);
         if (self::escapeLoneLinkBrackets($w, $group, $tree)) {
             [$tree, $escapes] = self::document($w, $group);
@@ -52,6 +53,55 @@ final class TreeGroupWriter implements GroupWriter
         foreach ($group as $at => $node) {
             self::notePlaces($w, $node, "/children/{$at}", $candidate['ranges'], $lineStarts);
         }
+    }
+
+    /**
+     * C2-W-125 case five (carve-js `escapeLeadingCaret`): the leading caret of link or span text would read as a
+     * footnote reference, so the write escapes it in the state the rounds see. Not in a note, not for a reference whose
+     * key is its content, and not for a span behind a bare `!`.
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     */
+    private static function escapeLeadingCarets(WriterState $w, array $group): void
+    {
+        $pending = array_map(static fn (Node $node): array => [$node, false], $group);
+        while (($item = array_pop($pending)) !== null) {
+            [$node, $inNote] = $item;
+            $inNote = $inNote || $node->type === 'inline_footnote';
+            $children = $node->children();
+            foreach ($children as $at => $child) {
+                if (!$inNote && self::caretLeads($w, $child, $children[$at - 1] ?? null)) {
+                    $first = $child->children()[0];
+                    if (!in_array(0, $w->escapesOf($first), true)) {
+                        Round::addEscapes($w, [new Escape($first, 0)]);
+                    }
+                }
+                $pending[] = [$child, $inNote];
+            }
+        }
+    }
+
+    private static function caretLeads(WriterState $w, Node $node, ?Node $before): bool
+    {
+        $first = $node->children()[0] ?? null;
+        if ($first?->type !== 'text' || !str_starts_with($first->value ?? '', '^')) {
+            return false;
+        }
+        if ($node->type === 'link') {
+            $form = $node->field('refForm');
+            $key = $node->field('key');
+            $keyIsContent = ($form === 'collapsed' || $form === 'shortcut') && is_string($key) && str_starts_with($key, '^');
+
+            return !$keyIsContent && $w->recordedRaw($node) === null;
+        }
+        if ($node->type !== 'span') {
+            return false;
+        }
+        $value = $before?->type === 'text' ? $before->value ?? '' : '';
+        $bang = str_ends_with($value, '!') && !in_array(strlen($value) - 1, $w->escapesOf($before), true);
+
+        return !$bang;
     }
 
     /**
