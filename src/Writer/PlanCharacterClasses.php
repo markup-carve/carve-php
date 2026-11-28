@@ -64,6 +64,11 @@ final class PlanCharacterClasses
     /**
      * @var int
      */
+    public const KEY_REST = 32768;
+
+    /**
+     * @var int
+     */
     public const QUOTE_OPENS_AFTER = 1048576;
 
     /**
