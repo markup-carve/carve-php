@@ -34,6 +34,16 @@ final class State
     public array $planForms = [];
 
     /**
+     * @var array<string, string> A source-spelled reference or link target, keyed by its node path.
+     */
+    public array $planLinkRaw = [];
+
+    /**
+     * @var array<string, string>
+     */
+    public array $planLinkTail = [];
+
+    /**
      * @var array<string, array<int, bool|int>>
      */
     public array $planWrittenEscapes = [];

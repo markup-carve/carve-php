@@ -3221,6 +3221,10 @@ final class Inline
     {
         $raw = $this->rawReference($node, $path, $c);
         if ($raw !== null) {
+            if ($this->w->plan !== null) {
+                $this->w->planLinkRaw[$path] = $raw;
+            }
+
             return $raw;
         }
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
@@ -3245,7 +3249,12 @@ final class Inline
             $inner = $this->keySpelled($inner, $node['key'], $children);
         }
 
-        return '[' . $inner . ']' . $this->target($node, self::str($node, 'href'), $c, $path);
+        $tail = $this->target($node, self::str($node, 'href'), $c, $path);
+        if ($this->w->plan !== null) {
+            $this->w->planLinkTail[$path] = $tail;
+        }
+
+        return '[' . $inner . ']' . $tail;
     }
 
     /**

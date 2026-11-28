@@ -52,6 +52,7 @@ final class PlanModel
         $type = $node['type'] ?? null;
 
         return self::directBraced($node)
+            || $type === 'link'
             || (is_array($node['children'] ?? null) && in_array($type, ['span', 'inline_footnote'], true))
             || (is_array($node['children'] ?? null) && $node['children'] !== []
                 && in_array($type, ['emphasis', 'strong'], true))
@@ -283,6 +284,35 @@ final class PlanModel
 
             return;
         }
+        if ($type === 'link' && is_array($children)) {
+            $raw = $w->planLinkRaw[$path] ?? null;
+            $tail = $w->planLinkTail[$path] ?? null;
+            if ($raw !== null) {
+                $leaf->pushString($raw, PlanLeaf::ATOM, $path, $type);
+                self::coverSource($w, $children, $path . '/children');
+            } elseif ($tail !== null) {
+                $first = $children[0] ?? null;
+                if (
+                    ($flags & 64) === 0 && is_array($first) && ($first['type'] ?? null) === 'text'
+                    && is_string($first['value'] ?? null) && str_starts_with($first['value'], '^')
+                ) {
+                    $leaf->undecide('link caret');
+
+                    return;
+                }
+                $leaf->pushString('[', PlanLeaf::OPEN, $path, $type);
+                self::inlines($w, $leaf, $children, $path . '/children', $flags | 16);
+                $leaf->pushString(']', PlanLeaf::CLOSE, $path, $type);
+                $leaf->pushString($tail, PlanLeaf::ATOM, $path, $type);
+            } else {
+                $leaf->undecide('model');
+
+                return;
+            }
+            $leaf->pushString(BraceBlock::of($node, ['pipes' => ($flags & 1) !== 0]), PlanLeaf::ATOM, $path, $type);
+
+            return;
+        }
         if (($type === 'span' || $type === 'inline_footnote') && is_array($children)) {
             $first = $children[0] ?? null;
             if (
@@ -363,4 +393,30 @@ final class PlanModel
     }
 
     // phpcs:enable Generic.Metrics.CyclomaticComplexity.MaxExceeded
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\State $w
+     * @param array<mixed> $nodes
+     * @param string $path
+     */
+    private static function coverSource(State $w, array $nodes, string $path): void
+    {
+        $pending = [[$nodes, $path]];
+        while ($pending !== []) {
+            [$list, $parent] = array_pop($pending);
+            foreach ($list as $at => $node) {
+                if (!is_array($node)) {
+                    continue;
+                }
+                $here = $parent . '/' . $at;
+                if (($node['type'] ?? null) === 'text' && $w->plan !== null) {
+                    $w->plan->covered[$here] = true;
+                }
+                $children = $node['children'] ?? null;
+                if (is_array($children)) {
+                    $pending[] = [$children, $here . '/children'];
+                }
+            }
+        }
+    }
 }
