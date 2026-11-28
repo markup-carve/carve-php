@@ -137,6 +137,34 @@ final class ExtensionFlagsTest extends TestCase
     }
 
     /**
+     * C2-X-064 (carve#6982): either spoiler name registers both halves.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function spoilerNames(): array
+    {
+        return ['inline name' => ['["carve.spoiler"]'], 'block name' => ['["carve.spoilerBlock"]']];
+    }
+
+    #[DataProvider('spoilerNames')]
+    public function testEitherSpoilerNameRegistersBothHalves(string $names): void
+    {
+        $source = "A :spoiler[secret] word.\n\n::: spoiler \"Hint\"\nHidden body.\n:::\n";
+        [$status, $stdout, $stderr] = self::runCommand(['render', '--extensions', $names, 'a.crv'], $source);
+        self::assertSame(0, $status);
+        self::assertSame('', $stderr);
+        self::assertSame(
+            "<p>A <span class=\"spoiler\">secret</span> word.</p>\n<details class=\"spoiler\">\n"
+            . "  <summary>Hint</summary>\n  <p>Hidden body.</p>\n</details>\n",
+            $stdout,
+        );
+        [$status, $stdout] = self::runCommand(['ast', '--no-positions', '--extensions', $names, 'a.crv'], $source);
+        self::assertSame(0, $status);
+        $tree = json_decode($stdout, true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['carve.spoiler', 'carve.spoilerBlock'], array_column($tree['extensions'], 'name'));
+    }
+
+    /**
      * C2-X-068 (carve#6752): the cite renderer takes `mode`, `numbered` by default; CC-2127 and CC-2128.
      *
      * @return array<string, array{0: array<string>, 1: string}>

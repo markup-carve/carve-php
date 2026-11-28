@@ -38,10 +38,8 @@ final class Standard
             'carve.codeGroup' => CodeGroup::bundle()->withoutRenderers()->definitions(),
             'carve.details' => Details::bundle()->withoutRenderers()->definitions(),
             'carve.mathBlock' => MathBlock::bundle()->withoutRenderers()->definitions(),
-            'carve.spoiler', 'carve.spoilerBlock' => array_values(array_filter(
-                Spoiler::bundle()->withoutRenderers()->definitions(),
-                static fn (ExtensionDefinition $definition): bool => $definition->name === $name,
-            )),
+            // C2-X-064: either name registers both spoiler halves.
+            'carve.spoiler', 'carve.spoilerBlock' => Spoiler::bundle()->withoutRenderers()->definitions(),
             'carve.imgFence.img' => [ImgFence::definition('img')],
             'carve.imgFence.image' => [ImgFence::definition('image')],
             'carve.colorSwatch' => ColorSwatch::bundle()->withoutRenderers()->definitions(),
