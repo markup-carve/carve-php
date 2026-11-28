@@ -2684,9 +2684,43 @@ final class Inline
             } elseif (!in_array($type, self::BARRIERS, true) && is_array($node['children'] ?? null)) {
                 $at = $path . '/' . $k . '/children';
                 $wordsInside = $words && !isset(self::BRACED[$type]) && !isset($braced[$path . '/' . $k]);
-                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true, $bareBreaks, self::pairEdge($type))) {
+                $inner = self::nestedEdge($nodes, $type, $mark);
+                if (self::holdsMark($node['children'], $mark, $wordsInside, $at, $braced, true, $bareBreaks, $inner)) {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The delimiter a mark at the edges of a nested node of `$type` stands beside. Where a text among `$nodes` holds the
+     * mark, the C2-W-088 round for that kind escapes every potential opener of it in the block, the one at the edge
+     * too, so the edges read as before.
+     *
+     * @param array<mixed> $nodes
+     * @param string $type
+     * @param string $mark
+     *
+     * @return int
+     */
+    private static function nestedEdge(array $nodes, string $type, string $mark): int
+    {
+        return self::textsHold($nodes, $mark) ? 0x20 : self::pairEdge($type);
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param string $mark
+     *
+     * @return bool
+     */
+    private static function textsHold(array $nodes, string $mark): bool
+    {
+        foreach ($nodes as $node) {
+            if (is_array($node) && ($node['type'] ?? null) === 'text' && str_contains(self::str($node, 'value'), $mark)) {
+                return true;
             }
         }
 

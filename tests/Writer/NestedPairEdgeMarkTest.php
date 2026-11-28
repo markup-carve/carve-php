@@ -24,7 +24,27 @@ final class NestedPairEdgeMarkTest extends TestCase
             'strong holding an emphasis of a star' => ['strong', 'emphasis', '*', "{*/*/*}\n"],
             'emphasis holding a strong of a slash' => ['emphasis', 'strong', '/', "{/*/*/}\n"],
             'strong holding an emphasis of a word' => ['strong', 'emphasis', 'x', "*/x/*\n"],
+            'strong holding an emphasis ending in a star' => ['strong', 'emphasis', 'a*', "{*/a*/*}\n"],
         ];
+    }
+
+    public function testAStarInTextBesideTheNestedPairIsEscapedInstead(): void
+    {
+        // The C2-W-088 round for `*` escapes the star of the emphasis as well, so the strong needs no brace.
+        $children = [
+            [
+
+                'type' => 'strong',
+                'children' => [
+                    ['type' => 'text', 'value' => 'b *'],
+                    ['type' => 'emphasis', 'children' => [['type' => 'text', 'value' => '*']]],
+                ],
+            ],
+        ];
+        $tree = ['type' => 'document', 'astVersion' => '2.0', 'children' => [['type' => 'paragraph', 'children' => $children]]];
+        $result = Writer::writeWithDiagnostics($tree);
+        $this->assertSame([], $result->codes());
+        $this->assertSame("*b \\*/\\*/*\n", $result->source);
     }
 
     #[DataProvider('trees')]
