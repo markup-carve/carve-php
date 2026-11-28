@@ -35,20 +35,6 @@ final class TypedCoreClauseTest extends TestCase
         'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2273' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
         'CC-2274' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-1787' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1791' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1793' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1794' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1796' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1890' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1892' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1895' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1897' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-1899' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-2510' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-2511' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-2512' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
-        'CC-2513' => 'markup-carve/carve#6973 (carve-php line): a resolved reference copies tooltip from its definition',
     ];
 
     /**

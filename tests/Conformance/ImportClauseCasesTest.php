@@ -25,10 +25,7 @@ final class ImportClauseCasesTest extends TestCase
      *
      * @var array<string, string>
      */
-    public const KNOWN_FAIL = [
-        'CC-2518' => 'markup-carve/carve#6975 (carve-php line): an img with no src imports as an image with no src, image-src-unknown',
-        'CC-2520' => 'markup-carve/carve#6975 (carve-php line): an img with no src imports as an image with no src, image-src-unknown',
-    ];
+    public const KNOWN_FAIL = [];
 
     /**
      * Cases the libxml fallback (PHP below 8.4) imports differently, as `ImportCorpusTest::LEGACY_DIFFERS`.
