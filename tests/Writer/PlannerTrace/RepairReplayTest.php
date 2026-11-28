@@ -61,7 +61,8 @@ final class RepairReplayTest extends TestCase
     }
 
     /**
-     * Each paragraph is a group of its own, as `groupEnd` of carve-js makes it behind a blank line.
+     * Each paragraph is a group of its own, as `groupEnd` of carve-js makes it behind a blank line. A group that writes no
+     * line is left out, and the next one starts the document.
      *
      * @param list<array<string, mixed>> $children
      *
@@ -75,9 +76,11 @@ final class RepairReplayTest extends TestCase
         foreach ($document->children() as $at => $group) {
             $w = new WriterState(new TreeSpell());
             $w->groupWriter = new TreeGroupWriter();
-            Passes::writeGroup($w, $document, [$group], $at === 0);
-            $written[] = implode("\n", $w->lines);
+            Passes::writeGroup($w, $document, [$group], $written === []);
             $lost = $lost || $w->lost !== [];
+            if ($w->lines !== []) {
+                $written[] = implode("\n", $w->lines);
+            }
         }
 
         return [implode("\n\n", $written) . "\n", $lost];

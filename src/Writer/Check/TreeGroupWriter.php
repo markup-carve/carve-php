@@ -22,6 +22,11 @@ final class TreeGroupWriter implements GroupWriter
     private const GLUE_MEMO_SIZE = 4096;
 
     /**
+     * @var array<string, true> The blocks carve-js writes with `textLeaf`.
+     */
+    private const TEXT_LEAVES = ['paragraph' => true, 'heading' => true, 'definition_term' => true];
+
+    /**
      * @var array<string, array<string, true>> The glued pairs of each write, by a hash of its inputs.
      */
     private static array $glueMemo = [];
@@ -39,6 +44,7 @@ final class TreeGroupWriter implements GroupWriter
      */
     public function write(WriterState $w, array $group): void
     {
+        self::loseEmptyLeaves($w, $group);
         self::placeEscapes($w, $group);
         [$tree, $escapes] = self::document($w, $group);
         if (self::escapeLoneLinkBrackets($w, $group, $tree)) {
@@ -60,7 +66,8 @@ final class TreeGroupWriter implements GroupWriter
         if ($glued !== []) {
             self::glue($w, $group, $glued);
         }
-        $w->lines = explode("\n", str_ends_with($source, "\n") ? substr($source, 0, -1) : $source);
+        // A group whose blocks are all lost writes no line, which carve-js leaves out of the document.
+        $w->lines = $source === '' ? [] : explode("\n", str_ends_with($source, "\n") ? substr($source, 0, -1) : $source);
         $w->starts = [];
         if ($candidate === null) {
             $w->starts[] = [$group[0], 0];
@@ -293,6 +300,25 @@ final class TreeGroupWriter implements GroupWriter
         }
 
         return self::$glueMemo[$key] = $glued;
+    }
+
+    /**
+     * carve-js `textLeaf`: a paragraph, heading or term with no content has no spelling.
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $nodes
+     */
+    private static function loseEmptyLeaves(WriterState $w, array $nodes): void
+    {
+        foreach ($nodes as $node) {
+            if (isset(self::TEXT_LEAVES[$node->type])) {
+                if ($node->children() === []) {
+                    $w->lose($node, null);
+                }
+            } else {
+                self::loseEmptyLeaves($w, $node->children());
+            }
+        }
     }
 
     /**
