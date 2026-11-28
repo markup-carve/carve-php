@@ -169,6 +169,14 @@ final class ImgFence
 
     private static function clean(DOMElement $element): void
     {
+        // libxml stores namespace declarations separately from ordinary attributes.
+        $xlink = $element->getAttribute('xmlns:xlink');
+        if (
+            $element->hasAttribute('xmlns:xlink')
+            && ($xlink === '' || preg_match('/[ \t\n\r\x{A0}]/u', $xlink) === 1)
+        ) {
+            $element->removeAttribute('xmlns:xlink');
+        }
         foreach (iterator_to_array($element->attributes) as $attribute) {
             if ($attribute->name === 'xmlns' && $element->localName === 'svg') {
                 continue;

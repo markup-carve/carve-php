@@ -40,11 +40,6 @@ final class TypedCoreClauseTest extends TestCase
         'CC-1895' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
         'CC-1897' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
         'CC-1899' => 'carve#6973: the pinned expectation lacks the tooltip the ruling adds; the next spec pin bump drops this',
-        'CC-2270' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2271' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2272' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2273' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
-        'CC-2274' => 'markup-carve/carve#6811 (carve-php line): drop an xmlns:xlink value with whitespace or U+00A0',
     ];
 
     /**
