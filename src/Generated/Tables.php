@@ -5727,7 +5727,7 @@ final class Tables
     /** the specification and the carve commit spec/PINNED names */
     public const SPEC_VERSION = [
         'version' => '0.2',
-        'commit' => '6a0149d7802c41c4aac59656bc0904eef5d0a772',
+        'commit' => 'b10cedb1c43b92e3be185dc6f84f386ee924efcb',
     ];
 
     /** ast-schema.json: the children of document (block) and of paragraph (inline) */
@@ -6789,7 +6789,7 @@ final class Tables
         ],
         'colon-fence-length-mismatch' => [
             [
-                'when' => 'the bare run is shorter than the innermost opener and long enough for no open div',
+                'when' => 'the bare run is shorter than the innermost opener, long enough for no open div, and the anonymous div it opens has no closer of its own',
                 'text' => 'Bare ${authoredWidth}-colon fence does not close the innermost ${expectedWidth}-colon ${kind} opened at ${line}:${column}; it opens an anonymous div.',
             ],
             [
@@ -7554,6 +7554,11 @@ final class Tables
             'warning',
             'render-loss',
             'image-alt-unknown',
+        ],
+        'image-src-unknown' => [
+            'warning',
+            'render-loss',
+            'image-src-unknown',
         ],
         'import-attribute-dropped' => [
             'warning',

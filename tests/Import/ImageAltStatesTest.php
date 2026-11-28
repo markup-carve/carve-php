@@ -11,7 +11,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * carve#6804: the three alt states of an image (C2-A-115) through import, render and `carve import`.
+ * carve#6804: the three alt states of an image (C2-A-115) through import, render and `carve import`; carve#6975: the
+ * `carve import` of an image without `src` (C2-T-034).
  */
 final class ImageAltStatesTest extends TestCase
 {
@@ -22,7 +23,7 @@ final class ImageAltStatesTest extends TestCase
     {
         $out = [];
         foreach (Corpus::clauseCases() as $id => $case) {
-            if (in_array($id, ['CC-2214', 'CC-2215', 'CC-2290', 'CC-2291', 'CC-2292'], true)) {
+            if (in_array($id, ['CC-2214', 'CC-2215', 'CC-2290', 'CC-2291', 'CC-2292', 'CC-2521', 'CC-2522'], true)) {
                 $out[$id] = [$case];
             }
         }

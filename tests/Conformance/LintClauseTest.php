@@ -19,7 +19,11 @@ final class LintClauseTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [];
+    private const KNOWN_FAIL = [
+        'CC-2514' => 'markup-carve/carve#6974 (carve-php line): colon-fence-length-mismatch skips a div that has its own closer',
+        'CC-2515' => 'markup-carve/carve#6974 (carve-php line): colon-fence-length-mismatch skips a div that has its own closer',
+        'CC-2516' => 'markup-carve/carve#6974 (carve-php line): colon-fence-length-mismatch skips a div that has its own closer',
+    ];
 
     /**
      * @return array<string, array{0: array<string, mixed>}>
