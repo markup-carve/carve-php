@@ -79,39 +79,80 @@ final class TreeGroupWriter implements GroupWriter
     /**
      * The escapes carve-js `placeEscapes` puts in the writer state while it writes, placed before the write so the
      * rounds compare against them: the leading caret of link or span text (C2-W-125 case five, `escapeLeadingCaret`),
-     * a backtick glued behind code (`escapeGluedBacktick`) and the `]` behind a pair that holds a text `^[`
-     * (`spanClosingBracket`).
+     * the doubled backslash that ends a text (C2-W-097, `doubleLastBackslash`), a backtick glued behind code
+     * (`escapeGluedBacktick`), the open braces before the closer of a line comment (`braceBeforeCommentCloser`), the `]`
+     * behind a pair that holds a text `^[` (`spanClosingBracket`) and the `{` that ends a text beside a bare pair
+     * (`braceBesidePair`).
      *
      * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
      * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
      */
     private static function placeEscapes(WriterState $w, array $group): void
     {
-        $pending = array_map(static fn (Node $node): array => [$node, false], $group);
+        // Each list with the flags carve-js writes it with, and whether it is the content of a pair (AT_PAIRED_END).
+        $pending = array_map(static fn (Node $node): array => [$node, 0], $group);
         while (($item = array_pop($pending)) !== null) {
-            [$node, $inNote] = $item;
-            $inNote = $inNote || $node->type === 'inline_footnote';
+            [$node, $flags] = $item;
+            $paired = $node->type === 'emphasis' || $node->type === 'strong';
+            $flags |= match ($node->type) {
+                'emphasis' => Spell::IN_EMPHASIS,
+                'strong' => Spell::IN_STRONG,
+                'link' => Spell::IN_BRACKET,
+                'inline_footnote' => Spell::IN_NOTE,
+                default => 0,
+            };
             $children = $node->children();
+            $count = count($children);
             foreach ($children as $at => $child) {
                 $before = $children[$at - 1] ?? null;
-                if (!$inNote && self::caretLeads($w, $child, $before)) {
+                if (($flags & Spell::IN_NOTE) === 0 && self::caretLeads($w, $child, $before)) {
                     self::placeEscape($w, $child->children()[0], 0);
                 }
                 if ($child->type === 'text') {
-                    self::placeTextEscapes($w, $child, $before);
+                    $next = $children[$at + 1] ?? null;
+                    $after = $children[$at + 2] ?? null;
+                    self::doubleLastBackslash($w, $child, $next, $flags);
+                    self::placeTextEscapes($w, $child, $before, $next, $after, $flags);
+                    self::braceBesidePair($w, $child, $next, $after, $paired && $at === $count - 1, $flags);
                 }
-                $pending[] = [$child, $inNote];
+                $pending[] = [$child, $flags];
             }
         }
     }
 
-    private static function placeTextEscapes(WriterState $w, Node $text, ?Node $before): void
+    /**
+     * C2-W-097: a backslash that ends a text is written as two where what follows it is ASCII punctuation, a space or
+     * the end of a line: the end of a list of inlines is the closing mark of its node or the end of the content
+     * (carve-js `doubleLastBackslash`).
+     */
+    private static function doubleLastBackslash(WriterState $w, Node $text, ?Node $next, int $flags): void
+    {
+        $value = $text->value ?? '';
+        $last = strlen($value) - 1;
+        if ($last < 0 || $value[$last] !== '\\') {
+            return;
+        }
+        $escapes = $w->escapesOf($text);
+        if ($escapes !== [] && $escapes[count($escapes) - 1] === $last) {
+            return;
+        }
+        if ($next !== null && !$next->isBreak()) {
+            $spelled = $w->spell->inline($w, $next, $flags & ~Spell::IN_NOTE);
+            if ($spelled !== '' && $spelled[0] !== ' ' && !Compare::isAsciiPunctuation($spelled[0])) {
+                return;
+            }
+        }
+        self::placeEscape($w, $text, $last);
+    }
+
+    private static function placeTextEscapes(WriterState $w, Node $text, ?Node $before, ?Node $next, ?Node $after, int $flags): void
     {
         $value = $text->value ?? '';
         $code = in_array($before?->type, ['code', 'literal_inline', 'math'], true) && $before->field('attrs') === null;
         if ($code && str_starts_with($value, '`')) {
             self::placeEscape($w, $text, 0);
         }
+        self::braceBeforeCommentCloser($w, $text, $next, $after, $flags);
         $closing = strpos($value, ']');
         if ($closing === false || ($before?->type !== 'strong' && $before?->type !== 'emphasis')) {
             return;
@@ -123,6 +164,85 @@ final class TreeGroupWriter implements GroupWriter
                 return;
             }
         }
+    }
+
+    /**
+     * The braces of a text that open a pair before the closer of a note or link which a line comment behind the text
+     * would take (carve-js `braceBeforeCommentCloser`).
+     */
+    private static function braceBeforeCommentCloser(WriterState $w, Node $text, ?Node $comment, ?Node $after, int $flags): void
+    {
+        if (
+            $comment?->type !== 'comment' || $comment->field('form') !== 'line' || $after !== null
+            || ($flags & (Spell::IN_NOTE | Spell::IN_BRACKET)) === 0
+        ) {
+            return;
+        }
+        foreach (self::unclosedBraces($text->value ?? '') as $at) {
+            self::placeEscape($w, $text, $at);
+        }
+    }
+
+    /**
+     * The offsets of the braced openers `{*`, `{/`, `{-`, `{=` of `value` that no closer of the same mark ends.
+     *
+     * @return list<int>
+     */
+    private static function unclosedBraces(string $value): array
+    {
+        $open = [];
+        $length = strlen($value);
+        for ($at = 0; $at + 1 < $length; $at++) {
+            if ($value[$at] === '\\' && Compare::isAsciiPunctuation($value[$at + 1])) {
+                $at++;
+
+                continue;
+            }
+            if ($value[$at] === '{' && str_contains('*/-=', $value[$at + 1])) {
+                $open[] = [$value[$at + 1], $at];
+            } elseif ($value[$at + 1] === '}' && $open !== [] && $open[count($open) - 1][0] === $value[$at]) {
+                array_pop($open);
+            }
+        }
+
+        return array_map(static fn (array $entry): int => $entry[1], $open);
+    }
+
+    /**
+     * C2-W-069: a `{` that ends a text before a bare pair, or at the end of the content of a pair, would open a braced
+     * pair with its mark (carve-js `braceBesidePair`).
+     */
+    private static function braceBesidePair(WriterState $w, Node $text, ?Node $next, ?Node $after, bool $pairedEnd, int $flags): void
+    {
+        $value = $text->value ?? '';
+        if (!str_ends_with($value, '{')) {
+            return;
+        }
+        $pairedNext = match ($next?->type) {
+            'strong' => !self::bracedPair($w, $next, ($flags & Spell::IN_STRONG) !== 0) && !self::bracedBy($after, '*'),
+            'emphasis' => !self::bracedPair($w, $next, ($flags & Spell::IN_EMPHASIS) !== 0) && !self::bracedBy($after, '/'),
+            default => false,
+        };
+        if ($pairedNext || $pairedEnd) {
+            self::placeEscape($w, $text, strlen($value) - 1);
+        }
+    }
+
+    private static function bracedPair(WriterState $w, Node $pair, bool $inside): bool
+    {
+        return PairForm::bracedAnyway($pair, $inside) || ($w->forms[spl_object_id($pair)] ?? 0) > 0;
+    }
+
+    /**
+     * Whether the text `after` starts with `mark` or a word character, which braces the pair before it.
+     */
+    private static function bracedBy(?Node $after, string $mark): bool
+    {
+        if ($after?->type !== 'text' || ($after->value ?? '') === '') {
+            return false;
+        }
+
+        return str_starts_with($after->value ?? '', $mark) || preg_match('/^[\p{L}\p{N}_]/u', $after->value ?? '') === 1;
     }
 
     private static function placeEscape(WriterState $w, Node $text, int $at): void

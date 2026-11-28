@@ -97,13 +97,15 @@ final class RepairTrace
         for ($at = 0; $at < $bodyLength; $at++) {
             $char = $value[$at];
             // C2-W-098: in a cell every pipe takes a backslash; that is its spelling, not an escape of the rounds.
-            if (isset($this->escapes[$path][$from + $at]) || ($inCell && $char === '|') || isset($pairs[$at])) {
+            $asked = isset($this->escapes[$path][$from + $at]) || ($inCell && $char === '|') || isset($pairs[$at]);
+            if ($asked) {
                 $out .= '\\';
                 $escaped[$at] = true;
             }
             // C2-W-097: a literal backslash is written as two before ASCII punctuation, a space or a line end, also where
-            // the next character is another node's; that is its spelling, not an escape of the rounds.
-            if ($char === '\\') {
+            // the next character is another node's; that is its spelling, not an escape of the rounds. An asked escape
+            // of the backslash is that second backslash (carve-js `doubleLastBackslash`).
+            if ($char === '\\' && !$asked) {
                 $after = $at + 1 < $bodyLength ? ord($value[$at + 1]) : ($bodyLength < strlen($value) ? 10 : $next);
                 if ($after === -1 || $after === 10 || $after === 32 || ($after >= 0 && $after < 0x80 && Text::isPunct(chr($after)))) {
                     $out .= '\\';

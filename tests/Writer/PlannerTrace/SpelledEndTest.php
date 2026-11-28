@@ -31,7 +31,6 @@ final class SpelledEndTest extends TestCase
     private static function repaired(string $value): string
     {
         $document = Node::mirror([
-
             'type' => 'document',
             'children' => [
                 ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => $value]]],
