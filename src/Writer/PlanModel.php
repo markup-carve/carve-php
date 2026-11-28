@@ -19,6 +19,30 @@ final class PlanModel
     ];
 
     /**
+     * @var array<string, string>
+     */
+    private const BRACED = [
+        'underline' => '_',
+        'strike' => '~',
+        'highlight' => '=',
+        'superscript' => '^',
+        'subscript' => ',',
+        'insert' => '+',
+        'delete' => '-',
+    ];
+
+    /**
+     * @param array<mixed> $node
+     */
+    public static function directBraced(array $node): bool
+    {
+        $type = $node['type'] ?? null;
+
+        return is_string($type) && isset(self::BRACED[$type])
+            && is_array($node['children'] ?? null) && $node['children'] !== [];
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Writer\State $w
 @param array<mixed> $nodes
      * @param int $flags
@@ -120,7 +144,7 @@ final class PlanModel
                 continue;
             }
             $nodePath = $path . '/' . $at;
-            $part = $w->planParts[$nodePath]['part'] ?? null;
+            $part = self::directBraced($node) ? '' : ($w->planParts[$nodePath]['part'] ?? null);
             if ($part === null) {
                 $leaf->undecide('model');
 
@@ -165,6 +189,16 @@ final class PlanModel
         }
         if ($type === 'soft_break' || $type === 'hard_break') {
             $leaf->pushString($part, PlanLeaf::ATOM, $path, $type);
+
+            return;
+        }
+        $children = $node['children'] ?? null;
+        if (self::directBraced($node) && is_array($children)) {
+            $mark = self::BRACED[$type];
+            $leaf->pushString('{' . $mark, PlanLeaf::OPEN, $path, $type);
+            self::inlines($w, $leaf, $children, $path . '/children', $flags);
+            $leaf->pushString($mark . '}', PlanLeaf::CLOSE, $path, $type);
+            $leaf->pushString(BraceBlock::of($node, ['pipes' => ($flags & 1) !== 0]), PlanLeaf::ATOM, $path, $type);
 
             return;
         }

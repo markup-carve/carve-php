@@ -761,11 +761,13 @@ final class Inline
                 if ($first !== $at && $this->w->plan->undecided === null) {
                     $this->w->plan->undecided = 'code run';
                 }
-                $this->w->planParts[$path . '/' . $first] = [
-                    'part' => $part,
-                    'node' => $node,
-                    'escaped' => $text ? $c->escapedAt : [],
-                ];
+                if (!PlanModel::directBraced($node)) {
+                    $this->w->planParts[$path . '/' . $first] = [
+                        'part' => $part,
+                        'node' => $node,
+                        'escaped' => $text ? $c->escapedAt : [],
+                    ];
+                }
             }
             $out .= $part;
             if (!$traced) {
