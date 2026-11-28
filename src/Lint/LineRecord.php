@@ -58,6 +58,7 @@ final class LineRecord extends stdClass
         public mixed $raw_body,
         public mixed $lazy,
         public mixed $open_colon,
+        public mixed $own_closer,
         public mixed $shape,
         public mixed $path,
     ) {

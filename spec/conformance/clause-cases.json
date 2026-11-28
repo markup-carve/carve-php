@@ -8480,7 +8480,8 @@
           "value": "x"
          }
         ],
-        "href": "/u"
+        "href": "/u",
+        "tooltip": "T"
        }
       ]
      },
@@ -74554,7 +74555,8 @@
          "value": "a"
         }
        ],
-       "href": "/url"
+       "href": "/url",
+       "tooltip": "Title"
       },
       {
        "type": "text",
@@ -74703,7 +74705,8 @@
          "value": "a"
         }
        ],
-       "href": "/u"
+       "href": "/u",
+       "tooltip": "T"
       },
       {
        "type": "text",
@@ -74774,7 +74777,8 @@
          "value": "a"
         }
        ],
-       "href": "/u"
+       "href": "/u",
+       "tooltip": "T"
       },
       {
        "type": "text",
@@ -74824,7 +74828,8 @@
          "value": "a"
         }
        ],
-       "href": "/u"
+       "href": "/u",
+       "tooltip": "T"
       },
       {
        "type": "text",
@@ -74953,7 +74958,8 @@
          "value": "a"
         }
        ],
-       "href": "/u"
+       "href": "/u",
+       "tooltip": "T"
       },
       {
        "type": "text",
@@ -77752,7 +77758,8 @@
           "value": "a"
          }
         ],
-        "href": "/url"
+        "href": "/url",
+        "tooltip": "Title"
        },
        {
         "type": "text",
@@ -77822,7 +77829,8 @@
           "value": "a"
          }
         ],
-        "href": "/u"
+        "href": "/u",
+        "tooltip": "T"
        },
        {
         "type": "text",
@@ -77983,7 +77991,8 @@
           "value": "a"
          }
         ],
-        "href": "/u"
+        "href": "/u",
+        "tooltip": "T"
        },
        {
         "type": "text",
@@ -78068,7 +78077,8 @@
           "value": "a"
          }
         ],
-        "href": "/u"
+        "href": "/u",
+        "tooltip": "T"
        },
        {
         "type": "text",
@@ -78154,7 +78164,8 @@
           "value": "a"
          }
         ],
-        "href": "/u"
+        "href": "/u",
+        "tooltip": "T"
        },
        {
         "type": "text",
@@ -98755,6 +98766,151 @@
   "args": ["lint", "a.crv"],
   "options": {},
   "expected": {"status":1,"stdoutDiagnostics":[{"code":"markdown-strong-double-star","file":"a.crv","line":1,"column":3,"severity":"warning"}],"stderrCategory":null},
+  "from": []
+ },
+ {
+  "id": "CC-2510",
+  "clauses": ["C2-A-115", "C2-A-133"],
+  "why": "C2-A-115: A resolved reference takes its tooltip from its definition.",
+  "summary": "a resolved full reference link carries the tooltip of its definition",
+  "kind": "parse",
+  "input": "See [the guide][g].\n\n[g]: https://example.com \"Guide\"\n",
+  "options": {},
+  "expected": {"children":[{"type":"paragraph","children":[{"type":"text","value":"See "},{"type":"link","key":"g","namespace":"link","refForm":"full","children":[{"type":"text","value":"the guide"}],"href":"https://example.com","tooltip":"Guide"},{"type":"text","value":"."}]},{"type":"link_reference_definition","key":"g","namespace":"link","href":"https://example.com","tooltip":"Guide"}]},
+  "from": []
+ },
+ {
+  "id": "CC-2511",
+  "clauses": ["C2-A-115", "C2-A-133"],
+  "why": "C2-A-115: A resolved reference takes its tooltip from its definition.",
+  "summary": "a resolved collapsed reference link carries the tooltip of its definition",
+  "kind": "parse",
+  "input": "[g][]\n\n[g]: /u \"T\"\n",
+  "options": {},
+  "expected": {"children":[{"type":"paragraph","children":[{"type":"link","key":"g","namespace":"link","refForm":"collapsed","children":[{"type":"text","value":"g"}],"href":"/u","tooltip":"T"}]},{"type":"link_reference_definition","key":"g","namespace":"link","href":"/u","tooltip":"T"}]},
+  "from": []
+ },
+ {
+  "id": "CC-2512",
+  "clauses": ["C2-A-115", "C2-A-133"],
+  "why": "C2-A-115: A resolved reference takes its tooltip from its definition.",
+  "summary": "a resolved shortcut reference link carries the tooltip of its definition",
+  "kind": "parse",
+  "input": "[g]\n\n[g]: /u \"T\"\n",
+  "options": {},
+  "expected": {"children":[{"type":"paragraph","children":[{"type":"link","key":"g","namespace":"link","refForm":"shortcut","children":[{"type":"text","value":"g"}],"href":"/u","tooltip":"T"}]},{"type":"link_reference_definition","key":"g","namespace":"link","href":"/u","tooltip":"T"}]},
+  "from": []
+ },
+ {
+  "id": "CC-2513",
+  "clauses": ["C2-A-115", "C2-A-133"],
+  "why": "C2-A-115: A resolved reference takes its tooltip from its definition.",
+  "summary": "a resolved reference image carries the tooltip of its definition next to src",
+  "kind": "parse",
+  "input": "![a][g]\n\n[g]: x.png \"T\"\n",
+  "options": {},
+  "expected": {"children":[{"type":"paragraph","role":"image","children":[{"type":"image","alt":"a","key":"g","namespace":"link","refForm":"full","src":"x.png","tooltip":"T"}]},{"type":"link_reference_definition","key":"g","namespace":"link","href":"x.png","tooltip":"T"}]},
+  "from": []
+ },
+ {
+  "id": "CC-2514",
+  "clauses": ["C2-B-125", "C2-W-039"],
+  "why": "Catalog colon-fence-length-mismatch: a run that opens an anonymous div is not reported when that div has its own closer C2-W-039: the shortest colon run of at least three that is longer than the run of every div inside it",
+  "summary": "the nested div with attribute lines that the writer and the importer write is not reported, since its own closer closes it",
+  "kind": "lint",
+  "input": "::::\n{align=left size=1 width=33%}\n***\n\n{#ftn1}\n:::\ntext\n:::\n::::\n",
+  "options": {},
+  "expected": {"notReported":["colon-fence-length-mismatch"]},
+  "from": []
+ },
+ {
+  "id": "CC-2515",
+  "clauses": ["C2-B-125", "C2-W-039"],
+  "why": "Catalog colon-fence-length-mismatch: a run that opens an anonymous div is not reported when that div has its own closer C2-W-039: the shortest colon run of at least three that is longer than the run of every div inside it",
+  "summary": "a nested anonymous div with no attribute line is not reported when its own closer closes it",
+  "kind": "lint",
+  "input": "::::\n:::\ntext\n:::\n::::\n",
+  "options": {},
+  "expected": {"notReported":["colon-fence-length-mismatch"]},
+  "from": []
+ },
+ {
+  "id": "CC-2516",
+  "clauses": ["C2-B-125", "C2-B-109"],
+  "why": "Catalog colon-fence-length-mismatch: a run that opens an anonymous div is not reported when that div has its own closer C2-B-125: A bare colon run closes the innermost open div it is long enough for, and otherwise opens an anonymous div.",
+  "summary": "a short run meant to close a four-colon admonition: the longer run below closes only the div it opened and is reported, and the admonition stays unclosed",
+  "kind": "lint",
+  "input": ":::: note\nbody\n:::\nmore\n::::\n",
+  "options": {},
+  "expected": {"diagnostics":[{"code":"unclosed-container-fence","line":1,"column":1},{"code":"colon-fence-length-mismatch","line":5,"column":1,"channel":"lint","severity":"warning","messageWhen":"the bare run is longer than the innermost opener"}],"diagnosticsComplete":true},
+  "from": []
+ },
+ {
+  "id": "CC-2517",
+  "clauses": ["C2-B-125"],
+  "why": "Catalog colon-fence-length-mismatch: a div that runs to the end of its container, or that a closer of an enclosing container ends, is reported",
+  "summary": "an anonymous div that runs to the end of the document is still reported with the opens message",
+  "kind": "lint",
+  "input": ":::: note\nbody\n:::\n",
+  "options": {},
+  "expected": {"diagnostics":[{"code":"colon-fence-length-mismatch","line":3,"column":1,"channel":"lint","severity":"warning","messageWhen":"the bare run is shorter than the innermost opener, long enough for no open div, and the anonymous div it opens has no closer of its own"},{"code":"unclosed-container-fence","line":1,"column":1},{"code":"unclosed-container-fence","line":3,"column":1}]},
+  "from": []
+ },
+ {
+  "id": "CC-2518",
+  "clauses": ["C2-M-050", "C2-W-011"],
+  "why": "C2-M-050: an `<img>` with no `src` attribute is an `image` with no `src` field, and keeps its `alt`, its `tooltip` from `title` and its other attributes, so the importer reports nothing and the writer reports the shape (C2-W-011) C2-W-011: An image with neither `src` nor `key`, as an import of an `<img>` with no `src` attribute gives (C2-M-050), is written with an empty destination, `![alt]()`, which reads back as `src: \"\"` (C2-A-107), and reported with `image-src-unknown` at the path of the image.",
+  "summary": "an img with no src imports as an image with no src that keeps alt and the title as tooltip; the writer writes an empty destination and reports image-src-unknown at the image",
+  "kind": "import",
+  "html": "<p>a <img alt=\"A\" title=\"T\"> b</p>",
+  "options": {},
+  "expected": {"children":[{"type":"paragraph","children":[{"type":"text","value":"a "},{"type":"image","alt":"A","tooltip":"T"},{"type":"text","value":" b"}]}],"carve":"a ![A]( \"T\") b\n","diagnostics":[{"code":"image-src-unknown","path":"/children/0/children/1","channel":"render-loss","severity":"warning"}],"diagnosticsComplete":true},
+  "from": []
+ },
+ {
+  "id": "CC-2519",
+  "clauses": ["C2-W-011", "C2-A-107"],
+  "why": "C2-W-011: An image with neither `src` nor `key`, as an import of an `<img>` with no `src` attribute gives (C2-M-050), is written with an empty destination, `![alt]()`, which reads back as `src: \"\"` (C2-A-107), and reported with `image-src-unknown` at the path of the image. Neither code is a code of C2-W-134, so the write returns the source.",
+  "summary": "the writer writes an image with neither src nor key with an empty destination and reports image-src-unknown at the image",
+  "kind": "write",
+  "tree": {"type":"document","astVersion":"2.0","children":[{"type":"paragraph","children":[{"type":"text","value":"a "},{"type":"image","alt":"A","tooltip":"T"},{"type":"text","value":" b"}]}]},
+  "options": {},
+  "expected": {"carve":"a ![A]( \"T\") b\n","diagnostics":[{"code":"image-src-unknown","path":"/children/0/children/1","channel":"render-loss","severity":"warning"}],"diagnosticsComplete":true},
+  "from": []
+ },
+ {
+  "id": "CC-2520",
+  "clauses": ["C2-M-050", "C2-W-011"],
+  "why": "C2-M-050: an `<img>` with no `src` attribute is an `image` with no `src` field, and keeps its `alt`, its `tooltip` from `title` and its other attributes, so the importer reports nothing and the writer reports the shape (C2-W-011)",
+  "summary": "a lazy-loading img with data-src and no src imports as an image with no src that keeps data-src as an attribute",
+  "kind": "import",
+  "html": "<p><img data-src=\"x.png\" alt=\"A\"></p>",
+  "options": {},
+  "expected": {"children":[{"type":"paragraph","role":"image","children":[{"type":"image","alt":"A","attrs":{"keyValues":[["data-src","x.png"]]}}]}],"carve":"![A](){data-src=x.png}\n","diagnostics":[{"code":"image-src-unknown","path":"/children/0/children/0","channel":"render-loss","severity":"warning"}],"diagnosticsComplete":true},
+  "from": []
+ },
+ {
+  "id": "CC-2521",
+  "clauses": ["C2-T-034", "C2-M-050"],
+  "why": "C2-T-034: Nor does `image-src-unknown`, an image with no `src` (C2-W-011). C2-M-050: an `<img>` with no `src` attribute is an `image` with no `src` field",
+  "summary": "import of an img with no src writes an empty destination, reports image-src-unknown on standard error and exits 0",
+  "kind": "cli",
+  "args": ["import", "--from", "html", "-"],
+  "stdin": "<p><img data-src=\"x.png\" alt=\"A\"></p>",
+  "options": {},
+  "expected": {"status":0,"stdout":"![A](){data-src=x.png}\n","stderrDiagnostics":[{"code":"image-src-unknown","file":"<stdin>"}],"stderrCategory":null},
+  "from": []
+ },
+ {
+  "id": "CC-2522",
+  "clauses": ["C2-T-034", "C2-M-050"],
+  "why": "C2-T-034: with `--strict-losses` a loss of either fails the file with the category `render-loss` and writes no source. C2-M-050: an `<img>` with no `src` attribute is an `image` with no `src` field",
+  "summary": "import of an img with no src under strict losses fails with render-loss and writes no source",
+  "kind": "cli",
+  "args": ["import", "--from", "html", "--strict-losses", "-"],
+  "stdin": "<p><img data-src=\"x.png\" alt=\"A\"></p>",
+  "options": {},
+  "expected": {"status":1,"stdout":"","stderrCategory":"render-loss"},
   "from": []
  }
  ]

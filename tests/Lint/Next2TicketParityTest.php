@@ -277,8 +277,8 @@ i) y',
 :::
 :::',
                 'colon-fence-length-mismatch',
+                // carve#6974: the div line 2 opens has its own closer on line 3.
                 [
-                    ['colon-fence-length-mismatch', 5, 8],
                     ['colon-fence-length-mismatch', 13, 16],
                 ],
             ],
