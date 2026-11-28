@@ -9,10 +9,16 @@ use MarkupCarve\Carve\Json\TreeEquality;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/** C2-I-026, C2-W-002 and C2-W-069: transparent comments do not make a bare pair marker flank whitespace. */
+/**
+ * C2-I-026, C2-W-002 and C2-W-069: transparent comments do not make a bare pair marker flank whitespace.
+ */
 final class TransparentCommentPairTest extends TestCase
 {
-    /** @return array<string, array{string, string}> */
+    /**
+     * Forms with unsafe and safe visible flanks.
+     *
+     * @return array<string, array{string, string}>
+     */
     public static function forms(): array
     {
         return [
@@ -28,6 +34,8 @@ final class TransparentCommentPairTest extends TestCase
             'emphasis in a quote' => ["> {/a {% x %}/}\n", "> {/a {% x %}/}\n"],
             'safe trailing comment keeps bare form' => ["{*a{% x %}*}\n", "*a{% x %}*\n"],
             'safe leading comment keeps bare form' => ["{*{% x %}a*}\n", "*{% x %}a*\n"],
+            'escaped backslash before a strong closer stays bare' => ["{*a\\\\{% x %}*}\n", "*a\\\\{% x %}*\n"],
+            'escaped backslash before an emphasis closer stays bare' => ["{/a\\\\{% x %}/}\n", "/a\\\\{% x %}/\n"],
         ];
     }
 
