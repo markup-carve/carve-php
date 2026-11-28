@@ -264,7 +264,7 @@ final class Inline
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
     {
-        if ($this->w->plan !== null && $c->flat === null) {
+        if ($this->w->planMode && $c->flat === null) {
             $outer = $this->w->planLeafDepth === 0;
             $start = $c->lineStart ? Plan::LINE_START : Plan::AFTER_MARK;
             $end = $c->inLineBlock ? Plan::AS_LINE : Plan::AS_CONTENT;
@@ -279,7 +279,7 @@ final class Inline
             } finally {
                 $this->w->planLeafDepth--;
             }
-            if ($outer) {
+            if ($outer && $this->w->plan !== null) {
                 PlanModel::leaf($this->w, $nodes, $path, $end, $start, $flags);
             }
 
@@ -768,6 +768,8 @@ final class Inline
                     } elseif ($c->escapedAt !== []) {
                         $this->w->planWrittenEscapes[$partPath] = $c->escapedAt;
                     }
+                } else {
+                    unset($this->w->planContents[$path . '/' . $first . '/children']);
                 }
             }
             $out .= $part;
@@ -2198,6 +2200,14 @@ final class Inline
         }
         $this->textPrefix = strlen($prefix);
         $this->textValue = $value;
+
+        if ($this->w->planMode) {
+            $c->pairEscapes = $this->w->planEscapes[$c->textPath] ?? [];
+            $written = Text::escape($value, $c, $next);
+            $c->pairEscapes = [];
+
+            return $prefix . $written;
+        }
 
         return $prefix . Text::escapePairs($value, $c, $next);
     }

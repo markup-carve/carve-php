@@ -82,11 +82,28 @@ final class PlanPlaces
                 $inner['capped'] = $below >= self::MAX_DEPTH;
                 foreach (self::slots($node) as $slot => $children) {
                     $childPath = $listPath . '/' . $at . '/' . $slot;
-                    $plan->places[$childPath] = self::pack($inner);
+                    if (self::isLeafPlace($type, $slot)) {
+                        $plan->places[$childPath] = self::pack($inner);
+                    }
                     $pending[] = [$children, $childPath, $depth + 1, $below, $inner];
                 }
             }
         }
+    }
+
+    private static function isLeafPlace(string $type, string $slot): bool
+    {
+        if ($slot === 'title') {
+            return true;
+        }
+        if ($slot !== 'children') {
+            return false;
+        }
+
+        return in_array($type, [
+            'paragraph', 'heading', 'definition_term', 'cell_paragraph', 'line', 'citation_definition',
+            'snippet_definition',
+        ], true);
     }
 
     /**

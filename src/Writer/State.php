@@ -16,6 +16,13 @@ final class State
 
     public ?Plan $plan = null;
 
+    public bool $planMode = false;
+
+    /**
+     * @var array<string, array<int, true>>
+     */
+    public array $planEscapes = [];
+
     /**
      * @var array<string, string>
      */

@@ -70,6 +70,20 @@ final class PlanModel
 
             return;
         }
+        $place = PlanPlaces::get($plan, $path);
+        if (
+            $end !== Plan::AS_LINE && ($flags & 1) === 0 && $place !== null
+            && !$place['line'] && $w->abbreviations === [] && self::plainLeaf($nodes, $content)
+        ) {
+            $plan->leaves++;
+            foreach ($nodes as $at => $node) {
+                if (is_array($node) && ($node['type'] ?? null) === 'text') {
+                    $plan->covered[$path . '/' . $at] = true;
+                }
+            }
+
+            return;
+        }
         $leaf = new PlanLeaf();
         self::inlines($w, $leaf, $nodes, $path, $flags);
         if ($end === Plan::AS_CONTENT) {
@@ -94,7 +108,6 @@ final class PlanModel
         if ($leaf->undecided === null && $leaf->text() !== $content) {
             $leaf->undecide('model');
         }
-        $place = PlanPlaces::get($plan, $path);
         if ($place === null) {
             $leaf->undecide('place');
         }
@@ -126,6 +139,39 @@ final class PlanModel
             array_push($plan->lost, ...$leaf->lostValues);
         }
         array_push($plan->respell, ...$leaf->respell);
+    }
+
+    /**
+     * @param array<mixed> $nodes
+     * @param string $content
+     */
+    private static function plainLeaf(array $nodes, string $content): bool
+    {
+        $offset = 0;
+        foreach ($nodes as $index => $node) {
+            if (!is_array($node)) {
+                return false;
+            }
+            if ($index % 2 === 1) {
+                if (($node['type'] ?? null) !== 'soft_break' || ($content[$offset] ?? '') !== "\n") {
+                    return false;
+                }
+                $offset++;
+
+                continue;
+            }
+            $value = $node['value'] ?? null;
+            if (
+                ($node['type'] ?? null) !== 'text' || !is_string($value)
+                || preg_match('/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/D', $value) !== 1
+                || substr_compare($content, $value, $offset, strlen($value)) !== 0
+            ) {
+                return false;
+            }
+            $offset += strlen($value);
+        }
+
+        return count($nodes) % 2 === 1 && $offset === strlen($content);
     }
 
     /**
@@ -174,7 +220,9 @@ final class PlanModel
     private static function node(State $w, PlanLeaf $leaf, array $node, string $path, string $part, int $flags): void
     {
         $type = is_string($node['type'] ?? null) ? $node['type'] : '';
-        $leaf->nodes[$path] = $node;
+        if ($type === 'smart_punctuation' || $type === 'math') {
+            $leaf->nodes[$path] = $node;
+        }
         if ($type === 'text') {
             $value = is_string($node['value'] ?? null) ? $node['value'] : '';
             $written = $w->planWrittenEscapes[$path] ?? [];

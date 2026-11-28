@@ -258,7 +258,12 @@ final class PlanLeaf
      */
     public function nodeAt(int $unit): ?array
     {
-        return $this->nodes[$this->owners[$unit] ?? ''] ?? null;
+        $owner = $this->owners[$unit] ?? null;
+        if ($owner === null) {
+            return null;
+        }
+
+        return $this->nodes[$owner] ?? ['type' => $this->ownerTypes[$unit]];
     }
 
     public function trimText(int $from): void

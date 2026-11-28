@@ -32,12 +32,34 @@ final class ReadbackRound
     private const MEMO_BYTES = 65536;
 
     /**
+     * @var int
+     */
+    private const KEPT_SOURCE_BYTES = 4096;
+
+    /**
+     * @var int
+     */
+    private const KEPT_TREES = 8192;
+
+    /**
+     * @var int
+     */
+    private const KEPT_BYTES = 262144;
+
+    /**
      * The last read-backs of the outer write, each with its source, oldest first and at most `MEMO_BYTES` of source;
      * null outside `memoized()`.
      *
      * @var array<int, array{string, array<string, mixed>}>|null
      */
     private static ?array $memo = null;
+
+    /**
+     * @var array<string, array<string, mixed>>|null
+     */
+    private static ?array $keptTrees = null;
+
+    private static int $keptBytes = 0;
 
     /**
      * @param array{
@@ -85,11 +107,20 @@ final class ReadbackRound
                 }
             }
         }
+        if ($memo !== null && strlen($source) <= self::KEPT_SOURCE_BYTES) {
+            $kept = self::$keptTrees[$source] ?? null;
+            if ($kept !== null) {
+                return $kept;
+            }
+        }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 
         $parsed = Carve::parse($source, $parseOptions);
         HeapPages::release();
         $tree = TreeEncoder::decodedWithOffsets($parsed, $source);
+        if ($memo !== null && strlen($source) <= self::KEPT_SOURCE_BYTES) {
+            self::keepTree($source, $tree);
+        }
         if ($memo !== null && ($keep || strlen($source) <= self::MEMO_BYTES)) {
             $memo[] = [$source, $tree];
             $bytes = 0;
@@ -109,6 +140,21 @@ final class ReadbackRound
     }
 
     /**
+     * @param string $source
+@param array<string, mixed> $tree
+     */
+    private static function keepTree(string $source, array $tree): void
+    {
+        $length = strlen($source);
+        if (count(self::$keptTrees ?? []) >= self::KEPT_TREES || self::$keptBytes + $length > self::KEPT_BYTES) {
+            self::$keptTrees = [];
+            self::$keptBytes = 0;
+        }
+        self::$keptTrees[$source] = $tree;
+        self::$keptBytes += $length;
+    }
+
+    /**
      * Runs one outer write with its last read-backs kept: its steps read the same source more than once.
      *
      * @template T
@@ -120,15 +166,20 @@ final class ReadbackRound
     public static function memoized(Closure $write): mixed
     {
         $outer = self::$memo;
+        $outerKept = self::$keptTrees;
+        $outerBytes = self::$keptBytes;
         if ($outer === null) {
             Text::forgetBlockReads();
             Inline::forgetCollapsedReads();
         }
         self::$memo ??= [];
+        self::$keptTrees ??= [];
         try {
             return $write();
         } finally {
             self::$memo = $outer;
+            self::$keptTrees = $outerKept;
+            self::$keptBytes = $outerBytes;
         }
     }
 
