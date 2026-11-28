@@ -43,6 +43,25 @@ final class ProbeGlueTest extends TestCase
     }
 
     /**
+     * A probe across the closer of the first strong writes the second one inside a strong, which braces it anyway for
+     * the writer: when a `*` of its content closes it early, it keeps the bare form and the `*` takes the backslash.
+     *
+     * @return void
+     */
+    public function testProbeMarksAStrongBracedAnyway(): void
+    {
+        $paragraph = [
+            'type' => 'paragraph',
+            'children' => [
+                ['type' => 'strong', 'children' => [['type' => 'text', 'value' => '` ']]],
+                ['type' => 'strong', 'children' => [['type' => 'text', 'value' => '`b*+']]],
+            ],
+        ];
+
+        $this->assertSame('{*\\` *}*\\`b\\*+*', self::repaired($paragraph));
+    }
+
+    /**
      * @param array<string, mixed> $paragraph
      */
     private static function repaired(array $paragraph): string

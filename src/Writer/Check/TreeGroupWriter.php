@@ -452,7 +452,7 @@ final class TreeGroupWriter implements GroupWriter
         if ($node->type === 'emphasis' || $node->type === 'strong') {
             $id = spl_object_id($node);
             $anyway = PairForm::bracedAnyway($node, isset($open[$node->type]));
-            if ($anyway && $note) {
+            if ($anyway && $note && !isset($w->bracedAnyway[$id])) {
                 $w->bracedAnyway[$id] = true;
                 $w->shared->held[] = $node;
             }

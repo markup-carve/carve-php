@@ -62,7 +62,7 @@ final class TreeSpell implements Spell
         }
         foreach ($nodes as $at => $node) {
             $array = $node->toArray();
-            TreeGroupWriter::markForms($w, $node, $array, $open);
+            TreeGroupWriter::markForms($w, $node, $array, $open, true);
             $list[] = $array;
             self::collect($w, $node, self::LIST . '/' . $at, $escapes);
         }
