@@ -29,7 +29,7 @@ final class TreeGroupWriter implements GroupWriter
      */
     public function write(WriterState $w, array $group): void
     {
-        self::escapeLeadingCarets($w, $group);
+        self::placeEscapes($w, $group);
         [$tree, $escapes] = self::document($w, $group);
         if (self::escapeLoneLinkBrackets($w, $group, $tree)) {
             [$tree, $escapes] = self::document($w, $group);
@@ -56,14 +56,15 @@ final class TreeGroupWriter implements GroupWriter
     }
 
     /**
-     * C2-W-125 case five (carve-js `escapeLeadingCaret`): the leading caret of link or span text would read as a
-     * footnote reference, so the write escapes it in the state the rounds see. Not in a note, not for a reference whose
-     * key is its content, and not for a span behind a bare `!`.
+     * The escapes carve-js `placeEscapes` puts in the writer state while it writes, placed before the write so the
+     * rounds compare against them: the leading caret of link or span text (C2-W-125 case five, `escapeLeadingCaret`),
+     * a backtick glued behind code (`escapeGluedBacktick`) and the `]` behind a pair that holds a text `^[`
+     * (`spanClosingBracket`).
      *
      * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
      * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
      */
-    private static function escapeLeadingCarets(WriterState $w, array $group): void
+    private static function placeEscapes(WriterState $w, array $group): void
     {
         $pending = array_map(static fn (Node $node): array => [$node, false], $group);
         while (($item = array_pop($pending)) !== null) {
@@ -71,14 +72,42 @@ final class TreeGroupWriter implements GroupWriter
             $inNote = $inNote || $node->type === 'inline_footnote';
             $children = $node->children();
             foreach ($children as $at => $child) {
-                if (!$inNote && self::caretLeads($w, $child, $children[$at - 1] ?? null)) {
-                    $first = $child->children()[0];
-                    if (!in_array(0, $w->escapesOf($first), true)) {
-                        Round::addEscapes($w, [new Escape($first, 0)]);
-                    }
+                $before = $children[$at - 1] ?? null;
+                if (!$inNote && self::caretLeads($w, $child, $before)) {
+                    self::placeEscape($w, $child->children()[0], 0);
+                }
+                if ($child->type === 'text') {
+                    self::placeTextEscapes($w, $child, $before);
                 }
                 $pending[] = [$child, $inNote];
             }
+        }
+    }
+
+    private static function placeTextEscapes(WriterState $w, Node $text, ?Node $before): void
+    {
+        $value = $text->value ?? '';
+        $code = in_array($before?->type, ['code', 'literal_inline', 'math'], true) && $before->field('attrs') === null;
+        if ($code && str_starts_with($value, '`')) {
+            self::placeEscape($w, $text, 0);
+        }
+        $closing = strpos($value, ']');
+        if ($closing === false || ($before?->type !== 'strong' && $before?->type !== 'emphasis')) {
+            return;
+        }
+        foreach ($before->children() as $child) {
+            if ($child->type === 'text' && preg_match('/^\^\[[^\]]*\[/', $child->value ?? '') === 1) {
+                self::placeEscape($w, $text, $closing);
+
+                return;
+            }
+        }
+    }
+
+    private static function placeEscape(WriterState $w, Node $text, int $at): void
+    {
+        if (!in_array($at, $w->escapesOf($text), true)) {
+            Round::addEscapes($w, [new Escape($text, $at)]);
         }
     }
 
