@@ -36,6 +36,27 @@ final class VerbatimReferenceRoundsTest extends TestCase
     }
 
     /**
+     * C2-W-125 case five: the bare round asks a repair inside a link and reports nothing behind a link it did not
+     * form, so the group is written again with the link-text fallback. Output is carve-js `main`.
+     *
+     * @return void
+     */
+    public function testLinkRepairTakesTheFallback(): void
+    {
+        $source = "  e\\]*{.c}}\\[f](x)[][k\\\\[] l](x){.c}[a\n  e\\]*}\\[f](x)[k\\\\[] l](x){.c}[a\n\n[x]: /u";
+        $expected = "e]\\*{.c}}\\[f](x)[][k\\\\[] l](x){.c}[a\ne\\]\\*}\\[f](x)[k\\\\\\[\\] l](x){.c}\\[a\n\n[x]: /u\n";
+
+        $result = Writer::formatWithDiagnostics($source);
+
+        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($expected, $result->source);
+        $tree = TreeEncoder::decodedForWriter(Carve::parse($source));
+        $read = TreeEncoder::decodedForWriter(Carve::parse($result->source));
+        $this->assertTrue(TreeEquality::equal($tree, $read));
+        $this->assertSame($result->source, Carve::format($result->source));
+    }
+
+    /**
      * C2-W-088, carve#6802: round 0 reports the strong behind an unformed link, so every potential strong opener
      * takes a backslash. Pin the entire form as well as the lines that expose the missed report.
      */
