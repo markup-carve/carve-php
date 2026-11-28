@@ -400,7 +400,7 @@ Class. Provisional. `::: list-table` (`carve.listTable`): a list of rows, each a
 
 ### `MarkupCarve\Carve\Extension\ColorSwatch`
 
-Class. Provisional. `:color[value]` (`carve.colorSwatch`) with a swatch chip, for a safe CSS color only. Both channels write the same HTML.
+Class. Provisional. `:color[value]` (`carve.colorSwatch`) with a swatch chip for a safe CSS color, and the fallback for any other value. Both channels write the same HTML.
 
 - `static bundle(string $position = 'before', string $shape = 'square', bool $tint = false, bool $reveal = false): Bundle`
 - `static transform(Claim $claim): ?Node`
