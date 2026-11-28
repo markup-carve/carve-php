@@ -17,9 +17,14 @@ final class State
     public ?Plan $plan = null;
 
     /**
-     * @var array<string, array{part: string, node: array<mixed>, escaped: array<int, bool|int>}>
+     * @var array<string, string>
      */
     public array $planParts = [];
+
+    /**
+     * @var array<string, array<int, bool|int>>
+     */
+    public array $planWrittenEscapes = [];
 
     /**
      * @var array<string, string>

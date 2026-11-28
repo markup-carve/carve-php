@@ -762,11 +762,12 @@ final class Inline
                     $this->w->plan->undecided = 'code run';
                 }
                 if (!PlanModel::directBraced($node)) {
-                    $this->w->planParts[$path . '/' . $first] = [
-                        'part' => $part,
-                        'node' => $node,
-                        'escaped' => $text ? $c->escapedAt : [],
-                    ];
+                    $partPath = $path . '/' . $first;
+                    if (!$text) {
+                        $this->w->planParts[$partPath] = $part;
+                    } elseif ($c->escapedAt !== []) {
+                        $this->w->planWrittenEscapes[$partPath] = $c->escapedAt;
+                    }
                 }
             }
             $out .= $part;

@@ -144,7 +144,8 @@ final class PlanModel
                 continue;
             }
             $nodePath = $path . '/' . $at;
-            $part = self::directBraced($node) ? '' : ($w->planParts[$nodePath]['part'] ?? null);
+            $part = ($node['type'] ?? null) === 'text' || self::directBraced($node)
+                ? '' : ($w->planParts[$nodePath] ?? null);
             if ($part === null) {
                 $leaf->undecide('model');
 
@@ -176,7 +177,7 @@ final class PlanModel
         $leaf->nodes[$path] = $node;
         if ($type === 'text') {
             $value = is_string($node['value'] ?? null) ? $node['value'] : '';
-            $written = $w->planParts[$path]['escaped'] ?? [];
+            $written = $w->planWrittenEscapes[$path] ?? [];
             $escapes = [];
             foreach ($written as $at => $escaped) {
                 if ($escaped) {
