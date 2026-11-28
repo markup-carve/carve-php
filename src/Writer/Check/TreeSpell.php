@@ -11,8 +11,8 @@ use MarkupCarve\Carve\Writer\State;
 
 /**
  * `Spell` over the PHP inline writer: the nodes are written as one inline list of a paragraph, with the escapes of the
- * writer state keyed by the paths the nodes take in that list. `IN_CELL` and `IN_BRACKET` set the matching context;
- * the emphasis, strong and note flags have no context of their own in the PHP writer, which reads them from the tree.
+ * writer state keyed by the paths the nodes take in that list. `IN_CELL`, `IN_BRACKET`, `IN_EMPHASIS` and `IN_STRONG`
+ * set the matching context; the note flag has no context of its own in the PHP writer, which reads it from the tree.
  */
 final class TreeSpell implements Spell
 {
@@ -27,6 +27,26 @@ final class TreeSpell implements Spell
      * @param int $flags
      */
     public function inlines(WriterState $w, array $nodes, int $flags): string
+    {
+        return self::write($w, $nodes, $flags, -1);
+    }
+
+    /**
+     * carve-js `writeInline`: the node alone, not as a list, so nothing is placed for the end of a list. The PHP
+     * writer reads the end of a list from `next` -1; 0 stands for a following character that is no mark.
+     */
+    public function inline(WriterState $w, Node $node, int $flags): string
+    {
+        return self::write($w, [$node], $flags, 0);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $nodes
+     * @param int $next
+     * @param int $flags
+     */
+    private static function write(WriterState $w, array $nodes, int $flags, int $next): string
     {
         if ($nodes === []) {
             return '';
@@ -43,14 +63,16 @@ final class TreeSpell implements Spell
         $c->counts = Inline::counts($list);
         $c->inCell = ($flags & self::IN_CELL) !== 0;
         $c->inBracket = ($flags & self::IN_BRACKET) !== 0;
+        // The paired nodes around the list: a nested one of the same type takes the braced form (C2-W-069).
+        foreach ([self::IN_EMPHASIS => 'emphasis', self::IN_STRONG => 'strong'] as $flag => $type) {
+            if (($flags & $flag) !== 0) {
+                $c->open[$type] = 1;
+                $c->marks .= $type === 'strong' ? '*' : '/';
+            }
+        }
         $c->writerState = $state;
 
-        return (new Inline($state))->content($list, self::LIST, $c, -1);
-    }
-
-    public function inline(WriterState $w, Node $node, int $flags): string
-    {
-        return $this->inlines($w, [$node], $flags);
+        return (new Inline($state))->content($list, self::LIST, $c, $next);
     }
 
     public function spelledEnd(WriterState $w, Node $node, int $from, int $bytes, int $flags): int

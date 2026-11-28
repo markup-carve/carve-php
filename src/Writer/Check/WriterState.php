@@ -83,6 +83,16 @@ final class WriterState
 
     public bool $kindRounds = false;
 
+    /**
+     * @var array<string, true> The keys of the link definitions of the document (carve-js `linkKeys`).
+     */
+    public array $linkKeys = [];
+
+    /**
+     * @var array<string, string> The abbreviation terms of the document, each with its expansion; the first wins.
+     */
+    public array $abbreviations = [];
+
     public function __construct(public Spell $spell)
     {
         $this->shared = new Shared();

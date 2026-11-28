@@ -32,6 +32,7 @@ final class CompareReplay
     {
         $document = Node::mirror(ReadbackRound::read($input));
         $w = self::state($document, self::map($record['state'] ?? null));
+        self::scope($w, $document);
         $group = array_map(static fn (mixed $path): Node => self::node($document, $path), self::list($record['group'] ?? null));
         $source = is_string($record['source'] ?? null) ? $record['source'] : '';
         $first = !str_starts_with($source, "\n");
@@ -93,9 +94,28 @@ final class CompareReplay
             $w->lostKeys[spl_object_id(self::node($document, $path))] = self::strings($list);
         }
         $w->lines = self::strings($state['lines'] ?? null);
+        $w->kindRounds = ($state['kindRounds'] ?? false) === true;
         foreach (self::list($state['starts'] ?? null) as $start) {
             [$path, $place] = self::pair($start);
             $w->starts[] = [self::node($document, $path), self::int($place)];
+        }
+    }
+
+    /**
+     * The link keys and abbreviations of the document, as the carve-js writer reads them from its top-level blocks.
+     */
+    private static function scope(WriterState $w, Node $document): void
+    {
+        foreach ($document->children() as $block) {
+            $key = $block->string('key');
+            if ($key === null) {
+                continue;
+            }
+            if ($block->type === 'link_reference_definition') {
+                $w->linkKeys[$key] = true;
+            } elseif ($block->type === 'abbreviation_def') {
+                $w->abbreviations[$key] ??= $block->string('expansion') ?? '';
+            }
         }
     }
 

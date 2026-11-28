@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
+use MarkupCarve\Carve\Node;
 
 /**
  * One positioned read-back of a bare writer candidate (C2-W-088 and C2-W-090).
@@ -95,27 +96,15 @@ final class ReadbackRound
      */
     public static function read(string $source, array $options = [], bool $keep = false): array
     {
-        $memo = isset($options['extensions']) ? null : self::$memo;
-        if ($memo !== null) {
-            foreach ($memo as $at => [$read, $tree]) {
-                if ($read === $source) {
-                    unset($memo[$at]);
-                    $memo[] = [$read, $tree];
-                    self::$memo = $memo;
-
-                    return $tree;
-                }
-            }
-        }
-        if ($memo !== null && strlen($source) <= self::KEPT_SOURCE_BYTES) {
-            $kept = self::$keptTrees[$source] ?? null;
-            if ($kept !== null) {
-                return $kept;
-            }
+        $scope = is_array($options['scope'] ?? null) ? $options['scope'] : null;
+        $memo = isset($options['extensions']) || $scope !== null ? null : self::$memo;
+        $known = $memo === null ? null : self::known($source, $memo);
+        if ($known !== null) {
+            return $known;
         }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 
-        $parsed = Carve::parse($source, $parseOptions);
+        $parsed = self::parse($source, $parseOptions, $scope);
         HeapPages::release();
         $tree = TreeEncoder::decodedWithOffsets($parsed, $source);
         if ($memo !== null && strlen($source) <= self::KEPT_SOURCE_BYTES) {
@@ -137,6 +126,77 @@ final class ReadbackRound
         }
 
         return $tree;
+    }
+
+    /**
+     * A read-back of `source` that the memo or the kept trees hold, which moves to the end of the memo.
+     *
+     * @param string $source
+     * @param array<int, array{string, array<string, mixed>}> $memo
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function known(string $source, array $memo): ?array
+    {
+        foreach ($memo as $at => [$read, $tree]) {
+            if ($read === $source) {
+                unset($memo[$at]);
+                $memo[] = [$read, $tree];
+                self::$memo = $memo;
+
+                return $tree;
+            }
+        }
+
+        return strlen($source) <= self::KEPT_SOURCE_BYTES ? (self::$keptTrees[$source] ?? null) : null;
+    }
+
+    /**
+     * The parse of `source`, in the scope of an outer document where `scope` names its link keys and abbreviations.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     * @param array<mixed>|null $scope
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    private static function parse(string $source, array $options, ?array $scope): Node
+    {
+        if ($scope === null) {
+            return Carve::parse($source, $options);
+        }
+
+        return Carve::parseInScope($source, $options, self::keys($scope['linkKeys'] ?? null), self::terms($scope['abbreviations'] ?? null));
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private static function keys(mixed $keys): array
+    {
+        $out = [];
+        foreach (is_array($keys) ? $keys : [] as $key => $on) {
+            if ($on === true) {
+                $out[(string)$key] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function terms(mixed $terms): array
+    {
+        $out = [];
+        foreach (is_array($terms) ? $terms : [] as $term => $expansion) {
+            if (is_string($expansion)) {
+                $out[(string)$term] = $expansion;
+            }
+        }
+
+        return $out;
     }
 
     /**

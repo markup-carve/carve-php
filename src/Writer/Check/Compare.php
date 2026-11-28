@@ -788,7 +788,9 @@ final class Compare
         $w->shared->parses++;
         $w->shared->chars += strlen($source);
 
-        $parsed = Node::mirror(ReadbackRound::read($source, $w->options));
+        // A group is read with the link keys and abbreviations of its document in place of its own (carve-js `parsedTree`).
+        $options = $w->options + ['scope' => ['linkKeys' => $w->linkKeys, 'abbreviations' => $w->abbreviations]];
+        $parsed = Node::mirror(ReadbackRound::read($source, $options));
         $parsed->place($source);
 
         return $parsed;

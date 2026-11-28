@@ -49,6 +49,17 @@ const escapeOf = ([node, at]) => {
 const sorted = (escapes) => escapes.map(escapeOf).sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : 1))
 
 globalThis.__plannerTrace = {
+  resync(k, offset, j, start, failedEnd, own, source) {
+    const src = Buffer.from(source ?? '').subarray(offset, offset + 30).toString()
+    process.stderr.write(`  k=${k} off=${offset} j=${j} aStart=${start ?? 'n'} failedEnd=${failedEnd} own=${Buffer.byteLength(own)}` +
+      ` src=${JSON.stringify(src)} own=${JSON.stringify(own.slice(0, 30))}\n`)
+  },
+  respell(e, flags) {
+    process.stderr.write(`RESPELL ${pathOf(e)} flags=${flags}\n`)
+  },
+  probe(e, flags, source) {
+    process.stderr.write(`PROBE ${pathOf(e)} flags=${flags} src=${JSON.stringify(source)}\n`)
+  },
   state(w, document) {
     if (!COMPARES) return null
     if (!paths.has(document)) indexPaths(document, '')
@@ -58,6 +69,7 @@ globalThis.__plannerTrace = {
       attempts: [...w.attempts].map(([node, attempt]) => [pathOf(node), attempt.step, attempt.escapes.map(escapeAt)]),
       lost: [...w.lost].map(pathOf),
       lines: [...w.lines],
+      kindRounds: w.kindRounds,
       starts: [...w.starts].map(([node, place]) => [pathOf(node), place]),
       bracedAnyway: [...w.bracedAnyway].map(pathOf),
       lostKeys: [...w.lostKeys].map(([node, keys]) => [pathOf(node), [...keys]]),
