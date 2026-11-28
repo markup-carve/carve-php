@@ -3492,6 +3492,9 @@ final class Inline
         } elseif (!array_key_exists('alt', $node) && !array_key_exists('decorative', $node)) {
             $this->w->loseUnknownAlt($path);
         }
+        if (!array_key_exists('src', $node) && !array_key_exists('key', $node)) {
+            $this->w->loseUnknownSrc($path);
+        }
         $raw = $this->rawReference($node, $path, $c);
         if ($raw !== null && AltSource::spells($raw, $node)) {
             return '!' . $raw;

@@ -164,6 +164,50 @@ final class Elements
     }
 
     /**
+     * Exception C2-M-013: a run of only images, whitespace and comments, holding at least one image. An `unwrap` element
+     * stands for its children and a `drop` element counts as nothing (C2-M-056), so a `<picture>` is its `<img>`.
+     *
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
+     *
+     * @return bool
+     */
+    public static function isImageRun(array $nodes): bool
+    {
+        return (self::runImages($nodes) ?? 0) > 0;
+    }
+
+    /**
+     * @param array<\MarkupCarve\Carve\Import\HtmlNode> $nodes
+     *
+     * @return int|null
+     */
+    private static function runImages(array $nodes): ?int
+    {
+        $images = 0;
+        foreach ($nodes as $node) {
+            if ($node->isBlank() || $node->isComment()) {
+                continue;
+            }
+            if (!$node->isElement()) {
+                return null;
+            }
+            if ($node->isElement('img')) {
+                $images++;
+            } elseif (self::treatment($node) === 'unwrap') {
+                $inner = self::runImages($node->children);
+                if ($inner === null) {
+                    return null;
+                }
+                $images += $inner;
+            } elseif (self::treatment($node) !== 'drop') {
+                return null;
+            }
+        }
+
+        return $images;
+    }
+
+    /**
      * C2-M-065: a comment, a raw element or a raw span stands among blocks on its own or in a run of inline content.
      */
     public static function isRaw(HtmlNode $node): bool
