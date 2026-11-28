@@ -1397,10 +1397,19 @@ final class RepairPlanner
         unset($compared);
         $reports = $comparison['openers'];
         $oneGroup = $this->oneLinkGroup($links);
+        $breaks = false;
         if ($reports !== []) {
-            if (($oneGroup && $this->gluedCloser($placed)) || $this->breaksLink($candidate, $comparison, $links)) {
+            if ($oneGroup && $this->gluedCloser($placed)) {
                 return null;
             }
+            // A tree of one group is the group carve-js compares, where a link the bare round broke is a repair inside
+            // it and takes the fallback. Across groups carve-js decides each group apart, so the rounds go one at a time.
+            $breaks = $this->breaksLink($candidate, $comparison, $links);
+            if ($breaks && !$oneGroup) {
+                return null;
+            }
+        }
+        if ($reports !== [] && !$breaks) {
             $state = get_object_vars($this);
             $this->appliedRound($escapes, $candidate, $comparison);
             if (!$this->linkRepairRequested() && !($oneGroup && $this->bareTextOpener($placed))) {
@@ -1411,10 +1420,6 @@ final class RepairPlanner
             }
             foreach ($state as $name => $value) {
                 $this->{$name} = $value;
-            }
-
-            if ($oneGroup) {
-                return null;
             }
         }
         $this->addAsked($placed);
@@ -1808,7 +1813,9 @@ final class RepairPlanner
         $read = $comparison['read'];
         $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys, $stops);
         $missing = self::missingSiblings($candidate, $read, $this->layout !== null);
-        $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
+        // carve-js compares in source order, so a node missing behind the comparison's stop takes no trial this round.
+        $reached = array_values(array_filter($missing, static fn (array $node): bool => !self::behindStop($node[0], $stops)));
+        $trials = $this->keyTrials($this->nextTrials($candidate, $read, $reached), $keys);
         // Only a stop at a node that did not form bounds the openers this comparison reached.
         $comparison['openers'] = $this->reachedOpeners($comparison['openers'], $missing, $stops);
         $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);
