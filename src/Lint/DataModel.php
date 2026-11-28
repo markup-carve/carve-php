@@ -554,6 +554,7 @@ final class DataModel
                 raw_body: $rawBody,
                 lazy: null,
                 open_colon: [],
+                own_closer: false,
                 shape: self::shape($body),
                 path: $linePath,
             );
@@ -1384,6 +1385,7 @@ final class DataModel
                 'last_line' => $block->last_line->number,
                 'first_line' => $block->line->number,
                 'path' => $block->path,
+                'own_closed' => false,
             ];
         }
         $closed = $this->closedColons($colon, $pathBlocks);
@@ -1440,9 +1442,22 @@ final class DataModel
             foreach ($line->open_colon as $entry) {
                 if ($entry->width <= strlen($line->body)) {
                     $line->closes_container = true;
+                    $entry->own_closed = true;
 
                     break;
                 }
+            }
+        }
+        // carve#6974: the anonymous div a bare run opens has a closer of its own when a later run closed it first.
+        $divs = [];
+        foreach ($colon as $entry) {
+            if ($entry->kind === 'div') {
+                $divs[$entry->start] = $entry;
+            }
+        }
+        foreach ($this->lines as $line) {
+            if ($line->shape === 'div_bare_run' && isset($divs[$line->body_start])) {
+                $line->own_closer = $divs[$line->body_start]->own_closed;
             }
         }
     }
