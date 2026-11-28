@@ -30,6 +30,8 @@ final class TransparentCommentPairTest extends TestCase
             'emphasis before space' => ["{/{% x %} a/}\n", "{/{% x %} a/}\n"],
             'two trailing comments' => ["{*a\n{% x %}{% y %}*}\n", "{*a\n{% x %}{% y %}*}\n"],
             'two leading comments' => ["{*{% x %}{% y %} a*}\n", "{*{% x %}{% y %} a*}\n"],
+            'line comment after transparent comment in strong' => ["{*{% x %} %% y\na*}\n", "{*{% x %} %% y\na*}\n"],
+            'line comment after transparent comment in emphasis' => ["{/{% x %} %% y\na/}\n", "{/{% x %} %% y\na/}\n"],
             'strong in a list' => ["- {*a\n  {% x %}*}\n", "- {*a\n  {% x %}*}\n"],
             'emphasis in a quote' => ["> {/a {% x %}/}\n", "> {/a {% x %}/}\n"],
             'safe trailing comment keeps bare form' => ["{*a{% x %}*}\n", "*a{% x %}*\n"],

@@ -2537,7 +2537,7 @@ final class Inline
             return true;
         }
         $visible = self::visibleChildPastComments($children, $leading);
-        if ($visible === null || in_array($visible['type'] ?? '', ['soft_break', 'hard_break', 'non_breaking_space'], true)) {
+        if ($visible === null || in_array($visible['type'] ?? '', ['soft_break', 'hard_break', 'non_breaking_space', 'comment'], true)) {
             return false;
         }
         if (($visible['type'] ?? '') !== 'text') {
