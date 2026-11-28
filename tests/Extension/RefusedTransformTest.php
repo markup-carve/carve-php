@@ -6,17 +6,20 @@ namespace MarkupCarve\Carve\Test\Extension;
 
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Diagnostics\Diagnostic;
+use MarkupCarve\Carve\Extension\Claim;
+use MarkupCarve\Carve\Extension\ExtensionDefinition;
 use MarkupCarve\Carve\Extension\Spoiler;
+use MarkupCarve\Carve\Node;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * C2-X-015: a transform whose node does not read back as a tree is refused and the core node stays, as in carve-js. The
- * fallback of an outer spoiler would hold the core inner spoiler, which no fallback may hold, so the inner one is claimed.
+ * C2-X-015, C2-X-022: a transform whose fallback still holds an extension node after its unqualified inline extensions
+ * are lowered to spans is refused and the core node stays, as in carve-js.
  */
 final class RefusedTransformTest extends TestCase
 {
-    public function testNestedSpoilerClaimsTheInnerOne(): void
+    public function testNestedSpoilerClaimsTheOuterOneAndLowersTheInner(): void
     {
         $json = Carve::toJson("A :spoiler[nested :spoiler[in]] word.\n", ['extensions' => [Spoiler::bundle()]]);
         $tree = self::withoutPositions(json_decode($json, true, 512, JSON_THROW_ON_ERROR));
@@ -29,19 +32,15 @@ final class RefusedTransformTest extends TestCase
             [
                 ['type' => 'text', 'value' => 'A '],
                 [
-                    'children' => [
+                    'children' => [],
+                    'fallback' => [
                         ['type' => 'text', 'value' => 'nested '],
-                        [
-                            'children' => [],
-                            'fallback' => [['type' => 'text', 'value' => 'in']],
-                            'name' => 'carve.spoiler',
-                            'source' => ['body' => 'in', 'form' => 'inline', 'name' => 'spoiler'],
-                            'type' => 'inline_extension',
-                            'version' => '1',
-                        ],
+                        ['attrs' => ['classes' => ['ext-spoiler']], 'children' => [['type' => 'text', 'value' => 'in']], 'type' => 'span'],
                     ],
-                    'name' => 'spoiler',
+                    'name' => 'carve.spoiler',
+                    'source' => ['body' => 'nested :spoiler[in]', 'form' => 'inline', 'name' => 'spoiler'],
                     'type' => 'inline_extension',
+                    'version' => '1',
                 ],
                 ['type' => 'text', 'value' => ' word.'],
             ],
@@ -49,17 +48,43 @@ final class RefusedTransformTest extends TestCase
         );
     }
 
-    public function testRefusalIsARenderLossAndNoLintFinding(): void
+    public function testQualifiedNodeInTheFallbackIsARefusalAndNoLintFinding(): void
     {
-        $source = "A :spoiler[nested :spoiler[in]] word.\n";
-        $options = ['extensions' => [Spoiler::bundle()]];
-        $codes = array_map(
-            static fn (Diagnostic $d): string => $d->code . ' ' . $d->channel . ' ' . $d->path,
-            Carve::parseWithDiagnostics($source, $options)->diagnostics,
-        );
+        $source = "A :product[x y] b.\n";
+        $options = ['extensions' => self::productWithQualifiedFallback()];
+        $parsed = Carve::parseWithDiagnostics($source, $options);
+        $codes = array_map(static fn (Diagnostic $d): string => $d->code . ' ' . $d->channel . ' ' . $d->path, $parsed->diagnostics);
 
         self::assertSame(['extension-fallback-rendered render-loss /children/0/children/1'], $codes);
-        self::assertSame([], Carve::lint($source, ['extensions' => ['carve.spoiler']]));
+        $read = Carve::decodeTree(Carve::toJson($source, $options), $options);
+        self::assertSame($source, Carve::write($read));
+        self::assertSame([], Carve::lint($source, $options));
+    }
+
+    /**
+     * @return array<\MarkupCarve\Carve\Extension\ExtensionDefinition>
+     */
+    private static function productWithQualifiedFallback(): array
+    {
+        $text = static function (string $value): Node {
+            $node = new Node('text');
+            $node->f = ['value' => $value];
+
+            return $node;
+        };
+        $transform = static function (Claim $claim) use ($text): Node {
+            $inner = new Node('inline_extension', []);
+            $inner->f = ['name' => 'shop.inner', 'version' => '1', 'props' => [], 'slots' => [], 'fallback' => [$text('y')]];
+            $node = new Node('inline_extension', []);
+            $node->f = ['name' => 'shop.product', 'version' => '1', 'props' => [], 'slots' => [], 'fallback' => [$text('x '), $inner]];
+
+            return $node;
+        };
+
+        return [
+            new ExtensionDefinition('shop.inner', '1'),
+            new ExtensionDefinition('shop.product', '1', matcher: ['form' => 'inline', 'name' => 'product'], transform: $transform),
+        ];
     }
 
     /**
@@ -70,19 +95,19 @@ final class RefusedTransformTest extends TestCase
         return [
             'paragraph' => [
                 "A :spoiler[nested :spoiler[in]] word.\n",
-                '<p>A <span class="ext-spoiler">nested <span class="spoiler">in</span></span> word.</p>',
+                '<p>A <span class="spoiler">nested <span class="ext-spoiler">in</span></span> word.</p>',
             ],
             'depth three with attributes' => [
                 "A :spoiler[a :spoiler[b :spoiler[c]{.x}]] d.\n",
-                '<p>A <span class="ext-spoiler">a <span class="ext-spoiler">b <span class="spoiler x">c</span></span></span> d.</p>',
+                '<p>A <span class="spoiler">a <span class="ext-spoiler">b <span class="ext-spoiler x">c</span></span></span> d.</p>',
             ],
             'list item' => [
                 "- A :spoiler[nested :spoiler[in]] word.\n",
-                "<ul>\n  <li>A <span class=\"ext-spoiler\">nested <span class=\"spoiler\">in</span></span> word.</li>\n</ul>",
+                "<ul>\n  <li>A <span class=\"spoiler\">nested <span class=\"ext-spoiler\">in</span></span> word.</li>\n</ul>",
             ],
             'emphasis' => [
                 "A *x :spoiler[nested :spoiler[in]] y*.\n",
-                '<p>A <strong>x <span class="ext-spoiler">nested <span class="spoiler">in</span></span> y</strong>.</p>',
+                '<p>A <strong>x <span class="spoiler">nested <span class="ext-spoiler">in</span></span> y</strong>.</p>',
             ],
         ];
     }

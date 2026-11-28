@@ -207,6 +207,7 @@ final class Extensions
             if ($transformed === null) {
                 continue;
             }
+            self::coreFallbacks($transformed);
             if (!$this->valid($transformed, $claim, $definition, $parent)) {
                 $this->findings?->add(
                     'extension-fallback-rendered',
@@ -217,7 +218,6 @@ final class Extensions
                 break;
             }
             $this->attach($transformed, $claim);
-            self::coreFallbacks($transformed);
             $this->replaceIn($transformed);
 
             return $transformed;
