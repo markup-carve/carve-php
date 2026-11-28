@@ -1366,6 +1366,7 @@ final class Blocks
         // with the same children. The first one that keeps the paragraph is written, and the read-back reports the run.
         $paragraph = null;
         $marker = ctype_alnum($text[0]);
+        $leadText = is_array($children[0] ?? null) && ($children[0]['type'] ?? null) === 'text';
         for ($i = 0, $n = strlen($text); $i < $n; $i++) {
             if ($i < $afterReference || !Text::isPunct($text[$i]) || ($i > 0 && $text[$i - 1] === '\\')) {
                 continue;
@@ -1373,6 +1374,11 @@ final class Blocks
             $candidate = substr($text, 0, $i) . '\\' . substr($text, $i);
             $isParagraph = false;
             if (self::readsAsParagraph($head . $candidate, $children, $referenceLead, $nested, $isParagraph)) {
+                return $candidate;
+            }
+            // C2-W-088, C2-W-090: the line kind is the first punctuation that keeps the paragraph; an inline construct
+            // the escape uncovers is the next round's kind, not a reason to escape elsewhere.
+            if ($isParagraph && $i === 0 && $leadText) {
                 return $candidate;
             }
             if ($isParagraph && $marker) {
