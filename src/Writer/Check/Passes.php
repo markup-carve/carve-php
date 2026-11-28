@@ -309,10 +309,98 @@ final class Passes
      */
     private static function finishRounds(WriterState $w, array $group, bool $first, int $reported): void
     {
+        self::trimCappedRuns($w, $group, $first);
         if (count($w->lossLog) === $reported) {
             self::reportUnread($w, $group);
         }
         self::pruneGroupEscapes($w, $group, $first);
+    }
+
+    /**
+     * C2-I-118: the rounds would place the escapes behind a capped opener one per round and stop at the first round
+     * that reads back. Those placed at once are kept up to the shortest run, in their order, with which the group
+     * reads back.
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     * @param bool $first
+     */
+    private static function trimCappedRuns(WriterState $w, array $group, bool $first): void
+    {
+        $placed = self::placedCappedRuns($w);
+        $w->shared->cappedRuns = [];
+        if ($placed === [] || $w->parsed === null || !self::matchesGroup($w->parsed->children(), $group)) {
+            return;
+        }
+        $written = static function (int $keep) use ($w, $group, $first, $placed): Node {
+            self::dropEscapes($w, array_slice($placed, $keep));
+            self::resetLines($w);
+            $w->writeGroup($group);
+
+            return Compare::parseChunk($w, Round::source($w, $first));
+        };
+        $parsed = $w->parsed;
+        $readsBack = static function (int $keep) use ($w, $group, $placed, $written, &$parsed): bool {
+            $trial = $written($keep);
+            Round::addEscapes($w, array_map(static fn (array $run): Escape => new Escape($run[0], $run[1]), array_slice($placed, $keep)));
+            if (!self::matchesGroup($trial->children(), $group)) {
+                return false;
+            }
+            $parsed = $trial;
+
+            return true;
+        };
+        // The rounds stop a few escapes short of the end of the construct at most, so the search starts there and widens.
+        $low = 0;
+        $high = count($placed);
+        for ($step = 1; $low < $high && !$w->exhausted(); $step *= 2) {
+            $keep = max($low, $high - $step);
+            if (!$readsBack($keep)) {
+                $low = $keep + 1;
+
+                break;
+            }
+            $high = $keep;
+        }
+        while ($low < $high && !$w->exhausted()) {
+            $middle = ($low + $high) >> 1;
+            if ($readsBack($middle)) {
+                $high = $middle;
+            } else {
+                $low = $middle + 1;
+            }
+        }
+        $written($high);
+        $w->parsed = $parsed;
+    }
+
+    /**
+     * The escapes of `cappedRuns` the group still holds: a change of form clears the escapes of the group.
+     *
+     * @return list<array{\MarkupCarve\Carve\Writer\Check\Node, int}>
+     */
+    private static function placedCappedRuns(WriterState $w): array
+    {
+        $placed = [];
+        foreach ($w->shared->cappedRuns as [$node, $at]) {
+            if (in_array($at, $w->escapesOf($node), true)) {
+                $placed[] = [$node, $at];
+            }
+        }
+
+        return $placed;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<array{\MarkupCarve\Carve\Writer\Check\Node, int}> $dropped
+     */
+    private static function dropEscapes(WriterState $w, array $dropped): void
+    {
+        foreach ($dropped as [$node, $at]) {
+            $id = spl_object_id($node);
+            $w->escapes[$id] = array_values(array_filter($w->escapes[$id] ?? [], static fn (int $offset): bool => $offset !== $at));
+        }
     }
 
     /**
