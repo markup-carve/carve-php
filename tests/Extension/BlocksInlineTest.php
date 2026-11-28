@@ -333,7 +333,12 @@ final class BlocksInlineTest extends TestCase
             '<p><span class="swatch-label" style="background:#ffffff;color:#000">#ffffff</span></p>',
             self::html(':color[#ffffff]{contrast}', ColorSwatch::bundle()),
         );
-        $this->assertSame('<p><span class="ext-color">javascript</span></p>', self::html(':color[javascript]', ColorSwatch::bundle()));
+        $this->assertSame('<p>javascript</p>', self::html(':color[javascript]', ColorSwatch::bundle()));
+        $this->assertSame('<p>red;}x{}</p>', self::html(':color[red;}x{}]', ColorSwatch::bundle()));
+        $this->assertSame(
+            '<p>A nope and <span class="k">banana</span> dot.</p>',
+            self::html("A :color[nope] and :color[banana]{.k} dot.\n", ColorSwatch::bundle()),
+        );
         $this->expectException(InvalidArgumentException::class);
         ColorSwatch::bundle(shape: 'star');
     }
