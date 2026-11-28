@@ -17,6 +17,16 @@ use MarkupCarve\Carve\Writer\Writer;
 final class TreeGroupWriter implements GroupWriter
 {
     /**
+     * @var int
+     */
+    private const GLUE_MEMO_SIZE = 4096;
+
+    /**
+     * @var array<string, array<string, true>> The glued pairs of each write, by a hash of its inputs.
+     */
+    private static array $glueMemo = [];
+
+    /**
      * @param array<string, mixed> $options
      */
     public function __construct(private array $options = [])
@@ -34,18 +44,29 @@ final class TreeGroupWriter implements GroupWriter
         if (self::escapeLoneLinkBrackets($w, $group, $tree)) {
             [$tree, $escapes] = self::document($w, $group);
         }
+        // A lone paragraph with no field beside its content starts the source, so its place needs no marked write.
+        $roots = is_array($tree['children']) ? $tree['children'] : [];
+        $plain = count($group) === 1 && $group[0]->type === 'paragraph' && is_array($roots[0] ?? null)
+            && array_diff(array_keys($roots[0]), ['type', 'pos', 'children']) === [];
+        $key = md5(serialize([$tree, $escapes, $this->options]));
         PairGlue::start();
         try {
-            $candidate = Writer::bareCandidate($tree, null, $this->options, $escapes);
+            $candidate = $plain ? null : Writer::bareCandidate($tree, null, $this->options, $escapes);
+            $source = $candidate['source'] ?? Writer::bareSource($tree, null, $this->options, $escapes);
         } finally {
             $glued = PairGlue::take();
         }
+        $glued = self::rememberGlue($key, $glued);
         if ($glued !== []) {
             self::glue($w, $group, $glued);
         }
-        $source = $candidate['source'];
         $w->lines = explode("\n", str_ends_with($source, "\n") ? substr($source, 0, -1) : $source);
         $w->starts = [];
+        if ($candidate === null) {
+            $w->starts[] = [$group[0], 0];
+
+            return;
+        }
         $lineStarts = [0];
         for ($at = strpos($source, "\n"); $at !== false; $at = strpos($source, "\n", $at + 1)) {
             $lineStarts[] = $at + 1;
@@ -131,6 +152,27 @@ final class TreeGroupWriter implements GroupWriter
         $bang = str_ends_with($value, '!') && !in_array(strlen($value) - 1, $w->escapesOf($before), true);
 
         return !$bang;
+    }
+
+    /**
+     * The pairs a write braced for its neighbors. A write the memo of `Writer` answers runs no inline writer, so the
+     * pairs of the first such write are kept with the same inputs.
+     *
+     * @param string $key
+     * @param array<string, true> $glued
+     *
+     * @return array<string, true>
+     */
+    private static function rememberGlue(string $key, array $glued): array
+    {
+        if (isset(self::$glueMemo[$key])) {
+            return $glued === [] ? self::$glueMemo[$key] : $glued;
+        }
+        if (count(self::$glueMemo) >= self::GLUE_MEMO_SIZE) {
+            self::$glueMemo = [];
+        }
+
+        return self::$glueMemo[$key] = $glued;
     }
 
     /**
