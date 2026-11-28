@@ -29,8 +29,7 @@ final class TypedCoreClauseTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const KNOWN_FAIL = [
-    ];
+    private const KNOWN_FAIL = [];
 
     /**
      * The files of the running case, for the positions of an entry in an included file.
