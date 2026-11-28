@@ -14,6 +14,47 @@ final class State
 {
     public ?RepairTrace $repairTrace = null;
 
+    public ?Plan $plan = null;
+
+    public bool $planMode = false;
+
+    /**
+     * @var array<string, array<int, true>>
+     */
+    public array $planEscapes = [];
+
+    /**
+     * @var array<string, string>
+     */
+    public array $planParts = [];
+
+    /**
+     * @var array<string, bool> The braced form of each paired mark in the planned write.
+     */
+    public array $planForms = [];
+
+    /**
+     * @var array<string, string> A source-spelled reference or link target, keyed by its node path.
+     */
+    public array $planLinkRaw = [];
+
+    /**
+     * @var array<string, string>
+     */
+    public array $planLinkTail = [];
+
+    /**
+     * @var array<string, array<int, bool|int>>
+     */
+    public array $planWrittenEscapes = [];
+
+    /**
+     * @var array<string, string>
+     */
+    public array $planContents = [];
+
+    public int $planLeafDepth = 0;
+
     /**
      * @var array<string>
      */

@@ -67,6 +67,26 @@ final class InlineContext
     }
 
     /**
+     * The link keys and abbreviations of an outer document in place of those the source defines itself.
+     *
+     * @param array<string, true> $linkKeys
+     * @param array<string, string> $abbreviations
+     *
+     * @return void
+     */
+    public function scope(array $linkKeys, array $abbreviations): void
+    {
+        $this->linkKeys = [];
+        foreach (array_keys($linkKeys) as $key) {
+            $this->linkKeys[Chars::fold((string)$key)] = true;
+        }
+        $this->abbreviations = [];
+        foreach ($abbreviations as $key => $expansion) {
+            $this->abbreviations[Chars::fold((string)$key)] ??= $expansion;
+        }
+    }
+
+    /**
      * @param \MarkupCarve\Carve\Node $node
      * @param string $key
      *

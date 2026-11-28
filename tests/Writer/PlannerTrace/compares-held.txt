@@ -1,0 +1,2 @@
+# compareGroup records that Writer\Check\Compare does not replay as carve-js yet (CompareReplayTest). The port
+# removes lines; never add one.

@@ -1398,23 +1398,32 @@ final class RepairPlanner
         $reports = $comparison['openers'];
         $oneGroup = $this->oneLinkGroup($links);
         if ($reports !== []) {
-            if (($oneGroup && $this->gluedCloser($placed)) || $this->breaksLink($candidate, $comparison, $links)) {
+            if ($oneGroup && $this->gluedCloser($placed)) {
                 return null;
             }
-            $state = get_object_vars($this);
-            $this->appliedRound($escapes, $candidate, $comparison);
-            if (!$this->linkRepairRequested() && !($oneGroup && $this->bareTextOpener($placed))) {
-                $this->addAsked($placed);
-                $this->notePlaced($placed);
-
-                return true;
-            }
-            foreach ($state as $name => $value) {
-                $this->{$name} = $value;
-            }
-
-            if ($oneGroup) {
+            // carve#6802: a round that reports a construct behind a link it did not form keeps its reports, and the
+            // link brackets take their case backslash beside them (C2-W-125: it does not cancel a reported kind).
+            $behind = $oneGroup && $this->reportsBehindUnformedLink($candidate, $comparison);
+            $breaks = $this->breaksLink($candidate, $comparison, $links);
+            if ($breaks && !$oneGroup) {
                 return null;
+            }
+            if (!$breaks || $behind) {
+                $state = get_object_vars($this);
+                $this->appliedRound($escapes, $candidate, $comparison);
+                $repair = $this->linkRepairRequested();
+                if ($behind || (!$repair && !($oneGroup && $this->bareTextOpener($placed)))) {
+                    $this->addAsked($placed);
+                    $this->notePlaced($placed);
+
+                    return true;
+                }
+                foreach ($state as $name => $value) {
+                    $this->{$name} = $value;
+                }
+                if ($oneGroup && !$repair) {
+                    return null;
+                }
             }
         }
         $this->addAsked($placed);
@@ -1475,6 +1484,41 @@ final class RepairPlanner
                         return true;
                     }
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the round reports an opener in or behind the first link of the tree that its parse did not form.
+     *
+     * @param array{nodes: array<int, array{string, string, int, int}>} $candidate
+     * @param array{openers: array<string, array<int, true>>, read: array<string, mixed>} $comparison
+     */
+    private function reportsBehindUnformedLink(array $candidate, array $comparison): bool
+    {
+        [$starts] = self::bracketedSpans($comparison['read']);
+        $link = null;
+        $at = PHP_INT_MAX;
+        foreach ($candidate['nodes'] as [$packed, $type, $start, $end]) {
+            if ($type === 'link' && $start < $at && !isset($starts[$start]['link ' . $end])) {
+                $at = $start;
+                $link = RepairTrace::unpackPath($packed) . '/';
+            }
+        }
+        if ($link === null) {
+            return false;
+        }
+        $first = PHP_INT_MAX;
+        foreach ($this->textOrder as $text => $order) {
+            if ($order < $first && str_starts_with($text, $link)) {
+                $first = $order;
+            }
+        }
+        foreach ($comparison['openers'] as $path => $_) {
+            if (($this->textOrder[$path] ?? -1) >= $first) {
+                return true;
             }
         }
 
@@ -1801,6 +1845,46 @@ final class RepairPlanner
      */
     private function applyRound(array &$candidate, array &$comparison): bool
     {
+        if (RoundTrace::$hook === null) {
+            return $this->applyRoundOnce($candidate, $comparison);
+        }
+        $source = md5($candidate['source']);
+        $escapes = $this->escapes;
+        $trials = $this->trialEscapes;
+        $applied = $this->applyRoundOnce($candidate, $comparison);
+        (RoundTrace::$hook)(
+            $this->tree,
+            $source,
+            $comparison['openers'],
+            RoundTrace::added($trials, $this->trialEscapes),
+            RoundTrace::added($escapes, $this->escapes),
+        );
+
+        return $applied;
+    }
+
+    /**
+     * @param-out array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>
+     * } $comparison
+     *
+     * @param array{
+     *     source: string,
+     *     text: array<int, int>,
+     *     paths: array<int, string>,
+     *     nodes: array<int, array{string, string, int, int}>
+     * } $candidate
+     * @param array{
+     *     equal: bool,
+     *     openers: array<string, array<int, true>>,
+     *     moved: array<int, array{string, string, int, int, int}>,
+     *     read: array<string, mixed>
+     * } $comparison
+     */
+    private function applyRoundOnce(array &$candidate, array &$comparison): bool
+    {
         $firsts = [];
         $differs = [];
         $keys = [];
@@ -1808,7 +1892,9 @@ final class RepairPlanner
         $read = $comparison['read'];
         $asked = CompareRound::inspect($this->tree, $read, $this->escapes, $candidate, $this->probed, $firsts, $differs, $keys, $stops);
         $missing = self::missingSiblings($candidate, $read, $this->layout !== null);
-        $trials = $this->keyTrials($this->nextTrials($candidate, $read, $missing), $keys);
+        // carve-js compares in source order, so a node missing behind the comparison's stop takes no trial this round.
+        $reached = array_values(array_filter($missing, static fn (array $node): bool => !self::behindStop($node[0], $stops)));
+        $trials = $this->keyTrials($this->nextTrials($candidate, $read, $reached), $keys);
         // Only a stop at a node that did not form bounds the openers this comparison reached.
         $comparison['openers'] = $this->reachedOpeners($comparison['openers'], $missing, $stops);
         $this->compareAsks = self::mergedEscapes($comparison['openers'], $asked);

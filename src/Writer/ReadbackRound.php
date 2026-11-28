@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Json\TreeEncoder;
 use MarkupCarve\Carve\Json\TreeEquality;
+use MarkupCarve\Carve\Node;
 
 /**
  * One positioned read-back of a bare writer candidate (C2-W-088 and C2-W-090).
@@ -32,12 +33,34 @@ final class ReadbackRound
     private const MEMO_BYTES = 65536;
 
     /**
+     * @var int
+     */
+    private const KEPT_SOURCE_BYTES = 4096;
+
+    /**
+     * @var int
+     */
+    private const KEPT_TREES = 8192;
+
+    /**
+     * @var int
+     */
+    private const KEPT_BYTES = 262144;
+
+    /**
      * The last read-backs of the outer write, each with its source, oldest first and at most `MEMO_BYTES` of source;
      * null outside `memoized()`.
      *
      * @var array<int, array{string, array<string, mixed>}>|null
      */
     private static ?array $memo = null;
+
+    /**
+     * @var array<string, array<string, mixed>>|null
+     */
+    private static ?array $keptTrees = null;
+
+    private static int $keptBytes = 0;
 
     /**
      * @param array{
@@ -73,23 +96,20 @@ final class ReadbackRound
      */
     public static function read(string $source, array $options = [], bool $keep = false): array
     {
-        $memo = isset($options['extensions']) ? null : self::$memo;
-        if ($memo !== null) {
-            foreach ($memo as $at => [$read, $tree]) {
-                if ($read === $source) {
-                    unset($memo[$at]);
-                    $memo[] = [$read, $tree];
-                    self::$memo = $memo;
-
-                    return $tree;
-                }
-            }
+        $scope = is_array($options['scope'] ?? null) ? $options['scope'] : null;
+        $memo = isset($options['extensions']) || $scope !== null ? null : self::$memo;
+        $known = $memo === null ? null : self::known($source, $memo);
+        if ($known !== null) {
+            return $known;
         }
         $parseOptions = isset($options['extensions']) ? ['extensions' => $options['extensions']] : [];
 
-        $parsed = Carve::parse($source, $parseOptions);
+        $parsed = self::parse($source, $parseOptions, $scope);
         HeapPages::release();
         $tree = TreeEncoder::decodedWithOffsets($parsed, $source);
+        if ($memo !== null && strlen($source) <= self::KEPT_SOURCE_BYTES) {
+            self::keepTree($source, $tree);
+        }
         if ($memo !== null && ($keep || strlen($source) <= self::MEMO_BYTES)) {
             $memo[] = [$source, $tree];
             $bytes = 0;
@@ -109,6 +129,97 @@ final class ReadbackRound
     }
 
     /**
+     * A read-back of `source` that the memo or the kept trees hold, which moves to the end of the memo.
+     *
+     * @param string $source
+     * @param array<int, array{string, array<string, mixed>}> $memo
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function known(string $source, array $memo): ?array
+    {
+        foreach ($memo as $at => [$read, $tree]) {
+            if ($read === $source) {
+                unset($memo[$at]);
+                $memo[] = [$read, $tree];
+                self::$memo = $memo;
+
+                return $tree;
+            }
+        }
+
+        return strlen($source) <= self::KEPT_SOURCE_BYTES ? (self::$keptTrees[$source] ?? null) : null;
+    }
+
+    /**
+     * The parse of `source`, in the scope of an outer document where `scope` names its link keys and abbreviations.
+     *
+     * @param string $source
+     * @param array<string, mixed> $options
+     * @param array<mixed>|null $scope
+     *
+     * @return \MarkupCarve\Carve\Node
+     */
+    private static function parse(string $source, array $options, ?array $scope): Node
+    {
+        if ($scope === null) {
+            return Carve::parse($source, $options);
+        }
+
+        ReadScope::$scope = [self::keys($scope['linkKeys'] ?? null), self::terms($scope['abbreviations'] ?? null)];
+        try {
+            return Carve::parse($source, $options);
+        } finally {
+            ReadScope::$scope = null;
+        }
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private static function keys(mixed $keys): array
+    {
+        $out = [];
+        foreach (is_array($keys) ? $keys : [] as $key => $on) {
+            if ($on === true) {
+                $out[(string)$key] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function terms(mixed $terms): array
+    {
+        $out = [];
+        foreach (is_array($terms) ? $terms : [] as $term => $expansion) {
+            if (is_string($expansion)) {
+                $out[(string)$term] = $expansion;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param string $source
+@param array<string, mixed> $tree
+     */
+    private static function keepTree(string $source, array $tree): void
+    {
+        $length = strlen($source);
+        if (count(self::$keptTrees ?? []) >= self::KEPT_TREES || self::$keptBytes + $length > self::KEPT_BYTES) {
+            self::$keptTrees = [];
+            self::$keptBytes = 0;
+        }
+        self::$keptTrees[$source] = $tree;
+        self::$keptBytes += $length;
+    }
+
+    /**
      * Runs one outer write with its last read-backs kept: its steps read the same source more than once.
      *
      * @template T
@@ -120,15 +231,20 @@ final class ReadbackRound
     public static function memoized(Closure $write): mixed
     {
         $outer = self::$memo;
+        $outerKept = self::$keptTrees;
+        $outerBytes = self::$keptBytes;
         if ($outer === null) {
             Text::forgetBlockReads();
             Inline::forgetCollapsedReads();
         }
         self::$memo ??= [];
+        self::$keptTrees ??= [];
         try {
             return $write();
         } finally {
             self::$memo = $outer;
+            self::$keptTrees = $outerKept;
+            self::$keptBytes = $outerBytes;
         }
     }
 

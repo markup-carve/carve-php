@@ -41,6 +41,12 @@ final class Inline
     private const PAIRED = ['emphasis' => '/', 'strong' => '*'];
 
     /**
+     * @var string The key of an emphasis or strong node array that holds the form `Writer\Check` decided for it, true
+     *     for braced (carve-js `bracedPair`). No tree field starts with a NUL, so the key reaches no reader of the tree.
+     */
+    public const BRACED_FORM = "\0braced";
+
+    /**
      * The nodes whose content stands between brackets, a barrier of the delimiter stack.
      *
      * @var array<string>
@@ -264,6 +270,27 @@ final class Inline
      */
     public function content(array $nodes, string $path, Context $c, int $next): string
     {
+        if ($this->w->planMode && $c->flat === null) {
+            $outer = $this->w->planLeafDepth === 0;
+            $start = $c->lineStart ? Plan::LINE_START : Plan::AFTER_MARK;
+            $end = $c->inLineBlock ? Plan::AS_LINE : Plan::AS_CONTENT;
+            if (str_ends_with($path, '/title')) {
+                $start = Plan::IN_TITLE;
+                $end = Plan::AS_INLINES;
+            }
+            $flags = ($c->inCell ? 1 : 0) | ($c->bareBreaks ? 8 : 0);
+            $this->w->planLeafDepth++;
+            try {
+                $out = $this->contentOnce($nodes, $path, $c, $next);
+            } finally {
+                $this->w->planLeafDepth--;
+            }
+            if ($outer && $this->w->plan !== null) {
+                PlanModel::leaf($this->w, $nodes, $path, $end, $start, $flags);
+            }
+
+            return $out;
+        }
         if ($c->flat !== null) {
             $siblings = $c->siblings;
             $c->siblings = self::siblingFlat($nodes, $path, $next);
@@ -736,6 +763,21 @@ final class Inline
             $parts[0][] = strlen($out);
             $parts[1][] = $first;
             $parts[2][] = $at;
+            if ($this->w->plan !== null) {
+                if ($first !== $at && $this->w->plan->undecided === null) {
+                    $this->w->plan->undecided = 'code run';
+                }
+                if (!PlanModel::directContainer($node)) {
+                    $partPath = $path . '/' . $first;
+                    if (!$text) {
+                        $this->w->planParts[$partPath] = $part;
+                    } elseif ($c->escapedAt !== []) {
+                        $this->w->planWrittenEscapes[$partPath] = $c->escapedAt;
+                    }
+                } else {
+                    unset($this->w->planContents[$path . '/' . $first . '/children']);
+                }
+            }
             $out .= $part;
             if (!$traced) {
                 // The hyphens the node ends a run with: a text's, with those before it when it is all hyphens, and one
@@ -759,6 +801,10 @@ final class Inline
         }
         if (!$c->inCell && $this->w->repairTrace === null) {
             $this->readBack($nodes, $parts, $out, $path);
+        }
+
+        if ($this->w->plan !== null) {
+            $this->w->planContents[$path] = $out;
         }
 
         return $out;
@@ -1161,15 +1207,33 @@ final class Inline
         }
         $part = $this->node($node, $path . '/' . $at, $c, $after, $nodes[$at - 1] ?? null);
         if ($redo !== null && str_starts_with($part, '{')) {
-            [$from, $length, $text] = $redo;
-            // The replay revisits the same first-line lookahead with the next node now known.
-            $text->writerState = null;
-            $again = $this->node((array)$nodes[$at - 1], $path . '/' . ($at - 1), $text, 0x7B, $nodes[$at - 2] ?? null);
-            $out = substr_replace($out, $again, $from, $length);
+            $out = $this->replayBeforeBrace($nodes, $path, $at, $out, $redo);
         }
         $redo = $snapshot === null ? null : [strlen($out), strlen($part), $snapshot];
 
         return $part;
+    }
+
+    /**
+     * The text before a part that came out braced is written again with `{` behind it.
+     *
+     * @param array<mixed> $nodes
+     * @param string $path
+     * @param int $at
+     * @param string $out
+     * @param array{int, int, \MarkupCarve\Carve\Writer\Context} $redo Where the text stands in `out`, and its context.
+     */
+    private function replayBeforeBrace(array $nodes, string $path, int $at, string $out, array $redo): string
+    {
+        [$from, $length, $text] = $redo;
+        // The replay revisits the same first-line lookahead with the next node now known. A group write keeps its
+        // trace, so the replayed text leaves its escapes to the rounds as the first write did.
+        if (!GroupWrite::active()) {
+            $text->writerState = null;
+        }
+        $again = $this->node((array)$nodes[$at - 1], $path . '/' . ($at - 1), $text, 0x7B, $nodes[$at - 2] ?? null);
+
+        return substr_replace($out, $again, $from, $length);
     }
 
     /**
@@ -2122,7 +2186,7 @@ final class Inline
         // C2-W-022: no space or tab of text stands at the end of a line.
         if ($next === 10 && !$c->bareBreaks) {
             $value = rtrim($value, " \t");
-        } elseif ($next === -1) {
+        } elseif ($next === -1 && !$c->openEnd) {
             $value = rtrim($value, " \t");
         }
         $prefix = '';
@@ -2160,6 +2224,14 @@ final class Inline
         }
         $this->textPrefix = strlen($prefix);
         $this->textValue = $value;
+
+        if ($this->w->planMode) {
+            $c->pairEscapes = $this->w->planEscapes[$c->textPath] ?? [];
+            $written = Text::escape($value, $c, $next);
+            $c->pairEscapes = [];
+
+            return $prefix . $written;
+        }
 
         return $prefix . Text::escapePairs($value, $c, $next);
     }
@@ -2364,6 +2436,49 @@ final class Inline
     }
 
     /**
+     * Whether the pair takes its bare form. A form `Writer\Check` decided stands for the content, and the neighbors as
+     * written still brace the bare form, which the write reports as glued (carve-js `gluedPart`). Without one the pair
+     * is braced inside its own kind, for its content, or for its neighbors.
+     *
+     * @param mixed $form
+     * @param array<mixed> $children
+     * @param string $type
+     * @param bool $inside
+     * @param string $inner
+     * @param array{int, int} $around The characters before and after the pair.
+     * @param string $path
+     * @param \MarkupCarve\Carve\Writer\Context $c
+     */
+    private function bareForm(
+        mixed $form,
+        array $children,
+        string $type,
+        bool $inside,
+        string $inner,
+        array $around,
+        string $path,
+        Context $c,
+    ): bool {
+        $mark = self::PAIRED[$type];
+        if (is_bool($form)) {
+            if ($form) {
+                return false;
+            }
+            if (self::bareFits($inner, $mark, $around[0], $around[1])) {
+                return true;
+            }
+            GroupWrite::note($path);
+
+            return false;
+        }
+
+        return !$inside && !self::holdsKind($children, $type)
+            && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
+            && self::transparentCommentFlanksAllowBare($children, $mark)
+            && self::bareFits($inner, $mark, $around[0], $around[1]);
+    }
+
+    /**
      * C2-W-069, C2-W-070: emphasis and strong, bare where that reads back and braced otherwise.
      *
      * @param array<mixed> $node
@@ -2409,17 +2524,20 @@ final class Inline
         $c->open = $open;
         $c->marks = $marks;
         $visibleInner = $this->w->repairTrace?->decode($inner)['source'] ?? $inner;
-        $bare = !isset($open[$type])
-            && !self::holdsKind($children, $type)
-            && !self::holdsMark($children, $mark, true, $path . '/children', $this->bracedPaired, bareBreaks: $c->bareBreaks)
-            && self::transparentCommentFlanksAllowBare($children, $mark)
-            && self::bareFits($visibleInner, $mark, $prev, $next);
+        $form = $node[self::BRACED_FORM] ?? null;
+        $bare = $this->bareForm($form, $children, $type, isset($open[$type]), $visibleInner, [$prev, $next], $path, $c);
         if ($bare) {
+            if ($this->w->plan !== null) {
+                $this->w->planForms[$path] = false;
+            }
             unset($this->bracedPaired[$path]);
 
             return $mark . $inner . $mark;
         }
         $this->bracedPaired[$path] = true;
+        if ($this->w->plan !== null) {
+            $this->w->planForms[$path] = true;
+        }
 
         return '{' . $mark . $inner . $mark . '}';
     }
@@ -3239,6 +3357,10 @@ final class Inline
     {
         $raw = $this->rawReference($node, $path, $c);
         if ($raw !== null) {
+            if ($this->w->plan !== null) {
+                $this->w->planLinkRaw[$path] = $raw;
+            }
+
             return $raw;
         }
         $children = is_array($node['children'] ?? null) ? $node['children'] : [];
@@ -3263,7 +3385,12 @@ final class Inline
             $inner = $this->keySpelled($inner, $node['key'], $children);
         }
 
-        return '[' . $inner . ']' . $this->target($node, self::str($node, 'href'), $c, $path);
+        $tail = $this->target($node, self::str($node, 'href'), $c, $path);
+        if ($this->w->plan !== null) {
+            $this->w->planLinkTail[$path] = $tail;
+        }
+
+        return '[' . $inner . ']' . $tail;
     }
 
     /**

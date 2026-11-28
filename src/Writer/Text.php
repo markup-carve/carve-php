@@ -2304,7 +2304,8 @@ final class Text
         $flat = (string)$c->flat;
         $at = $c->here + $i;
         if ($c->here < 0) {
-            return self::braceInSpan($value, $i, $c);
+            // carve-js places no such backslash while it writes; the rounds of a group write decide it.
+            return !GroupWrite::active() && self::braceInSpan($value, $i, $c);
         }
         if (($flat[$at] ?? '') !== '{') {
             return true;

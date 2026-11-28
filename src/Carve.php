@@ -53,6 +53,7 @@ use MarkupCarve\Carve\Resolve\Slug;
 use MarkupCarve\Carve\Resolve\TableGrid;
 use MarkupCarve\Carve\Resolve\Walk;
 use MarkupCarve\Carve\Snippet\Expander as SnippetExpander;
+use MarkupCarve\Carve\Writer\ReadScope;
 use MarkupCarve\Carve\Writer\Writer;
 use MarkupCarve\Carve\Writer\WriteResult;
 use Throwable;
@@ -459,7 +460,7 @@ final class Carve
         $gc = self::collectorOff();
         $abbreviations = Finisher::$abbreviations;
         try {
-            [$doc, $findings, $hasInclude] = self::stages($source);
+            [$doc, $findings, $hasInclude] = self::stages($source, [], true, ReadScope::$scope);
             self::expand($doc, $findings, $opts, $hasInclude);
             if ($opts->extensions !== []) {
                 $linkKeys = self::linkKeysByFile($doc);
@@ -544,16 +545,24 @@ final class Carve
      * @param string $source
      * @param array<string, string> $inheritedAbbreviations
      * @param bool $fileStart
+     * @param array{array<string, true>, array<string, string>}|null $scope The scope of an outer document (`ReadScope`).
      *
      * @return array{0: \MarkupCarve\Carve\Node, 1: \MarkupCarve\Carve\Diagnostics\Findings, 2: bool}
      */
-    private static function stages(string $source, array $inheritedAbbreviations = [], bool $fileStart = true): array
-    {
+    private static function stages(
+        string $source,
+        array $inheritedAbbreviations = [],
+        bool $fileStart = true,
+        ?array $scope = null,
+    ): array {
         $sink = new TreeSink($source);
         (new BlockParser($sink))->parse($source, $fileStart);
         $doc = $sink->root;
         assert($doc !== null);
         $ctx = $sink->hasDefinition ? InlineContext::collect($doc, $source) : new InlineContext();
+        if ($scope !== null) {
+            $ctx->scope($scope[0], $scope[1]);
+        }
         foreach ($inheritedAbbreviations as $key => $expansion) {
             $ctx->abbreviations[$key] ??= $expansion;
         }

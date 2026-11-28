@@ -1638,6 +1638,12 @@ final class Writer
         if ($settled !== null) {
             return $settled;
         }
+        if ($parsed !== null && $risk && !$undecided && $result->diagnostics === []) {
+            $planned = self::planCandidate($tree, $layout, $options);
+            if ($planned !== null) {
+                return $planned;
+            }
+        }
         $children = $tree['children'] ?? null;
         if (
             $parsed !== null && self::simpleBracedSource($parsed) && $result->diagnostics === []
@@ -4455,6 +4461,7 @@ final class Writer
     private static function remembered(string $kind, array $inputs, Closure $write): mixed
     {
         $inputs[] = self::$bareRepaired;
+        $inputs[] = GroupWrite::active();
         [$result, self::$bareRepaired] = self::$captured !== null ? $write() : WriteMemo::remember($kind, $inputs, $write);
 
         return $result;
@@ -4517,6 +4524,9 @@ final class Writer
     private static function writeInternal(array $tree, ?array $layout, array $options, ?RepairTrace $trace): WriteResult
     {
         $w = new State(self::facts($layout), ($options['alignTables'] ?? false) === true, ($options['normalize'] ?? false) === true);
+        $w->plan = self::planFrom($options);
+        $w->planMode = self::planModeFrom($options, $w->plan);
+        $w->planEscapes = self::plannedEscapesFrom($options);
         $w->repairTrace = $trace;
         $w->recordGroups = self::$captured !== null;
         $w->extensions = is_array($options['extensions'] ?? null) ? $options['extensions'] : [];
@@ -4551,6 +4561,93 @@ final class Writer
         self::record($w, $joined, $source);
 
         return new WriteResult($source, $w->losses);
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    private static function planFrom(array $options): ?Plan
+    {
+        $plan = $options['__plan'] ?? null;
+
+        return $plan instanceof Plan ? $plan : null;
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     * @param \MarkupCarve\Carve\Writer\Plan|null $plan
+     */
+    private static function planModeFrom(array $options, ?Plan $plan): bool
+    {
+        return ($options['__planMode'] ?? false) === true || $plan !== null;
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, array<int, true>>
+     */
+    private static function plannedEscapesFrom(array $options): array
+    {
+        $given = $options['__planEscapes'] ?? null;
+        if (!is_array($given)) {
+            return [];
+        }
+        $escapes = [];
+        foreach ($given as $path => $offsets) {
+            if (!is_string($path) || !is_array($offsets)) {
+                continue;
+            }
+            foreach ($offsets as $at => $asked) {
+                if (is_int($at) && $asked === true) {
+                    $escapes[$path][$at] = true;
+                }
+            }
+        }
+
+        return $escapes;
+    }
+
+    /**
+     * One planned group write: model its leaf sources, apply the ordered escape decisions, and check the final tree.
+     * A plan without a decision leaves the caller's repair state unchanged.
+     *
+     * @param array<string, mixed> $tree
+     * @param array<mixed>|null $layout
+     * @param array<string, mixed> $options
+     */
+    private static function planCandidate(array $tree, ?array $layout, array $options): ?WriteResult
+    {
+        $nodes = is_array($tree['children'] ?? null) ? $tree['children'] : [];
+        if (count($nodes) !== 1) {
+            return null;
+        }
+        $plan = new Plan();
+        PlanPlaces::note($plan, $nodes, '/children', true);
+        if ($plan->undecided !== null) {
+            return null;
+        }
+        $first = self::writeInternal($tree, $layout, $options + ['__plan' => $plan], null);
+        if (PlanReason::forGroup($plan, $nodes, '/children', $first) !== null || $plan->respell !== []) {
+            return null;
+        }
+        if ($plan->escapes !== [] && !RepairPlanner::settlesKinds($tree, $plan->escapes)) {
+            return null;
+        }
+        if (Text::treePairOpeners($tree, $plan->escapes) !== []) {
+            return null;
+        }
+        $source = $plan->escapes === [] ? $first
+            : self::writeInternal($tree, $layout, $options + [
+                '__planMode' => true,
+                '__planEscapes' => $plan->escapes,
+            ], null);
+        if ($source->diagnostics !== []) {
+            return null;
+        }
+        $expected = self::trimmedPrint($tree, $layout, $options);
+
+        return self::readsBack($source->source, $expected, $options) ? $source : null;
     }
 
     /**
