@@ -74,7 +74,7 @@ final class ImportCommand
             return 0;
         }
         $file = $files[0] ?? '-';
-        $html = $file === '-' ? stream_get_contents($in) : @file_get_contents($file);
+        $html = $file === '-' ? StdinReader::read($in) : @file_get_contents($file);
         $display = $file === '-' ? '<stdin>' : $file;
         if ($html === false) {
             return self::fail($err, 'input-unreadable', $display . ': cannot be read', 2);

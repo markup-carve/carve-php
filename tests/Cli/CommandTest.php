@@ -102,4 +102,34 @@ final class CommandTest extends TestCase
         $this->assertSame([2, '', "carve[usage]: unknown option --bogus\n"], self::call(['lint', '--bogus']));
         $this->assertSame([0, "<p>a</p>\n", ''], self::call([], 'a'));
     }
+
+    public function testUnreadableStdinHasCliErrorForRenderAndImport(): void
+    {
+        $commands = [
+            ['render', '-'],
+            ['ast', '-'],
+            ['lint', '-'],
+            ['fmt', '-'],
+            ['import', '--from=html', '-'],
+        ];
+        foreach ($commands as $args) {
+            $in = fopen($this->dir, 'r');
+            $out = fopen('php://memory', 'r+');
+            $err = fopen('php://memory', 'r+');
+            self::assertNotFalse($in);
+            self::assertNotFalse($out);
+            self::assertNotFalse($err);
+
+            $status = Command::main($args, $in, $out, $err);
+            rewind($out);
+            rewind($err);
+            self::assertSame(2, $status);
+            self::assertSame('', stream_get_contents($out));
+            self::assertSame("carve[input-unreadable]: <stdin>: cannot be read\n", stream_get_contents($err));
+
+            fclose($in);
+            fclose($out);
+            fclose($err);
+        }
+    }
 }
