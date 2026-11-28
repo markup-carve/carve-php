@@ -8,6 +8,7 @@ use JsonException;
 use MarkupCarve\Carve\Carve;
 use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use Throwable;
 
 final class TreeMigration
 {
@@ -28,12 +29,15 @@ final class TreeMigration
     public static function migrate(array|string $input, array $options = []): array
     {
         [$old, $envelope, $original] = self::input($input);
-        $document = self::node($old)[0];
-        $document['astVersion'] = '2.0';
+        $current = ($old['astVersion'] ?? null) === '2.0' && self::validCurrent($old);
+        $document = $current ? $old : self::node($old)[0];
         $diagnostics = [];
-        $json = self::positions($document, is_string($options['source'] ?? null) ? $options['source'] : null, $diagnostics);
-        $json ??= self::encoded($document);
-        Carve::decodeTree($json);
+        if (!$current) {
+            $document['astVersion'] = '2.0';
+            $json = self::positions($document, is_string($options['source'] ?? null) ? $options['source'] : null, $diagnostics);
+            $json ??= self::encoded($document);
+            Carve::decodeTree($json);
+        }
         $source = is_string($options['source'] ?? null) ? $options['source'] : '';
         $layout = self::layout($old, $document);
         if (is_string($options['source'] ?? null)) {
@@ -56,6 +60,20 @@ final class TreeMigration
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     */
+    private static function validCurrent(array $document): bool
+    {
+        try {
+            Carve::validateTree($document);
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

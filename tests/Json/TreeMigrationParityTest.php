@@ -150,6 +150,37 @@ final class TreeMigrationParityTest extends TestCase
         self::assertSame(['text', 'hard_break'], array_column($lines[0]['children'], 'type'));
     }
 
+    public function testCurrentUnicodeTreeKeepsBytePositions(): void
+    {
+        $source = "éa\n";
+        $tree = json_decode(Carve::encodeTree(Carve::parse($source)), true, 4096, JSON_THROW_ON_ERROR);
+        self::assertSame($tree, Carve::migrateTree($tree)['document']);
+        self::assertSame($tree, Carve::migrateTree($tree, ['source' => $source])['document']);
+    }
+
+    public function testLegacyColumnDropsRetiredFieldsLikeJs(): void
+    {
+        $tree = self::document([
+            [
+                'type' => 'table',
+                'rows' => [
+                    [
+
+                        'type' => 'table_row',
+                        'cells' => [
+                            ['type' => 'table_cell', 'header' => false, 'children' => [['type' => 'text', 'value' => 'x']]],
+                        ],
+                    ],
+                ],
+                'columns' => [
+                    ['type' => 'table_column', 'align' => 'left', 'attrs' => ['id' => 'col'], 'resolvedAlign' => 'right'],
+                ],
+            ],
+        ]);
+        $columns = Carve::migrateTree($tree)['document']['children'][0]['columns'];
+        self::assertSame([['type' => 'table_column', 'align' => 'left']], $columns);
+    }
+
     /**
      * @param array<int, array<string, mixed>> $children
      *
