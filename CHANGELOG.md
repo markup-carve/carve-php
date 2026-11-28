@@ -17,6 +17,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Improvements
 
 - `Extension\Name` is a string-backed enum of the extension configuration names the framework adapters accept, with `create()` building the extensions of a name from snake_case options. `Navigation::externalLinks()` takes `internalHosts`, whose links stay as written (#6184).
+- A resolved reference link or image carries its definition's `tooltip` in the tree, next to `href` or `src` (C2-A-115, markup-carve/carve#6973). HTML output is unchanged.
 
 ### Fixes
 
