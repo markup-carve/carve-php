@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Writer\Check;
 
 use MarkupCarve\Carve\Writer\Inline;
+use MarkupCarve\Carve\Writer\LinkFallback;
 use MarkupCarve\Carve\Writer\Text;
 use MarkupCarve\Carve\Writer\Writer;
 
@@ -28,6 +29,9 @@ final class TreeGroupWriter implements GroupWriter
     public function write(WriterState $w, array $group): void
     {
         [$tree, $escapes] = self::document($w, $group);
+        if (self::escapeLoneLinkBrackets($w, $group, $tree)) {
+            [$tree, $escapes] = self::document($w, $group);
+        }
         $candidate = Writer::bareCandidate($tree, null, $this->options, $escapes);
         $source = $candidate['source'];
         $w->lines = explode("\n", str_ends_with($source, "\n") ? substr($source, 0, -1) : $source);
@@ -68,6 +72,54 @@ final class TreeGroupWriter implements GroupWriter
         }
 
         return $found;
+    }
+
+    /**
+     * C2-W-125 case five: a bracket without a partner in link text would take the link's own closer. The rounds write
+     * these brackets bare until their first parse asks for a change inside a link (`linkFallback`), so a bare closer
+     * reports the kinds of what it lets form (C2-W-088, carve#6656). True where the escapes of `w` changed.
+     *
+     * @param \MarkupCarve\Carve\Writer\Check\WriterState $w
+     * @param list<\MarkupCarve\Carve\Writer\Check\Node> $group
+     * @param array<string, mixed> $tree
+     */
+    private static function escapeLoneLinkBrackets(WriterState $w, array $group, array $tree): bool
+    {
+        [$positions] = LinkFallback::positions($tree);
+        if ($positions === []) {
+            return false;
+        }
+        $w->sawLink = true;
+        if (!$w->linkFallback) {
+            return false;
+        }
+        $texts = [];
+        foreach ($group as $at => $node) {
+            self::noteTexts($node, "/children/{$at}", $texts);
+        }
+        $changed = false;
+        foreach ($positions as $path => $offsets) {
+            $text = $texts[$path] ?? null;
+            if ($text === null) {
+                continue;
+            }
+            $id = spl_object_id($text);
+            $current = $w->escapes[$id] ?? [];
+            $added = array_diff(array_keys($offsets), $current);
+            if ($added === []) {
+                continue;
+            }
+            $merged = [...$current, ...$added];
+            sort($merged);
+            $w->escapes[$id] = $merged;
+            $w->escaped[$id] = $text;
+            foreach ($added as $offset) {
+                $w->linkPlaced[$id][$offset] = true;
+            }
+            $changed = true;
+        }
+
+        return $changed;
     }
 
     /**
