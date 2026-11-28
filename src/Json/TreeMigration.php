@@ -6,7 +6,9 @@ namespace MarkupCarve\Carve\Json;
 
 use JsonException;
 use MarkupCarve\Carve\Carve;
+use MarkupCarve\Carve\Generated\Tables;
 use MarkupCarve\Carve\Inline\Chars;
+use Throwable;
 
 final class TreeMigration
 {
@@ -27,9 +29,15 @@ final class TreeMigration
     public static function migrate(array|string $input, array $options = []): array
     {
         [$old, $envelope, $original] = self::input($input);
-        $document = self::node($old)[0];
-        $document['astVersion'] = '2.0';
-        Carve::validateTree($document);
+        $current = ($old['astVersion'] ?? null) === '2.0' && self::validCurrent($old);
+        $document = $current ? $old : self::node($old)[0];
+        $diagnostics = [];
+        if (!$current) {
+            $document['astVersion'] = '2.0';
+            $json = self::positions($document, is_string($options['source'] ?? null) ? $options['source'] : null, $diagnostics);
+            $json ??= self::encoded($document);
+            Carve::decodeTree($json);
+        }
         $source = is_string($options['source'] ?? null) ? $options['source'] : '';
         $layout = self::layout($old, $document);
         if (is_string($options['source'] ?? null)) {
@@ -39,7 +47,7 @@ final class TreeMigration
                 $layout = $parsed->layout;
             }
         }
-        $result = ['document' => $document, 'layout' => $layout, 'diagnostics' => []];
+        $result = ['document' => $document, 'layout' => $layout, 'diagnostics' => $diagnostics];
         if ($envelope) {
             $envelopeValue = ['astVersion' => '2.0', 'document' => $document];
             if (isset($original['vocabulary'])) {
@@ -52,6 +60,119 @@ final class TreeMigration
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     */
+    private static function validCurrent(array $document): bool
+    {
+        try {
+            Carve::validateTree($document);
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @param array<mixed, mixed> $document
+     * @param string|null $source
+     * @param array<int, array<string, string>> $diagnostics
+     */
+    private static function positions(array &$document, ?string $source, array &$diagnostics): ?string
+    {
+        if ($source === null) {
+            $encoded = self::encoded($document);
+            if (!str_contains($encoded, '"pos"') || preg_match('/[^\x00-\x7f]/', $encoded) !== 1) {
+                return $encoded;
+            }
+        }
+        $offsets = null;
+        if ($source !== null) {
+            $offsets = [0];
+            $bytes = 0;
+            foreach (preg_split('//u', $source, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $character) {
+                $bytes += strlen($character);
+                $offsets[] = $bytes;
+            }
+        }
+        self::visitPositions($document, '', $offsets, $diagnostics);
+
+        return null;
+    }
+
+    /**
+     * @param array<mixed, mixed> $document
+     */
+    private static function encoded(array $document): string
+    {
+        return json_encode($document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_LINE_TERMINATORS | JSON_INVALID_UTF8_SUBSTITUTE) ?: '';
+    }
+
+    /**
+     * @param array<mixed, mixed> $node
+     * @param string $path
+     * @param array<int, int>|null $offsets
+     * @param array<int, array<string, string>> $diagnostics
+     */
+    private static function visitPositions(array &$node, string $path, ?array $offsets, array &$diagnostics): void
+    {
+        self::convertPosition($node, $path, $offsets, $diagnostics);
+        foreach ($node as $key => &$child) {
+            if (in_array($key, ['pos', 'data', 'payload', 'props'], true) || !is_array($child)) {
+                continue;
+            }
+            if (array_is_list($child)) {
+                foreach ($child as $index => &$entry) {
+                    if (is_array($entry)) {
+                        self::visitPositions($entry, $path . '/' . $key . '/' . $index, $offsets, $diagnostics);
+                    }
+                }
+                unset($entry);
+            } else {
+                self::visitPositions($child, $path . '/' . $key, $offsets, $diagnostics);
+            }
+        }
+        unset($child);
+    }
+
+    /**
+     * @param array<mixed, mixed> $node
+     * @param string $path
+     * @param array<int, int>|null $offsets
+     * @param array<int, array<string, string>> $diagnostics
+     */
+    private static function convertPosition(array &$node, string $path, ?array $offsets, array &$diagnostics): void
+    {
+        if (!isset($node['type']) || !is_array($node['pos'] ?? null)) {
+            return;
+        }
+        $position = $node['pos'];
+        $startOffset = $position['startOffset'] ?? null;
+        $endOffset = $position['endOffset'] ?? null;
+        $start = is_int($startOffset) ? ($offsets[$startOffset] ?? null) : null;
+        $end = is_int($endOffset) ? ($offsets[$endOffset] ?? null) : null;
+        if ($start !== null && $end !== null) {
+            $node['pos']['startOffset'] = $start;
+            $node['pos']['endOffset'] = $end;
+
+            return;
+        }
+        unset($node['pos']);
+        if ($diagnostics === []) {
+            $diagnostics[] = [
+                'code' => 'migration-loss',
+                'severity' => 'warning',
+                'channel' => 'render-loss',
+                'path' => $path . '/pos',
+                'message' => $offsets === null
+                    ? 'positions dropped: 0.1 offsets count code points and no source was given to count bytes'
+                    : 'positions dropped: an offset lies past the end of the source',
+            ];
+        }
     }
 
     /**
@@ -272,6 +393,10 @@ final class TreeMigration
     private static function node(array $old): array
     {
         $type = $old['type'] ?? null;
+        $simple = self::simpleNode($old);
+        if ($simple !== null) {
+            return [$simple];
+        }
         if ($type === 'critic_substitution' || $type === 'substitution') {
             return self::substitution($old);
         }
@@ -284,11 +409,39 @@ final class TreeMigration
         };
         self::slots($node, $old);
         self::fields($node, is_string($type) ? $type : '');
-        self::shape($node, $old, is_string($type) ? $type : '');
         self::attrs($node);
+        self::shape($node, $old, is_string($type) ? $type : '');
         self::coalesce($node);
 
         return $type === 'figure' ? self::figure($node) : [$node];
+    }
+
+    /**
+     * @param array<string, mixed> $old
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function simpleNode(array $old): ?array
+    {
+        $type = $old['type'] ?? null;
+        if (
+            $type === 'text' && isset($old['value']) && !isset($old['attrs'])
+            && count($old) === (isset($old['pos']) ? 3 : 2)
+        ) {
+            return $old;
+        }
+        if (
+            $type === 'paragraph' && is_array($old['children'] ?? null)
+            && count($old) === (isset($old['pos']) ? 3 : 2)
+            && count($old['children']) === 1 && is_array($old['children'][0])
+            && ($old['children'][0]['type'] ?? null) === 'text'
+        ) {
+            $old['children'] = self::node($old['children'][0]);
+
+            return $old;
+        }
+
+        return null;
     }
 
     /**
@@ -311,6 +464,18 @@ final class TreeMigration
         $caption = self::object($old['caption'] ?? null);
         if ($caption !== null) {
             $node['caption'] = self::node($caption)[0];
+        } elseif (is_array($old['caption'] ?? null) && array_is_list($old['caption'])) {
+            $node['caption'] = [
+
+                'type' => 'caption',
+                'children' => [
+                    ['type' => 'paragraph', 'children' => self::nodes($old['caption'])],
+                ],
+            ];
+        }
+        $target = self::object($old['target'] ?? null);
+        if (($old['type'] ?? null) === 'figure' && $target !== null) {
+            $node['kind'] = self::node($target)[0];
         }
     }
 
@@ -340,11 +505,13 @@ final class TreeMigration
     private static function fields(array &$node, string $type): void
     {
         $map = match ($type) {
-            'link', 'image' => ['form' => 'refForm'],
+            'link', 'image' => ['form' => 'refForm', 'title' => 'tooltip'],
             'xref', 'heading_ref' => ['form' => 'display'],
             'link_reference_definition' => ['title' => 'tooltip', 'label' => 'key'],
             'code_block' => ['content' => 'value', 'lang' => 'syntax', 'header' => 'title', 'label' => 'groupLabel'],
+            'div', 'directive', 'admonition' => ['label' => 'groupLabel'],
             'raw_block', 'raw_inline', 'literal_inline', 'frontmatter', 'math' => ['content' => 'value'],
+            'critic_comment' => ['text' => 'value'],
             'footnote', 'footnote_ref', 'citation_definition' => ['label' => 'key'],
             'abbreviation', 'abbreviation_def' => ['abbr' => 'key'],
             'mention' => ['user' => 'target'],
@@ -371,6 +538,9 @@ final class TreeMigration
             if (is_array($node['stages'] ?? null)) {
                 $node['stages'] = array_values(array_filter($node['stages'], static fn ($stage): bool => $stage !== 'blockImagePromotion'));
             }
+            if (is_array($node['children'] ?? null) && $node['children'] !== [] && self::allPositioned($node['children'])) {
+                usort($node['children'], static fn ($a, $b): int => self::nodeStart($a) <=> self::nodeStart($b));
+            }
         }
         self::containerShape($node, $old, $type);
         self::promoteImages($node);
@@ -379,6 +549,27 @@ final class TreeMigration
         self::blockShape($node, $old, $type);
         self::admonition($node, $old, $type);
         self::dropOldFields($node, $type);
+    }
+
+    /**
+     * @param array<mixed> $children
+     */
+    private static function allPositioned(array $children): bool
+    {
+        foreach ($children as $child) {
+            if (!is_array($child) || !is_array($child['pos'] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function nodeStart(mixed $node): int
+    {
+        $position = is_array($node) ? ($node['pos'] ?? null) : null;
+
+        return is_array($position) && is_int($position['startOffset'] ?? null) ? $position['startOffset'] : 0;
     }
 
     /**
@@ -401,11 +592,39 @@ final class TreeMigration
             self::table($node, $old);
         }
         if ($type === 'table_cell') {
-            self::cell($node);
+            self::cell($node, $old);
+        }
+        if ($type === 'smart_punctuation') {
+            self::punctuation($node, $old);
         }
         if ($type === 'figure') {
             self::figureShape($node);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param array<string, mixed> $old
+     */
+    private static function punctuation(array &$node, array $old): void
+    {
+        $kind = $node['kind'] ?? null;
+        $node['source'] = is_string($old['value'] ?? null) ? $old['value'] : '';
+        if (is_string($kind) && isset(Tables::SMART_SOURCES[$kind])) {
+            $node['source'] = Tables::SMART_SOURCES[$kind];
+        }
+        if (is_string($kind) && isset(Tables::SMART_GLYPHS[$kind])) {
+            $node['glyph'] = Tables::SMART_GLYPHS[$kind];
+        } else {
+            foreach (Tables::SMART_RUNS as [$name, $glyph]) {
+                if ($name === $kind) {
+                    $node['glyph'] = $glyph;
+
+                    break;
+                }
+            }
+        }
+        unset($node['value']);
     }
 
     /**
@@ -477,6 +696,9 @@ final class TreeMigration
         if ($type === 'link' || $type === 'image') {
             self::linkReference($node, $old);
         }
+        if ($type === 'autolink' && ($node['text'] ?? null) === ($node['href'] ?? null)) {
+            unset($node['text']);
+        }
         $namespace = match ($type) {
             'footnote', 'footnote_ref' => 'footnote',
             'citation', 'citation_definition' => 'citation',
@@ -497,16 +719,49 @@ final class TreeMigration
     private static function linkReference(array &$node, array $old): void
     {
         $raw = is_string($old['rawRef'] ?? null) ? $old['rawRef'] : null;
-        if ($raw !== null && str_ends_with($raw, '[]')) {
+        if (($old['type'] ?? null) === 'image' && $raw !== null && str_starts_with($raw, '!')) {
+            $raw = substr($raw, 1);
+        }
+        $collapsed = self::collapsedKey($raw);
+        if ($collapsed !== null) {
             $node['refForm'] ??= 'collapsed';
         }
-        $key = is_string($node['key'] ?? null) ? $node['key'] : ($old['ref'] ?? null);
+        $key = $collapsed ?? (is_string($node['key'] ?? null) ? $node['key'] : ($old['ref'] ?? null));
         if (is_string($key)) {
             $node['key'] = Chars::fold($key);
             $node['namespace'] = 'link';
             $node['refForm'] ??= 'full';
+            unset($node['tooltip']);
+            self::emptyDestination($node, $old);
         }
         unset($node['ref'], $node['resolved']);
+    }
+
+    private static function collapsedKey(?string $raw): ?string
+    {
+        if ($raw === null || !str_ends_with($raw, '][]')) {
+            return null;
+        }
+        $at = strrpos($raw, '][]');
+
+        return $at !== false && $at > 0 ? substr($raw, 1, $at - 1) : null;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param array<string, mixed> $old
+     */
+    private static function emptyDestination(array &$node, array $old): void
+    {
+        if (($old['resolved'] ?? null) === true) {
+            return;
+        }
+        if (($node['href'] ?? null) === '') {
+            unset($node['href']);
+        }
+        if (($node['src'] ?? null) === '') {
+            unset($node['src']);
+        }
     }
 
     /**
@@ -567,6 +822,9 @@ final class TreeMigration
         if (in_array($type, ['code_block', 'div', 'admonition', 'directive'], true) && is_string($node['title'] ?? null)) {
             $node['title'] = [['type' => 'text', 'value' => $node['title']]];
         }
+        if ($type === 'code_block' && is_array($node['title'] ?? null)) {
+            self::codeTitle($node);
+        }
         if ($type === 'include' && is_array($old['options'] ?? null) && array_is_list($old['options'])) {
             self::includeOptions($node, $old['options']);
         }
@@ -575,6 +833,33 @@ final class TreeMigration
             && !str_ends_with($node['value'], "\n")
         ) {
             $node['value'] .= "\n";
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private static function codeTitle(array &$node): void
+    {
+        $attrs = self::object($node['attrs'] ?? null);
+        if ($attrs === null || !is_array($attrs['keyValues'] ?? null)) {
+            return;
+        }
+        if (array_is_list($attrs['keyValues'])) {
+            $attrs['keyValues'] = array_values(array_filter(
+                $attrs['keyValues'],
+                static fn ($pair): bool => !is_array($pair) || ($pair[0] ?? null) !== 'title',
+            ));
+        } else {
+            unset($attrs['keyValues']['title']);
+        }
+        if ($attrs['keyValues'] === []) {
+            unset($attrs['keyValues']);
+        }
+        if ($attrs === [] || (array_keys($attrs) === ['order'])) {
+            unset($node['attrs']);
+        } else {
+            $node['attrs'] = $attrs;
         }
     }
 
@@ -592,14 +877,28 @@ final class TreeMigration
         }
         $children = self::nodeList($node['children'] ?? null);
         if (count($children) === 1 && !isset($node['role'])) {
-            $child = $children[0];
-            if (($child['type'] ?? null) === 'image') {
-                $node['role'] = 'image';
-            } elseif (($child['type'] ?? null) === 'math' && ($child['display'] ?? false) === true) {
-                $node['role'] = 'math';
+            $role = self::singleChildRole($children[0]);
+            if ($role !== null) {
+                $node['role'] = $role;
             }
         }
         unset($node['blockImage'], $node['blockMath']);
+    }
+
+    /**
+     * @param array<string, mixed> $child
+     */
+    private static function singleChildRole(array $child): ?string
+    {
+        if (($child['type'] ?? null) === 'math' && ($child['display'] ?? false) === true && ($child['value'] ?? '') !== '') {
+            return 'math';
+        }
+        if (($child['type'] ?? null) !== 'image') {
+            return null;
+        }
+        $pos = self::object($child['pos'] ?? null);
+
+        return $pos === null || ($pos['startLine'] ?? null) === ($pos['endLine'] ?? null) ? 'image' : null;
     }
 
     /**
@@ -677,6 +976,11 @@ final class TreeMigration
         }
         $lines = [];
         foreach ($children as $block) {
+            if (($block['type'] ?? null) === 'comment') {
+                $lines[] = self::line([$block]);
+
+                continue;
+            }
             if (($block['type'] ?? null) !== 'paragraph') {
                 continue;
             }
@@ -684,31 +988,123 @@ final class TreeMigration
                 $lines[] = ['type' => 'line', 'children' => []];
             }
             $content = [];
-            foreach (self::nodeList($block['children'] ?? null) as $child) {
-                if (in_array($child['type'] ?? null, ['hard_break', 'soft_break'], true)) {
-                    $lines[] = ['type' => 'line', 'children' => $content];
+            $inline = self::nodeList($block['children'] ?? null);
+            foreach ($inline as $at => $child) {
+                if (in_array($child['type'] ?? null, ['hard_break', 'soft_break'], true) && $at < count($inline) - 1) {
+                    $lines[] = self::line($content);
                     $content = [];
                 } else {
                     $content[] = $child;
                 }
             }
-            $lines[] = ['type' => 'line', 'children' => $content];
+            $lines[] = self::line($content);
         }
         $node['children'] = $lines;
     }
 
     /**
-     * @param array<string, mixed> $node
+     * @param array<int, array<string, mixed>> $children
+     *
+     * @return array<string, mixed>
      */
-    private static function cell(array &$node): void
+    private static function line(array $children): array
     {
-        $content = is_array($node['children'] ?? null) ? $node['children'] : [];
+        $line = ['type' => 'line', 'children' => self::lineContents($children)];
+        $first = self::object($children[0]['pos'] ?? null);
+        $last = self::object($children[count($children) - 1]['pos'] ?? null);
+        if ($first !== null && $last !== null) {
+            $line['pos'] = [...$first, 'endLine' => $last['endLine'], 'endColumn' => $last['endColumn'], 'endOffset' => $last['endOffset']];
+        }
+
+        return $line;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $children
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function lineContents(array $children): array
+    {
+        $count = 0;
+        while (($children[$count]['type'] ?? null) === 'non_breaking_space') {
+            $count++;
+        }
+        if ($count === 0) {
+            return $children;
+        }
+        $next = $children[$count] ?? null;
+        $hasText = ($next['type'] ?? null) === 'text';
+        $end = $count + ($hasText ? 1 : 0);
+        $text = [
+
+            'type' => 'text',
+            'value' => str_repeat(' ', $count)
+            . ($hasText && is_string($next['value'] ?? null) ? $next['value'] : ''),
+        ];
+        $beginPos = self::object($children[0]['pos'] ?? null);
+        $endPos = self::object($children[$end - 1]['pos'] ?? null);
+        if ($beginPos !== null && $endPos !== null) {
+            $text['pos'] = [
+                ...$beginPos,
+                'endLine' => $endPos['endLine'],
+                'endColumn' => $endPos['endColumn'],
+                'endOffset' => $endPos['endOffset'],
+            ];
+        }
+
+        return [$text, ...array_slice($children, $end)];
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param array<string, mixed> $old
+     */
+    private static function cell(array &$node, array $old): void
+    {
+        $content = self::nodeList($node['children'] ?? null);
+        $leading = self::leadingWraps($old);
+        if ($leading > 0) {
+            $content = array_slice($content, $leading);
+        }
+        $holder = ['children' => $content];
+        self::coalesce($holder);
+        $content = self::nodeList($holder['children'] ?? null);
+        $node['children'] = $content;
+        if ($content !== [] && isset($node['span'])) {
+            unset($node['span']);
+        }
         $first = $content[0] ?? null;
-        if ($content === [] || (is_array($first) && in_array($first['type'] ?? null, ['paragraph', 'cell_paragraph'], true))) {
+        if (isset($node['span']) && $content === []) {
             return;
         }
-        $node['children'] = [['type' => 'cell_paragraph', 'children' => $content]];
+        if (is_array($first) && in_array($first['type'] ?? null, ['paragraph', 'cell_paragraph'], true)) {
+            return;
+        }
+        $wrapped = ['type' => 'cell_paragraph', 'children' => $content];
+        $begin = self::object($content[0]['pos'] ?? null);
+        $end = self::object($content[count($content) - 1]['pos'] ?? null);
+        if ($begin !== null && $end !== null) {
+            $wrapped['pos'] = [...$begin, 'endLine' => $end['endLine'], 'endColumn' => $end['endColumn'], 'endOffset' => $end['endOffset']];
+        }
+        $node['children'] = [$wrapped];
         self::coalesce($node['children'][0]);
+    }
+
+    /**
+     * @param array<string, mixed> $old
+     */
+    private static function leadingWraps(array $old): int
+    {
+        $count = 0;
+        foreach (self::nodeList($old['children'] ?? null) as $child) {
+            if (($child['type'] ?? null) !== 'cell_wrap') {
+                break;
+            }
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
@@ -725,9 +1121,10 @@ final class TreeMigration
         $head = 0;
         foreach ($rows as $row) {
             $cells = self::nodeList($row['children'] ?? null);
+            $visible = array_values(array_filter($cells, static fn (array $cell): bool => !isset($cell['span'])));
             if (
-                $cells === [] || !array_reduce(
-                    $cells,
+                $visible === [] || !array_reduce(
+                    $visible,
                     static fn (bool $all, array $cell): bool => $all && ($cell['header'] ?? false) === true,
                     true,
                 )
@@ -738,15 +1135,101 @@ final class TreeMigration
         }
         $groups = [];
         if ($head > 0) {
-            $groups[] = ['type' => 'table_head', 'children' => array_slice($rows, 0, $head)];
+            $groups[] = self::tableGroup('table_head', array_slice($rows, 0, $head));
         }
         if ($head < count($rows)) {
-            $groups[] = ['type' => 'table_body', 'children' => array_slice($rows, $head)];
+            $groups[] = self::tableGroup('table_body', array_slice($rows, $head));
         }
         $explicit = self::explicitTableGroups($rows, $old);
         $node['children'] = $explicit ?? $groups;
+        self::normalizeSpans($node['children']);
         unset($node['rows'], $node['rowGroups']);
         self::tableAttrs($node);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $groups
+     */
+    private static function normalizeSpans(array &$groups): void
+    {
+        foreach ($groups as $groupAt => $group) {
+            $rows = self::nodeList($group['children'] ?? null);
+            foreach ($rows as $rowAt => $row) {
+                $cells = self::nodeList($row['children'] ?? null);
+                foreach ($cells as $columnAt => $cell) {
+                    $above = self::nodeList($rows[$rowAt - 1]['children'] ?? null)[$columnAt] ?? null;
+                    $footRow = $rowAt === 0 && ($group['type'] ?? null) === 'table_foot';
+                    if (!self::spanJoinsNothing($cell, $cells[$columnAt - 1] ?? null, $above, $footRow)) {
+                        continue;
+                    }
+                    $mark = $footRow && ($cell['span'] ?? null) === 'rowspan'
+                        ? [['type' => 'text', 'value' => '^']] : [];
+                    unset($cell['span']);
+                    $cell['children'] = [['type' => 'cell_paragraph', 'children' => $mark]];
+                    $cells[$columnAt] = $cell;
+                }
+                $rows[$rowAt]['children'] = $cells;
+            }
+            self::recountRowspans($rows);
+            $groups[$groupAt]['children'] = $rows;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $cell
+     * @param array<string, mixed>|null $left
+     * @param array<string, mixed>|null $above
+     * @param bool $footRow
+     */
+    private static function spanJoinsNothing(array $cell, ?array $left, ?array $above, bool $footRow): bool
+    {
+        $span = $cell['span'] ?? null;
+        if ($footRow && $span === 'rowspan') {
+            return true;
+        }
+        if ($span === 'colspan') {
+            return $left === null || ($left['span'] ?? null) === 'rowspan';
+        }
+
+        return $span === 'rowspan' && ($above === null || ($above['span'] ?? null) === 'colspan'
+            || ($above['colspan'] ?? 1) > 1);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private static function recountRowspans(array &$rows): void
+    {
+        foreach ($rows as $rowAt => $row) {
+            $cells = self::nodeList($row['children'] ?? null);
+            foreach ($cells as $columnAt => $cell) {
+                if (!is_int($cell['rowspan'] ?? null)) {
+                    continue;
+                }
+                $count = 1;
+                while ((self::nodeList($rows[$rowAt + $count]['children'] ?? null)[$columnAt]['span'] ?? null) === 'rowspan') {
+                    $count++;
+                }
+                if ($count > 1) {
+                    $cell['rowspan'] = $count;
+                } else {
+                    unset($cell['rowspan']);
+                }
+                $cells[$columnAt] = $cell;
+            }
+            $rows[$rowAt]['children'] = $cells;
+        }
+    }
+
+    /**
+     * @param string $type
+     * @param array<int, array<string, mixed>> $rows
+     *
+     * @return array<string, mixed>
+     */
+    private static function tableGroup(string $type, array $rows): array
+    {
+        return ['type' => $type, 'children' => $rows] + (isset($rows[0]['pos']) ? ['pos' => $rows[0]['pos']] : []);
     }
 
     /**
@@ -767,9 +1250,11 @@ final class TreeMigration
             $taken = array_slice($rows, $at, $count);
             $at += $count;
             if ($taken !== []) {
-                $group = ['type' => $type, 'children' => $taken];
-                if (isset($taken[0]['pos'])) {
-                    $group['pos'] = $taken[0]['pos'];
+                $group = self::tableGroup($type, $taken);
+                if (isset($fields['attrs'])) {
+                    $group['attrs'] = $fields['attrs'];
+                    self::attrs($group);
+                    unset($fields['attrs']);
                 }
                 $groups[] = $group + $fields;
             }
@@ -816,9 +1301,16 @@ final class TreeMigration
                 $width = max($width, count($row['children']));
             }
         }
-        $columns = is_array($node['columns'] ?? null) ? $node['columns'] : [];
-        for ($at = count($columns); $at < $width; $at++) {
-            $columns[] = ['type' => 'table_column'];
+        $oldColumns = is_array($node['columns'] ?? null) ? $node['columns'] : [];
+        $columns = [];
+        $columnCount = max(count($oldColumns), $width);
+        for ($at = 0; $at < $columnCount; $at++) {
+            $column = ['type' => 'table_column'];
+            $old = self::object($oldColumns[$at] ?? null);
+            if ($old !== null) {
+                $column += array_intersect_key($old, array_flip(['align', 'valign', 'width']));
+            }
+            $columns[] = $column;
         }
         $node['columns'] = $columns;
     }
@@ -924,12 +1416,7 @@ final class TreeMigration
                 : ['kind' => 'bullet', 'char' => $old['bulletChar'] ?? '-'];
             $node['spacing'] = ($old['tight'] ?? true) === false ? 'loose' : 'tight';
         }
-        if (
-            ($marker['kind'] ?? null) === 'ordered' && is_int($old['start'] ?? null)
-            && $old['start'] >= 0 && $old['start'] <= 999999999 && $old['start'] !== 1
-        ) {
-            $marker['start'] = $old['start'];
-        }
+        self::listStart($node, $marker, $old);
         unset($marker['bare']);
         $node['marker'] = $marker;
         unset(
@@ -941,6 +1428,48 @@ final class TreeMigration
             $node['start'],
             $node['bareMarker'],
         );
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param array<string, mixed> $marker
+     * @param array<string, mixed> $old
+     */
+    private static function listStart(array &$node, array &$marker, array $old): void
+    {
+        if (($marker['kind'] ?? null) !== 'ordered') {
+            return;
+        }
+        if (is_int($old['start'] ?? null) && $old['start'] >= 0 && $old['start'] <= 999999999 && $old['start'] !== 1) {
+            $marker['start'] = $old['start'];
+        }
+        $attrs = self::object($node['attrs'] ?? null);
+        if ($attrs === null || !is_array($attrs['keyValues'] ?? null)) {
+            return;
+        }
+        $pairs = $attrs['keyValues'];
+        foreach ($pairs as $at => $pair) {
+            if (!is_array($pair) || ($pair[0] ?? null) !== 'start') {
+                continue;
+            }
+            $value = $pair[1] ?? null;
+            if (is_string($value) && ctype_digit($value) && (int)$value <= 999999999 && (int)$value !== 1) {
+                $marker['start'] = (int)$value;
+            }
+            array_splice($pairs, $at, 1);
+            if ($pairs === []) {
+                unset($attrs['keyValues']);
+            } else {
+                $attrs['keyValues'] = $pairs;
+            }
+            if ($attrs === []) {
+                unset($node['attrs']);
+            } else {
+                $node['attrs'] = $attrs;
+            }
+
+            return;
+        }
     }
 
     /**
@@ -969,7 +1498,23 @@ final class TreeMigration
     private static function attrs(array &$node): void
     {
         $attrs = $node['attrs'] ?? null;
-        if (!is_array($attrs) || !is_array($attrs['keyValues'] ?? null) || array_is_list($attrs['keyValues'])) {
+        if (!is_array($attrs)) {
+            return;
+        }
+        if (is_array($attrs['keyValues'] ?? null) && array_is_list($attrs['keyValues'])) {
+            unset($attrs['order']);
+            $node['attrs'] = $attrs;
+
+            return;
+        }
+        if (!is_array($attrs['keyValues'] ?? null)) {
+            unset($attrs['order']);
+            if ($attrs === []) {
+                unset($node['attrs']);
+            } else {
+                $node['attrs'] = $attrs;
+            }
+
             return;
         }
         $values = $attrs['keyValues'];
@@ -980,19 +1525,7 @@ final class TreeMigration
                 $names[] = $name;
             }
         }
-        $pairs = [];
-        foreach ($names as $name) {
-            if (!is_string($values[$name] ?? null)) {
-                continue;
-            }
-            if ($name === 'id') {
-                $attrs['id'] = $values[$name];
-            } elseif ($name === 'class') {
-                $attrs['classes'] = [$values[$name]];
-            } else {
-                $pairs[] = [$name, $values[$name]];
-            }
-        }
+        $pairs = self::attributePairs($attrs, $values, $names);
         if ($pairs === []) {
             unset($attrs['keyValues']);
         } else {
@@ -1000,6 +1533,38 @@ final class TreeMigration
         }
         unset($attrs['order']);
         $node['attrs'] = $attrs;
+    }
+
+    /**
+     * @param array<string, mixed> $attrs
+     * @param array<mixed, mixed> $values
+     * @param array<int, string> $names
+     *
+     * @return array<int, array<int, string>>
+     */
+    private static function attributePairs(array &$attrs, array $values, array $names): array
+    {
+        $pairs = [];
+        $indices = [];
+        foreach ($names as $name) {
+            $value = $values[$name] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+            $folded = strtolower($name);
+            if ($folded === 'id') {
+                $attrs['id'] = $value;
+            } elseif ($folded === 'class') {
+                $attrs['classes'] = [$value];
+            } elseif (isset($indices[$folded])) {
+                $pairs[$indices[$folded]][1] = $value;
+            } else {
+                $indices[$folded] = count($pairs);
+                $pairs[] = [$name, $value];
+            }
+        }
+
+        return $pairs;
     }
 
     /**
@@ -1076,6 +1641,14 @@ final class TreeMigration
                 && is_string($previous['value'] ?? null)
             ) {
                 $out[$last] = [...$previous, 'value' => $previous['value'] . $child['value']];
+                if (is_array($previous['pos'] ?? null) && is_array($child['pos'] ?? null)) {
+                    $out[$last]['pos'] = [
+                        ...$previous['pos'],
+                        'endLine' => $child['pos']['endLine'],
+                        'endColumn' => $child['pos']['endColumn'],
+                        'endOffset' => $child['pos']['endOffset'],
+                    ];
+                }
             } else {
                 $out[] = $child;
             }
