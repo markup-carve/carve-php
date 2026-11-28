@@ -802,7 +802,8 @@ final class InlineCarriers
             $out['longDescription'] = [['type' => 'paragraph', 'children' => [$link]]];
         }
         $out += Attrs::of($node, ['src', 'alt', 'title', 'longdesc']);
-        if ($src !== null || $ref !== null) {
+        // C2-M-050: an absent `src` keeps the image; only a denied one falls back to its alt text (C2-M-051).
+        if ($src !== null || $ref !== null || $node->attr('src') === null) {
             return [$out];
         }
         $alt = isset($out['alt']) ? [['type' => 'text', 'value' => $out['alt']]] : [];

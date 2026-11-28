@@ -299,24 +299,24 @@ final class HubImporterTest extends TestCase
 
     /**
      * djot.js renders an image with an undefined reference as `<img>` with only its own attributes, which the HTML
-     * importer does not keep as an image (carve#6693). Sources as carve-js next2 writes them.
+     * importer keeps as an image with no `src` (carve#6975). Sources as carve-js writes them.
      *
      * @return array<string, array{string, string}>
      */
     public static function djotUndefinedImageProvider(): array
     {
         return [
-            'alone' => ["![a][r]\n", "\n"],
-            'in text' => ["x ![a][r] y\n", "x  y\n"],
-            'with attributes' => ["![a][r]{.c}\n", "[]{.c}\n"],
+            'alone' => ["![a][r]\n", "![]()\n"],
+            'in text' => ["x ![a][r] y\n", "x ![]() y\n"],
+            'with attributes' => ["![a][r]{.c}\n", "![](){.c}\n"],
             'with its own src and alt' => ["![a][r]{src=foo alt=bar}\n", "![bar](foo)\n"],
-            'collapsed label' => ["![a][]\n", "\n"],
+            'collapsed label' => ["![a][]\n", "![]()\n"],
             'defined with an empty destination' => ["![a][b]\n\n[b]:\n", "![a]()\n"],
         ];
     }
 
     #[DataProvider('djotUndefinedImageProvider')]
-    public function testDropsADjotImageWithAnUndefinedReferenceAsDjotJsDoes(string $input, string $expected): void
+    public function testReadsADjotImageWithAnUndefinedReferenceAsDjotJsDoes(string $input, string $expected): void
     {
         $this->assertSame($expected, self::source($input, 'djot'));
     }
